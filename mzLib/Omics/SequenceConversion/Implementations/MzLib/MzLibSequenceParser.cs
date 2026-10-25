@@ -58,6 +58,12 @@ public class MzLibSequenceParser : SequenceParserBase
         ConversionWarnings warnings,
         SequenceConversionHandlingMode mode)
     {
+        if (string.IsNullOrWhiteSpace(modString))
+        {
+            HandleError(warnings, mode, ConversionFailureReason.UnknownFormat, "Empty modification.");
+            return null;
+        }
+
         // mzLib format uses modification identifiers, not mass shifts
         // Mass shifts should be parsed by MassShiftSequenceParser instead
         

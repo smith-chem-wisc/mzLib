@@ -11,7 +11,7 @@ namespace Quantification.PtmQtl;
 /// <c>Fitted</c>, <c>BelowSupport</c> (fewer runs or replicates than the options require), or the
 /// <see cref="FeatureFitStatus"/> name of a fit that could not be computed. Every non-fitted value is NaN.
 /// </param>
-/// <param name="Effect">Change in logit occupancy per unit of the trait, other covariates held fixed.</param>
+/// <param name="Effect">Change in the log odds of occupancy per unit of the trait, other covariates held fixed, on <see cref="Scale"/>.</param>
 /// <param name="StandardError">Standard error of <paramref name="Effect"/>.</param>
 /// <param name="DegreesOfFreedom">Denominator df of the t test (containment rule, see <see cref="MixedModel"/>).</param>
 /// <param name="PValue">Two-sided p-value of the trait coefficient.</param>
@@ -20,11 +20,25 @@ namespace Quantification.PtmQtl;
 /// <param name="Replicates">Distinct biological replicates among those runs.</param>
 /// <param name="MedianFraction">Median occupancy over the contributing runs.</param>
 /// <param name="CovariateEffects">Coefficient of each covariate, in the order the covariates were named.</param>
-/// <param name="ReplicateVariance">Between-replicate variance of logit occupancy (the random intercept).</param>
-/// <param name="ResidualVariance">Within-replicate (run-to-run) variance of logit occupancy.</param>
+/// <param name="ReplicateVariance">Between-replicate variance of the log odds of occupancy (the random intercept).</param>
+/// <param name="ResidualVariance">Within-replicate (run-to-run) variance of the log odds of occupancy.</param>
 public sealed record SiteTraitEffect(ModificationSite Site, string Status, double Effect, double StandardError,
     double DegreesOfFreedom, double PValue, double Q, int Runs, int Replicates, double MedianFraction,
-    IReadOnlyList<double> CovariateEffects, double ReplicateVariance, double ResidualVariance);
+    IReadOnlyList<double> CovariateEffects, double ReplicateVariance, double ResidualVariance)
+{
+    /// <summary>The scale of every effect, standard error and variance above (<see cref="SiteTraitOptions.Scale"/>).</summary>
+    public OccupancyScale Scale { get; init; }
+}
+
+/// <summary>The scale of a site-trait fit's response: the log odds of occupancy f, f / (1 − f), in natural log or log2.</summary>
+public enum OccupancyScale
+{
+    /// <summary>ln(f / (1 − f)), the logit.</summary>
+    NaturalLogOdds,
+
+    /// <summary>log2(f / (1 − f)): an effect of +1 doubles the odds. The base of QuantProject's occupancy effects.</summary>
+    Log2Odds,
+}
 
 /// <summary>Which occupancy cells a trait fit uses, and how much support a site needs.</summary>
 public sealed record SiteTraitOptions
@@ -43,6 +57,13 @@ public sealed record SiteTraitOptions
 
     /// <summary>Minimum distinct biological replicates with a response. Default 4.</summary>
     public int MinReplicates { get; init; } = 4;
+
+    /// <summary>
+    /// The response scale. Default <see cref="OccupancyScale.NaturalLogOdds"/>. Under <see cref="OccupancyScale.Log2Odds"/>
+    /// the effects and standard errors are the natural-log fit's / ln 2 and the variances / (ln 2)²; df, p and q are the
+    /// natural-log fit's, unchanged.
+    /// </summary>
+    public OccupancyScale Scale { get; init; } = OccupancyScale.NaturalLogOdds;
 }
 
 /// <summary>
@@ -51,7 +72,8 @@ public sealed record SiteTraitOptions
 /// </summary>
 /// <remarks>
 /// <para>
-/// Model, per site: logit(occupancy) = β0 + β_trait·trait + Σ γ_k·covariate_k + u_replicate + ε, a random-intercept
+/// Model, per site: log odds(occupancy) = β0 + β_trait·trait + Σ γ_k·covariate_k + u_replicate + ε (natural log, or
+/// log2 by <see cref="SiteTraitOptions.Scale"/>), a random-intercept
 /// linear mixed model (<see cref="MixedModel"/>, REML), so repeated runs of one biological replicate (technical
 /// injections) are not counted as independent. The trait and covariates are per run; the trait is normally
 /// constant within a replicate and is then tested at the between-replicate df.
@@ -106,6 +128,14 @@ public static class SiteTraitEffects
         }
 
         double eps = options.LogitEpsilon;
+        // The fit is always on the natural-log scale, and a Log2Odds result is divided by ln 2 afterwards. Refitting on
+        // log2 would move the variances, and with them p, by the REML optimizer's tolerance (1.5e-7 relative in a test).
+        double unit = options.Scale switch
+        {
+            OccupancyScale.NaturalLogOdds => 1,
+            OccupancyScale.Log2Odds => Math.Log(2),
+            _ => throw new ArgumentOutOfRangeException(nameof(options), options.Scale, "Unknown occupancy scale."),
+        };
         var sites = occupancy
             .Where(o => o.State == OccupancyState.Quantified && runIndex.ContainsKey(o.Run)
                         && (!options.ExcludeCeiling || o.UnmodifiedQuantified) && double.IsFinite(o.Fraction))
@@ -123,7 +153,7 @@ public static class SiteTraitEffects
             int reps = cells.Select(o => replicate[o.Run]).Distinct(StringComparer.Ordinal).Count();
             double median = Median(cells.Select(o => o.Fraction));
             results[s] = new SiteTraitEffect(sites[s].Key, "BelowSupport", double.NaN, double.NaN, double.NaN, double.NaN,
-                double.NaN, cells.Count, reps, median, none, double.NaN, double.NaN);
+                double.NaN, cells.Count, reps, median, none, double.NaN, double.NaN) { Scale = options.Scale };
             if (cells.Count < options.MinRuns || reps < options.MinReplicates) continue;
             var y = Enumerable.Repeat(double.NaN, runs.Count).ToArray();
             foreach (var o in cells)
@@ -151,13 +181,13 @@ public static class SiteTraitEffects
                     : prior with
                     {
                         Status = "Fitted",
-                        Effect = fit.Coefficient(f, 1),
-                        StandardError = fit.StandardError(f, 1),
+                        Effect = fit.Coefficient(f, 1) / unit,
+                        StandardError = fit.StandardError(f, 1) / unit,
                         DegreesOfFreedom = fit.DegreesOfFreedom(f, 1),
                         PValue = fit.PValue(f, 1),
-                        CovariateEffects = Enumerable.Range(0, k).Select(j => fit.Coefficient(f, 2 + j)).ToArray(),
-                        ReplicateVariance = fit.GroupVariance[f],
-                        ResidualVariance = fit.ResidualVariance[f],
+                        CovariateEffects = Enumerable.Range(0, k).Select(j => fit.Coefficient(f, 2 + j) / unit).ToArray(),
+                        ReplicateVariance = fit.GroupVariance[f] / (unit * unit),
+                        ResidualVariance = fit.ResidualVariance[f] / (unit * unit),
                     };
             }
         }
