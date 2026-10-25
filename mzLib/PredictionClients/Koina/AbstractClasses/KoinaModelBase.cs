@@ -230,12 +230,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
         // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
         var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        // Each accepted modification as the mzLib-notation sequence names it: the input's own label when it gave one, so a
+        // peptide predicted from an mzLib sequence keeps that sequence's names; the resolved one otherwise (ProForma).
+        var acceptedAsLabelled = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+            {
                 accepted.Add(resolved);
+                acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+            }
             else
                 incompatible.Add(resolved);
         }
@@ -290,11 +296,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
         // The same sequence in mzLib notation, so a caller can rebuild the peptide that was predicted. When incompatible
         // modifications were removed, keep only those the model's serializer accepts on their own: its rule, not a second one.
-        var predicted = ModHandlingMode == SequenceConversionHandlingMode.RemoveIncompatibleElements && cleaned.HasModifications
-            ? cleaned.WithModifications(cleaned.Modifications.Where(modification =>
-                SequenceConverter.Serialize(cleaned.WithModifications(new[] { modification }), new ConversionWarnings(),
-                    SequenceConversionHandlingMode.ReturnNull) != null))
-            : cleaned;
+        var predicted = cleaned.WithModifications(Enumerable.Range(0, accepted.Count)
+            .Where(k => ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements
+                || SequenceConverter.Serialize(cleaned.WithModifications(new[] { accepted[k] }), new ConversionWarnings(),
+                    SequenceConversionHandlingMode.ReturnNull) != null)
+            .Select(k => acceptedAsLabelled[k]));
         string? cleanedFullSequence = MzLibSequenceSerializer.Instance.Serialize(predicted, conversionWarnings, SequenceConversionHandlingMode.ThrowException);
 
         warning = BuildWarning(conversionWarnings, null);

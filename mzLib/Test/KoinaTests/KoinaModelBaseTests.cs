@@ -490,7 +490,7 @@ public class KoinaModelBaseTests
 
         var result = model.TryClean(mzLibSequence, out var apiSequence, out var warning);
 
-        Assert.That(result, Is.EqualTo(expectedApiSequence));
+        Assert.That(result, Is.EqualTo(mzLibSequence), "the cleaned sequence, in mzLib notation");
         Assert.That(apiSequence, Is.EqualTo(expectedApiSequence));
         Assert.That(warning, Is.Null);
     }
