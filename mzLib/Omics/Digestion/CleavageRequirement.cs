@@ -31,10 +31,8 @@ namespace Omics.Digestion
     /// constructing one directly, so the call site reads as the enzymology does:
     /// <c>CleavageRequirement.NonPrime(2, GlycosylationClass.OLinked)</c> is StcE.</para>
     ///
-    /// <para><b>Do not confuse the side here with <see cref="CleavageSide"/>.</b> That enum says where a
-    /// motif's recognition sequence sits relative to the bond and has THREE values, because a motif may
-    /// straddle. A subsite is a single residue and is genuinely either non-prime or prime, so two values
-    /// are exhaustive here and no third case is being overlooked.</para>
+    /// <para>A subsite is a single residue, so it is either non-prime or prime. Unlike a motif, which may
+    /// straddle the bond, it has no third case.</para>
     ///
     /// <para><b>What this deliberately cannot express.</b> The requirement names a glycosylation CLASS,
     /// not a structure. Real enzymes discriminate far more finely -- OpeRATOR needs core 1 and is refused
