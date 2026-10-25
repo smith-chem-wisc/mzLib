@@ -216,6 +216,9 @@ public class TestIrtCalibration
         Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(Knots: 2)));
         Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(MinimumAnchors: 1)));
         Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(RobustnessIterations: -1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(MinimumBinShare: -0.01)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(MinimumBinShare: 1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(MinimumBinShare: double.NaN)));
     }
 
     /// <summary>The smallest legal values of each option are accepted, not only the defaults.</summary>
@@ -315,6 +318,22 @@ public class TestIrtCalibration
         // Kept, the stray anchors pull the extrapolated stretch toward themselves
         var bent = IrtCalibration.Fit(withStray, new IrtCalibrationOptions(MinimumBinShare: 0));
         Assert.That(bent.ToIrt(new RtMinutes(20)).Value - unbent.ToIrt(new RtMinutes(20)).Value, Is.GreaterThan(3));
+    }
+
+    /// <summary>
+    /// Setting aside the anchors in a near-empty stretch never leaves fewer than MinimumAnchors: then every anchor is kept,
+    /// rather than the fit refusing anchors it was given enough of.
+    /// </summary>
+    [Test]
+    public void SparseAnchorsAreKeptWhenSettingThemAsideWouldLeaveTooFew()
+    {
+        static double Truth(double minutes) => 67 + 13.4 * (minutes - 45);
+        var anchors = Anchors(Truth, 400, noiseSd: 2, minRt: 42, maxRt: 54);
+        foreach (double rt in new[] { 15.0, 22, 28 })
+            anchors.Add((new RtMinutes(rt), new Irt(Truth(rt) + 8)));
+
+        Assert.That(IrtCalibration.Fit(anchors).AnchorCount, Is.EqualTo(400));
+        Assert.That(IrtCalibration.Fit(anchors, new IrtCalibrationOptions(MinimumAnchors: 402)).AnchorCount, Is.EqualTo(403));
     }
 
     /// <summary>Anchors spread thinly but evenly over the run are all kept: thin is not empty.</summary>
