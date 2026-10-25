@@ -273,7 +273,8 @@ public static class EntrapmentAssembler
     /// <summary>
     /// Refuses digestion parameters this generator cannot honour: null ones, named as such rather
     /// than reached as a NullReferenceException deep in the assembler or reported as an agent with
-    /// no motifs, and a search mode that is not fully specific.
+    /// no motifs, a search mode that is not fully specific, and read-through past a cleavage-blocking
+    /// modification.
     /// </summary>
     /// <remarks>
     /// Every guarantee here is stated for fully specific digestion. Cleavage sites are held in place
@@ -303,6 +304,16 @@ public static class EntrapmentAssembler
                 + "digests into the same pieces as its target; a semi-specific or non-specific search "
                 + "reports peptides that end inside a piece, which have no isomeric counterpart and are "
                 + "not checked against the target's peptides.");
+        }
+
+        if (digestionParams is DigestionParams { RespectCleavageBlockingModifications: true })
+        {
+            throw new MzLibException(
+                "Entrapment generation does not support RespectCleavageBlockingModifications. With it set, a "
+                + "search reads through a cleavage site that carries a blocking modification without counting a "
+                + "missed cleavage, so it reports runs of more than MaxMissedCleavages + 1 pieces. The partner "
+                + "keeps the modification on the same residue, so it reads through too, but those longer runs "
+                + "are neither checked against the target's peptides nor paired.");
         }
     }
 

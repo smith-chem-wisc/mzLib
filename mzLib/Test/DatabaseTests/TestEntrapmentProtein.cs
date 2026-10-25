@@ -1483,6 +1483,34 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void ReadingThroughCleavageBlockingModificationsIsRefusedAtEveryEntryPoint()
+    {
+        // With the flag set, a search reads through an acetylated K without counting a missed cleavage,
+        // so it reports runs longer than MaxMissedCleavages + 1 pieces. The partner keeps the acetyl on
+        // the same K and reads through too, but no run that long was collision-checked or paired:
+        // pcruzparri found 99 unnamed target peptides among histone H4's partners (#1271, 2026-10-24).
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+            respectCleavageBlockingModifications: true);
+        var protein = new Protein(Sequence, "P00001");
+        static void Refused(TestDelegate call) =>
+            Assert.That(call, Throws.TypeOf<MzLibUtil.MzLibException>()
+                .With.Message.Contains("RespectCleavageBlockingModifications"));
+
+        Refused(() => EntrapmentProteinGenerator.GenerateEntrapment(new[] { protein }, digestion, NothingForbidden));
+        Refused(() => EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden));
+        Refused(() => EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden));
+        Refused(() => new EntrapmentPairing(protein, digestion));
+        Refused(() => EntrapmentProteinGenerator.TargetPeptides(new[] { protein }, digestion));
+        Refused(() => EntrapmentProteinGenerator.GenerateForeignEntrapment(new[] { protein }, digestion,
+            NothingForbidden, out _));
+        Refused(() => new EntrapmentReportBuilder(digestion, 1, 1));
+
+        // Off, the same digestion is accepted.
+        var off = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+        Assert.That(() => EntrapmentProteinGenerator.Create(protein, off, NothingForbidden), Throws.Nothing);
+    }
+
+    [Test]
     public void AnAgentThatIsNotItselfFullySpecificIsRefused()
     {
         // A semi-specific protease gives semi-specific peptides even under a Full search mode, so the
