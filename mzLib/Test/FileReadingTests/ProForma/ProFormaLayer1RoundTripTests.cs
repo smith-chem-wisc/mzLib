@@ -91,5 +91,98 @@ namespace Test.FileReadingTests.ProForma
                 Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(r.ProformaString),
                     $"{r.Id} now parses via single-term Read — build the multi-term facade and move it out.");
         }
+
+        /// <summary>
+        /// ProForma 2.1 (section 6.3) allows several modifications on one terminus, but a ProFormaTerm holds one per
+        /// terminus: the SDK kept only the last C-terminal one and misread stacked N-terminal ones as unlocalized. The
+        /// reader refuses them rather than lose one. Examples from the 2.1 specification and the HUPO-PSI grammar tests.
+        /// </summary>
+        [TestCase("PEPTIDE-[UNIMOD:2][UNIMOD:35]", "C-terminus", 2)]
+        [TestCase("PEPTIDEG-[Methyl][Amidated]", "C-terminus", 2)]
+        [TestCase("PEPTIDEG-[Methyl][Amidated][INFO:A lot of C terminal mods]", "C-terminus", 3)]
+        [TestCase("[UNIMOD:1][UNIMOD:35]-PEPTIDE", "N-terminus", 2)]
+        [TestCase("[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Acetyl][Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 3)]
+        // After an unlocalized prefix, which the checks must pass over rather than stop at
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2][UNIMOD:35]", "C-terminus", 2)]
+        [TestCase("[Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Phospho][Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Phospho]^2?[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Phospho]?[Methyl]^2?[Acetyl][Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 3)]
+        [TestCase("[Phospho]?{Glycan:Hex}[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("{Glycan:Hex}[Phospho]?PEPTIDEG-[Methyl][Amidated]", "C-terminus", 2)]
+        public void Read_StackedTerminalModifications_AreRefusedNotLost(string proForma, string terminus, int count)
+        {
+            var ex = Assert.Throws<ProFormaUnsupportedException>(() => ProFormaReader.Read(proForma));
+            Assert.That(ex!.Message, Does.Contain($"{count} modifications on the {terminus}").And.Contain("ProForma 2.1"));
+            Assert.That(ex.IncompatibleItem,
+                Is.EqualTo($"Multiple {(terminus == "N-terminus" ? "N" : "C")}-terminal modifications ({count} found)."));
+            Assert.That(ex, Is.InstanceOf<Tdp.ProFormaParseException>(), "callers that catch parse failures still catch it");
+        }
+
+        /// <summary>No residue may follow the C-terminal modification (ProForma 2.0 section 4.3.1); the SDK read
+        /// "PEPTIDE-[UNIMOD:2]K" as PEPTIDEK.</summary>
+        [TestCase("PEPTIDE-[UNIMOD:2]K", 18)]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2]K", 37)]
+        [TestCase("[Phospho]^2?PEPTIDE-[UNIMOD:2]K", 30)]
+        public void Read_ResidueAfterCTerminalModification_IsNotValidProForma(string proForma, int position)
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(proForma));
+            Assert.That(ex!.Message, Is.EqualTo($"Unexpected content at position {position} after the C-terminal modification."));
+        }
+
+        /// <summary>A string that is only modifications has no residue: a parse failure, never an index exception and
+        /// never a term with an empty sequence.</summary>
+        [TestCase("[UNIMOD:1]")]
+        [TestCase("[UNIMOD:1][UNIMOD:35]")]
+        [TestCase("[UNIMOD:1]-")]
+        [TestCase("[Phospho]?")]
+        [TestCase("[Phospho]?[Acetyl]")]
+        [TestCase("[Phospho]?[Acetyl]-")]
+        [TestCase("[Phospho]^2")]
+        [TestCase("-[UNIMOD:2]")]
+        public void Read_ModificationWithoutAResidue_IsAParseFailure(string proForma)
+        {
+            Assert.That(() => ProFormaReader.Read(proForma), Throws.TypeOf<Tdp.ProFormaParseException>());
+        }
+
+        /// <summary>The C-terminal '-' needs a residue before it; the SDK read "-PEPTIDE" as PEPTIDE.</summary>
+        [Test]
+        public void Read_LeadingHyphen_IsNotValidProForma()
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read("-PEPTIDE"));
+            Assert.That(ex!.Message, Is.EqualTo("No residue before the '-' at position 0."));
+        }
+
+        /// <summary>One modification per terminus, residue stacks, unlocalized and labile groups, nested brackets inside
+        /// a modification, and a global fixed modification all still parse as before.</summary>
+        [TestCase("[UNIMOD:1]-PEPTIDE-[UNIMOD:2]")]
+        [TestCase("PEPC[UNIMOD:4][UNIMOD:35]TIDE")]
+        [TestCase("[Phospho]?EMEVTSESPEK")]
+        [TestCase("[Phospho][Phospho]?EMEVTSESPEK")]
+        [TestCase("[Phospho]^2?EMEVTSESPEK")]
+        [TestCase("[Phospho][Phospho]?[Acetyl]-EM[Oxidation]EVTSESPEK")]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2]")]
+        [TestCase("<[MOD:01090]@C>[Phospho]?EM[Oxidation]EVTSECSPEK")]
+        [TestCase("[Phospho]?{Glycan:Hex}[Acetyl]-PEPTIDE")]
+        [TestCase("{Glycan:Hex}EM[Oxidation]EVNES[Phospho]PEK")]
+        [TestCase("{Glycan:Hex}[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]")]
+        [TestCase("<[S-carboxamidomethyl-L-cysteine]@C>ATPEILTCNSIGCLK")]
+        [TestCase("SEQUEN[Formula:[13C2][12C-2]H2N]CE")]
+        [TestCase("PEPTIDE-[Formula:[13C2]C-2H2N]")]
+        [TestCase("EM[-17.026549]EVEES[+79.966331]PEK")]
+        public void Read_SupportedShapes_StillParse(string proForma)
+        {
+            Assert.That(() => ProFormaReader.Read(proForma), Throws.Nothing);
+        }
+
+        /// <summary>Empty brackets are still refused by the SDK, with its own message (pinned elsewhere).</summary>
+        [TestCase("[]-PEPTIDE")]
+        [TestCase("PEPTIDE-[]")]
+        public void Read_EmptyTerminalBrackets_AreLeftToTheSdk(string proForma)
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(proForma));
+            Assert.That(ex, Is.Not.InstanceOf<ProFormaUnsupportedException>());
+        }
     }
 }
