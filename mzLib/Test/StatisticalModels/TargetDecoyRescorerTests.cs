@@ -280,6 +280,37 @@ public class TargetDecoyRescorerTests
             Assert.That(c.Scores[k], Is.EqualTo(a.Scores[order[k]]).Within(1e-9), $"row {order[k]}");
     }
 
+    /// <summary>
+    /// Discrete features (a 0/1 flag, a 0-6 count) tie, and a tie must not be broken by row order. Targets first is the
+    /// order that flatters a tied feature: its top tie block would pass every target in it at 1/T, and the seed and every
+    /// score would follow. Reversed, decoys come first.
+    /// </summary>
+    [Test]
+    public void RescoringWithTiedFeaturesIsIndependentOfRowOrder()
+    {
+        var random = new Random(3);
+        var features = new List<double[]>();
+        var isDecoy = new List<bool>();
+        void Add(bool decoy, bool real)
+        {
+            double s = real ? 1.0 : 0;
+            int count = Enumerable.Range(0, 6).Count(_ => random.NextDouble() < (real ? 0.6 : 0.4));
+            features.Add([random.NextDouble() < (real ? 0.7 : 0.4) ? 1 : 0, count, s + Gaussian(random), s + Gaussian(random)]);
+            isDecoy.Add(decoy);
+        }
+        for (int i = 0; i < 1500; i++) Add(false, true);
+        for (int i = 0; i < 1500; i++) Add(false, false);
+        for (int i = 0; i < 3000; i++) Add(true, false);
+        var groups = Enumerable.Range(0, features.Count).Select(i => $"g{i / 2:D4}").ToArray();
+
+        var a = TargetDecoyRescorer.Score(features, isDecoy, groups);
+        var order = Enumerable.Range(0, features.Count).Reverse().ToArray();
+        var c = TargetDecoyRescorer.Score(order.Select(i => features[i]).ToArray(), order.Select(i => isDecoy[i]).ToArray(), order.Select(i => groups[i]).ToArray());
+
+        for (int k = 0; k < order.Length; k++)
+            Assert.That(c.Scores[k], Is.EqualTo(a.Scores[order[k]]).Within(1e-9), $"row {order[k]}");
+    }
+
     /// <summary>Without decoys no q-value exists, so nothing is scored; the status says why.</summary>
     [Test]
     public void WithoutDecoysNothingIsScored()
@@ -765,6 +796,28 @@ public class TargetDecoyRescorerTests
 
         for (int k = 0; k < order.Length; k++)
             Assert.That(q[k], Is.EqualTo(expected[order[k]]).Within(1e-12), $"rank {order[k]}");
+    }
+
+    /// <summary>
+    /// Rows with one score are one rank: the whole tie block is counted before any of it gets a q-value. Ranked: T×8, then a
+    /// target and a decoy tied, then a decoy. Both tied rows get 2/9 whichever comes first; counted one at a time, a tied
+    /// target ahead of the decoy would get 1/9.
+    /// </summary>
+    [Test]
+    public void TiedScoresShareOneQValueWhicheverComesFirst()
+    {
+        double[] scores = [10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 1];
+        bool[] targetFirst = [false, false, false, false, false, false, false, false, false, true, true];
+        bool[] decoyFirst = [false, false, false, false, false, false, false, false, true, false, true];
+
+        foreach (var decoy in new[] { targetFirst, decoyFirst })
+        {
+            double[] q = TargetDecoyRescorer.QValues(scores, decoy);
+            Assert.That(q[8], Is.EqualTo(2.0 / 9).Within(1e-12));
+            Assert.That(q[9], Is.EqualTo(2.0 / 9).Within(1e-12));
+            Assert.That(q[10], Is.EqualTo(3.0 / 9).Within(1e-12));
+            Assert.That(q.Take(8), Is.All.EqualTo(0.125).Within(1e-12));
+        }
     }
 
     [Test]
