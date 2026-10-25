@@ -57,7 +57,6 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             MonosaccharideComposition composition = MonosaccharideComposition.Parse(text);
             Assert.AreEqual(1, composition["HexNAc"]);
             Assert.AreEqual(0, composition["Hex"]);
-            Assert.AreEqual(1, composition.TotalUnits);
         }
 
         [Test]
@@ -67,7 +66,12 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             MonosaccharideComposition coreTwo = MonosaccharideComposition.Parse("Hex1HexNAc2");
             Assert.AreEqual(1, coreTwo["Hex"]);
             Assert.AreEqual(2, coreTwo["HexNAc"]);
-            Assert.AreEqual(3, coreTwo.TotalUnits);
+        }
+
+        [Test]
+        public static void AMonosaccharideNamedTwiceAddsUp()
+        {
+            Assert.AreEqual(3, MonosaccharideComposition.Parse("Hex1Hex2")["Hex"]);
         }
 
         [Test]
@@ -93,6 +97,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [TestCase("HexNAc", TestName = "Reject a monosaccharide with no count")]
         [TestCase("1HexNAc", TestName = "Reject a count with no monosaccharide")]
         [TestCase("HexNAc1junk", TestName = "Reject trailing text the parser cannot account for")]
+        [TestCase("HexNAc1-Hex1", TestName = "Reject text between two terms")]
+        [TestCase("", TestName = "Reject an empty composition")]
+        [TestCase("   ", TestName = "Reject a blank composition")]
         public static void AMalformedCompositionIsRefusedLoudly(string text)
         {
             // Loud, because a composition that failed to parse and was ignored would silently relax an

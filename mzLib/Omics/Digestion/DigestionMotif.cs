@@ -31,7 +31,7 @@ namespace Omics.Digestion
 
         /// <summary>True when this motif is satisfied by sequence alone, as every shipped motif but the
         /// glycoproteases is.</summary>
-        public bool HasCleavageRequirement => CleavageRequirements is { Count: > 0 };
+        public bool HasCleavageRequirement => CleavageRequirements.Count > 0;
 
         private static readonly CleavageRequirement[] NoRequirements = new CleavageRequirement[0];
 

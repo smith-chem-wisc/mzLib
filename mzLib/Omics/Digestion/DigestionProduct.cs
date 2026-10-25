@@ -51,13 +51,9 @@ namespace Omics.Digestion
         /// </summary>
         /// <param name="variableModPattern">
         /// The modifications this peptidoform carries, in the two-based key scheme the pattern generator
-        /// mints: key 1 is the N-terminus, key 2 the FIRST residue, key <paramref name="productLength"/>
-        /// + 1 the LAST residue, key + 2 the C-terminus. The parent residue behind key k is therefore
+        /// mints: key 1 is the N-terminus, key 2 the FIRST residue, key length + 1 the LAST residue, key
+        /// length + 2 the C-terminus. The parent residue behind key k is therefore
         /// <c>OneBasedStartResidue + k - 2</c>.
-        /// </param>
-        /// <param name="productLength">
-        /// Passed rather than read from <see cref="Length"/>, because the concrete callers already hold
-        /// the cheap arithmetic form while <see cref="Length"/> walks a substring of the parent.
         /// </param>
         /// <remarks>
         /// <para><b>Each cut is answered by exactly one of the two products that touch it.</b> A subsite
@@ -86,7 +82,7 @@ namespace Omics.Digestion
         /// neither is a truncation-product boundary the database annotates.</para>
         /// </remarks>
         protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
-            int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications,
+            DigestionAgent agent, IEnumerable<Modification> configuredModifications,
             IEnumerable<Modification> fixedModifications, IReadOnlyList<int> internalFeasibleSites,
             IReadOnlyList<int> alreadyDiscountedResidues, int maxMissedCleavagesAllowed, out int openMissedCleavages)
         {
@@ -120,7 +116,7 @@ namespace Omics.Digestion
             if (OneBasedStartResidue > 1
                 && !startedAtInitiatorMethionineRemoval
                 && !IsTruncationProductBoundary(OneBasedStartResidue - 1)
-                && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, productLength, agent,
+                && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, agent,
                     configuredModifications, fixedModifications))
             {
                 return true;
@@ -128,7 +124,7 @@ namespace Omics.Digestion
 
             if (OneBasedEndResidue < parentSequence.Length
                 && !IsTruncationProductBoundary(OneBasedEndResidue)
-                && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, productLength, agent,
+                && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, agent,
                     configuredModifications, fixedModifications))
             {
                 return true;
@@ -157,7 +153,7 @@ namespace Omics.Digestion
                         continue;
                     }
 
-                    if (!AnyMotifJustifies(site, parentSequence, variableModPattern, productLength, agent,
+                    if (!AnyMotifJustifies(site, parentSequence, variableModPattern, agent,
                             configuredModifications, fixedModifications))
                     {
                         unjustifiedInternalSites++;
@@ -212,7 +208,7 @@ namespace Omics.Digestion
         /// begins <see cref="DigestionMotif.CutIndex"/> residues earlier.
         /// </param>
         private bool AnyMotifJustifies(int cutAfterOneBasedResidue, string parentSequence,
-            Dictionary<int, Modification> variableModPattern, int productLength, DigestionAgent agent,
+            Dictionary<int, Modification> variableModPattern, DigestionAgent agent,
             IEnumerable<Modification> configuredModifications, IEnumerable<Modification> fixedModifications)
         {
             foreach (DigestionMotif motif in agent.DigestionMotifs)
@@ -244,7 +240,7 @@ namespace Omics.Digestion
                 bool everyConditionMet = true;
                 foreach (CleavageRequirement requirement in motif.CleavageRequirements)
                 {
-                    if (!RequirementIsMet(requirement, cutAfterOneBasedResidue, variableModPattern, productLength,
+                    if (!RequirementIsMet(requirement, cutAfterOneBasedResidue, variableModPattern,
                             configuredModifications, fixedModifications))
                     {
                         everyConditionMet = false;
@@ -273,7 +269,7 @@ namespace Omics.Digestion
         /// residue this peptidoform does not describe. Both choices only ever keep peptides.
         /// </remarks>
         private bool RequirementIsMet(CleavageRequirement requirement, int cutAfterOneBasedResidue,
-            Dictionary<int, Modification> variableModPattern, int productLength,
+            Dictionary<int, Modification> variableModPattern,
             IEnumerable<Modification> configuredModifications, IEnumerable<Modification> fixedModifications)
         {
             // Subsites count outward from the severed bond: P1 is the residue before it, P1' the one
@@ -294,11 +290,6 @@ namespace Omics.Digestion
             if (constrainedResidue >= OneBasedStartResidue && constrainedResidue <= OneBasedEndResidue)
             {
                 int key = constrainedResidue - OneBasedStartResidue + 2;
-                if (key < 2 || key > productLength + 1)
-                {
-                    return requirement.IsForbidden;
-                }
-
                 bool carriesMatchingModification = variableModPattern is not null
                     && variableModPattern.TryGetValue(key, out Modification placed)
                     && requirement.IsSatisfiedBy(placed);

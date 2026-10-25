@@ -72,12 +72,6 @@ namespace Omics.Modifications
                 ? count
                 : 0;
 
-        /// <summary>The monosaccharides actually present, canonically cased.</summary>
-        public IEnumerable<string> Monosaccharides => _counts.Keys;
-
-        /// <summary>The total number of monosaccharide units.</summary>
-        public int TotalUnits => _counts.Values.Sum();
-
         /// <summary>
         /// True when this composition holds at least as many of every monosaccharide as
         /// <paramref name="other"/> does -- "is at least this large, in every component".

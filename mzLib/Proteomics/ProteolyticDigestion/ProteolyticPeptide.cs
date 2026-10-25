@@ -175,7 +175,7 @@ namespace Proteomics.ProteolyticDigestion
                     // spans are discounted from its missed cleavages together with any sites the blocking
                     // drop above discounted, and the budget is tested once over both.
                     if (respectCleavageRequirements
-                        && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
+                        && IsUnreachableWithoutRequiredModification(variableModPattern,
                             digestionParams.DigestionAgent, configuredModifications, allKnownFixedModifications,
                             internalFeasibleSites, blockedInternalResidues, promotingMissedCleavageBudget,
                             out reportedMissedCleavages))

@@ -391,7 +391,7 @@ namespace Omics.Modifications
             // may sit anywhere in the record, and an older mzLib simply drops it rather than failing.
             if (this.MonosaccharideComposition != null)
             {
-                sb.AppendLine("GC   " + this.MonosaccharideComposition);
+                sb.AppendLine("GC   " + this.MonosaccharideComposition.ToString());
             }
 
             return sb.ToString();

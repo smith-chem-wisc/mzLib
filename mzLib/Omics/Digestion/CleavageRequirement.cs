@@ -190,6 +190,6 @@ namespace Omics.Digestion
         public override string ToString() =>
             "P" + Subsite + (IsPrimeSide ? "'" : string.Empty)
             + (IsForbidden ? " forbids " : " requires ") + RequiredClass
-            + (MinimumComposition is null ? string.Empty : " >= " + MinimumComposition);
+            + (MinimumComposition is null ? string.Empty : " >= " + MinimumComposition.ToString());
     }
 }

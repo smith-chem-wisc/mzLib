@@ -55,12 +55,31 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [TestCase("P0:O-glycan", TestName = "Reject subsite zero, since subsites count from one")]
         [TestCase("Pn:O-glycan", TestName = "Reject a non-numeric subsite")]
         [TestCase("P2:phospho", TestName = "Reject a modification class that cannot be resolved")]
+        [TestCase("P:O-glycan", TestName = "Reject a subsite with no number")]
+        [TestCase("P1':O-glycan>=Glucose1", TestName = "Reject a composition floor that does not parse")]
         public static void Parse_ThrowsOnAMalformedRequirement(string text)
         {
             // Loud, not silent. A requirement that failed to parse and was ignored would let a
             // glycoprotease digest as though it had none -- which is precisely the over-digestion this
             // whole feature exists to stop, and it would look like a data problem rather than a typo.
             Assert.Throws<MzLibException>(() => CleavageRequirementParser.Parse(text));
+        }
+
+        [Test]
+        public static void ParseAll_SkipsEmptyClauses()
+        {
+            var requirements = CleavageRequirementParser.ParseAll("P1':O-glycan;;P1:!O-glycan;");
+            Assert.AreEqual(2, requirements.Count);
+            Assert.IsFalse(requirements[0].IsForbidden);
+            Assert.IsTrue(requirements[1].IsForbidden);
+        }
+
+        [Test]
+        public static void ToString_WritesTheSubsiteThePolarityAndTheFloor()
+        {
+            Assert.AreEqual("P1' requires OLinked >= Hex(1)HexNAc(1)",
+                CleavageRequirementParser.Parse("P1':O-glycan>=Hex1HexNAc1").ToString());
+            Assert.AreEqual("P1 forbids OLinked", CleavageRequirementParser.Parse("P1:!O-glycan").ToString());
         }
 
         [Test]
