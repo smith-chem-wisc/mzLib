@@ -91,13 +91,6 @@ namespace Omics.Digestion
             int alreadyDiscounted = alreadyDiscountedResidues?.Count ?? 0;
             openMissedCleavages = MissedCleavages - Math.Min(alreadyDiscounted, MissedCleavages);
 
-            // Nothing configured can require anything, so nothing can be unreachable. This gate is what
-            // keeps an ordinary tryptic digest from paying for a feature it cannot use.
-            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
-            {
-                return false;
-            }
-
             string parentSequence = Parent.BaseSequence;
 
             // Removing the initiator methionine is not a proteolytic cut, so the N-terminus of a peptide
@@ -140,7 +133,7 @@ namespace Omics.Digestion
             // Clamped, so the count can never go negative, and compared afterwards so the generation
             // slack that bought this span cannot leak out as a peptide claiming more missed cleavages
             // than were asked for. Exactly the shape of the blocking mirror in ProteolyticPeptide.
-            if (internalFeasibleSites is not null && internalFeasibleSites.Count > 0)
+            if (internalFeasibleSites.Count > 0)
             {
                 int unjustifiedInternalSites = 0;
                 for (int i = 0; i < internalFeasibleSites.Count; i++)
@@ -182,11 +175,6 @@ namespace Omics.Digestion
             IEnumerable<Modification> configuredModifications)
         {
             var sites = new List<int>();
-            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
-            {
-                return sites;
-            }
-
             for (int residue = OneBasedStartResidue; residue < OneBasedEndResidue; residue++)
             {
                 if (agent.IsFeasibleCleavageSite(residue, Parent, configuredModifications))
@@ -213,11 +201,6 @@ namespace Omics.Digestion
         {
             foreach (DigestionMotif motif in agent.DigestionMotifs)
             {
-                if (motif is null)
-                {
-                    continue;
-                }
-
                 // Where the motif's recognition sequence would have to start for its cut to land here.
                 // Fits takes a ZERO-based index into the sequence it is handed, and that sequence is the
                 // PARENT here -- the same API is used against a peptide's own sequence elsewhere in the
@@ -309,11 +292,6 @@ namespace Omics.Digestion
             // right-hand one standing, which is half a rule.
             if (requirement.IsForbidden)
             {
-                if (fixedModifications is null)
-                {
-                    return true;
-                }
-
                 string sequenceForFixed = Parent.BaseSequence;
                 foreach (Modification fixedModification in fixedModifications)
                 {
@@ -337,17 +315,10 @@ namespace Omics.Digestion
             // in OneBasedPossibleLocalizedModifications, so an annotation-only test answers "impossible"
             // for every cut whose constrained residue sits in the neighbouring product -- and silently
             // deletes every peptide lying C-terminal to a glycan-justified cut.
-            if (Parent.OneBasedPossibleLocalizedModifications is not null
-                && Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
-                && candidates is not null
+            if (Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
                 && candidates.Any(requirement.IsSatisfiedBy))
             {
                 return true;
-            }
-
-            if (configuredModifications is null)
-            {
-                return false;
             }
 
             string parentSequence = Parent.BaseSequence;
@@ -475,11 +446,6 @@ namespace Omics.Digestion
 
             foreach (DigestionMotif motif in agent.DigestionMotifs)
             {
-                if (motif is null)
-                {
-                    continue;
-                }
-
                 int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
                 if (motifStartZeroBased < 0
                     || motifStartZeroBased + motif.InducingCleavage.Length > parentSequence.Length)
@@ -572,11 +538,6 @@ namespace Omics.Digestion
         /// </remarks>
         private bool IsTruncationProductBoundary(int cutAfterOneBasedResidue)
         {
-            if (Parent?.TruncationProducts is null)
-            {
-                return false;
-            }
-
             foreach (var truncationProduct in Parent.TruncationProducts)
             {
                 if (truncationProduct.OneBasedBeginPosition - 1 == cutAfterOneBasedResidue

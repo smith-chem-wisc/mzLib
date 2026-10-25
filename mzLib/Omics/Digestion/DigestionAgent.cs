@@ -617,14 +617,9 @@ namespace Omics.Digestion
         {
             get
             {
-                if (DigestionMotifs is null)
-                {
-                    return false;
-                }
-
                 foreach (DigestionMotif motif in DigestionMotifs)
                 {
-                    if (motif is not null && motif.HasCleavageRequirement)
+                    if (motif.HasCleavageRequirement)
                     {
                         return true;
                     }
@@ -698,11 +693,6 @@ namespace Omics.Digestion
         {
             foreach (DigestionMotif motif in DigestionMotifs)
             {
-                if (motif is null)
-                {
-                    continue;
-                }
-
                 // Fits takes a ZERO-based index into the sequence handed to it, and the motif's
                 // recognition sequence begins CutIndex residues before the bond it severs.
                 int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
@@ -886,7 +876,7 @@ namespace Omics.Digestion
         {
             foreach (DigestionMotif motif in DigestionMotifs)
             {
-                if (motif is null || motif.HasCleavageRequirement)
+                if (motif.HasCleavageRequirement)
                 {
                     continue;
                 }

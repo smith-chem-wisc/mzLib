@@ -215,6 +215,65 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         // ---------------------------------------------------------------------------------------
+        // The public site-list entry points refuse what they cannot judge, rather than throwing
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void FilterToFeasibleCleavageSites_ReturnsTheListUnchangedWhenItCannotJudge()
+        {
+            var protein = new Protein("PPTAPSK", "FILTER");
+            var sites = new List<int> { 0, 3, 7 };
+            Protease stcE = ProteaseDictionary.Dictionary["StcE-trypsin|P"];
+
+            Assert.AreSame(sites, ProteaseDictionary.Dictionary["trypsin"].FilterToFeasibleCleavageSites(sites, protein),
+                "a protease with no requirement has nothing to filter");
+            Assert.AreSame(sites, stcE.FilterToFeasibleCleavageSites(sites, null), "with no parent there is nothing to judge");
+            Assert.IsNull(stcE.FilterToFeasibleCleavageSites(null, protein));
+        }
+
+        [Test]
+        [TestCase(0, TestName = "IsFeasibleCleavageSite refuses a cut before the first residue")]
+        [TestCase(7, TestName = "IsFeasibleCleavageSite refuses a cut after the last residue")]
+        public static void IsFeasibleCleavageSite_RefusesACutOutsideTheSequence(int cutAfterOneBasedResidue)
+        {
+            Assert.IsFalse(ProteaseDictionary.Dictionary["StcE-trypsin|P"].IsFeasibleCleavageSite(cutAfterOneBasedResidue,
+                new Protein("PPTAPSK", "EDGE"), new List<Modification> { OGlycan("T") }));
+        }
+
+        [Test]
+        public static void IsFeasibleCleavageSite_RefusesWithNoParent()
+        {
+            Assert.IsFalse(ProteaseDictionary.Dictionary["StcE-trypsin|P"].IsFeasibleCleavageSite(3, null));
+        }
+
+        [Test]
+        public static void IsFeasibleCleavageSite_WithNoConfiguredModification_ReadsOnlyTheDatabase()
+        {
+            // OgpA cuts before a glycosylated Thr; here nothing is annotated and nothing configured.
+            Protease ogpA = GlycanAwareOgpA("OgpA-req-nothing-configured");
+            Assert.IsFalse(ogpA.IsFeasibleCleavageSite(2, new Protein("AATAA", "NOCONF"), null));
+        }
+
+        [Test]
+        public static void ARequiredSubsiteOutsideTheSequenceMakesTheCutInfeasible()
+        {
+            var anyResidue = new List<Modification> { OGlycan("T"), OGlycan("A") };
+
+            // Cut before Thr2 with the glycan required at P3: P3 would be residue -1.
+            var nonPrime = new Protease("P3-req-edge", CleavageSpecificity.Full, null, null,
+                new List<DigestionMotif> { new("T", null, 0, null, CleavageRequirement.NonPrime(3, GlycosylationClass.OLinked)) });
+            var protein = new Protein("ATAAAAAAAT", "EDGE3");
+            Assert.IsFalse(nonPrime.IsFeasibleCleavageSite(1, protein, anyResidue), "P3 of a cut after residue 1 lies before the protein");
+            Assert.IsTrue(nonPrime.IsFeasibleCleavageSite(9, protein, anyResidue), "the same requirement is feasible where P3 exists");
+
+            // Cut before Thr9 with the glycan required at P3': P3' would be residue 11 of 10.
+            var prime = new Protease("P3prime-req-edge", CleavageSpecificity.Full, null, null,
+                new List<DigestionMotif> { new("T", null, 0, null, CleavageRequirement.Prime(3, GlycosylationClass.OLinked)) });
+            Assert.IsFalse(prime.IsFeasibleCleavageSite(8, new Protein("AAAAAAAATA", "EDGE3P"), anyResidue),
+                "P3' of a cut after residue 8 lies past the protein");
+        }
+
+        // ---------------------------------------------------------------------------------------
         // The read-through slack is finite, and complete within the read-through length
         // ---------------------------------------------------------------------------------------
 

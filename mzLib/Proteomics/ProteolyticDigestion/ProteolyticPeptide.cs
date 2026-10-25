@@ -68,9 +68,7 @@ namespace Proteomics.ProteolyticDigestion
             //
             // There is deliberately no "can anything satisfy the requirement" gate -- see Protein.Digest
             // for why the promoting correction must NOT go inert when nothing configured can satisfy it.
-            List<Modification> configuredModifications = (variableModifications ?? Enumerable.Empty<Modification>())
-                .Concat(allKnownFixedModifications ?? Enumerable.Empty<Modification>())
-                .ToList();
+            List<Modification> configuredModifications = variableModifications.Concat(allKnownFixedModifications).ToList();
             bool respectCleavageRequirements = digestionParams.RespectCleavagePromotingModifications
                 && digestionParams.SearchModeType == CleavageSpecificity.Full
                 && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
