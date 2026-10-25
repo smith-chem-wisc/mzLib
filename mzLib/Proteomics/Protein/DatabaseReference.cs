@@ -19,6 +19,14 @@ namespace Proteomics
             Properties = properties ?? new List<Tuple<string, string>>();
         }
 
+        // RED: surface only, so the failing tests compile; the molecule is not kept yet.
+        public DatabaseReference(string type, string id, IEnumerable<Tuple<string, string>> properties, string molecule)
+            : this(type, id, properties)
+        {
+        }
+
+        public string Molecule { get; }
+
         /// <summary>
         /// dbRef type, e.g. "GO" for GO terms
         /// </summary>

@@ -35,6 +35,14 @@ namespace Proteomics
             IsPrecursor = isPrecursor;
             Fragment = fragment;
         }
+
+        // RED: surface only, so the failing tests compile; the displayed isoform is not kept yet.
+        public UniProtSequenceAttributes(int length, int mass, string checkSum, DateTime entryModified, int sequenceVersion, bool? isPrecursor, FragmentType fragment, string displayedIsoformId)
+            : this(length, mass, checkSum, entryModified, sequenceVersion, isPrecursor, fragment)
+        {
+        }
+
+        public string DisplayedIsoformId { get; private set; }
         public void UpdateLengthAttribute(int newLength)
         {
             Length = newLength;
