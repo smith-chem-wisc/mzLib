@@ -13,17 +13,21 @@ namespace Omics.Digestion
     /// <item>CutIndex == 0 -- the motif lies wholly after the cut. Asp-N "|D", Lys-N "|K",
     /// CNBr_N "|M", RNase_MC1 "|U". <see cref="NTerminal"/>.</item>
     /// <item>CutIndex == InducingCleavage.Length -- the motif lies wholly before the cut. Trypsin "K|",
-    /// Lys-C "K|", Glu-C "E|". <see cref="CTerminal"/>.</item>
+    /// Lys-C|P "K[P]|", Glu-C "E|". <see cref="CTerminal"/>.</item>
     /// <item>0 &lt; CutIndex &lt; InducingCleavage.Length -- the motif STRADDLES the bond, naming
     /// residues on both sides. Collagenase "GPX|GPX" (CutIndex 3), StcE-trypsin "TX|T" (CutIndex 2),
     /// colicin_E5 "G|U" (CutIndex 1). <see cref="Straddling"/>.</item>
     /// </list>
     ///
-    /// The third case is not hypothetical and not rare enough to approximate: all four motifs named
-    /// above ship in proteases.tsv and rnases.tsv today. Code that classifies sidedness by testing
-    /// CutIndex against a literal -- "CutIndex == 1 means C-terminal", "CutIndex == 0 means
-    /// N-terminal" -- silently misses every straddling motif, which is why this distinction is a type
-    /// rather than a comparison written out at each call site.
+    /// The third case is not hypothetical: every motif named above ships in proteases.tsv or rnases.tsv
+    /// today, and those are not the only straddling motifs that do. Code that classifies sidedness by
+    /// testing CutIndex against a literal -- "CutIndex == 1 means C-terminal", "CutIndex == 0 means
+    /// N-terminal" -- gets every straddling motif wrong, in one of two ways. Collagenase's and
+    /// StcE-trypsin's (CutIndex 3 and 2) match neither literal and fall through unclassified;
+    /// colicin_E5's, RNase 4's and Cusativin's (CutIndex 1) match the first and are called C-terminal,
+    /// as though they named nothing after the cut. Only a comparison with InducingCleavage.Length
+    /// separates the three regimes, which is why this distinction is a type rather than a comparison
+    /// written out at each call site.
     ///
     /// Note that a straddling motif is still a C-terminal CUTTER in the sense
     /// <see cref="DigestionMotif.CleavesCTerminalTo"/> asks about: it severs the bond after some

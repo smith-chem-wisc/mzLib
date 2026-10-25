@@ -9,9 +9,10 @@ namespace Test.Omics.Modifications
     /// A digestion motif's sidedness lives in its CutIndex, and the codebase has historically read that
     /// by comparing it against a literal -- "CutIndex == 1 means the protease cuts C-terminal",
     /// "CutIndex == 0 means N-terminal". That reading has a hole: a motif may STRADDLE the bond, and
-    /// four such motifs ship today (collagenase "GPX|GPX" at CutIndex 3, StcE-trypsin "TX|T" at 2,
-    /// colicin_E5 "G|U" at 1, plus the "SX|T" family members). They are C-terminal cutters that the
-    /// "== 1" test misses entirely.
+    /// such motifs ship today (collagenase "GPX|GPX" at CutIndex 3, StcE-trypsin's "TX|T" family at 2,
+    /// colicin_E5 "G|U" and RNase 4's and Cusativin's straddling motifs at 1). The CutIndex 3 and 2
+    /// motifs match neither literal; the CutIndex 1 motifs match "== 1" and are taken for motifs that
+    /// lie wholly before the cut.
     ///
     /// These tests pin CleavageSide's three-way classification against the real shipped motifs, pin the
     /// Schechter-Berger subsite accessors that replace index arithmetic at the call site, and pin that
