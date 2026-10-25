@@ -42,8 +42,9 @@ public class PrideMzIdentMLLiveTests
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
             // a slow-but-moving transfer is bounded by nothing else, and the CI job's own timeout fails the run
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
             using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-            using var client = new PrideArchiveClient { BodyStallTimeout = TimeSpan.FromSeconds(30) };
+            using var client = new PrideArchiveClient { BodyStallTimeout = TimeSpan.FromSeconds(30), MaxRetries = 0 };
             string dir = Path.Combine(Path.GetTempPath(), "PrideLiveMzid", Guid.NewGuid().ToString("N"));
             try
             {

@@ -1,0 +1,5 @@
+generated_utc 2026-10-02 15:23:46 UTC
+R R version 4.6.1 (2026-06-24)
+limma 3.68.5
+script make_small_n_fixtures.R (inputs: limma_responses.tsv, limma_design.tsv)
+ci_run https://github.com/trishorts/mzLib/actions/runs/37026418461 (branch ci/statistics-small-n, commit da5499dd5; deleted after)

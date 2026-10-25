@@ -1,0 +1,562 @@
+format-version: 1.2
+data-version: releases/2026-07-26
+subsetdef: chebi_ph7_3 "Rhea list of ChEBI terms representing the major species at pH 7.3."
+subsetdef: gocheck_do_not_annotate "Term not to be used for direct annotation"
+subsetdef: gocheck_obsoletion_candidate "Terms planned for obsoletion"
+subsetdef: goslim_agr "AGR slim"
+subsetdef: goslim_aspergillus "Aspergillus GO slim"
+subsetdef: goslim_candida "Candida GO slim"
+subsetdef: goslim_chembl "ChEMBL protein targets summary"
+subsetdef: goslim_drosophila "Drosophila GO slim"
+subsetdef: goslim_euk_cellular_processes_ribbon "GO ribbon for eukaroytic cellular processes"
+subsetdef: goslim_flybase_ribbon "Insecta GO ribbon slim"
+subsetdef: goslim_generic "Generic GO slim"
+subsetdef: goslim_metagenomics "Metagenomics GO slim"
+subsetdef: goslim_mouse "Mouse GO slim"
+subsetdef: goslim_pir "PIR GO slim"
+subsetdef: goslim_plant "Plant GO slim"
+subsetdef: goslim_plant_ribbon "Plant GO ribbon"
+subsetdef: goslim_pombe "Fission yeast GO slim"
+subsetdef: goslim_prokaryote "GO subset for prokaryotes"
+subsetdef: goslim_prokaryote_ribbon "Prokaryote GO ribbon slim"
+subsetdef: goslim_synapse "synapse GO slim"
+subsetdef: goslim_virus "GO subset for viruses"
+subsetdef: goslim_yeast "Yeast GO slim"
+synonymtypedef: syngo_official_label "label approved by the SynGO project"
+synonymtypedef: systematic_synonym "Systematic synonym" EXACT
+default-namespace: gene_ontology
+idspace: dc http://purl.org/dc/elements/1.1/ 
+idspace: EC http://purl.uniprot.org/enzyme/ 
+idspace: KEGG_REACTION http://www.kegg.jp/entry/ 
+idspace: MetaCyc http://identifiers.org/metacyc.reaction/ 
+idspace: oboInOwl http://www.geneontology.org/formats/oboInOwl# 
+idspace: Reactome http://identifiers.org/reactome/ 
+idspace: RHEA http://rdf.rhea-db.org/ 
+idspace: skos http://www.w3.org/2004/02/skos/core# 
+idspace: TC http://identifiers.org/tcdb/ 
+idspace: terms http://purl.org/dc/terms/ 
+idspace: UM-BBD_pathwayID http://identifiers.org/umbbd.pathway/ 
+idspace: UM-BBD_reactionID http://identifiers.org/umbbd.reaction/ 
+idspace: VZ https://viralzone.expasy.org/ 
+ontology: go
+property_value: dc:description "The Gene Ontology (GO) provides a framework and set of concepts for describing the functions of gene products from all organisms." xsd:string
+property_value: dc:title "Gene Ontology" xsd:string
+property_value: has_ontology_root_term GO:0003674
+property_value: has_ontology_root_term GO:0005575
+property_value: has_ontology_root_term GO:0008150
+property_value: owl:versionInfo "2026-07-26" xsd:string
+property_value: terms:license http://creativecommons.org/licenses/by/4.0/
+
+[Term]
+id: GO:0003674
+name: molecular_function
+namespace: molecular_function
+alt_id: GO:0005554
+def: "A molecular process that can be carried out by the action of a single macromolecular machine, usually via direct physical interactions with other molecular entities. Function in this sense denotes an action, or activity, that a gene product (or a complex) performs." [GOC:pdt]
+comment: Note that, in addition to forming the root of the molecular function ontology, this term is recommended for the annotation of gene products whose molecular function is unknown. When this term is used for annotation, it indicates that no information was available about the molecular function of the gene product annotated as of the date the annotation was made; the evidence code 'no data' (ND), is used to indicate this. Despite its name, this is not a type of 'function' in the sense typically defined by upper ontologies such as Basic Formal Ontology (BFO). It is instead a BFO:process carried out by a single gene product or complex.
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_yeast
+synonym: "molecular function" EXACT []
+
+[Term]
+id: GO:0003824
+name: catalytic activity
+namespace: molecular_function
+def: "Catalysis of a biochemical reaction at physiological temperatures. In biologically catalyzed reactions, the reactants are known as substrates, and the catalysts are naturally occurring macromolecular substances known as enzymes. Enzymes possess specific binding sites for substrates, and are usually composed wholly or largely of protein, but RNA that has catalytic activity (ribozyme) is often also regarded as enzymatic." [GOC:vw, ISBN:0198506732]
+subset: goslim_agr
+subset: goslim_chembl
+subset: goslim_euk_cellular_processes_ribbon
+subset: goslim_flybase_ribbon
+subset: goslim_generic
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_plant_ribbon
+subset: goslim_prokaryote_ribbon
+synonym: "enzyme activity" EXACT [GOC:dph, GOC:tb]
+xref: Wikipedia:Enzyme
+is_a: GO:0003674 ! molecular_function
+
+[Term]
+id: GO:0004365
+name: glyceraldehyde-3-phosphate dehydrogenase (NAD+) (phosphorylating) activity
+namespace: molecular_function
+def: "Catalysis of the reaction: D-glyceraldehyde 3-phosphate + phosphate + NAD+ = 3-phospho-D-glyceroyl phosphate + NADH + H+." [EC:1.2.1.12]
+synonym: "3-phosphoglyceraldehyde dehydrogenase activity" RELATED [EC:1.2.1.12]
+synonym: "D-glyceraldehyde-3-phosphate:NAD+ oxidoreductase (phosphorylating)" RELATED [EC:1.2.1.12]
+synonym: "dehydrogenase, glyceraldehyde phosphate" RELATED [EC:1.2.1.12]
+synonym: "GAPDH activity" RELATED [EC:1.2.1.12]
+synonym: "glyceraldehyde phosphate dehydrogenase (NAD)" RELATED [EC:1.2.1.12]
+synonym: "glyceraldehyde-3-P-dehydrogenase activity" RELATED [EC:1.2.1.12]
+synonym: "NAD-dependent glyceraldehyde phosphate dehydrogenase activity" RELATED [EC:1.2.1.12]
+synonym: "NAD-dependent glyceraldehyde-3-phosphate dehydrogenase activity" RELATED [EC:1.2.1.12]
+synonym: "NADH-glyceraldehyde phosphate dehydrogenase activity" RELATED [EC:1.2.1.12]
+synonym: "phosphoglyceraldehyde dehydrogenase activity" RELATED [EC:1.2.1.12]
+synonym: "triosephosphate dehydrogenase activity" BROAD [EC:1.2.1.12]
+xref: EC:1.2.1.12
+xref: MetaCyc:GAPOXNPHOSPHN-RXN
+xref: Reactome:R-HSA-70449 "GADPH tetramer dehydrogenates GA3P"
+xref: Reactome:R-HSA-70482 "GAPDH tetramers reduce 1,3BPG to GA3P"
+xref: RHEA:10300
+is_a: GO:0043891 ! glyceraldehyde-3-phosphate dehydrogenase (phosphorylating, [NAD(P)+] ) activity
+property_value: skos:exactMatch EC:1.2.1.12
+property_value: skos:exactMatch RHEA:10300
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/30193" xsd:anyURI
+
+[Term]
+id: GO:0005575
+name: cellular_component
+namespace: cellular_component
+alt_id: GO:0008372
+def: "A location, relative to cellular compartments and structures, occupied by a macromolecular machine. There are three types of cellular components described in the gene ontology: (1) the cellular anatomical entity where a gene product carries out a molecular function (e.g., plasma membrane, cytoskeleton) or membrane-enclosed compartments (e.g., mitochondrion); (2) virion components, where viral proteins act, and (3) the stable macromolecular complexes of which gene product are parts (e.g., the clathrin complex)." [GOC:pdt]
+comment: Note that, in addition to forming the root of the cellular component ontology, this term is recommended for the annotation of gene products whose cellular component is unknown. When this term is used for annotation, it indicates that no information was available about the cellular component of the gene product annotated as of the date the annotation was made; the evidence code 'no data' (ND), is used to indicate this.
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_yeast
+synonym: "cell or subcellular entity" EXACT []
+synonym: "cellular component" EXACT []
+synonym: "subcellular entity" RELATED [NIF_Subcellular:nlx_subcell_100315]
+xref: NIF_Subcellular:sao1337158144
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/17729" xsd:anyURI
+
+[Term]
+id: GO:0005622
+name: intracellular anatomical structure
+namespace: cellular_component
+def: "A component of a cell contained within (but not including) the plasma membrane. In eukaryotes it includes the nucleus and cytoplasm." [ISBN:0198506732]
+subset: gocheck_do_not_annotate
+subset: goslim_chembl
+subset: goslim_metagenomics
+subset: goslim_plant
+synonym: "internal to cell" EXACT []
+synonym: "intracellular" EXACT []
+synonym: "nucleocytoplasm" RELATED [GOC:mah]
+synonym: "protoplasm" EXACT []
+synonym: "protoplast" RELATED [GOC:mah]
+xref: Wikipedia:Intracellular
+is_a: GO:0110165 ! cellular anatomical structure
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/17776" xsd:anyURI
+
+[Term]
+id: GO:0005634
+name: nucleus
+namespace: cellular_component
+def: "A membrane-bounded organelle of eukaryotic cells in which chromosomes are housed and replicated. In most cells, the nucleus contains all of the cell's chromosomes except the organellar chromosomes, and is the site of RNA synthesis and processing. In some species, or in specialized cell types, RNA metabolism or DNA replication may be absent." [GOC:curators]
+subset: goslim_agr
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_drosophila
+subset: goslim_euk_cellular_processes_ribbon
+subset: goslim_flybase_ribbon
+subset: goslim_generic
+subset: goslim_metagenomics
+subset: goslim_mouse
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_plant_ribbon
+subset: goslim_yeast
+synonym: "cell nucleus" EXACT []
+synonym: "horsetail nucleus" NARROW [GOC:al, GOC:mah, GOC:vw, PMID:15030757]
+xref: NIF_Subcellular:sao1702920020
+xref: Wikipedia:Cell_nucleus
+is_a: GO:0043231 ! intracellular membrane-bounded organelle
+
+[Term]
+id: GO:0005737
+name: cytoplasm
+namespace: cellular_component
+def: "The contents of a cell excluding the plasma membrane and nucleus, but including other subcellular structures." [ISBN:0198547684]
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_plant_ribbon
+subset: goslim_prokaryote
+subset: goslim_prokaryote_ribbon
+subset: goslim_yeast
+xref: Wikipedia:Cytoplasm
+is_a: GO:0110165 ! cellular anatomical structure
+relationship: part_of GO:0005622 ! intracellular anatomical structure
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/23023" xsd:anyURI
+
+[Term]
+id: GO:0005739
+name: mitochondrion
+namespace: cellular_component
+def: "A semiautonomous, self replicating organelle that occurs in varying numbers, shapes, and sizes in the cytoplasm of virtually all eukaryotic cells. It is notably the site of tissue respiration." [GOC:giardia, ISBN:0198506732]
+comment: Some anaerobic or microaerophilic organisms (e.g. Entamoeba histolytica, Giardia intestinalis and several Microsporidia species) do not have mitochondria, and contain mitochondrion-related organelles (MROs) instead, called mitosomes or hydrogenosomes, very likely derived from mitochondria. To annotate gene products located in these mitochondrial relics in species such as Entamoeba histolytica, Giardia intestinalis or others, please use GO:0032047 'mitosome' or GO:0042566 'hydrogenosome'. (See PMID:24316280 for a list of species currently known to contain mitochondrion-related organelles.)
+subset: goslim_agr
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_drosophila
+subset: goslim_euk_cellular_processes_ribbon
+subset: goslim_flybase_ribbon
+subset: goslim_generic
+subset: goslim_mouse
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_plant_ribbon
+subset: goslim_yeast
+synonym: "mitochondria" EXACT []
+xref: NIF_Subcellular:sao1860313010
+xref: Wikipedia:Mitochondrion
+is_a: GO:0043231 ! intracellular membrane-bounded organelle
+relationship: part_of GO:0005737 ! cytoplasm
+
+[Term]
+id: GO:0005740
+name: mitochondrial envelope
+namespace: cellular_component
+def: "The double lipid bilayer enclosing the mitochondrion and separating its contents from the cell cytoplasm; includes the intermembrane space." [GOC:ai, GOC:pz]
+subset: goslim_candida
+subset: goslim_yeast
+is_a: GO:0031967 ! organelle envelope
+relationship: part_of GO:0005739 ! mitochondrion
+
+[Term]
+id: GO:0005743
+name: mitochondrial inner membrane
+namespace: cellular_component
+def: "The inner, i.e. lumen-facing, lipid bilayer of the mitochondrial envelope. It is highly folded to form cristae." [GOC:ai]
+synonym: "inner mitochondrial membrane" EXACT []
+synonym: "inner mitochondrion membrane" EXACT []
+synonym: "mitochondrion inner membrane" EXACT []
+xref: NIF_Subcellular:sao1371347282
+xref: Wikipedia:Inner_mitochondrial_membrane
+is_a: GO:0019866 ! organelle inner membrane
+is_a: GO:0031966 ! mitochondrial membrane
+
+[Term]
+id: GO:0006082
+name: obsolete organic acid metabolic process
+namespace: biological_process
+def: "OBSOLETE. The chemical reactions and pathways involving organic acids, any acidic compound containing carbon in covalent linkage." [ISBN:0198506732]
+comment: The reason for obsoletion is that this term was an unnecessary grouping term.
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/31816" xsd:anyURI
+is_obsolete: true
+replaced_by: GO:0008152
+
+[Term]
+id: GO:0008150
+name: biological_process
+namespace: biological_process
+alt_id: GO:0000004
+alt_id: GO:0007582
+alt_id: GO:0044699
+def: "A biological process is the execution of a genetically-encoded biological module or program. It consists of all the steps required to achieve the specific biological objective of the module. A biological process is accomplished by a particular set of molecular functions carried out by specific gene products (or macromolecular complexes), often in a highly regulated manner and in a particular temporal sequence." [GOC:pdt]
+comment: Note that, in addition to forming the root of the biological process ontology, this term is recommended for the annotation of gene products whose biological process is unknown. When this term is used for annotation, it indicates that no information was available about the biological process of the gene product annotated as of the date the annotation was made; the evidence code 'no data' (ND), is used to indicate this.
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_pombe
+subset: goslim_yeast
+synonym: "biological process" EXACT []
+synonym: "physiological process" EXACT []
+synonym: "single organism process" RELATED []
+synonym: "single-organism process" RELATED []
+xref: Wikipedia:Biological_process
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/24968" xsd:anyURI
+created_by: jl
+creation_date: 2012-09-19T15:05:24Z
+
+[Term]
+id: GO:0008152
+name: metabolic process
+namespace: biological_process
+alt_id: GO:0044236
+alt_id: GO:0044710
+def: "A cellular process consisting of the biochemical pathways by which a living organism transforms chemical substances. This includes including anabolism (biosynthetic process) and catabolism (catabolic process). Metabolic processes includes the transformation of small molecules, as well  macromolecular processes such as DNA repair and replication, protein synthesis and degradation." [GOC:curators, ISBN:0198547684]
+comment: Note that metabolic processes do not include single functions or processes such as protein-protein interactions, protein-nucleic acids, nor receptor-ligand interactions.
+subset: gocheck_do_not_annotate
+subset: goslim_chembl
+subset: goslim_euk_cellular_processes_ribbon
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_prokaryote_ribbon
+synonym: "metabolism" EXACT []
+xref: Reactome:R-HSA-1430728 "Metabolism"
+xref: Wikipedia:Metabolism
+is_a: GO:0009987 ! cellular process
+disjoint_from: GO:0044848 ! biological phase
+disjoint_from: GO:0051179 ! localization
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/26424" xsd:anyURI
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/28932" xsd:anyURI
+created_by: jl
+creation_date: 2012-10-17T15:46:40Z
+
+[Term]
+id: GO:0009987
+name: cellular process
+namespace: biological_process
+alt_id: GO:0008151
+alt_id: GO:0044763
+alt_id: GO:0050875
+def: "Any process that is carried out at the cellular level, but not necessarily restricted to a single cell. For example, cell communication occurs among more than one cell, but occurs at the cellular level." [GOC:curators, GOC:isa_complete]
+comment: This term should not be used for direct annotation. It should be possible to make a more specific annotation to one of the children of this term.
+subset: gocheck_do_not_annotate
+subset: goslim_plant
+synonym: "cell growth and/or maintenance" NARROW []
+synonym: "cell physiology" EXACT []
+synonym: "cellular physiological process" EXACT []
+synonym: "single-organism cellular process" RELATED []
+is_a: GO:0008150 ! biological_process
+disjoint_from: GO:0044848 ! biological phase
+created_by: jl
+creation_date: 2012-12-11T16:56:55Z
+
+[Term]
+id: GO:0016020
+name: membrane
+namespace: cellular_component
+alt_id: GO:0016021
+alt_id: GO:0098589
+alt_id: GO:0098805
+def: "A lipid bilayer along with all the proteins and protein complexes embedded in it and attached to it." [GOC:dos, GOC:mah, ISBN:0815316194]
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_flybase_ribbon
+subset: goslim_metagenomics
+subset: goslim_pir
+subset: goslim_plant
+subset: goslim_yeast
+synonym: "integral component of membrane" NARROW []
+synonym: "integral to membrane" NARROW []
+synonym: "membrane region" NARROW []
+synonym: "region of membrane" NARROW []
+synonym: "transmembrane" RELATED [GOC:mah]
+synonym: "whole membrane" NARROW []
+xref: Wikipedia:Biological_membrane
+xref: Wikipedia:Transmembrane_protein
+is_a: GO:0110165 ! cellular anatomical structure
+creation_date: 2014-03-06T11:37:54Z
+
+[Term]
+id: GO:0016491
+name: oxidoreductase activity
+namespace: molecular_function
+def: "Catalysis of an oxidation-reduction (redox) reaction, a reversible chemical reaction in which the oxidation state of an atom or atoms within a molecule is altered. One substrate acts as a hydrogen or electron donor and becomes oxidized, while the other acts as hydrogen or electron acceptor and becomes reduced." [EC:1.-.-.-]
+subset: goslim_candida
+subset: goslim_chembl
+subset: goslim_drosophila
+subset: goslim_generic
+subset: goslim_metagenomics
+subset: goslim_mouse
+subset: goslim_pir
+subset: goslim_prokaryote
+subset: goslim_yeast
+synonym: "oxidoreductase activity, acting on other substrates" NARROW []
+synonym: "redox activity" EXACT []
+xref: EC:1.-.-.-
+xref: Reactome:R-HSA-1614362 "SUMF1 mediates the oxidation of cysteine to formylglycine, producing active arylsulfatases"
+xref: Reactome:R-HSA-2161612 "PGH2 is reduced to PGF2a by FAM213B"
+xref: Reactome:R-HSA-265296 "Arachidonate is oxidised to 5S-HpETE by ALOX5"
+xref: Reactome:R-HSA-266051 "5S-HpETE is dehydrated to LTA4 by ALOX5"
+xref: Reactome:R-HSA-390425 "FAR1 reduces PalmCoA to HXOL"
+xref: Reactome:R-HSA-390438 "FAR2 reduces PalmCoA to HXOL"
+xref: Reactome:R-HSA-8936442 "MARC1,MARC2 reduce N-hydroxylated compounds"
+xref: Reactome:R-HSA-9020249 "Hydroperoxy reductase reduces 4(S)-Hp-17(S)-HDHA to RvD6"
+xref: Reactome:R-HSA-9020260 "Hydroperoxy reductase reduces 7(S)-Hp-17(S)-HDHA to RvD5"
+xref: Reactome:R-HSA-9024624 "Hydroperoxy reductase reduces 4(S)-Hp-17(R)-HDHA to AT-RvD6"
+xref: Reactome:R-HSA-9024630 "Hydroperoxy reductase reduces 7(S)-Hp-17(R)-HDHA to AT-RvD5"
+xref: Reactome:R-HSA-9025007 "Hydroperoxy reductase reduces 7(S),14(S)-diHp-DHA to 7-epi-MaR1"
+xref: Reactome:R-HSA-9026001 "Hydroperoxy reductase reduces 7,17-diHp-DPAn-3 to RvD5n-3DPA"
+xref: Reactome:R-HSA-9026917 "Lipoxygenase dehydrogenates 7(S),17(S)-diHp-DHA to 7S(8)-epoxy-17(S)-HDHA"
+xref: Reactome:R-HSA-9027033 "Hydroperoxy reducatase reduces 14(S)-Hp-DHA to 14(S)-HDHA"
+xref: Reactome:R-HSA-9693722 "Unknown sepiapterin synthase transforms PTHP to sepiapterin"
+xref: Reactome:R-HSA-9759549 "Cob(I)alamin bound to MMACHC is oxidized to cob(II)alamin"
+is_a: GO:0003824 ! catalytic activity
+property_value: skos:exactMatch EC:1.-.-.-
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/30193" xsd:anyURI
+
+[Term]
+id: GO:0016620
+name: oxidoreductase activity, acting on the aldehyde or oxo group of donors, NAD or NADP as acceptor
+namespace: molecular_function
+def: "Catalysis of an oxidation-reduction (redox) reaction in which an aldehyde or ketone (oxo) group acts as a hydrogen or electron donor and reduces NAD or NADP." [GOC:jl]
+xref: EC:1.2.1.-
+xref: Reactome:R-HSA-1222583 "MscR reduces nitrosomycothiol to ammonia"
+is_a: GO:0016903 ! oxidoreductase activity, acting on the aldehyde or oxo group of donors
+property_value: skos:exactMatch EC:1.2.1.-
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/30193" xsd:anyURI
+
+[Term]
+id: GO:0016903
+name: oxidoreductase activity, acting on the aldehyde or oxo group of donors
+namespace: molecular_function
+def: "Catalysis of an oxidation-reduction (redox) reaction in which an aldehyde or ketone (oxo) group acts as a hydrogen or electron donor and reduces a hydrogen or electron acceptor." [GOC:ai]
+synonym: "oxidoreductase activity, acting on the aldehyde or oxo group of donors, other acceptors" NARROW []
+xref: EC:1.2.-.-
+is_a: GO:0016491 ! oxidoreductase activity
+property_value: skos:exactMatch EC:1.2.-.-
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/30193" xsd:anyURI
+
+[Term]
+id: GO:0019866
+name: organelle inner membrane
+namespace: cellular_component
+def: "The inner, i.e. lumen-facing, lipid bilayer of an organelle envelope; usually highly selective to most ions and metabolites." [GOC:mah]
+comment: See also the cellular component term 'outer membrane ; GO:0019867'.
+is_a: GO:0031090 ! organelle membrane
+relationship: part_of GO:0031967 ! organelle envelope
+
+[Term]
+id: GO:0031090
+name: organelle membrane
+namespace: cellular_component
+def: "A membrane that is one of the two lipid bilayers of an organelle envelope or the outermost membrane of single membrane bound organelle." [GOC:dos, GOC:mah]
+subset: gocheck_do_not_annotate
+synonym: "intracellular membrane" RELATED [NIF_Subcellular:sao830981606]
+xref: NIF_Subcellular:sao830981606
+is_a: GO:0016020 ! membrane
+intersection_of: GO:0016020 ! membrane
+intersection_of: part_of GO:0043227 ! membrane-bounded organelle
+relationship: part_of GO:0043227 ! membrane-bounded organelle
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/31446" xsd:anyURI
+
+[Term]
+id: GO:0031966
+name: mitochondrial membrane
+namespace: cellular_component
+def: "Either of the lipid bilayers that surround the mitochondrion and form the mitochondrial envelope." [GOC:mah, NIF_Subcellular:sao1045389829]
+xref: NIF_Subcellular:sao1045389829
+is_a: GO:0031090 ! organelle membrane
+intersection_of: GO:0016020 ! membrane
+intersection_of: part_of GO:0005739 ! mitochondrion
+relationship: part_of GO:0005740 ! mitochondrial envelope
+
+[Term]
+id: GO:0031967
+name: organelle envelope
+namespace: cellular_component
+def: "A double membrane structure enclosing an organelle, including two lipid bilayers and the region between them. In some cases, an organelle envelope may have more than two membranes." [GOC:mah, GOC:pz]
+subset: goslim_mouse
+is_a: GO:0110165 ! cellular anatomical structure
+relationship: part_of GO:0043227 ! membrane-bounded organelle
+relationship: part_of GO:0043229 ! intracellular organelle
+
+[Term]
+id: GO:0043226
+name: organelle
+namespace: cellular_component
+def: "Organized structure of distinctive morphology and function. Includes the nucleus, mitochondria, plastids, vacuoles, vesicles, ribosomes and the cytoskeleton, and prokaryotic structures such as anammoxosomes and pirellulosomes. Excludes the plasma membrane." [GOC:curators]
+subset: goslim_chembl
+subset: goslim_generic
+subset: goslim_pir
+subset: goslim_prokaryote
+subset: goslim_prokaryote_ribbon
+xref: NIF_Subcellular:sao1539965131
+xref: Wikipedia:Organelle
+is_a: GO:0110165 ! cellular anatomical structure
+
+[Term]
+id: GO:0043227
+name: membrane-bounded organelle
+namespace: cellular_component
+def: "Organized structure of distinctive morphology and function, bounded by a single or double lipid bilayer membrane. Includes the nucleus, mitochondria, plastids, vacuoles, and vesicles. Excludes the plasma membrane." [GOC:curators]
+subset: gocheck_do_not_annotate
+synonym: "membrane-enclosed organelle" EXACT []
+xref: NIF_Subcellular:sao414196390
+is_a: GO:0043226 ! organelle
+intersection_of: GO:0043226 ! organelle
+intersection_of: has_part GO:0016020 ! membrane
+relationship: has_part GO:0016020 ! membrane
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/28153" xsd:anyURI
+
+[Term]
+id: GO:0043229
+name: intracellular organelle
+namespace: cellular_component
+def: "Organized structure of distinctive morphology and function, occurring within the cell. Includes the nucleus, mitochondria, plastids, vacuoles, vesicles, ribosomes and the cytoskeleton. Excludes the plasma membrane." [GOC:curators]
+subset: gocheck_do_not_annotate
+subset: goslim_pir
+is_a: GO:0043226 ! organelle
+intersection_of: GO:0043226 ! organelle
+intersection_of: part_of GO:0005622 ! intracellular anatomical structure
+relationship: part_of GO:0005622 ! intracellular anatomical structure
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/28153" xsd:anyURI
+
+[Term]
+id: GO:0043231
+name: intracellular membrane-bounded organelle
+namespace: cellular_component
+def: "Organized structure of distinctive morphology and function, bounded by a single or double lipid bilayer membrane and occurring within the cell. Includes the nucleus, mitochondria, plastids, vacuoles, and vesicles. Excludes the plasma membrane." [GOC:curators]
+subset: gocheck_do_not_annotate
+subset: goslim_pir
+synonym: "intracellular membrane-enclosed organelle" EXACT []
+is_a: GO:0043227 ! membrane-bounded organelle
+is_a: GO:0043229 ! intracellular organelle
+intersection_of: GO:0043227 ! membrane-bounded organelle
+intersection_of: part_of GO:0005622 ! intracellular anatomical structure
+
+[Term]
+id: GO:0043891
+name: glyceraldehyde-3-phosphate dehydrogenase (phosphorylating, [NAD(P)+] ) activity
+namespace: molecular_function
+def: "Catalysis of the reaction: D-glyceraldehyde 3-phosphate + phosphate + NAD(P)+ = 3-phospho-D-glyceroyl phosphate + NAD(P)H + H+." [EC:1.2.1.59]
+synonym: "D-glyceraldehyde 3-phosphate:NAD(P)+ oxidoreductase (phosphorylating)" EXACT []
+synonym: "glyceraldehyde-3-phosphate dehydrogenase (NAD(P)) (phosphorylating)" EXACT []
+synonym: "NAD(P)-dependent glyceraldehyde-3-phosphate dehydrogenase activity" RELATED [EC:1.2.1.59]
+synonym: "triosephosphate dehydrogenase (NAD(P))" EXACT []
+synonym: "triosephosphate dehydrogenase (NAD(P)+)" RELATED [EC:1.2.1.59]
+xref: EC:1.2.1.59
+xref: MetaCyc:GAPDHSYNEC-RXN
+is_a: GO:0016620 ! oxidoreductase activity, acting on the aldehyde or oxo group of donors, NAD or NADP as acceptor
+property_value: skos:exactMatch EC:1.2.1.59
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/30193" xsd:anyURI
+
+[Term]
+id: GO:0044238
+name: primary metabolic process
+namespace: biological_process
+def: "The chemical reactions and pathways involving those compounds which are formed as a part of the normal anabolic and catabolic processes. These processes take place in most, if not all, cells of the organism." [GOC:curators]
+subset: gocheck_do_not_annotate
+subset: goslim_euk_cellular_processes_ribbon
+subset: goslim_pir
+subset: goslim_plant_ribbon
+subset: goslim_prokaryote_ribbon
+synonym: "primary metabolism" EXACT []
+xref: Reactome:R-HSA-71291 "Metabolism of amino acids and derivatives"
+xref: Wikipedia:Primary_metabolite
+is_a: GO:0008152 ! metabolic process
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/26424" xsd:anyURI
+
+[Term]
+id: GO:0110165
+name: cellular anatomical structure
+namespace: cellular_component
+def: "A part of a cellular organism consisting of a material entity with granularity above the level of a protein complex but below that of an anatomical system. Note that cellular organisms exclude viruses." [GOC:kmv]
+subset: gocheck_do_not_annotate
+subset: goslim_pir
+synonym: "cellular anatomical entity" EXACT []
+is_a: GO:0005575 ! cellular_component
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/24200" xsd:anyURI
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/26424" xsd:anyURI
+property_value: term_tracker_item "https://github.com/geneontology/go-ontology/issues/28978" xsd:anyURI
+created_by: kmv
+creation_date: 2019-08-12T18:01:37Z
+
+[Typedef]
+id: has_part
+name: has part
+namespace: external
+xref: BFO:0000051
+is_transitive: true
+
+[Typedef]
+id: part_of
+name: part of
+namespace: external
+xref: BFO:0000050
+is_transitive: true
+inverse_of: has_part ! has part

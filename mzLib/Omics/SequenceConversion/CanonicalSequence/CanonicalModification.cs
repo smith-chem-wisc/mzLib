@@ -157,39 +157,7 @@ public readonly record struct CanonicalModification(
     public CanonicalModification WithResolvedModification(Modification modification, int? residueIndex = null, ModificationPositionType positionType = ModificationPositionType.Residue)
     {
         // Extract UNIMOD ID from database references if not already set
-        int? resolvedUnimodId = UnimodId;
-        if (!resolvedUnimodId.HasValue && modification.DatabaseReference != null)
-        {
-            // Try to find UNIMOD key case-insensitively
-            var unimodKey = modification.DatabaseReference.Keys
-                .FirstOrDefault(k => k.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase));
-            
-            if (unimodKey != null && modification.DatabaseReference.TryGetValue(unimodKey, out var unimodRefs) && unimodRefs.Count > 0)
-            {
-                // Handle formats like "UNIMOD:35", ":35", or just "35"
-                var unimodRef = unimodRefs[0];
-                var numericPart = unimodRef
-                    .Replace("UNIMOD:", "", StringComparison.OrdinalIgnoreCase)
-                    .Replace(":", "")
-                    .Trim();
-                
-                if (int.TryParse(numericPart, out var parsedId))
-                {
-                    resolvedUnimodId = parsedId;
-                }
-            }
-        }
-
-        // Also try to extract from Accession if still not found
-        if (!resolvedUnimodId.HasValue && 
-            modification.Accession != null && 
-            modification.Accession.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase))
-        {
-            if (int.TryParse(modification.Accession.Substring(7), out var accessionId))
-            {
-                resolvedUnimodId = accessionId;
-            }
-        }
+        int? resolvedUnimodId = UnimodId ?? GetUnimodId(modification);
 
         return new CanonicalModification(
             positionType,
@@ -201,6 +169,48 @@ public readonly record struct CanonicalModification(
             resolvedUnimodId,
             modification.IdWithMotif,
             modification);
+    }
+
+    /// <summary>
+    /// The Unimod id a modification names for itself: the first entry of its "Unimod" database
+    /// reference ("35", "UNIMOD:35" or ":35"), else a "UNIMOD:n" accession. Null when it names none.
+    /// </summary>
+    internal static int? GetUnimodId(Modification? modification)
+    {
+        if (modification == null)
+        {
+            return null;
+        }
+
+        if (modification.DatabaseReference != null)
+        {
+            // Try to find UNIMOD key case-insensitively
+            var unimodKey = modification.DatabaseReference.Keys
+                .FirstOrDefault(k => k.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase));
+
+            if (unimodKey != null && modification.DatabaseReference.TryGetValue(unimodKey, out var unimodRefs) && unimodRefs.Count > 0)
+            {
+                // Handle formats like "UNIMOD:35", ":35", or just "35"
+                var numericPart = unimodRefs[0]
+                    .Replace("UNIMOD:", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace(":", "")
+                    .Trim();
+
+                if (int.TryParse(numericPart, out var parsedId))
+                {
+                    return parsedId;
+                }
+            }
+        }
+
+        if (modification.Accession != null &&
+            modification.Accession.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(modification.Accession.Substring(7), out var accessionId))
+        {
+            return accessionId;
+        }
+
+        return null;
     }
 
     /// <summary>
