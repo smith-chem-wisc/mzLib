@@ -123,12 +123,6 @@ namespace Readers
         /// </summary>
         public const string TmtDesignHeader = "File\tPlex\tSample Name\tTMT Channel\tCondition\tBiological Replicate\tFraction\tTechnical Replicate";
 
-        // A channel cell's name, after SdrfQuantAuditor.ReadLabel has taken NT= out of the accessioned
-        // form: an optional family prefix, then the channel as the kit spells it (MAP-06, N4).
-        private static readonly Regex ChannelName =
-            new(@"^(?<family>tmtpro|tmt|itraq|dileu)?[-_ ]?(?<channel>\d{3}[a-z]?)$",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
         private readonly List<SdrfIsobaricFile> _files;
 
         private SdrfIsobaricDesign(List<SdrfIsobaricFile> files, List<string> refusals, List<string> notes,
@@ -448,7 +442,8 @@ namespace Readers
 
         // MAP-06 / N4: read per cell, in either form, case-insensitively, and return the kit's own
         // spelling of the channel. A family prefix that names a different reagent is refused, because
-        // bare channel numbers overlap between kits (iTRAQ4 114-117, DiLeu4 115-118).
+        // bare channel numbers overlap between kits (iTRAQ4 114-117, DiLeu4 115-118). The label rules,
+        // TMT10's TMT131 included, are SdrfIsobaricLabels', which writers of SDRFs share (QP-S26).
         private static string? ReadChannel(SdrfRow row, string where, IsobaricMassTag tag, List<string> refusals)
         {
             string cell = (row[SdrfLabelFreeDesign.LabelColumn] ?? string.Empty).Trim();
@@ -466,11 +461,7 @@ namespace Readers
                 return null;
             }
 
-            var match = ChannelName.Match(name);
-            string? channel = match.Success
-                ? tag.ChannelLabels.FirstOrDefault(l => string.Equals(l, match.Groups["channel"].Value, StringComparison.OrdinalIgnoreCase))
-                : null;
-            if (channel == null || (match.Groups["family"].Success && !FamilyFits(match.Groups["family"].Value, tag.TagType)))
+            if (!SdrfIsobaricLabels.TryGetChannel(tag.TagType, cell, out string? channel))
             {
                 refusals.Add($"{where}: '{SdrfLabelFreeDesign.LabelColumn}' is '{cell}', which is not a channel of {tag.TagType}. " +
                              $"Its channels are {string.Join(", ", tag.ChannelLabels)}.");
@@ -478,14 +469,6 @@ namespace Readers
             }
 
             return channel;
-        }
-
-        private static bool FamilyFits(string family, IsobaricMassTagType tagType)
-        {
-            string kit = tagType.ToString();
-            if (family.Equals("tmtpro", StringComparison.OrdinalIgnoreCase))
-                return tagType is IsobaricMassTagType.TMT16 or IsobaricMassTagType.TMT18;
-            return kit.StartsWith(family, StringComparison.OrdinalIgnoreCase);
         }
 
         // MetaMorpheus: each file has one plex, one fraction and one technical replicate, and names each
