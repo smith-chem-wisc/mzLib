@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -61,6 +62,34 @@ namespace Proteomics.ProteolyticDigestion
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
+
+            // Hoisted out of the pattern loop: none of these can change between peptidoforms of the same
+            // peptide, and the loop below is the ~8.8-billion-call hot path.
+            //
+            // There is deliberately no "can anything satisfy the requirement" gate -- see Protein.Digest
+            // for why the promoting correction must NOT go inert when nothing configured can satisfy it.
+            List<Modification> configuredModifications = (variableModifications ?? Enumerable.Empty<Modification>())
+                .Concat(allKnownFixedModifications ?? Enumerable.Empty<Modification>())
+                .ToList();
+            bool respectCleavageRequirements = digestionParams.RespectCleavagePromotingModifications
+                && digestionParams.SearchModeType == CleavageSpecificity.Full
+                && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
+                && digestionParams.DigestionAgent is not null
+                && digestionParams.DigestionAgent.HasCleavageRequirement;
+
+            // Which internal positions are SITES is a property of the sequence and the configured
+            // modifications, identical for every peptidoform of this peptide, so it is found once here
+            // rather than rescanned inside the pattern loop. Only occupancy varies per peptidoform.
+            List<int> internalFeasibleSites = respectCleavageRequirements
+                ? FindInternalFeasibleCleavageSites(digestionParams.DigestionAgent, configuredModifications)
+                : null;
+
+            // When both corrections are on, the blocking drop hands the residues it discounted to the
+            // promoting drop, which applies the ONE missed-cleavage budget over both. Reused across
+            // peptidoforms rather than allocated per pattern.
+            List<int> blockedInternalResidues = respectCleavageRequirements && cleavageBlockingPolicy.IsActive
+                ? new List<int>()
+                : null;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
@@ -92,16 +121,56 @@ namespace Proteomics.ProteolyticDigestion
                     // so counting it as a missed cleavage would report a cleavage that cannot occur --
                     // and would let the generation slack leak out as peptides claiming more missed
                     // cleavages than the caller asked for.
+                    //
+                    // With the promoting correction also on, the budget is NOT tested here: a read-through
+                    // may be over budget by blocked sites alone and back under it once the unoccupied
+                    // glycoprotease sites are discounted too, so the blocked residues are passed on and the
+                    // promoting drop below tests the budget once, over both.
                     int reportedMissedCleavages = MissedCleavages;
+                    blockedInternalResidues?.Clear();
                     if (cleavageBlockingPolicy.IsActive
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                         && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, cleavageBlockingPolicy,
-                            out reportedMissedCleavages))
+                            blockedInternalResidues, out reportedMissedCleavages))
                     {
                         continue;
                     }
 
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
+
+                    // The mirror gate: a protease whose motif REQUIRES a modification at one of its
+                    // subsites cannot have made a cut where that modification is absent. Skip the
+                    // peptidoforms it could not have produced.
+                    //
+                    // Gated exactly like the blocking drop above, and for the same reason on the second
+                    // clause: CleavageSpecificityForFdrCategory == Full restricts this to peptides whose
+                    // termini are protease cuts at all, since for a semi or single-terminus peptide a
+                    // terminus is a length-driven truncation and no glycan can be expected to justify it.
+                    //
+                    // Asked AFTER the fixed modifications are merged in, unlike the blocking drop above: a
+                    // fixed modification is unavoidable, and that is evidence the promoting rules use (a
+                    // fixed modification can satisfy a requirement, and is the one way a forbidden
+                    // condition becomes judgeable from the product that starts at the bond).
+                    //
+                    // This drop refines OCCUPANCY, and it is the second half of a two-stage correction.
+                    // DigestionAgent.FullDigestion has already removed, from the site list itself, every site where
+                    // the required modification could not be -- so the read-through across an impossible
+                    // site is an ordinary peptide here and needed no slack to reach. What survives that
+                    // filter is a site that COULD carry the modification; this gate removes the
+                    // peptidoforms in which it does not.
+                    //
+                    // The peptide spanning a feasible but unoccupied site is a real read-through, reached
+                    // by the generation slack DigestionAgent.FullDigestion adds. The unoccupied sites it
+                    // spans are discounted from its missed cleavages together with any sites the blocking
+                    // drop above discounted, and the budget is tested once over both.
+                    if (respectCleavageRequirements
+                        && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
+                            digestionParams.DigestionAgent, configuredModifications, allKnownFixedModifications,
+                            internalFeasibleSites, blockedInternalResidues, digestionParams.MaxMissedCleavages,
+                            out reportedMissedCleavages))
+                    {
+                        continue;
+                    }
 
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
                         CleavageSpecificityForFdrCategory, PeptideDescription, reportedMissedCleavages, variableModPattern, numFixedMods);
@@ -168,8 +237,14 @@ namespace Proteomics.ProteolyticDigestion
         /// wildcard motif also cuts (StcE's "TX|T") is not blockable. The reported count therefore equals
         /// the real, unblocked sites the peptidoform spans.
         /// </remarks>
+        /// <param name="blockedInternalResidues">
+        /// Null when this drop owns the budget. Otherwise it receives the one-based parent residue of
+        /// every blocked internal site, the budget test is skipped, and the caller applies it once over
+        /// these and the promoting correction's unoccupied sites together.
+        /// </param>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
-            int peptideLength, CleavageBlockingPolicy policy, out int openMissedCleavages)
+            int peptideLength, CleavageBlockingPolicy policy, List<int> blockedInternalResidues,
+            out int openMissedCleavages)
         {
             bool cTerminalResidueBlocked = false;
             int blockedInternalSites = 0;
@@ -194,6 +269,7 @@ namespace Proteomics.ProteolyticDigestion
                 else if (positionAndMod.Key >= 2 && positionAndMod.Key <= peptideLength)
                 {
                     blockedInternalSites++;
+                    blockedInternalResidues?.Add(OneBasedStartResidue + positionAndMod.Key - 2);
                 }
             }
 
@@ -211,7 +287,8 @@ namespace Proteomics.ProteolyticDigestion
 
             // The bound flag-off digestion applies to a product of this shape -- one fewer for a whole
             // proteolysis product -- so the slack cannot let through a product the caller's budget would not.
-            return openMissedCleavages > policy.MissedCleavageBudgetFor(OneBasedStartResidue, OneBasedEndResidue);
+            return blockedInternalResidues is null
+                && openMissedCleavages > policy.MissedCleavageBudgetFor(OneBasedStartResidue, OneBasedEndResidue);
         }
     }
 }
