@@ -347,6 +347,11 @@ namespace Readers.ProForma
         /// </summary>
         private static void EnsureLayer2Supported(Tdp.ProFormaTerm term)
         {
+            // A term holds several modifications per terminus (ProForma 2.1); the dictionary holds one per position.
+            if (ProFormaReader.StackedTerminus(term) is var (side, count))
+                throw new MzLibException(
+                    $"ProForma term '{term.Sequence}' has {count} {side}-terminal modifications; mzLib stores a single " +
+                    "modification per position.");
             if (term.TagGroups is { Count: > 0 })
                 throw new MzLibException("ProForma tag groups (crosslinks/localization groups) are not supported at Layer 2.");
             if (term.LabileDescriptors is { Count: > 0 })
