@@ -210,10 +210,6 @@ namespace Test.Quantification
             Assert.That(FlashLfqProteinIntensities(q91v09), Is.EqualTo(new[] { 4 * 779644.0, 0, file3Alone * 4 / 3, 0 }).Within(1e-3));
         }
 
-        /// <summary>
-        /// The fix is only for a group with no peptide in two samples. One peptide seen in two samples links them, and
-        /// the fit is the median polish it always was; a peptide seen in one sample is then set aside, as before.
-        /// </summary>
         /// <summary>A protein seen in one sample only is not this case: its value comes from the usual fit, unchanged.</summary>
         [Test]
         public void ProteinSeenInOneSampleOnly_KeepsItsFittedValue()
@@ -224,6 +220,10 @@ namespace Test.Quantification
             Assert.That(MedianPolishRollUp.QuantifyGroup(oneOfFour)[3], Is.EqualTo(MedianPolishRollUp.QuantifyGroup(oneSample)[0]).Within(1e-6));
         }
 
+        /// <summary>
+        /// The fix is only for a group with no peptide in two samples. One peptide seen in two samples links them, and
+        /// the fit is the median polish it always was; a peptide seen in one sample is then set aside, as before.
+        /// </summary>
         [Test]
         public void APeptideSeenInTwoSamples_KeepsTheMedianPolishFit()
         {
