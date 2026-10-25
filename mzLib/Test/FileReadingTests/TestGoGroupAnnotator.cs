@@ -481,6 +481,19 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void VariantOfAnIsoformInTheDatabaseWithNoGo_TakesWhatTheIsoformTakes()
+        {
+            // The variant takes the accession it was applied to (P04406-2), and that isoform, in the database with
+            // no GO of its own, takes its entry's terms (D37). Before the per-database split the variant stopped at
+            // the isoform's empty set and read no_go_terms, while the isoform itself read annotated.
+            var rows = Annotator(P("P04406", Go(Nucleus, "ECO:0000314")), P("P04406-2")).Annotate(Group("P04406-2_A20T"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.True);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { "P04406-2_A20T" }));
+        }
+
+        [Test]
         public void SequenceVariant_PresentInTheDatabase_UsesItsOwnEntry()
         {
             var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406_A20T", Go(Gapdh))).Annotate(Group("P04406_A20T"));

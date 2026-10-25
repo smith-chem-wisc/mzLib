@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-using MzLibUtil;
 using Proteomics;
+using UsefulProteomicsDatabases.Annotation;
 
 namespace UsefulProteomicsDatabases.GeneOntology
 {
@@ -36,19 +35,15 @@ namespace UsefulProteomicsDatabases.GeneOntology
     {
         private readonly GeneOntologyGraph _ontology;
         private readonly string _annotationDbSha256;
-
-        /// <summary>accession -> primary GO id -> evidence codes of the member's own annotation to that term.</summary>
-        private readonly Dictionary<string, Dictionary<string, SortedSet<string>>> _direct = new(StringComparer.Ordinal);
-
-        /// <summary>Accessions the annotation database marks entrapment, which the accession rule may not see.</summary>
-        private readonly HashSet<string> _entrapment = new(StringComparer.Ordinal);
+        private readonly GoAccessionAnnotation _annotation;
+        private readonly MemberResolver _resolver;
 
         /// <summary>
         /// The GO ids the annotation database cites that the ontology release does not have, in ordinal order.
         /// Always empty unless the annotator was built with skipUnknownGoIds; pass it to
         /// <see cref="GoAnnotationTsv.Write"/> so the file says terms were dropped.
         /// </summary>
-        public IReadOnlyList<string> UnresolvedGoIds { get; }
+        public IReadOnlyList<string> UnresolvedGoIds => _annotation.UnresolvedGoIds;
 
         /// <param name="ontology">The pinned ontology release terms are resolved and propagated against.</param>
         /// <param name="annotationProteins">Proteins whose GO terms annotate the groups -- typically every target
@@ -69,50 +64,26 @@ namespace UsefulProteomicsDatabases.GeneOntology
         public GoGroupAnnotator(GeneOntologyGraph ontology, IEnumerable<Protein> annotationProteins, string annotationDbSha256,
             bool skipUnknownGoIds = false)
         {
-            _ontology = ontology ?? throw new ArgumentNullException(nameof(ontology));
+            ArgumentNullException.ThrowIfNull(ontology);
             ArgumentNullException.ThrowIfNull(annotationProteins);
+            var proteins = annotationProteins as IReadOnlyCollection<Protein> ?? annotationProteins.ToList();
+            _ontology = ontology;
             _annotationDbSha256 = annotationDbSha256;
+            _annotation = new GoAccessionAnnotation(ontology, proteins, annotationDbSha256, skipUnknownGoIds);
+            _resolver = new MemberResolver(proteins);
+        }
 
-            var missing = new SortedSet<string>(StringComparer.Ordinal);
-            foreach (var protein in annotationProteins)
-            {
-                if (protein == null || protein.IsDecoy)
-                {
-                    continue;
-                }
-                if (!_direct.TryGetValue(protein.Accession, out var terms))
-                {
-                    terms = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
-                    _direct.Add(protein.Accession, terms);
-                }
-                if (protein.IsEntrapment)
-                {
-                    _entrapment.Add(protein.Accession);
-                }
-                foreach (var goTerm in protein.GoTerms)
-                {
-                    if (!ontology.TryGetTerm(goTerm.Id, out var term))
-                    {
-                        missing.Add(goTerm.Id);
-                        continue;
-                    }
-                    if (!terms.TryGetValue(term.Id, out var evidence))
-                    {
-                        evidence = new SortedSet<string>(StringComparer.Ordinal);
-                        terms.Add(term.Id, evidence);
-                    }
-                    evidence.UnionWith(goTerm.EvidenceCodes);
-                }
-            }
-
-            if (missing.Count > 0 && !skipUnknownGoIds)
-            {
-                throw new InvalidDataException(
-                    $"The annotation database cites {missing.Count} GO id(s) absent from Gene Ontology release " +
-                    $"{ontology.Release ?? "(unversioned)"}: {string.Join(", ", missing)}. Load a go.obo release at least " +
-                    "as new as the database (Loaders.UpdateGeneOntology), or skip unknown ids and report them.");
-            }
-            UnresolvedGoIds = missing.ToList();
+        /// <summary>
+        /// Builds the annotator from a database's annotation and its member resolver, so a caller that also
+        /// writes the per-database and per-deposit tables reads the database once.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+        public GoGroupAnnotator(GoAccessionAnnotation annotation, MemberResolver resolver)
+        {
+            _annotation = annotation ?? throw new ArgumentNullException(nameof(annotation));
+            _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+            _ontology = annotation.Ontology;
+            _annotationDbSha256 = annotation.AnnotationDbSha256;
         }
 
         /// <summary>
@@ -139,18 +110,23 @@ namespace UsefulProteomicsDatabases.GeneOntology
             // pooled evidence, and each member's own evidence)
             var byTerm = new SortedDictionary<string, TermAccumulator>(StringComparer.Ordinal);
             var entrapmentMembers = members
-                .Where(m => ProteinDbLoader.IsEntrapmentAccession(m) || _entrapment.Contains(m))
+                .Where(_resolver.IsEntrapment)
                 .OrderBy(m => m, StringComparer.Ordinal)
                 .ToList();
             bool anyMemberMissing = false;
 
             foreach (string member in members)
             {
-                if (!TryGetTerms(member, out var terms, out bool inherited))
+                // The join a catalog view makes: member -> the entry it takes (MemberResolver) -> that entry's
+                // direct terms (GoAccessionAnnotation) -> each term and its ancestors (the ontology's closure).
+                var resolution = _resolver.Resolve(member);
+                if (resolution.Kind == MemberResolutionKind.NoEntry)
                 {
                     anyMemberMissing = true;
                     continue;
                 }
+                _annotation.TryGetTerms(resolution.AnnotatedAs, out var terms, out bool entryInherited);
+                bool inherited = resolution.Kind == MemberResolutionKind.Inherited || entryInherited;
                 foreach (var (termId, evidence) in terms)
                 {
                     Accumulate(byTerm, termId, member, evidence, direct: true, inherited);
@@ -201,59 +177,6 @@ namespace UsefulProteomicsDatabases.GeneOntology
         {
             ArgumentNullException.ThrowIfNull(groups);
             return groups.SelectMany(Annotate).ToList();
-        }
-
-        /// <summary>
-        /// The suffix mzLib appends to a sequence-variant protein's accession
-        /// (VariantApplication.GetAccession): one or more "_{original}{position}{variant}" pieces, as in
-        /// P04406_A20T or P04406-2_A20T_G31.
-        /// </summary>
-        private static readonly Regex SequenceVariantSuffix = new(@"^(?<base>[^_]+)(?:_[A-Z*]*\d+[A-Z*]*)+$", RegexOptions.Compiled);
-
-        /// <summary>
-        /// A member's own terms when the database has its accession. Otherwise, flagged inherited:
-        /// for a sequence variant (P04406_A20T, mzLib's variant accession), the terms of the accession it was
-        /// applied to; for a UniProt isoform (P04406-2), its entry's terms; and for a variant of an isoform,
-        /// the isoform's or else the entry's. Variants are found when the annotation database was loaded
-        /// without variants applied, or is not the one searched. ProteinAccession parses and never repairs, so
-        /// an accession outside UniProt's grammar -- a decoy, contaminant or entrapment prefix, a hyphenated
-        /// name, a RefSeq NP_ -- never inherits. So an entrapment member absent from the database reads
-        /// no_entry rather than borrowing the GO of the target it was made from. Whether an inherited term holds is the consumer's call: an
-        /// isoform can differ from its entry precisely in cellular component, which is why the row says so.
-        ///
-        /// A UniProt isoform that IS in the database but carries no GO of its own also takes its entry's terms.
-        /// UniProt writes GO on the entry, not on its isoforms, so a database searched with isoforms as separate
-        /// entries holds every isoform with none; reading that as "no GO" would make inheritance depend on
-        /// whether the searched database was used. An isoform with GO of its own keeps it.
-        /// </summary>
-        private bool TryGetTerms(string member, out Dictionary<string, SortedSet<string>> terms, out bool inherited)
-        {
-            inherited = false;
-            if (_direct.TryGetValue(member, out terms))
-            {
-                if (terms.Count == 0
-                    && !SequenceVariantSuffix.IsMatch(member)
-                    && ProteinAccession.Parse(member) is { Namespace: AccessionNamespace.UniProt, Isoform: not null } isoform
-                    && _direct.TryGetValue(isoform.EntryAccession, out var entryTerms)
-                    && entryTerms.Count > 0)
-                {
-                    terms = entryTerms;
-                    inherited = true;
-                }
-                return true;
-            }
-            inherited = true;
-            var variant = SequenceVariantSuffix.Match(member);
-            var accession = ProteinAccession.Parse(variant.Success ? variant.Groups["base"].Value : member);
-            if (accession.Namespace != AccessionNamespace.UniProt)
-            {
-                return false;
-            }
-            if (variant.Success && _direct.TryGetValue(accession.Verbatim, out terms))
-            {
-                return true;
-            }
-            return accession.Isoform != null && _direct.TryGetValue(accession.EntryAccession, out terms);
         }
 
         private static void Accumulate(SortedDictionary<string, TermAccumulator> byTerm, string termId, string member,
