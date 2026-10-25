@@ -217,16 +217,27 @@ namespace StatisticalModels
             return sd > LinearDiscriminant.ConstantTolerance ? (targets.Average() - decoys.Average()) / sd : 0;
         }
 
-        /// <summary>Target-decoy q-values, (D + 1) / T and monotone, in input order. Decoys receive the value at their rank.</summary>
+        /// <summary>
+        /// Target-decoy q-values, (D + 1) / T and monotone, in input order. Decoys receive the value at their rank. Rows with
+        /// one score are one rank: the whole tie block is counted before any of it gets its value, so row order never matters.
+        /// </summary>
         internal static double[] QValues(double[] scores, bool[] isDecoy)
         {
             int[] order = Enumerable.Range(0, scores.Length).OrderByDescending(i => scores[i]).ThenBy(i => i).ToArray();
             var ranked = new double[order.Length];
             int decoys = 0, targets = 0;
-            for (int k = 0; k < order.Length; k++)
+            for (int k = 0; k < order.Length; )
             {
-                if (isDecoy[order[k]]) decoys++; else targets++;
-                ranked[k] = targets == 0 ? 1 : Math.Min(1, (decoys + 1.0) / targets);
+                int end = k;
+                do
+                {
+                    if (isDecoy[order[end]]) decoys++; else targets++;
+                    end++;
+                }
+                while (end < order.Length && scores[order[end]] == scores[order[k]]);
+                double value = targets == 0 ? 1 : Math.Min(1, (decoys + 1.0) / targets);
+                for (; k < end; k++)
+                    ranked[k] = value;
             }
             for (int k = order.Length - 2; k >= 0; k--)
                 ranked[k] = Math.Min(ranked[k], ranked[k + 1]);
