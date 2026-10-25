@@ -354,6 +354,8 @@ namespace Readers
                     .ToDictionary(x => x.First, x => x.Second.Source == SdrfDraftSource.NotAvailable ? SdrfReserved.NotAvailable : x.Second.Value,
                         StringComparer.Ordinal);
 
+                // Only evidence writes `pooled`, and only as the reserved word (G49).
+                bool pooled = r.BiologicalReplicate.Value == SdrfReserved.Pooled;
                 return new SdrfRowInput(
                     new SdrfSample
                     {
@@ -361,7 +363,8 @@ namespace Readers
                         Organism = r.Organism.Term,
                         Characteristics = characteristics,
                         RawCharacteristics = raw,
-                        BiologicalReplicate = int.Parse(r.BiologicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture),
+                        BiologicalReplicate = pooled ? null : int.Parse(r.BiologicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture),
+                        Pooled = pooled,
                         Label = labelFree,
                         FactorValues = factors,
                         Comments = comments
@@ -489,8 +492,13 @@ namespace Readers
                             if (Fill(r.Disease) is { } disease) r = r with { Disease = disease };
                             break;
                         case "characteristics[biological replicate]":
-                            if (!int.TryParse(cell.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int n) || n < 1)
-                                notes.Add(new(row.DataFile, column, r.BiologicalReplicate.Value, cell.Value, "a biological replicate is a whole number from 1"));
+                            // A pool is the spec's reserved word, lowercase; QuantProject reads it as a reference role (G49).
+                            if (cell.Value.Equals(SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (Fill(r.BiologicalReplicate) is { } pool) r = r with { BiologicalReplicate = pool with { Value = SdrfReserved.Pooled } };
+                            }
+                            else if (!int.TryParse(cell.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int n) || n < 1)
+                                notes.Add(new(row.DataFile, column, r.BiologicalReplicate.Value, cell.Value, "a biological replicate is a whole number from 1, or pooled"));
                             else if (Fill(r.BiologicalReplicate) is { } bio)
                                 r = r with { BiologicalReplicate = bio with { Value = n.ToString(System.Globalization.CultureInfo.InvariantCulture) } };
                             break;
