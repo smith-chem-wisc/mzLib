@@ -223,6 +223,22 @@ namespace Test.Transcriptomics
                 "Cusativin should not produce a GC fragment");
         }
 
+        /// <summary>
+        /// C[C]| is a cut-after motif whose preventing C is read after the recognition C. At a 5'-terminal CC
+        /// the bounds check used to test the backward index too (-1), abandon the rule and cut C|C.
+        /// </summary>
+        [Test]
+        public void TestCusativin_DoesNotCleave5PrimeTerminalCC()
+        {
+            var cusativin = RnaseDictionary.Dictionary["Cusativin"];
+
+            var products = cusativin.GetUnmodifiedOligos(new RNA("CCAAA"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Does.Not.Contain("C"),
+                "the first C is followed by C, so Cusativin must not cut between them");
+        }
+
         #region RNase U2 (G|, A| — cleaves after purines)
 
         [Test]
@@ -336,6 +352,23 @@ namespace Test.Transcriptomics
             var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinct, Is.EqualTo(new[] { "AAGUA", "U" }),
                 "MC1 should skip GU positions");
+        }
+
+        /// <summary>
+        /// The preventing rule must hold at the 3' end too. [G]|U is a cut-BEFORE motif, so its preventing
+        /// residue is read before the U; the bounds check used to test the forward index as well, which is
+        /// out of range at the last residue, and the 3'-terminal GpU was cut anyway.
+        /// </summary>
+        [Test]
+        public void TestRnaseMC1_DoesNotCleaveTerminalGU()
+        {
+            var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
+
+            var products = mc1.GetUnmodifiedOligos(new RNA("AAAGU"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "AAAGU" }),
+                "the final U is preceded by G, so MC1 must not cut before it");
         }
 
         [Test]
