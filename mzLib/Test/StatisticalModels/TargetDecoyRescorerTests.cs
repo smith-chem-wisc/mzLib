@@ -478,25 +478,14 @@ public class TargetDecoyRescorerTests
     [Test]
     public void TheNetworkArchitectureCanBeChosen()
     {
-        var random = new Random(21);
-        var features = new List<double[]>();
-        var isDecoy = new List<bool>();
-        var groups = new List<string>();
-        void Add(bool decoy, bool real, int i)
-        {
-            double spread = real ? 3.0 : 1.0;
-            features.Add([spread * Gaussian(random), spread * Gaussian(random), Gaussian(random)]);
-            isDecoy.Add(decoy);
-            groups.Add($"{(decoy ? "D" : "T")}{i}");
-        }
-        for (int i = 0; i < 2000; i++) Add(false, true, i);
-        for (int i = 0; i < 2000; i++) Add(false, false, 2000 + i);
-        for (int i = 0; i < 4000; i++) Add(true, false, i);
+        var (features, isDecoy, groups) = Ring();
         bool[] decoys = isDecoy.ToArray();
 
-        var standard = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 3);
-        var wide = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 3,
-            networkLayers: [64, 32, 16]);
+        // One network for 3 epochs: the wide one still finds about 900 targets at 1% against the line's 266
+        var standard = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 3);
+        var wide = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 3, networkLayers: [64, 32, 16]);
         var linear = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15);
 
         Assert.That(wide.Scores, Is.Not.EqualTo(standard.Scores));
@@ -512,24 +501,11 @@ public class TargetDecoyRescorerTests
     [Test]
     public void TheNetworkModelFindsNonLinearSignalTheLineMisses()
     {
-        var random = new Random(21);
-        var features = new List<double[]>();
-        var isDecoy = new List<bool>();
-        var groups = new List<string>();
-        void Add(bool decoy, bool real, int i)
-        {
-            double spread = real ? 3.0 : 1.0;
-            features.Add([spread * Gaussian(random), spread * Gaussian(random), Gaussian(random)]);
-            isDecoy.Add(decoy);
-            groups.Add($"{(decoy ? "D" : "T")}{i}");
-        }
-        for (int i = 0; i < 2000; i++) Add(false, true, i);
-        for (int i = 0; i < 2000; i++) Add(false, false, 2000 + i);
-        for (int i = 0; i < 4000; i++) Add(true, false, i);
+        var (features, isDecoy, groups) = Ring();
         bool[] decoys = isDecoy.ToArray();
 
         var linear = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15);
-        var network = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var network = RingNetwork.Value;
 
         int atOnePercentLinear = TargetsAtQ(linear.Scores, decoys, 0.01);
         int atOnePercentNetwork = TargetsAtQ(network.Scores, decoys, 0.01);
@@ -545,14 +521,15 @@ public class TargetDecoyRescorerTests
     {
         var (features, isDecoy, groups, _) = Candidates(800, 800, 1600, shift: 1.2);
         int[] candidateGroups = Enumerable.Range(0, features.Length).ToArray();
+        // One network for one epoch is enough: any training row's label moves the weights, so a leak would still show
         var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, candidateGroups: candidateGroups,
-            model: RescoreModel.NeuralNetworkEnsemble);
+            model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 1, networkEpochs: 1);
 
         int row = 17;
         var flipped = isDecoy.ToArray();
         flipped[row] = !flipped[row];
         var after = TargetDecoyRescorer.Score(features, flipped, groups, positiveQValue: 0.15, candidateGroups: candidateGroups,
-            model: RescoreModel.NeuralNetworkEnsemble);
+            model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 1, networkEpochs: 1);
 
         Assert.That(after.Folds[row], Is.EqualTo(before.Folds[row]));
         Assert.That(after.Scores[row], Is.EqualTo(before.Scores[row]).Within(1e-9), "the flipped label stayed out of the model scoring it");
@@ -582,6 +559,16 @@ public class TargetDecoyRescorerTests
     }
 
     /// <summary>
+    /// The default network ensemble on <see cref="Ring"/>, trained once for every test that only reads it. Under CI's
+    /// coverage instrumentation one such training takes about a minute.
+    /// </summary>
+    private static readonly Lazy<RescoreResult> RingNetwork = new(() =>
+    {
+        var (features, isDecoy, groups) = Ring();
+        return TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+    });
+
+    /// <summary>
     /// The network can train on a random subsample of each fold's training rows. DIA-NN trains on 267k of 3M precursors;
     /// on a whole-proteome search, training on all 2.6M rows was two thirds of the time. A cap at least the training size
     /// changes nothing. (Taking the top rows by the linear score instead was tried first and failed ACappedNetworkStillFindsTheSignal:
@@ -592,9 +579,11 @@ public class TargetDecoyRescorerTests
     {
         var (features, isDecoy, groups) = Ring();
 
-        var all = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        // Whether a cap applies does not depend on how long the network trains, so one network for one epoch will do
+        var all = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 1);
         var capped = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
-            maxNetworkTrainingRows: 1_000_000);
+            networkMembers: 1, networkEpochs: 1, maxNetworkTrainingRows: 1_000_000);
 
         Assert.That(capped.Scores, Is.EqualTo(all.Scores));
     }
@@ -607,7 +596,7 @@ public class TargetDecoyRescorerTests
         bool[] decoys = isDecoy.ToArray();
 
         var linear = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15);
-        var all = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var all = RingNetwork.Value;
         var capped = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
             maxNetworkTrainingRows: 2000);
 
@@ -621,13 +610,13 @@ public class TargetDecoyRescorerTests
     {
         var (features, isDecoy, groups, _) = Candidates(800, 800, 1600, shift: 1.2);
         var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
-            maxNetworkTrainingRows: 600);
+            maxNetworkTrainingRows: 600, networkMembers: 1, networkEpochs: 1);
 
         int row = 17;
         var flipped = isDecoy.ToArray();
         flipped[row] = !flipped[row];
         var after = TargetDecoyRescorer.Score(features, flipped, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
-            maxNetworkTrainingRows: 600);
+            maxNetworkTrainingRows: 600, networkMembers: 1, networkEpochs: 1);
 
         foreach (int i in Enumerable.Range(0, features.Length).Where(i => before.Folds[i] == before.Folds[row]))
             Assert.That(after.Scores[i], Is.EqualTo(before.Scores[i]).Within(1e-9), $"row {i} in the flipped row's fold");
@@ -642,10 +631,15 @@ public class TargetDecoyRescorerTests
     {
         var (features, isDecoy, groups) = Ring();
 
-        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
-        var seed0 = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, randomSeed: 0);
-        var seed1 = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, randomSeed: 1);
-        var seed1Again = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, randomSeed: 1);
+        // The seed reaches every network however many there are and however long they train, so one for one epoch will do
+        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 1);
+        var seed0 = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 1, randomSeed: 0);
+        var seed1 = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 1, randomSeed: 1);
+        var seed1Again = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 1, networkEpochs: 1, randomSeed: 1);
 
         Assert.That(seed0.Scores, Is.EqualTo(before.Scores));
         Assert.That(seed1.Scores, Is.Not.EqualTo(seed0.Scores));
@@ -662,7 +656,7 @@ public class TargetDecoyRescorerTests
         var (features, isDecoy, groups) = Ring();
         bool[] decoys = isDecoy.ToArray();
 
-        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var before = RingNetwork.Value;
         var defaults = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
             networkMembers: 5, networkEpochs: 10);
         var diann = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
