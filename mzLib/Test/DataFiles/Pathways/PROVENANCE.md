@@ -33,7 +33,8 @@ line endings.
 Because the slice is closed under ancestors, every kept pathway's parents are present. So `ReactomeRelease.Ancestors`
 returns the same set here as against the full release.
 
-**Result:** 25 pathways (1,365 B, sha256 `7273f1ca3324ece67f7c6eb97742a2fa6a2ef17af484ed7876dd2d3e9e8756df`), 19 pairs
+**Result** (sizes and sha256s are of the files as committed, LF line endings; a Windows checkout with `core.autocrlf`
+converts them to CRLF, and the tests hash whatever is on disk): 25 pathways (1,365 B, sha256 `7273f1ca3324ece67f7c6eb97742a2fa6a2ef17af484ed7876dd2d3e9e8756df`), 19 pairs
 (501 B, sha256 `bb938866a859265afcd5fa7ae5e80c29d0d2e5fff9bc325ffa0c5331e0d2489c`), and 7 roots.
 
 **Refresh** by re-fetching both URLs for the pinned release and re-applying the rule above. A refresh is a reviewable
