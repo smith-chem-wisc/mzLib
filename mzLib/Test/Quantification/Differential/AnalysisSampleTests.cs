@@ -53,6 +53,21 @@ public class AnalysisSampleTests
         Assert.That(samples.All(s => s.Batch is null && s.Individual is null && s.Strata.Count == 0 && s.Covariates.Count == 0));
     }
 
+    /// <summary>A pooled reference file (a QC pool, GR-20) is no biological sample, as a reference channel is not.</summary>
+    [Test]
+    public void ALabelFreeReferenceFileIsNoSample()
+    {
+        var design = Design(
+            new ISampleInfo[] { Run("a1", "A", 0) },
+            new ISampleInfo[] { Run("b1", "B", 0) },
+            new ISampleInfo[] { new SpectraFileInfo(@"C:\data\qc1.raw", "QC", 0, 0, 0) { IsReference = true } },
+            new ISampleInfo[] { new SpectraFileInfo(@"C:\data\qc2.raw", "QC", 0, 1, 0) { IsReference = true } });
+
+        var samples = AnalysisSample.FromExperimentalDesign(design);
+
+        Assert.That(samples.Select(s => s.SampleId), Is.EqualTo(new[] { "A_1", "B_1" }));
+    }
+
     [Test]
     public void ALabelFreeSampleIsKeyedAsTheQuantifiedTablesLabelIt()
     {

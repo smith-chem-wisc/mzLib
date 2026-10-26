@@ -661,20 +661,153 @@ namespace Test.FileReadingTests
                 "'mouse X' in condition 'A' give several (1, 2), so which one it is cannot be told."));
         }
 
-        /// <summary>
-        /// A pooled sample (a QC pool or a reference) must never be quantified and compared as a study sample (GR-20), and
-        /// a label-free design has nowhere to mark it, so for now it is refused, saying so, never as a bad number.
-        /// </summary>
-        [TestCase("pooled")]
-        [TestCase("Pooled")]
-        public void APooledReplicateIsRefusedAsAPooledSampleNotAsABadNumber(string biorep)
-        {
-            var design = SdrfLabelFreeDesign.Read(Samples(true, ("s1", "1", "a.raw", "A", "1"), ("QC pool", biorep, "b.raw", "A", "1")));
+        // ---------------------------------------------------------------- pooled reference files (GR-20)
 
-            Assert.That(design.Refusals.Single(), Does.StartWith(
-                    $"Line 3 (b.raw): 'characteristics[biological replicate]' is '{biorep}', a pooled sample")
-                .And.Contain("cannot mark a file as a pooled reference")
-                .And.Not.Contain("not an integer"));
+        private sealed record RoleRow(string Source, string File, string Condition, string Biorep = "1",
+            string SampleType = "not available", string PooledSample = "not pooled", string Techrep = "1");
+
+        /// <summary>A label-free SDRF in memory carrying the two columns besides the replicate that can mark a pooled reference.</summary>
+        private static SdrfDocument RoleSamples(params RoleRow[] rows)
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[sample type]", "characteristics[pooled sample]", "characteristics[biological replicate]",
+                "comment[label]", "comment[fraction identifier]", "comment[technical replicate]", "comment[data file]", "factor value[condition]"
+            });
+            return new SdrfDocument(header, rows.Select(r => new SdrfRow(header, new[]
+            {
+                r.Source, r.SampleType, r.PooledSample, r.Biorep, "label free sample", "1", r.Techrep, r.File, r.Condition
+            })));
+        }
+
+        /// <summary>STAT1's analysis samples for a design: a pooled reference must be none of them.</summary>
+        private static IReadOnlyList<string> AnalysisSampleIds(SdrfLabelFreeDesign design) =>
+            global::Quantification.Differential.AnalysisSample.FromExperimentalDesign(design.ToExperimentalDesign()).Select(s => s.SampleId).ToList();
+
+        private static string[] WrittenDesign(SdrfLabelFreeDesign design)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"RefPool_{Guid.NewGuid():N}_ExperimentalDesign.tsv");
+            try
+            {
+                design.WriteExperimentalDesignTsv(path);
+                return File.ReadAllLines(path);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// Each way a label-free SDRF marks a pooled sample (a QC pool, a reference) is enough on its own, as for an isobaric
+        /// channel (sdrf QP-S28 and QP-S31, ruled 2026-10-08; for the label-free design, ruled 2026-10-26). The file is kept,
+        /// quantified as before, and carried as a reference, so STAT1 leaves it out of every comparison, and
+        /// ExperimentalDesign.tsv says so in its Sample Type column. <c>comment[reference channel]</c> names a channel, which
+        /// a label-free file has none of, so it is not one of them here.
+        /// </summary>
+        [TestCase("sample type reference")]
+        [TestCase("sample type pooled")]
+        [TestCase("pooled sample")]
+        [TestCase("biological replicate pooled")]
+        [TestCase("biological replicate Pooled")]
+        public void EachReferenceSignalAloneMarksTheFileAReference(string signal)
+        {
+            var pool = new RoleRow("QC pool", "pool.raw", "A", Biorep: "3");
+            pool = signal switch
+            {
+                "sample type reference" => pool with { SampleType = "NT=reference;AC=PRIDE:0000899" },
+                "sample type pooled" => pool with { SampleType = "pooled" },
+                "pooled sample" => pool with { PooledSample = "SN=s1;SN=s2" },
+                "biological replicate pooled" => pool with { Biorep = "pooled" },
+                "biological replicate Pooled" => pool with { Biorep = "Pooled" },
+                _ => throw new ArgumentException(signal),
+            };
+
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a.raw", "A", Biorep: "1"), new RoleRow("s2", "b.raw", "A", Biorep: "2"), pool));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => Path.GetFileName(f.FullFilePathWithExtension)), Does.Contain("pool.raw"), "the file is kept");
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "A_1", "A_2" }), "the pool is in no comparison");
+
+            var written = WrittenDesign(design);
+            Assert.That(written[0], Is.EqualTo(SdrfLabelFreeDesign.ExperimentalDesignHeader + "\tSample Type"));
+            Assert.That(written[1], Does.EndWith("\tstudy sample"));
+            Assert.That(written.Single(l => l.StartsWith("pool.raw")), Does.EndWith("\t3\t1\t1\treference"));
+        }
+
+        /// <summary>A design without a reference file is written exactly as before: no Sample Type column.</summary>
+        [Test]
+        public void WithoutAReferenceExperimentalDesignTsvIsWrittenAsBefore()
+        {
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a.raw", "A", SampleType: "NT=study sample;AC=PRIDE:0000898"),
+                new RoleRow("s2", "b.raw", "B", PooledSample: "not applicable")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(WrittenDesign(design), Is.EqualTo(new[] { SdrfLabelFreeDesign.ExperimentalDesignHeader, "a.raw\tA\t1\t1\t1", "b.raw\tB\t1\t1\t1" }));
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "A_1", "B_1" }));
+            Assert.That(design.Report(), Does.Contain("Reference files: none marked"));
+        }
+
+        /// <summary>
+        /// A <c>pooled</c> replicate gives no number, so one is added, by the rule for any sample the SDRF gives no number
+        /// (Q13): per sample, after the highest its condition uses, never changing a number the SDRF gives. A QC pool injected
+        /// three times is one sample: its three technical replicates share the number.
+        /// </summary>
+        [Test]
+        public void APooledReplicateIsNumberedByTheNoNumberRuleAndSaysSo()
+        {
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a.raw", "A", Biorep: "1"), new RoleRow("s4", "b.raw", "A", Biorep: "4"),
+                new RoleRow("QC pool", "qc1.raw", "A", Biorep: "pooled", Techrep: "1"),
+                new RoleRow("QC pool", "qc2.raw", "A", Biorep: "pooled", Techrep: "2")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            var written = WrittenDesign(design);
+            Assert.That(written.Single(l => l.StartsWith("b.raw")), Is.EqualTo("b.raw\tA\t4\t1\t1\tstudy sample"), "a given number is kept");
+            Assert.That(written.Single(l => l.StartsWith("qc1.raw")), Is.EqualTo("qc1.raw\tA\t5\t1\t1\treference"));
+            Assert.That(written.Single(l => l.StartsWith("qc2.raw")), Is.EqualTo("qc2.raw\tA\t5\t1\t2\treference"));
+            Assert.That(design.Notes, Has.Some.Contains("'QC pool' -> 5"));
+            Assert.That(design.Report(), Does.Contain("Reference files: 2 (qc1.raw, qc2.raw)"));
+        }
+
+        /// <summary>
+        /// Signals that disagree (a sample type of study sample beside a <c>pooled</c> replicate) are reported, and the file
+        /// is read as a reference: a pool read as a study sample pulls its group towards the mean of all groups.
+        /// </summary>
+        [Test]
+        public void SignalsThatDisagreeAreReportedAndTheFileIsAReference()
+        {
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a.raw", "A"),
+                new RoleRow("QC pool", "pool.raw", "A", Biorep: "pooled", SampleType: "NT=study sample;AC=PRIDE:0000898", PooledSample: "not pooled")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "A_1" }));
+            Assert.That(design.Notes, Has.Some.Contains("Line 3 (pool.raw) is marked a reference by biological replicate 'pooled'")
+                .And.Some.Contains("sample type 'study sample'").And.Some.Contains("read as a reference"));
+        }
+
+        /// <summary>
+        /// A deposited label-free SDRF (PXD009086, curated): a hypothalamus MasterMix pool injected three times beside the
+        /// study birds, its replicate <c>pooled</c>. Before GR-20 the design was refused for exactly those three cells; now
+        /// the three files are one reference sample, kept and out of every comparison.
+        /// </summary>
+        [Test]
+        public void Pxd009086ReadsItsMasterMixPoolAsAReference()
+        {
+            var design = SdrfLabelFreeDesign.Read(Fixture("PXD009086.subset.sdrf.tsv"));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files, Has.Count.EqualTo(11));
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "fasting_1", "fasting_2", "fed_1", "fed_2" }));
+
+            var written = WrittenDesign(design);
+            Assert.That(written[0], Does.EndWith("\tSample Type"));
+            Assert.That(written.Where(l => l.EndsWith("\treference")).Select(l => l.Split('\t')[0]),
+                Is.EqualTo(new[] { "141113_MasterMix_A.raw", "141113_MasterMix_B.raw", "141113_MasterMix_C.raw" }));
+            Assert.That(written.Single(l => l.StartsWith("141113_MasterMix_C.raw")), Is.EqualTo("141113_MasterMix_C.raw\tnot applicable\t1\t1\t3\treference"));
         }
 
         [TestCase("0")]

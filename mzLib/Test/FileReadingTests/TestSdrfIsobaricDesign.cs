@@ -296,6 +296,24 @@ namespace Test.FileReadingTests
             Assert.That(design.Notes, Has.Some.Contains("Plex 'P1' channel 131N ('pool')").And.Some.Contains("read as a reference"));
         }
 
+        /// <summary>
+        /// A pool of every condition often says its condition is <c>not applicable</c>. For a reference that is kept as
+        /// written, because a reference is in no comparison; for a study sample it is still refused (SDRF-P1).
+        /// </summary>
+        [Test]
+        public void AReferencesUnknownConditionIsKeptButAStudySamplesIsRefused()
+        {
+            var reference = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"),
+                new RoleRow("a.raw", "TMT131N", "pool", Biorep: "pooled", Condition: "not applicable")), ByColumn());
+            Assert.That(reference.Refusals, Is.Empty, reference.Report());
+            Assert.That(ChannelOf(reference, "a.raw", "131N").Condition, Is.EqualTo("not applicable"));
+
+            var study = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "S2", Condition: "not applicable")), ByColumn());
+            Assert.That(study.Refusals.Single(), Does.Contain("A condition cannot be built from an unknown factor"));
+        }
+
         [Test]
         public void AChannelThatIsAReferenceInOneFileOfAPlexOnlyIsRefused()
         {

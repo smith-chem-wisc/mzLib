@@ -136,8 +136,7 @@ namespace Readers
         /// <summary>The value a drafter writes when it assigned a biological replicate nobody stated (QP-S23).</summary>
         public const string DefaultReplicateSource = "default";
 
-        public const string SampleTypeColumn = "characteristics[sample type]";
-        public const string PooledSampleColumn = "characteristics[pooled sample]";
+        /// <summary>The column naming a plex's reference channel(s); one of the four pooled-reference signals (GR-20).</summary>
         public const string ReferenceChannelColumn = "comment[reference channel]";
 
         /// <summary>
@@ -149,10 +148,6 @@ namespace Readers
 
         /// <summary>MetaMorpheus's optional <c>TmtDesign.txt</c> column, read since MetaMorpheus 1.1.10.</summary>
         public const string TmtDesignSampleTypeColumn = "Sample Type";
-
-        // The sample-type words that mark a reference (sdrf 041), and the pooled-sample word that marks none.
-        private static readonly HashSet<string> ReferenceSampleTypes = new(StringComparer.OrdinalIgnoreCase) { "reference", SdrfReserved.Pooled };
-        private const string NotPooled = "not pooled";
 
         private readonly List<SdrfIsobaricFile> _files;
 
@@ -482,14 +477,16 @@ namespace Readers
                 refusals.Add($"{where}: channel {label ?? "?"} ('{sampleName}') has '{BiologicalReplicateSourceColumn}' '{replicateSource}', " +
                              "so its biological replicate was filled in rather than stated. State it, or remove the row.");
 
-            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals);
+            // GR-20: a reference channel is never refused for giving no number (`pooled`, or an unknown word), nor
+            // for an unknown condition; a number is added later, per plex and sample. A study sample's are required as before.
+            var (referenceSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row,
+                label == null ? null : cell => NamesChannel(cell, label, tag));
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
+                isReference: referenceSignals.Count > 0);
             string? plex = plexReader.Read(row, fileName, where, refusals);
 
-            // GR-20: a reference channel is never refused for giving no number (`pooled`, or an unknown word);
-            // one is added later, per plex and sample. A study sample's number is required as before.
             string biorepText = (row[SdrfLabelFreeDesign.BiologicalReplicateColumn] ?? string.Empty).Trim();
-            var (referenceSignals, studySampleSignals) = ReadReferenceSignals(row, label, tag, biorepText);
-            bool givesNoNumber = string.Equals(biorepText, SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase)
+            bool givesNoNumber = SdrfDesignRules.IsPooledWord(biorepText)
                                  || biorepText.Length == 0 || SdrfDesignRules.IsUnknownWord(biorepText);
             int? biorep = referenceSignals.Count > 0 && givesNoNumber
                 ? null
@@ -517,45 +514,6 @@ namespace Readers
                 ReferenceSignals = referenceSignals,
                 StudySampleSignals = studySampleSignals,
             };
-        }
-
-        /// <summary>
-        /// The four reference signals (sdrf 041, ruled 2026-10-08), each read on its own; any one makes the channel a
-        /// reference. Beside them, what the row says that reads as a study sample (a sample type that names something
-        /// else, a pooled sample of <c>not pooled</c>), so a disagreement can be reported. Empty cells and
-        /// <c>not available</c> / <c>not applicable</c> say neither.
-        /// </summary>
-        private static (List<string> Reference, List<string> StudySample) ReadReferenceSignals(SdrfRow row, string? channel,
-            IsobaricMassTag tag, string biorepText)
-        {
-            var reference = new List<string>();
-            var studySample = new List<string>();
-
-            string sampleTypeCell = (row[SampleTypeColumn] ?? string.Empty).Trim();
-            string sampleType = sampleTypeCell.Length == 0 ? string.Empty : SdrfQuantAuditor.ReadLabel(sampleTypeCell).Name;
-            if (ReferenceSampleTypes.Contains(sampleType))
-                reference.Add($"sample type '{sampleType}'");
-            else if (sampleType.Length > 0 && !SdrfDesignRules.IsUnknownWord(sampleType))
-                studySample.Add($"sample type '{sampleType}'");
-
-            // The deposits write the plex's reference channel on every row (TMT127N), so it marks only the row it names.
-            string referenceChannel = (row[ReferenceChannelColumn] ?? string.Empty).Trim();
-            if (channel != null && referenceChannel.Length > 0 && !SdrfDesignRules.IsUnknownWord(referenceChannel)
-                && NamesChannel(referenceChannel, channel, tag))
-            {
-                reference.Add($"reference channel '{referenceChannel}'");
-            }
-
-            string pooledSample = (row[PooledSampleColumn] ?? string.Empty).Trim();
-            if (string.Equals(pooledSample, NotPooled, StringComparison.OrdinalIgnoreCase))
-                studySample.Add($"pooled sample '{pooledSample}'");
-            else if (pooledSample.Length > 0 && !SdrfDesignRules.IsUnknownWord(pooledSample))
-                reference.Add("pooled sample");
-
-            if (string.Equals(biorepText, SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase))
-                reference.Add($"biological replicate '{biorepText}'");
-
-            return (reference, studySample);
         }
 
         // A reference-channel cell names one channel, or several separated by commas, in any of the label forms the
@@ -601,18 +559,15 @@ namespace Readers
             }
         }
 
-        // sdrf 041: two signals that disagree are reported, and the channel is read as a reference, because a pool read as
-        // a study sample pulls its group towards the mean of all groups. Once per plex and channel, not per fraction.
+        // Once per plex and channel, not per fraction (SdrfDesignRules.DisagreementNote).
         private static void NoteDisagreeingReferenceSignals(List<ParsedRow> rows, List<string> notes)
         {
             foreach (var channel in rows.Where(r => r.IsReference && r.StudySampleSignals.Count > 0)
                          .GroupBy(r => (Plex: r.Plex.ToUpperInvariant(), Label: r.Label.ToUpperInvariant())))
             {
                 var first = channel.First();
-                notes.Add($"Plex '{first.Plex}' channel {first.Label} ('{first.SampleName}') is marked a reference by " +
-                          $"{string.Join(", ", channel.SelectMany(r => r.ReferenceSignals).Distinct())}, but also says " +
-                          $"{string.Join(", ", channel.SelectMany(r => r.StudySampleSignals).Distinct())}. It is read as a reference: " +
-                          "a pool read as a study sample would pull its group towards the mean of all groups.");
+                notes.Add(SdrfDesignRules.DisagreementNote($"Plex '{first.Plex}' channel {first.Label} ('{first.SampleName}')",
+                    channel.SelectMany(r => r.ReferenceSignals), channel.SelectMany(r => r.StudySampleSignals)));
             }
         }
 

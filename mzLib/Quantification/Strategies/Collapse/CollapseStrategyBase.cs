@@ -147,7 +147,10 @@ namespace Quantification.Strategies
                 condition: source.Condition,
                 biorep: biorep,
                 techrep: techrep,
-                fraction: fraction);
+                fraction: fraction)
+            {
+                IsReference = source is SpectraFileInfo { IsReference: true },
+            };
         }
 
         /// <summary>

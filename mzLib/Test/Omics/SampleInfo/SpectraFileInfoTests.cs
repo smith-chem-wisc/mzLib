@@ -36,6 +36,28 @@ namespace Test.Omics.SampleInfo
         }
 
         /// <summary>
+        /// The pooled-reference role (GR-20) is carried but is not part of a file's identity: FlashLFQ and the quant
+        /// engine key dictionaries on SpectraFileInfo, so a file must be the same key whatever its role. Default false.
+        /// </summary>
+        [Test]
+        public void IsReference_DefaultsFalseAndIsNotPartOfIdentity()
+        {
+            var study = new SpectraFileInfo(@"C:\Data\qc.raw", "QC", 0, 1, 2);
+            var reference = new SpectraFileInfo(@"C:\Data\qc.raw", "QC", 0, 1, 2) { IsReference = true };
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(study.IsReference, Is.False);
+                Assert.That(reference.IsReference, Is.True);
+                Assert.That(reference, Is.EqualTo(study));
+                Assert.That(reference == study, Is.True);
+                Assert.That(reference.GetHashCode(), Is.EqualTo(study.GetHashCode()));
+                Assert.That(reference.CompareTo(study), Is.EqualTo(0));
+                Assert.That(new HashSet<SpectraFileInfo> { study }.Contains(reference), Is.True);
+            });
+        }
+
+        /// <summary>
         /// Verifies FilenameWithoutExtension correctly extracts filename from various path formats.
         /// Critical: Used for output file column headers and display.
         /// </summary>

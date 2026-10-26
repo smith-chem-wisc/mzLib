@@ -59,6 +59,14 @@ namespace Readers
     /// <c>ExperimentalDesign.tsv</c> are 1-based. The conversion happens once on the way in and once
     /// in <see cref="WriteExperimentalDesignTsv"/>, and nowhere else.</para>
     ///
+    /// <para><b>Pooled reference files</b> (GR-20; a QC pool, a reference) are never refused. A file the SDRF marks as one,
+    /// by <c>characteristics[sample type]</c> <c>reference</c> or <c>pooled</c>, by <c>characteristics[pooled sample]</c>
+    /// other than <c>not pooled</c>, or by a biological replicate of <c>pooled</c>, is kept, quantified as any file is, and
+    /// carried as <see cref="SpectraFileInfo.IsReference"/>, so statistics leave it out of every comparison. Any one signal
+    /// is enough; one that disagrees is reported, and the file is still a reference. A <c>pooled</c> replicate is a sample
+    /// that gives no number, numbered by the rule above, and a reference's unknown condition (<c>not applicable</c>) is kept
+    /// as written. <c>comment[reference channel]</c> names a channel, which a label-free file has none of.</para>
+    ///
     /// <para>The rules are the design ↔ SDRF mapping table's read rules: MAP-07 (condition), MAP-12
     /// (file key), MAP-21/22 (technical replicate, fraction), MAP-32..34.</para>
     /// </summary>
@@ -73,8 +81,21 @@ namespace Readers
         public const string SourceNameColumn = "source name";
         public const string FactorValuePrefix = "factor value[";
 
+        /// <summary>One of the pooled-reference signals (GR-20): <c>reference</c> or <c>pooled</c> marks one.</summary>
+        public const string SampleTypeColumn = "characteristics[sample type]";
+
+        /// <summary>One of the pooled-reference signals (GR-20): anything but <c>not pooled</c> marks one.</summary>
+        public const string PooledSampleColumn = "characteristics[pooled sample]";
+
         /// <summary>The header MetaMorpheus writes and reads, <c>EngineLayer.ExperimentalDesign</c>.</summary>
         public const string ExperimentalDesignHeader = "FileName\tCondition\tBiorep\tFraction\tTechrep";
+
+        /// <summary>
+        /// The optional trailing column <see cref="WriteExperimentalDesignTsv"/> adds when a file is a pooled reference:
+        /// <c>reference</c> or <c>study sample</c>, as in MetaMorpheus's <c>TmtDesign.txt</c>. MetaMorpheus and the
+        /// FlashLFQ app read the first five columns of <c>ExperimentalDesign.tsv</c> and ignore it.
+        /// </summary>
+        public const string ExperimentalDesignSampleTypeColumn = "Sample Type";
 
         private readonly List<SpectraFileInfo> _files;
 
@@ -124,22 +145,31 @@ namespace Readers
 
         /// <summary>
         /// Writes <c>ExperimentalDesign.tsv</c> in MetaMorpheus's format: 1-based, one row per file,
-        /// the file named with its extension. Throws when the design was refused, so a refusal can
-        /// never leave a file behind for MetaMorpheus to find.
+        /// the file named with its extension. When a file is a pooled reference, a trailing
+        /// <see cref="ExperimentalDesignSampleTypeColumn"/> says which (<c>reference</c> or <c>study sample</c>);
+        /// otherwise the file is written without it, exactly as before. Throws when the design was refused, so a
+        /// refusal can never leave a file behind for MetaMorpheus to find.
         /// </summary>
         public void WriteExperimentalDesignTsv(string path)
         {
             ThrowIfRefused();
 
+            bool withSampleType = _files.Any(f => f.IsReference);
             var text = new StringBuilder();
-            text.Append(ExperimentalDesignHeader).Append('\n');
+            text.Append(ExperimentalDesignHeader);
+            if (withSampleType)
+                text.Append('\t').Append(ExperimentalDesignSampleTypeColumn);
+            text.Append('\n');
             foreach (var file in _files)
             {
                 text.Append(Path.GetFileName(file.FullFilePathWithExtension)).Append('\t')
                     .Append(file.Condition).Append('\t')
                     .Append((file.BiologicalReplicate + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
                     .Append((file.Fraction + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
-                    .Append((file.TechnicalReplicate + 1).ToString(CultureInfo.InvariantCulture)).Append('\n');
+                    .Append((file.TechnicalReplicate + 1).ToString(CultureInfo.InvariantCulture));
+                if (withSampleType)
+                    text.Append('\t').Append(file.IsReference ? "reference" : "study sample");
+                text.Append('\n');
             }
 
             File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
@@ -159,6 +189,15 @@ namespace Readers
                 : $"Label-free design REFUSED: {Refusals.Count} reason(s). No design was produced.");
             report.AppendLine($"Files keyed on: {FileKeyColumn ?? "(none)"}");
             report.AppendLine($"Condition from: {(ConditionColumns.Count == 0 ? "(none)" : string.Join(" + ", ConditionColumns))}");
+            if (IsValid)
+            {
+                var references = _files.Where(f => f.IsReference).Select(f => Path.GetFileName(f.FullFilePathWithExtension)).ToList();
+                report.AppendLine(references.Count == 0
+                    ? "Reference files: none marked; every file is a study sample."
+                    : $"Reference files: {references.Count} ({string.Join(", ", references.Take(10))}" +
+                      (references.Count > 10 ? $", and {references.Count - 10} more" : string.Empty) +
+                      "), kept and carried, and left out of every comparison.");
+            }
             foreach (var note in Notes)
                 report.AppendLine("  note: " + note);
             foreach (var refusal in Refusals)
@@ -232,6 +271,10 @@ namespace Readers
                     unreadFiles.Add(fileName);
             }
 
+            foreach (var row in parsed.Where(r => r.IsReference && r.StudySampleSignals.Count > 0))
+                notes.Add(SdrfDesignRules.DisagreementNote($"Line {row.Line}{SdrfDesignRules.Describe(row.FileName)}",
+                    row.ReferenceSignals, row.StudySampleSignals));
+
             RefuseRepeatedFiles(parsed, refusals);
             SdrfDesignRules.RefuseConditionCollisions(parsed.Select(r => (r.Condition, r.FactorValues)), refusals);
 
@@ -250,7 +293,10 @@ namespace Readers
                 return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
 
             var files = parsed
-                .Select(r => new SpectraFileInfo(r.FilePath, r.Condition, bioreps[r] - 1, r.TechnicalReplicate - 1, r.Fraction - 1))
+                .Select(r => new SpectraFileInfo(r.FilePath, r.Condition, bioreps[r] - 1, r.TechnicalReplicate - 1, r.Fraction - 1)
+                {
+                    IsReference = r.IsReference,
+                })
                 .ToList();
 
             RefuseWhatMetaMorpheusWouldReject(files, refusals);
@@ -271,6 +317,11 @@ namespace Readers
             public required string SourceName { get; init; }
             public required int Fraction { get; init; }
             public required int TechnicalReplicate { get; init; }
+            /// <summary>The pooled-reference signals this row carries (GR-20); any one makes the file a reference.</summary>
+            public required IReadOnlyList<string> ReferenceSignals { get; init; }
+            /// <summary>What this row says that reads as a study sample, reported when a reference signal is also present.</summary>
+            public required IReadOnlyList<string> StudySampleSignals { get; init; }
+            public bool IsReference => ReferenceSignals.Count > 0;
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, List<string> conditionColumns,
@@ -289,7 +340,10 @@ namespace Readers
             if (fileName.Length == 0)
                 refusals.Add($"Line {line}: '{keyColumn}' is empty.");
 
-            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals);
+            // GR-20: a label-free file has no channel, so comment[reference channel] is not read.
+            var (referenceSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
+                isReference: referenceSignals.Count > 0);
 
             int? biorep = ReadBiologicalReplicate(row, line, fileName, refusals);
             int fraction = SdrfDesignRules.ReadPositiveInteger(row, FractionColumn, line, fileName, required: false, refusals);
@@ -309,6 +363,8 @@ namespace Readers
                 SourceName = (row[SourceNameColumn] ?? string.Empty).Trim(),
                 Fraction = fraction,
                 TechnicalReplicate = techrep,
+                ReferenceSignals = referenceSignals,
+                StudySampleSignals = studySampleSignals,
             };
         }
 
@@ -323,31 +379,19 @@ namespace Readers
         }
 
         /// <summary>
-        /// The SDRF's biological replicate number, or null where it gives none: no column, an empty cell, or
-        /// <c>not available</c> / <c>not applicable</c>. Anything else that is not an integer of 1 or more is
+        /// The SDRF's biological replicate number, or null where it gives none: no column, an empty cell,
+        /// <c>not available</c> / <c>not applicable</c>, or <c>pooled</c>, the word the SDRF specification prescribes for a
+        /// pooled sample, which is a pooled reference (GR-20). Anything else that is not an integer of 1 or more is
         /// refused, because it is a number the SDRF gives that cannot be kept.
-        /// <para><c>pooled</c> marks a pooled sample (a QC pool or a reference). It must never be quantified and compared
-        /// as a study sample (GR-20), and a label-free design has no place yet to mark a file as a reference
-        /// (<see cref="SpectraFileInfo"/> and <c>ExperimentalDesign.tsv</c> carry no role), so it is refused, saying
-        /// so. The isobaric reader carries the role (<see cref="SdrfIsobaricChannel.IsReference"/>).</para>
         /// </summary>
         private static int? ReadBiologicalReplicate(SdrfRow row, int line, string fileName, List<string> refusals)
         {
             string text = (row[BiologicalReplicateColumn] ?? string.Empty).Trim();
-            if (text.Length == 0 || SdrfDesignRules.IsUnknownWord(text))
+            if (text.Length == 0 || SdrfDesignRules.IsUnknownWord(text) || SdrfDesignRules.IsPooledWord(text))
                 return null;
 
             if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value >= 1)
                 return value;
-
-            if (string.Equals(text, SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase))
-            {
-                refusals.Add($"Line {line}{SdrfDesignRules.Describe(fileName)}: '{BiologicalReplicateColumn}' is '{text}', a pooled sample " +
-                             "(a QC pool or a reference). It must not be quantified and compared as a study sample, and a label-free design " +
-                             "cannot mark a file as a pooled reference yet: ExperimentalDesign.tsv has no column for it. " +
-                             "Remove the row, or give it a number to read it as a study sample.");
-                return null;
-            }
 
             refusals.Add($"Line {line}{SdrfDesignRules.Describe(fileName)}: '{BiologicalReplicateColumn}' is '{text}', not an integer of 1 or more.");
             return null;

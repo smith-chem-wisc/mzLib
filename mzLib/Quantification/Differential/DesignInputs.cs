@@ -44,8 +44,8 @@ public sealed record AnalysisSample(string SampleId)
     /// The biological samples of a pipeline's experimental design, each with its condition under
     /// <see cref="ConditionFactor"/> (STATS-FRAMEWORK section 3.2: grouping comes only from the design). The runs of one
     /// sample (its fractions and technical replicates) become one sample, keyed by <see cref="IdFor"/>. An isobaric
-    /// sample's batch is its plex, <c>plex{n}</c>. A pooled reference channel is not a biological sample and is left out,
-    /// and so is a channel the plex does not use: one with neither a condition nor a sample name, which is how
+    /// sample's batch is its plex, <c>plex{n}</c>. A pooled reference channel or file is not a biological sample and is
+    /// left out (GR-20), and so is a channel the plex does not use: one with neither a condition nor a sample name, which is how
     /// MetaMorpheus's TMT design and <c>SdrfIsobaricDesign</c> write every kit channel a plex leaves unannotated.
     /// An experimental design has no individuals, strata or covariates; add them with <c>with</c>.
     /// </summary>
@@ -78,7 +78,8 @@ public sealed record AnalysisSample(string SampleId)
 
         var samples = new List<AnalysisSample>();
         foreach (var runs in entries
-                     .Where(e => e is not IsobaricQuantSampleInfo { IsReferenceChannel: true } && !IsUnusedChannel(e))
+                     .Where(e => e is not IsobaricQuantSampleInfo { IsReferenceChannel: true }
+                                 && e is not SpectraFileInfo { IsReference: true } && !IsUnusedChannel(e))
                      .GroupBy(IdFor, StringComparer.Ordinal)
                      .OrderBy(g => g.Key, StringComparer.Ordinal))
         {
