@@ -103,7 +103,7 @@ public class SetTestMembersTests
         Assert.That(One(resolved, "Cd74").GroupGenes, Is.EqualTo(new[] { "Cd74" }));
         Assert.That(One(resolved, "Cd74").MemberAccessionsUsed, Is.EqualTo(new[] { "P04441" }));
         Assert.That(One(resolved, "H2-Ab1").ProteinGroup, Is.EqualTo("P01921"));
-        // H2-Ab1 has a group of its own, so the H2-Ab1/H2-Eb1 group does not enter (pending ruling 2): H2-Eb1 is shared.
+        // H2-Ab1 has a group of its own, so the H2-Ab1/H2-Eb1 group does not enter (ruled 2026-10-25): H2-Eb1 is shared.
         Assert.That(One(resolved, "H2-Eb1").State, Is.EqualTo(SetMemberState.SharedGroup));
         Assert.That(One(resolved, "H2-Aa").State, Is.EqualTo("not_in_rowset:above_1pct_q"));
         Assert.That(One(resolved, "Psmb8").State, Is.EqualTo("not_in_rowset:contaminant"));

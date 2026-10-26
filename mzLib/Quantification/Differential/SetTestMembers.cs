@@ -87,8 +87,7 @@ public static class SetMemberState
     public const string AboveOnePercentQReason = "above_1pct_q";
     /// <summary>
     /// The reason: the group passes the protein filter but none of its peptides has a value in the stratum, so it is not
-    /// in the stratum's table (<c>DEF-DIFF-ROWSET</c>). <b>Pending the user's ruling</b>: the contract lists only the two
-    /// reasons above.
+    /// in the stratum's table (<c>DEF-DIFF-ROWSET</c>). The third reason, ruled 2026-10-25 (DATA-DEFINITIONS v3.17).
     /// </summary>
     public const string NoValueInStratumReason = "no_value_in_stratum";
     /// <summary>Its only groups also hold other genes, and the all-members exception does not apply.</summary>
@@ -130,12 +129,12 @@ public sealed record SetMemberAssignment
 /// every accession is one of them. So a multi-gene entry (one histone H4 entry encoded by many genes) stands for no single
 /// member, and enters only through the exception.</para>
 /// <para><b>The all-members exception:</b> a group whose genes are all members of the part enters once, labelled with each
-/// of them. <b>Pending the user's ruling</b>, it enters only for members with no group of their own, and only when none of
-/// its genes has a group of its own; otherwise a member left with it is <see cref="SetMemberState.SharedGroup"/>. So no
-/// gene is counted twice.</para>
+/// of them. It enters only for members with no group of their own, and only when none of its genes has a group of its own;
+/// otherwise a member left with it is <see cref="SetMemberState.SharedGroup"/>. So no gene is counted twice (ruled
+/// 2026-10-25, DATA-DEFINITIONS v3.17).</para>
 /// <para><b>One group per member, chosen without looking at any effect:</b> the most samples of the contrast in which one
 /// of the group's unique peptides (GR-23) has a value; then the most such unique peptides with a value in one of the
-/// contrast's samples; then the group name in ordinal order.</para>
+/// contrast's samples (ruled 2026-10-25); then the group name in ordinal order.</para>
 /// </remarks>
 public static class SetMemberResolver
 {
