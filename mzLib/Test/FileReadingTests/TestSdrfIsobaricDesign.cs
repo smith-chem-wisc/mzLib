@@ -314,6 +314,45 @@ namespace Test.FileReadingTests
             Assert.That(study.Refusals.Single(), Does.Contain("A condition cannot be built from an unknown factor"));
         }
 
+        /// <summary>
+        /// GR-20, ruled 2026-10-26: when every channel of the whole design carries a pooled signal, the mark says how the
+        /// samples were made, so every channel is a study sample, and the notes say which signal.
+        /// </summary>
+        [Test]
+        public void AMarkOnEveryChannelOfTheWholeDesignSaysHowTheSamplesWereMade()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1", PooledSample: "pooled"), new RoleRow("a.raw", "TMT131N", "S2", PooledSample: "pooled", Condition: "B"),
+                new RoleRow("b.raw", "TMT126", "S3", PooledSample: "pooled", Plex: "P2"),
+                new RoleRow("b.raw", "TMT131N", "S4", PooledSample: "pooled", Plex: "P2", Condition: "B")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(new[] { ("a.raw", "126"), ("a.raw", "131N"), ("b.raw", "126"), ("b.raw", "131N") }
+                .All(c => !ChannelOf(design, c.Item1, c.Item2).IsReferenceChannel));
+            Assert.That(design.Notes, Has.Some.StartsWith("Every sample in this design is marked by pooled sample"));
+            Assert.That(WrittenTmtDesign(design)[0], Is.EqualTo(SdrfIsobaricDesign.TmtDesignHeader), "no channel is a reference");
+        }
+
+        /// <summary>
+        /// It is judged over the whole design, never per plex: a plex holding only its reference channel, beside a plex of
+        /// study samples, keeps the reference.
+        /// </summary>
+        [Test]
+        public void APlexOfOnlyReferencesBesideStudySamplesKeepsThem()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "pool", SampleType: "reference"),
+                new RoleRow("b.raw", "TMT131N", "pool", SampleType: "reference", Plex: "P2")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "b.raw", "131N").IsReferenceChannel, Is.True);
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.True);
+            Assert.That(ChannelOf(design, "a.raw", "126").IsReferenceChannel, Is.False);
+            Assert.That(design.Notes, Has.None.Contains("Every sample in this design"));
+        }
+
         [Test]
         public void AChannelThatIsAReferenceInOneFileOfAPlexOnlyIsRefused()
         {

@@ -810,6 +810,63 @@ namespace Test.FileReadingTests
             Assert.That(written.Single(l => l.StartsWith("141113_MasterMix_C.raw")), Is.EqualTo("141113_MasterMix_C.raw\tnot applicable\t1\t1\t3\treference"));
         }
 
+        // ---------------------------------------------------------------- every sample marked (GR-20, ruled 2026-10-26)
+
+        /// <summary>
+        /// When every sample of a design carries a pooled signal, the mark says how the samples were made, not that they
+        /// are references: all are study samples, and the notes say which signal. A mark on only some samples is a
+        /// reference, as before.
+        /// </summary>
+        [Test]
+        public void AMarkOnEverySampleSaysHowTheyWereMadeButOnSomeItMarksAReference()
+        {
+            var every = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("pool A1", "a1.raw", "A", PooledSample: "pooled"), new RoleRow("pool A2", "a2.raw", "A", Biorep: "2", PooledSample: "pooled"),
+                new RoleRow("pool B1", "b1.raw", "B", PooledSample: "pooled")));
+            Assert.That(every.Refusals, Is.Empty, every.Report());
+            Assert.That(AnalysisSampleIds(every), Is.EqualTo(new[] { "A_1", "A_2", "B_1" }));
+            Assert.That(every.Notes, Has.Some.EqualTo("Every sample in this design is marked by pooled sample, so the mark says how the " +
+                "samples were made, not that they are pooled references: all are read as study samples."));
+            Assert.That(WrittenDesign(every)[0], Is.EqualTo(SdrfLabelFreeDesign.ExperimentalDesignHeader), "no file is a reference");
+
+            var some = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a1.raw", "A"), new RoleRow("pool", "pool.raw", "A", Biorep: "2", PooledSample: "pooled")));
+            Assert.That(some.Refusals, Is.Empty, some.Report());
+            Assert.That(AnalysisSampleIds(some), Is.EqualTo(new[] { "A_1" }), "a mark on some samples still marks a reference");
+            Assert.That(some.Notes, Has.None.Contains("Every sample in this design"));
+        }
+
+        /// <summary>
+        /// PXD011349 (deposited, label-free) writes characteristics[pooled sample] = pooled on all 56 rows, with integer
+        /// replicates: each sample is itself a pool. They are the design's 56 study samples, as master reads them.
+        /// </summary>
+        [Test]
+        public void Pxd011349PooledOnEveryRowIsStudySamplesAsOnMaster()
+        {
+            var design = SdrfLabelFreeDesign.Read(Fixture("PXD011349.sdrf.tsv"));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files, Has.Count.EqualTo(56));
+            Assert.That(AnalysisSampleIds(design), Has.Count.EqualTo(56));
+            Assert.That(design.Notes, Has.Some.StartsWith("Every sample in this design is marked by pooled sample"));
+            Assert.That(WrittenDesign(design)[0], Is.EqualTo(SdrfLabelFreeDesign.ExperimentalDesignHeader));
+        }
+
+        /// <summary>
+        /// PXD056661 (deposited, label-free) writes a pooled replicate on every row. Master refuses it; now its nine
+        /// samples are study samples, each numbered by the no-number rule within its assay.
+        /// </summary>
+        [Test]
+        public void Pxd056661PooledReplicateOnEveryRowIsStudySamples()
+        {
+            var design = SdrfLabelFreeDesign.Read(Fixture("PXD056661.sdrf.tsv"));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(AnalysisSampleIds(design), Has.Count.EqualTo(9));
+            Assert.That(design.Notes, Has.Some.StartsWith("Every sample in this design is marked by biological replicate 'pooled'"));
+            Assert.That(design.Notes, Has.Some.Contains("numbered here"));
+        }
+
         [TestCase("0")]
         [TestCase("-1")]
         [TestCase("two")]

@@ -65,7 +65,9 @@ namespace Readers
     /// carried as <see cref="SpectraFileInfo.IsReference"/>, so statistics leave it out of every comparison. Any one signal
     /// is enough; one that disagrees is reported, and the file is still a reference. A <c>pooled</c> replicate is a sample
     /// that gives no number, numbered by the rule above, and a reference's unknown condition (<c>not applicable</c>) is kept
-    /// as written. <c>comment[reference channel]</c> names a channel, which a label-free file has none of.</para>
+    /// as written. <c>comment[reference channel]</c> names a channel, which a label-free file has none of. When every sample
+    /// of the design is marked, the mark says how the samples were made, so all are study samples, and a note says so
+    /// (ruled 2026-10-26).</para>
     ///
     /// <para>The rules are the design ↔ SDRF mapping table's read rules: MAP-07 (condition), MAP-12
     /// (file key), MAP-21/22 (technical replicate, fraction), MAP-32..34.</para>
@@ -253,6 +255,15 @@ namespace Readers
             var parsed = new List<ParsedRow>();
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             var dropped = new List<(int Line, string FileName)>();
+
+            // GR-20: a mark on every sample of the design says how the samples were made, not that they are references.
+            bool everySampleMarked = SdrfDesignRules.EverySampleIsMarked(rows
+                .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
+                .Select(r => (IReadOnlyList<string>)SdrfDesignRules.ReadReferenceSignals(r, namesThisChannel: null).Reference)
+                .ToList(), out string? everySampleNote);
+            if (everySampleNote != null)
+                notes.Add(everySampleNote);
+
             for (int i = 0; i < rows.Count; i++)
             {
                 int line = i + 2;
@@ -264,7 +275,7 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, refusals);
+                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, everySampleMarked, refusals);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
@@ -325,7 +336,7 @@ namespace Readers
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, List<string> conditionColumns,
-            bool conditionDeclared, List<string> refusals)
+            bool conditionDeclared, bool everySampleMarked, List<string> refusals)
         {
             int before = refusals.Count;
 
@@ -340,8 +351,11 @@ namespace Readers
             if (fileName.Length == 0)
                 refusals.Add($"Line {line}: '{keyColumn}' is empty.");
 
-            // GR-20: a label-free file has no channel, so comment[reference channel] is not read.
-            var (referenceSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
+            // GR-20: a label-free file has no channel, so comment[reference channel] is not read. When every sample of the
+            // design is marked, no sample is a reference (SdrfDesignRules.EverySampleIsMarked).
+            var (referenceSignals, studySampleSignals) = everySampleMarked
+                ? (new List<string>(), new List<string>())
+                : SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
             var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
                 isReference: referenceSignals.Count > 0);
 

@@ -86,6 +86,25 @@ namespace Readers
             "its group towards the mean of all groups.";
 
         /// <summary>
+        /// GR-20, ruled 2026-10-26: when every sample of a whole design carries a pooled signal, the mark says how the samples
+        /// were made (each is itself a pool), not that they are references, so every sample is read as a study sample. Judged
+        /// over the whole design, never per plex: a plex holding only reference channels beside plexes of study samples keeps
+        /// its references. A design with a mark on only some samples reads the marks as references.
+        /// </summary>
+        /// <param name="signalsByRow">The reference signals of every row the design reads (dropped rows excluded).</param>
+        /// <param name="note">The one sentence for the design's notes, naming the signal(s), when it applies.</param>
+        internal static bool EverySampleIsMarked(IReadOnlyList<IReadOnlyList<string>> signalsByRow, out string? note)
+        {
+            note = null;
+            if (signalsByRow.Count == 0 || signalsByRow.Any(s => s.Count == 0))
+                return false;
+            var signals = signalsByRow.SelectMany(s => s).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            note = $"Every sample in this design is marked by {string.Join(" or ", signals)}, so the mark says how the samples " +
+                   "were made, not that they are pooled references: all are read as study samples.";
+            return true;
+        }
+
+        /// <summary>
         /// MAP-12: the file the search read when the document says which, else the acquired one.
         /// Null (and a refusal) when neither column is present.
         /// </summary>

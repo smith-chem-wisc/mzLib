@@ -124,7 +124,8 @@ namespace Readers
     /// <c>TmtDesign.txt</c>), so statistics leave it out of every comparison. Any one signal is enough; one that
     /// disagrees is reported, and the channel is still a reference. Its biological replicate, when the SDRF gives none,
     /// is numbered here. Every other sample type (carrier, empty, single cell, ...) is read as a study sample, as
-    /// before.</para>
+    /// before. When every channel of the whole design is marked (judged over the design, never per plex), the mark says how
+    /// the samples were made, so all are study samples, and a note says so (ruled 2026-10-26).</para>
     ///
     /// <para><b>A plex is one channel-to-sample map.</b> As in MetaMorpheus, channels are collected per
     /// plex and every file of the plex carries all of them, so fractions share their samples.</para>
@@ -364,6 +365,15 @@ namespace Readers
             var parsed = new List<ParsedRow>();
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             var dropped = new List<(int Line, string FileName)>();
+
+            // GR-20: a mark on every channel of the whole design (never judged per plex) says how the samples were made.
+            bool everySampleMarked = SdrfDesignRules.EverySampleIsMarked(rows
+                .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
+                .Select(r => (IReadOnlyList<string>)SdrfDesignRules.ReadReferenceSignals(r, ChannelNamer(r, tag!)).Reference)
+                .ToList(), out string? everySampleNote);
+            if (everySampleNote != null)
+                notes.Add(everySampleNote);
+
             for (int i = 0; i < rows.Count; i++)
             {
                 int line = i + 2;
@@ -375,7 +385,8 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, fileName, keyColumn!, tag!, plexReader!, conditionColumns, conditionDeclared, refusals);
+                var row = ParseRow(rows[i], line, fileName, keyColumn!, tag!, plexReader!, conditionColumns, conditionDeclared,
+                    everySampleMarked, refusals);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
@@ -453,7 +464,8 @@ namespace Readers
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string fileName, string keyColumn, IsobaricMassTag tag,
-            PlexReader plexReader, List<string> conditionColumns, bool conditionDeclared, List<string> refusals)
+            PlexReader plexReader, List<string> conditionColumns, bool conditionDeclared, bool everySampleMarked,
+            List<string> refusals)
         {
             int before = refusals.Count;
             string where = $"Line {line}{SdrfDesignRules.Describe(fileName)}";
@@ -479,8 +491,10 @@ namespace Readers
 
             // GR-20: a reference channel is never refused for giving no number (`pooled`, or an unknown word), nor
             // for an unknown condition; a number is added later, per plex and sample. A study sample's are required as before.
-            var (referenceSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row,
-                label == null ? null : cell => NamesChannel(cell, label, tag));
+            // When every channel of the design is marked, no channel is a reference (SdrfDesignRules.EverySampleIsMarked).
+            var (referenceSignals, studySampleSignals) = everySampleMarked
+                ? (new List<string>(), new List<string>())
+                : SdrfDesignRules.ReadReferenceSignals(row, label == null ? null : cell => NamesChannel(cell, label, tag));
             var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
                 isReference: referenceSignals.Count > 0);
             string? plex = plexReader.Read(row, fileName, where, refusals);
@@ -514,6 +528,16 @@ namespace Readers
                 ReferenceSignals = referenceSignals,
                 StudySampleSignals = studySampleSignals,
             };
+        }
+
+        // The reference-channel test for a row whose label names a channel of the kit; null when it names none (that row is
+        // refused when it is parsed).
+        private static Func<string, bool>? ChannelNamer(SdrfRow row, IsobaricMassTag tag)
+        {
+            string cell = (row[SdrfLabelFreeDesign.LabelColumn] ?? string.Empty).Trim();
+            return SdrfIsobaricLabels.TryGetChannel(tag.TagType, cell, out string? channel) && channel != null
+                ? referenceCell => NamesChannel(referenceCell, channel, tag)
+                : null;
         }
 
         // A reference-channel cell names one channel, or several separated by commas, in any of the label forms the

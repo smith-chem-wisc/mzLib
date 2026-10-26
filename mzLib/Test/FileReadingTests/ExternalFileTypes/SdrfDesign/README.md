@@ -37,3 +37,11 @@ Label-free subset, cut the same way from the same repository and commit (`datase
   two injections each, plus the `hypothalamus_pool` MasterMix injected three times (technical replicates 1-3) with
   `characteristics[biological replicate]` `pooled` and `factor value[treatment]` `not applicable`. The light birds are
   left out: they reuse the heavy birds' replicate numbers in each condition, which the whole file is refused for.
+
+Two whole label-free files from the same repository and commit, each marking EVERY sample (GR-20: the mark then says how
+the samples were made, so all are study samples):
+
+- `PXD011349.sdrf.tsv`: 56 rows, 56 files, two heart regions, `characteristics[pooled sample]` `pooled` on every row and
+  integer biological replicates.
+- `PXD056661.sdrf.tsv`: 9 rows, 9 files, three glycoproteome assays of three samples each,
+  `characteristics[biological replicate]` `pooled` on every row.
