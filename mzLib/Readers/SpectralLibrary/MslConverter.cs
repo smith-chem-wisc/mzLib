@@ -174,7 +174,8 @@ public static class MslConverter
 		// The loader delegate is a direct array lookup — all fragments are already in memory.
 		MslIndex index = MslIndex.Build(
 			entries,
-			i => i >= 0 && i < entries.Count ? entries[i] : null);
+			i => i >= 0 && i < entries.Count ? entries[i] : null,
+			maxBufferSize: 0);
 
 		// Invoke the internal MslLibrary constructor via the same pattern used by Load().
 		// isIndexOnly = false  (everything is in memory)

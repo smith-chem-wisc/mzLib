@@ -45,6 +45,13 @@ namespace Readers
         /// </summary>
         public int? BiologicalReplicate { get; init; } = 1;
 
+        /// <summary>
+        /// The sample is a pool of several biological samples (a QC pool, a reference channel). Its biological
+        /// replicate is written <c>pooled</c>, the specification's reserved word, so leave
+        /// <see cref="BiologicalReplicate"/> at its default or null: any other number throws, since a pool has none.
+        /// </summary>
+        public bool Pooled { get; init; }
+
         /// <summary>The label for this row: "label free sample", or a TMT channel.</summary>
         public CvParam? Label { get; init; }
 
@@ -80,7 +87,8 @@ namespace Readers
         /// the FIRST value only. That is a deliberate scope boundary, not an oversight: writing
         /// repeats needs a list-valued input and a header that repeats the column, and nine files in
         /// 1,236 do not yet justify that. A caller that must not lose the others can check
-        /// <c>block.All(column).Count &gt; 1</c> and decide.</para>
+        /// <c>block.All(column).Count &gt; 1</c> and decide, or carry the whole row with
+        /// <see cref="CopiedFrom"/>, which keeps repeats.</para>
         /// </summary>
         public IReadOnlyDictionary<string, string> RawCharacteristics { get; init; }
             = new Dictionary<string, string>();
@@ -129,6 +137,33 @@ namespace Readers
         /// </summary>
         public IReadOnlyDictionary<string, string> Comments { get; init; }
             = new Dictionary<string, string>();
+
+        /// <summary>
+        /// An input SDRF row whose sample columns this row carries cell for cell, instead of building them from the
+        /// fields above. Null (the default) builds the sample half from the fields, exactly as before.
+        ///
+        /// When set, the copy is the ONLY source of this row's sample columns: <see cref="SourceName"/> must equal
+        /// the copied <c>source name</c>, and <see cref="Organism"/>, <see cref="Characteristics"/>,
+        /// <see cref="RawCharacteristics"/>, <see cref="BiologicalReplicate"/> (other than its default of 1),
+        /// <see cref="FactorValue"/>, <see cref="FactorValueColumn"/>, <see cref="FactorValues"/> and
+        /// <see cref="Comments"/> must be left unset, or the build throws. <see cref="Label"/> is still used: it is
+        /// written to <c>comment[label]</c>, an assay column.
+        ///
+        /// The copied cells are written as given: no trim, no case change, no term parsing, repeats repeated, in the
+        /// input header's order. That is the one deliberate exception to <see cref="SdrfBuilder"/>'s "terms are
+        /// resolved, never copied": these are somebody else's statements about their samples, which this search
+        /// carries and does not make. A copied <c>not available</c> is that statement, so
+        /// <see cref="SdrfBuilderOptions.RequireSampleMetadata"/> does not refuse it. A blank sample fact is refused,
+        /// naming the column; a blank <c>comment[...]</c> is written blank.
+        ///
+        /// The builder's own columns are never copied. That includes <c>comment[proteomexchange accession number]</c>,
+        /// which is written only from <see cref="SdrfBuilderOptions.ProteomeXchangeAccession"/>, so pass the input's
+        /// accession there to keep it. <see cref="SdrfSampleCopy"/> says what else is not carried.
+        ///
+        /// Every row of one build carries a copy or none does, and every copy has the same columns in the same order:
+        /// one input document gives one header.
+        /// </summary>
+        public SdrfSampleCopy? CopiedFrom { get; init; }
     }
 
     /// <summary>

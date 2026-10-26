@@ -635,8 +635,9 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         source ??= CandidateSet;
+        // Modification equality ignores the location restriction, so value-distinct would merge terminal and side-chain entries.
         return source.Where(modification => MatchesIdentifierSet(modification, identifiers))
-            .Distinct();
+            .Distinct<Modification>(ReferenceEqualityComparer.Instance);
     }
 
     private bool MatchesIdentifierSet(Modification modification, HashSet<string> identifiers)
