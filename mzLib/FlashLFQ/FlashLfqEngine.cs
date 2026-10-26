@@ -886,15 +886,29 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Returns a pseudo-randomly selected peak that does not have the same mass as the donor
+        /// Returns a pseudo-randomly selected peak that does not have the same mass as the donor, to serve as the
+        /// donor's random-retention-time decoy in the acceptor file.
         /// </summary>
-        /// <param name="peaksOrderedByMass"></param>
-        /// <returns></returns>
+        /// <remarks>
+        /// The candidate is chosen by rendezvous hashing: the one with the smallest stable hash of (donor file,
+        /// donor sequence, acceptor file, candidate sequence). Its chance therefore depends only on itself, never
+        /// on how many other candidates there are or their order. One more donor peptide in the mass window
+        /// changes a donor's decoy only when that peptide is the one drawn, about one time in (n + 1); one fewer
+        /// changes it only when it was the one drawn (issue #1484). An index taken modulo the candidate count
+        /// re-drew the decoy of every donor whose window gained or lost a peptide.
+        /// </remarks>
+        /// <param name="peaksOrderedByMass">The donor file's best MS/MS peak per sequence.</param>
+        /// <param name="donorPeakRetentionTime">The donor peak's apex retention time.</param>
+        /// <param name="retentionTimeMinDiff">How far from the donor in retention time a candidate must be.</param>
+        /// <param name="donorIdentification">The donor identification the decoy is for.</param>
+        /// <param name="acceptorFile">The file the donor is transferred into.</param>
+        /// <returns>The decoy's donor peak, or null when no candidate exists.</returns>
         internal ChromatographicPeak GetRandomPeak(
             List<ChromatographicPeak> peaksOrderedByMass,
             double donorPeakRetentionTime,
             double retentionTimeMinDiff,
-            Identification donorIdentification)
+            Identification donorIdentification,
+            SpectraFileInfo acceptorFile)
         {
             double minDiff = 5 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
             double maxDiff = 11 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
@@ -929,9 +943,31 @@ namespace FlashLFQ
                 return null;
             }
 
-            // Generates a pseudo-random number based on the donor peak finding mass + retention time
-            int pseudoRandomNumber = (int)(1e5 * (donorIdentification.PeakfindingMass % 1.0) * (donorIdentification.Ms2RetentionTimeInMinutes % 1.0)) % randomPeakCandidates.Count;
-            return randomPeakCandidates[pseudoRandomNumber];
+            // Rendezvous hashing: the candidate with the smallest stable hash of (donor, acceptor, candidate)
+            ulong donorAndAcceptor = StableHash.FnvOffsetBasis;
+            donorAndAcceptor = StableHash.AppendSeparator(StableHash.Append(donorAndAcceptor, donorIdentification.FileInfo?.FilenameWithoutExtension));
+            donorAndAcceptor = StableHash.AppendSeparator(StableHash.Append(donorAndAcceptor, donorIdentification.ModifiedSequence));
+            donorAndAcceptor = StableHash.AppendSeparator(StableHash.Append(donorAndAcceptor, acceptorFile?.FilenameWithoutExtension));
+
+            ChromatographicPeak drawn = null;
+            string drawnSequence = null;
+            ulong drawnWeight = ulong.MaxValue;
+            foreach (ChromatographicPeak candidate in randomPeakCandidates)
+            {
+                string candidateSequence = candidate.Identifications.First().ModifiedSequence;
+                ulong weight = StableHash.Mix(StableHash.Append(donorAndAcceptor, candidateSequence));
+
+                // Ties (one in 2^64) go to the ordinal-first sequence, so the order of the list never decides
+                if (drawn == null || weight < drawnWeight
+                    || (weight == drawnWeight && string.CompareOrdinal(candidateSequence, drawnSequence) < 0))
+                {
+                    drawn = candidate;
+                    drawnSequence = candidateSequence;
+                    drawnWeight = weight;
+                }
+            }
+
+            return drawn;
         }
 
         /// <summary>
@@ -1048,7 +1084,8 @@ namespace FlashLFQ
                             ChromatographicPeak randomDonor = GetRandomPeak(donorPeaksMassOrdered,
                                 donorPeak.ApexRetentionTime,
                                 minimumRtDifference,
-                                donorPeak.Identifications.First());
+                                donorPeak.Identifications.First(),
+                                acceptorFile);
 
                             // Look for MBR decoy (random-RT peak) 
                             MbrChromatographicPeak bestDecoy = null;
