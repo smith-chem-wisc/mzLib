@@ -330,18 +330,46 @@ namespace Proteomics
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToList();
 
+        /// <summary>
+        /// The dbReference type UniProt uses for Reactome pathways
+        /// (&lt;dbReference type="Reactome" id="R-HSA-70171"&gt;). Declared here for the same reason as the
+        /// taxonomy, GO and Ensembl types.
+        /// </summary>
         public const string ReactomeDatabaseReferenceType = "Reactome";
 
-        // RED: surface only
+        /// <summary>
+        /// The Reactome pathways this entry is a member of, one per pathway id, each with the isoforms its membership
+        /// is scoped to (empty = the whole entry). UniProt lists the lowest-level pathways only, not their ancestors.
+        ///
+        /// A derived view over DatabaseReferences, like GoTerms. Decoys carry no pathways -- only the taxonomy reference
+        /// travels onto a decoy -- and FASTA-loaded proteins carry none, so this is empty for them.
+        /// </summary>
         public IReadOnlyList<ReactomePathway> ReactomePathways => ReactomePathway.FromDatabaseReferences(DatabaseReferences);
 
+        /// <summary>
+        /// The dbReference type UniProt uses for KEGG GENES ids (&lt;dbReference type="KEGG" id="hsa:2597"/&gt;).
+        /// Declared here for the same reason as the other types.
+        /// </summary>
         public const string KeggDatabaseReferenceType = "KEGG";
 
-        // RED: surface only
-        public IReadOnlyList<string> KeggGeneIds => Array.Empty<string>();
+        /// <summary>
+        /// The distinct KEGG GENES ids this entry links to (e.g. "hsa:2597"), in ordinal order. Empty when it names
+        /// none. A KEGG reference is a bare gene id: UniProt carries no KEGG pathway, module or orthology, so this is a
+        /// link to KEGG, not pathway membership.
+        /// </summary>
+        public IReadOnlyList<string> KeggGeneIds => (DatabaseReferences ?? Enumerable.Empty<DatabaseReference>())
+            .Where(r => r != null && r.Type == KeggDatabaseReferenceType && !string.IsNullOrEmpty(r.Id))
+            .Select(r => r.Id)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
 
-        // RED: surface only
-        public string DisplayedIsoformId => null;
+        /// <summary>
+        /// The UniProt isoform this protein's sequence is (e.g. "P04406-1"), or null when the entry lists no isoforms.
+        /// A Reactome membership scoped to that isoform applies to this sequence. See
+        /// <see cref="UniProtSequenceAttributes.DisplayedIsoformId"/>.
+        /// </summary>
+        public string DisplayedIsoformId => UniProtSequenceAttributes?.DisplayedIsoformId;
 
         public string Organism { get; }
         public bool IsDecoy { get; }

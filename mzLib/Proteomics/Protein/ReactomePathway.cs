@@ -43,8 +43,39 @@ namespace Proteomics
         /// </summary>
         public IReadOnlyCollection<string> Molecules { get; }
 
-        // RED: surface only, so the failing tests compile; nothing is read yet.
-        public static IReadOnlyList<ReactomePathway> FromDatabaseReferences(IEnumerable<DatabaseReference> references) =>
-            Array.Empty<ReactomePathway>();
+        /// <summary>
+        /// Projects a flat list of database references onto Reactome pathways: keeps only Type == "Reactome", one pathway
+        /// per id, and unions the isoforms of repeats.
+        ///
+        /// Filtering by type is mandatory, not defensive -- the same list holds GO, PubMed, organism and every other
+        /// reference, and the XML parser applies no depth guard. A reference without a name is still a membership and is
+        /// kept with an empty name; dropping it would read as "not annotated". A repeat that covers the whole entry
+        /// covers every isoform, so the merged pathway is whole-entry.
+        /// </summary>
+        public static IReadOnlyList<ReactomePathway> FromDatabaseReferences(IEnumerable<DatabaseReference> references)
+        {
+            if (references == null)
+            {
+                return Array.Empty<ReactomePathway>();
+            }
+
+            return references
+                .Where(r => r != null && r.Type == Protein.ReactomeDatabaseReferenceType)
+                .GroupBy(r => r.Id ?? "", StringComparer.Ordinal)
+                .Select(BuildPathway)
+                .ToList();
+        }
+
+        private static ReactomePathway BuildPathway(IGrouping<string, DatabaseReference> sameId)
+        {
+            // Matched by type, never by position: ProteinDbWriter re-sorts properties on write.
+            string name = sameId.Select(r => PropertyValue(r, PathwayNamePropertyType)).FirstOrDefault(n => !string.IsNullOrEmpty(n));
+            var molecules = sameId.Any(r => r.Molecule == null) ? Enumerable.Empty<string>() : sameId.Select(r => r.Molecule);
+            return new ReactomePathway(sameId.Key, name, molecules);
+        }
+
+        private static string PropertyValue(DatabaseReference reference, string type) =>
+            (reference.Properties ?? Enumerable.Empty<Tuple<string, string>>())
+                .FirstOrDefault(p => p != null && p.Item1 == type)?.Item2;
     }
 }

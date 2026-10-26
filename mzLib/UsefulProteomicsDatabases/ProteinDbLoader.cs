@@ -73,8 +73,16 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
 
+        /// <summary>
+        /// The dbReference type UniProt uses for Reactome pathways. Re-exported for the same reason as the taxonomy, GO
+        /// and Ensembl types. Read the pathways from <see cref="Protein.ReactomePathways"/>.
+        /// </summary>
         public const string ReactomeDatabaseReferenceType = Protein.ReactomeDatabaseReferenceType;
 
+        /// <summary>
+        /// The dbReference type UniProt uses for KEGG GENES ids. Re-exported for the same reason. Read the ids from
+        /// <see cref="Protein.KeggGeneIds"/>.
+        /// </summary>
         public const string KeggDatabaseReferenceType = Protein.KeggDatabaseReferenceType;
 
         /// <summary>
