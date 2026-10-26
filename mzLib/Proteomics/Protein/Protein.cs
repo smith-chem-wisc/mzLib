@@ -330,6 +330,19 @@ namespace Proteomics
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToList();
 
+        public const string ReactomeDatabaseReferenceType = "Reactome";
+
+        // RED: surface only
+        public IReadOnlyList<ReactomePathway> ReactomePathways => ReactomePathway.FromDatabaseReferences(DatabaseReferences);
+
+        public const string KeggDatabaseReferenceType = "KEGG";
+
+        // RED: surface only
+        public IReadOnlyList<string> KeggGeneIds => Array.Empty<string>();
+
+        // RED: surface only
+        public string DisplayedIsoformId => null;
+
         public string Organism { get; }
         public bool IsDecoy { get; }
         public int Length => BaseSequence.Length;

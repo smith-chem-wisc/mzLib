@@ -73,6 +73,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
 
+        public const string ReactomeDatabaseReferenceType = Protein.ReactomeDatabaseReferenceType;
+
+        public const string KeggDatabaseReferenceType = Protein.KeggDatabaseReferenceType;
+
         /// <summary>
         /// Whether an accession is entrapment by the rule the loaders apply when no whole-database flag is
         /// given: it contains <paramref name="entrapmentIdentifier"/> anywhere, ignoring case. A caller holding
