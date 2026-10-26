@@ -326,6 +326,10 @@ namespace Readers
         /// The SDRF's biological replicate number, or null where it gives none: no column, an empty cell, or
         /// <c>not available</c> / <c>not applicable</c>. Anything else that is not an integer of 1 or more is
         /// refused, because it is a number the SDRF gives that cannot be kept.
+        /// <para><c>pooled</c> marks a pooled sample (a QC pool or a reference). It must never be quantified and compared
+        /// as a study sample (GR-20), and a label-free design has no place yet to mark a file as a reference
+        /// (<see cref="SpectraFileInfo"/> and <c>ExperimentalDesign.tsv</c> carry no role), so it is refused, saying
+        /// so. The isobaric reader carries the role (<see cref="SdrfIsobaricChannel.IsReference"/>).</para>
         /// </summary>
         private static int? ReadBiologicalReplicate(SdrfRow row, int line, string fileName, List<string> refusals)
         {
@@ -335,6 +339,15 @@ namespace Readers
 
             if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value >= 1)
                 return value;
+
+            if (string.Equals(text, SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase))
+            {
+                refusals.Add($"Line {line}{SdrfDesignRules.Describe(fileName)}: '{BiologicalReplicateColumn}' is '{text}', a pooled sample " +
+                             "(a QC pool or a reference). It must not be quantified and compared as a study sample, and a label-free design " +
+                             "cannot mark a file as a pooled reference yet: ExperimentalDesign.tsv has no column for it. " +
+                             "Remove the row, or give it a number to read it as a study sample.");
+                return null;
+            }
 
             refusals.Add($"Line {line}{SdrfDesignRules.Describe(fileName)}: '{BiologicalReplicateColumn}' is '{text}', not an integer of 1 or more.");
             return null;

@@ -661,6 +661,22 @@ namespace Test.FileReadingTests
                 "'mouse X' in condition 'A' give several (1, 2), so which one it is cannot be told."));
         }
 
+        /// <summary>
+        /// A pooled sample (a QC pool or a reference) must never be quantified and compared as a study sample (GR-20), and
+        /// a label-free design has nowhere to mark it, so for now it is refused, saying so, never as a bad number.
+        /// </summary>
+        [TestCase("pooled")]
+        [TestCase("Pooled")]
+        public void APooledReplicateIsRefusedAsAPooledSampleNotAsABadNumber(string biorep)
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true, ("s1", "1", "a.raw", "A", "1"), ("QC pool", biorep, "b.raw", "A", "1")));
+
+            Assert.That(design.Refusals.Single(), Does.StartWith(
+                    $"Line 3 (b.raw): 'characteristics[biological replicate]' is '{biorep}', a pooled sample")
+                .And.Contain("cannot mark a file as a pooled reference")
+                .And.Not.Contain("not an integer"));
+        }
+
         [TestCase("0")]
         [TestCase("-1")]
         [TestCase("two")]

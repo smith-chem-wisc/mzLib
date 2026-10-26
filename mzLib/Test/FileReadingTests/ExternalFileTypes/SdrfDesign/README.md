@@ -25,3 +25,8 @@ every column and cell as deposited; only rows were removed, whole files at a tim
   `PAT8141A13RW2_B1.raw`) of the one plex of experiment 2 (12 files in all). It labels the last channel
   `TMT131`, PRIDE's spelling (PRIDE:0000529), where mzLib says 131N. No column names the plex, and no
   `factor value[...]` column is given.
+- `PXD048052.subset.sdrf.tsv`: 20 rows, 2 files (`230120_1.raw`, `230120_2.raw`), TMT10, single-cell. Each
+  file is its own plex, and no column names it. In each, channel 127N is a pooled reference, and it says so
+  four ways at once: `characteristics[sample type]` `reference`, `characteristics[pooled sample]` `pooled`,
+  `comment[reference channel]` `TMT127N`, and `characteristics[biological replicate]` `pooled`. The last
+  channel is labelled `TMT131`.

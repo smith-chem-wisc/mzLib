@@ -111,7 +111,11 @@ public class AnalysisSampleTests
         Assert.That(analysis.Samples, Has.Count.EqualTo(4));
     }
 
-    /// <summary>The same for mzLib's own SDRF reader: PXD008841's first plex read with the TMT11 kit leaves 131C empty in every file.</summary>
+    /// <summary>
+    /// The same for mzLib's own SDRF reader: PXD008841's first plex read with the TMT11 kit leaves 131C empty in every file.
+    /// Its 131N is the plex's pool (characteristics[pooled sample] lists the samples it pools), so the reader marks it a
+    /// reference channel and it is no sample either (GR-20): 9 of the 11 channels are samples.
+    /// </summary>
     [Test]
     public void AnSdrfPlexWithAnEmptyChannelGivesOnlyItsAnnotatedSamples()
     {
@@ -130,8 +134,9 @@ public class AnalysisSampleTests
 
         var samples = AnalysisSample.FromExperimentalDesign(plexOne);
 
-        Assert.That(samples, Has.Count.EqualTo(10));
+        Assert.That(samples, Has.Count.EqualTo(9));
         Assert.That(samples.Select(s => s.SampleId), Has.None.EqualTo("plex1_131C"));
+        Assert.That(samples.Select(s => s.SampleId), Has.None.EqualTo("pool"), "the pooled reference is in no comparison");
         Assert.That(samples.All(s => s.Factors[AnalysisSample.ConditionFactor].Length > 0));
     }
 
