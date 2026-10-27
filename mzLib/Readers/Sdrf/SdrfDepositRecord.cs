@@ -63,6 +63,14 @@ namespace Readers
             _ => throw new ArgumentOutOfRangeException(nameof(Repository), Repository, "no record name for this repository")
         };
 
+        /// <summary>How a reason quoting the record's words names it: <c>the PRIDE record</c>, <c>the MassIVE record</c>.</summary>
+        internal string TextName => Repository switch
+        {
+            SdrfRepository.Pride => "the PRIDE record",
+            SdrfRepository.Massive => "the MassIVE record",
+            _ => throw new ArgumentOutOfRangeException(nameof(Repository), Repository, "no record name for this repository")
+        };
+
         /// <summary>The provenance of a value taken from the record.</summary>
         internal SdrfDraftSource Source => Repository switch
         {

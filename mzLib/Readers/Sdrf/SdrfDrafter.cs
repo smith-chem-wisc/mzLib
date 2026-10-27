@@ -157,7 +157,7 @@ namespace Readers
             var text = new[] { record.Title, record.Description, record.SampleProcessingProtocol, record.DataProcessingProtocol }
                 .Concat(record.Keywords).Concat(record.ProjectTags).ToList();
             var structure = SdrfFileNamePattern.Read(names);
-            var anchors = SdrfRecordAnchors.Read(names, text);
+            var anchors = SdrfRecordAnchors.Read(names, text, record.TextName);
             var replicates = SdrfReplicateResolver.Read(names, text);
             var byName = structure.Files.ToDictionary(f => f.FileName, StringComparer.Ordinal);
             var markerOf = replicates.Files.ToDictionary(r => r.FileName, StringComparer.Ordinal);

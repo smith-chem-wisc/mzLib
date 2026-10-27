@@ -91,6 +91,22 @@ namespace Test.FileReadingTests
                 .SetName("a disease of the wrong kind");
             yield return new TestCaseData(Massive(Mouse) with { Diseases = new[] { Term("DOID", "DOID:4", "Disease free") } }, Runs)
                 .SetName("disease free");
+            yield return new TestCaseData(AnchoringRecord, AnchoredRuns).SetName("a condition the record names");
+        }
+
+        // The names' words appear in the record, so the conditions are anchored in it (SdrfRecordAnchors).
+        private static readonly SdrfDepositRecord AnchoringRecord =
+            Massive(Mouse) with { Description = "Brains of fasted mice against refed mice." };
+        private static readonly string[] AnchoredRuns = { "Fasted_1.raw", "Fasted_2.raw", "Refed_1.raw", "Refed_2.raw" };
+
+        [Test]
+        public void AConditionAnchoredInAMassiveRecordSaysSo()
+        {
+            var d = SdrfDrafter.Draft(AnchoringRecord, AnchoredRuns);
+
+            var condition = Row(d, "Refed_1.raw").Factors.Single();
+            Assert.That(condition.Value, Is.EqualTo("Refed"));
+            Assert.That(condition.Evidence, Does.StartWith("'Fasted', 'Refed' each appear in the MassIVE record text"));
         }
 
         [TestCaseSource(nameof(RecordReasons))]
