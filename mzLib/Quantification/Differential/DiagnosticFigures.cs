@@ -181,11 +181,14 @@ internal static class DiagnosticFigures
         double width = Math.Max(420, left + n * cell + 30), height = top + n * cell + 90;
         var c = new SvgCanvas(width, height);
         c.Text(width / 2, 22, title, "middle", 14);
-        double Lookup(int a, int b)
+        // Correlations gives each pair once, in sample order with a < b; fill both halves of the matrix from it in one pass.
+        var matrix = new double[n, n];
+        int pair = 0;
+        for (int a = 0; a < n; a++)
         {
-            if (a == b) return 1;
-            var (i, j) = a < b ? (a, b) : (b, a);
-            return pairs.Single(p => p.A == samples.SampleIds[i] && p.B == samples.SampleIds[j]).R;
+            matrix[a, a] = 1;
+            for (int b = a + 1; b < n; b++, pair++)
+                matrix[a, b] = matrix[b, a] = pairs[pair].R;
         }
         for (int a = 0; a < n; a++)
         {
@@ -193,7 +196,7 @@ internal static class DiagnosticFigures
             c.Text(left + a * cell + cell / 2, top - 6, samples.SampleIds[a], "start", rotate: -45);
             for (int b = 0; b < n; b++)
             {
-                double r = Lookup(a, b);
+                double r = matrix[a, b];
                 c.Rect(left + b * cell, top + a * cell, cell, cell, Color(r), "#ffffff");
                 if (n <= 16 && double.IsFinite(r))
                     c.Text(left + b * cell + cell / 2, top + a * cell + cell / 2 + 4, SvgCanvas.Label(r, 2), "middle", 9);
