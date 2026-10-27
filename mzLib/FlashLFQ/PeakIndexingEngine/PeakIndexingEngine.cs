@@ -102,7 +102,15 @@ namespace FlashLFQ
         public void SerializeIndex()
         {
             GCMemoryInfo memoryInfo = GC.GetGCMemoryInfo();
-            if (IndexFitsInMemory(EstimateIndexBytes(), memoryInfo.MemoryLoadBytes, memoryInfo.TotalAvailableMemoryBytes))
+            SerializeIndex(memoryInfo.MemoryLoadBytes, memoryInfo.TotalAvailableMemoryBytes);
+        }
+
+        /// <summary>
+        /// SerializeIndex with the machine's memory numbers given, so tests do not depend on the machine they run on
+        /// </summary>
+        internal void SerializeIndex(long memoryLoadBytes, long totalAvailableMemoryBytes)
+        {
+            if (IndexFitsInMemory(EstimateIndexBytes(), memoryLoadBytes, totalAvailableMemoryBytes))
             {
                 _setAsideIndex = IndexedPeaks;
                 return;

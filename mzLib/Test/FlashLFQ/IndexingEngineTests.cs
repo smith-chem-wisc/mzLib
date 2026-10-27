@@ -537,12 +537,12 @@ namespace Test.FlashLFQ
         {
             SpectraFileInfo file = new SpectraFileInfo(_testMzMlFullFilePath, "", 0, 0, 0);
             string indexPath = Path.ChangeExtension(_testMzMlFullFilePath, ".ind");
+            File.Delete(indexPath);
             PeakIndexingEngine indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(file);
             var peakBefore = indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10));
 
-            // Make sure the GC has measured the machine, so the memory check has numbers to use
-            GC.Collect();
-            indexingEngine.SerializeIndex();
+            // An idle machine with memory to spare, whatever the machine running the test is doing
+            indexingEngine.SerializeIndex(memoryLoadBytes: 0, totalAvailableMemoryBytes: 1L << 40);
             Assert.That(File.Exists(indexPath), Is.False);
 
             indexingEngine.ClearIndex();
@@ -557,6 +557,7 @@ namespace Test.FlashLFQ
         {
             SpectraFileInfo file = new SpectraFileInfo(_testMzMlFullFilePath, "", 0, 0, 0);
             string indexPath = Path.ChangeExtension(_testMzMlFullFilePath, ".ind");
+            File.Delete(indexPath);
             PeakIndexingEngine indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(file);
             var peakBefore = indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10));
 
