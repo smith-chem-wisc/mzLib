@@ -20,30 +20,25 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     /// EXPECTATIONS -- they are not a description of what the digester currently does.
     /// </summary>
     /// <remarks>
-    /// <para>Written before the glycan-aware digestion work, deliberately. Several cases fail today,
-    /// and that is the point: the failures are the specification. The three shapes of failure are
-    /// worth telling apart when reading the output.</para>
+    /// <para>Written BEFORE the glycan-aware digestion work, deliberately, so the cases are the
+    /// specification rather than a record of what the code happened to produce. Each case digests its
+    /// substrate with <c>RespectCleavagePromotingModifications</c> set and the case's glycan placed.</para>
     ///
-    /// <para><b>Over-digestion.</b> mzLib's <c>StcE</c> and <c>StcE-trypsin</c> entries match the
-    /// SEQUENCE motif only. The real enzyme also requires an O-GalNAc at P2, so every case whose
-    /// expectation is "no cleavage because the glycan is absent or is the wrong sugar" is cut anyway.
-    /// The shipped <c>proteases.tsv</c> comment block already says so: the entries "OVER-DIGEST
-    /// relative to the real enzyme -- their peptides are a superset of true StcE peptides". These
-    /// tests put a number on that.</para>
+    /// <para><b>Match.</b> The digest equals the published products: a real assertion, which fails if
+    /// it regresses.</para>
     ///
-    /// <para><b>Enzyme not modelled.</b> IMPa, OpeRATOR/OgpA, SmE, BT4244, CpaA and AMUC_1438 have no
-    /// entry in <c>proteases.tsv</c>, by an explicit decision recorded in the same comment block:
-    /// modelling them "needs glycosylation-aware digestion". Those cases report Inconclusive rather
-    /// than failing, because there is nothing to be wrong yet.</para>
+    /// <para><b>Known gap</b> (Inconclusive). The case records, in its <c>known_gap</c> column, the
+    /// capability it needs and digestion does not have -- a glycan STRUCTURE rather than a class, say.
+    /// A known-gap case that starts matching FAILS, so the column gets cleared and the case becomes an
+    /// assertion.</para>
+    ///
+    /// <para><b>Enzyme not modelled</b> (Inconclusive). BT4244, CpaA and AMUC_1438 have no
+    /// <c>proteases.tsv</c> entry, so there is nothing to compare.</para>
     ///
     /// <para><b>Efficiency, not possibility.</b> Cases marked <c>reduced:&lt;pct&gt;</c> are REAL
     /// cleavages that happen slowly -- IMPa at 8% completion with isoleucine at P1, OpeRATOR ~170x
     /// slower on alpha-2,3-sialyl core 1. A digester should model those as missed-cleavage weight, not
     /// as blocks. The truth set records the percentage so the distinction survives.</para>
-    ///
-    /// <para>The glycan column is carried through but not yet consulted: with no glycan-aware
-    /// digestion, only the base sequences can be compared. That is exactly why the negative cases
-    /// fail.</para>
     /// </remarks>
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -410,9 +405,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     + " is. Fix the enzyme column; a misspelt enzyme would otherwise skip the case as not modelled.");
 
             if (!IsModelled(c.Enzyme))
-                Assert.Inconclusive(c.CaseId + ": " + c.Enzyme + " has no proteases.tsv entry -- it was left out "
-                    + "deliberately because modelling it needs glycosylation-aware digestion. Nothing to be wrong "
-                    + "about until that exists. Source: " + c.Source);
+                Assert.Inconclusive(c.CaseId + ": " + c.Enzyme + " has no proteases.tsv entry, so there is "
+                    + "nothing to compare. Source: " + c.Source);
 
             List<string> expected = c.ExpectedProducts.Select(StripGlycanMarkers)
                 .OrderBy(s => s, StringComparer.Ordinal).ToList();
