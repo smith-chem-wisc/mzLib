@@ -513,7 +513,7 @@ namespace Readers
                     {
                         if (current.Source is SdrfDraftSource.NotAvailable or SdrfDraftSource.Default) return cell;
                         bool same = current.Value.Equals(cell.Value, StringComparison.OrdinalIgnoreCase);
-                        if (first.Confidence == SdrfEvidenceConfidence.Certain && current.Source is SdrfDraftSource.Inferred or SdrfDraftSource.PrideProjectRecord)
+                        if (first.Confidence == SdrfEvidenceConfidence.Certain && (current.Source == SdrfDraftSource.Inferred || SdrfDepositRecord.IsRecord(current.Source)))
                         {
                             if (!same) notes.Add(new(row.DataFile, column, current.Value, cell.Value, $"{first.Method} evidence from the {first.Source} replaces the draft's reading"));
                             return cell;

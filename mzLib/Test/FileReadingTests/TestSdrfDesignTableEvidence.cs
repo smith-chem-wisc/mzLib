@@ -345,6 +345,24 @@ namespace Test.FileReadingTests
             new(file, "", column, value, "deposit", "metadata/design.tsv!R2C2", "design-table", SdrfEvidenceConfidence.Certain);
 
         [Test]
+        public void ACertainClaimReplacesAValueFromEitherRepositorysRecord()
+        {
+            foreach (var repository in new[] { SdrfRepository.Pride, SdrfRepository.Massive })
+            {
+                var record = new SdrfDepositRecord(repository)
+                {
+                    Organisms = new[] { new CvParam("NCBITaxon", "NCBITaxon:10090", "Mus musculus", "") },
+                    Diseases = new[] { new CvParam("DOID", "DOID:0050700", "Cardiomyopathy", "") },
+                };
+                var d = SdrfDrafter.Draft(record, TwoRuns, new[] { Claim("alpha.raw", "characteristics[disease]", "heart failure") });
+
+                Assert.That(Row(d, "beta.raw").Disease.Source, Is.EqualTo(record.Source), $"{repository}: the record's one disease");
+                var alpha = Row(d, "alpha.raw").Disease;
+                Assert.That((alpha.Value, alpha.Source), Is.EqualTo(("heart failure", SdrfDraftSource.Deposit)), $"{repository}: the table's");
+            }
+        }
+
+        [Test]
         public void AClaimAboutAColumnTheDrafterDoesNotTakeIsOnlyNoted()
         {
             var d = SdrfDrafter.Draft(Project(), TwoRuns, new[] { Claim("alpha.raw", "comment[instrument]", "Q Exactive") });
