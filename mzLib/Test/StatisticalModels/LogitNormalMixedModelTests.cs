@@ -240,6 +240,35 @@ public class LogitNormalMixedModelTests
         Assert.That(fit.PValue(0, 1), Is.NaN);
     }
 
+    [Test]
+    public void OneSidedGroupsWithNothingMeasuredAreSeparated()
+    {
+        // Every animal is all full or all zero, and the trait does not separate them (1 of 4 trait-0 animals full, 3 of
+        // 4 trait-1). ℓ then rises without bound towards the group-level Bernoulli likelihood as τ grows with β, so no
+        // estimate exists. Before, REML came back Fitted with τ² ≈ 1300 and p ≈ 0.025, picked by quadrature noise.
+        int G = 8, k = 3, n = G * k;
+        var design = new double[n, 2];
+        var groups = new string[n];
+        var y = new double[1, n];
+        var counts = new BinomialCount?[1, n];
+        var full = new[] { true, false, false, false, true, true, true, false };
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; design[s, 1] = g < 4 ? 0 : 1; groups[s] = $"a{g}";
+            y[0, s] = double.NaN;
+            counts[0, s] = new BinomialCount(full[g] ? 2 : 0, 2);
+        }
+        foreach (var estimator in new[] { VarianceEstimator.Reml, VarianceEstimator.MaximumLikelihood })
+        {
+            var given = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { 0.25 }, estimator: estimator);
+            Assert.That(given.Status[0], Is.EqualTo(FeatureFitStatus.Separated), $"{estimator}, σ² given");
+            Assert.That(given.PValue(0, 1), Is.NaN);
+            var estimated = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, estimator: estimator);
+            Assert.That(estimated.Status[0], Is.EqualTo(FeatureFitStatus.Separated), $"{estimator}, σ² estimated");
+        }
+    }
+
     private static List<LinkCell> LinkCells(DetectionLink truth, int count, int seed)
     {
         var rng = new Random(seed);

@@ -188,7 +188,9 @@ namespace StatisticalModels
     /// variances are searched on log τ and log σ by Nelder-Mead, or on log τ alone by Brent's method when σ² is given.
     /// Standard errors are √diag H⁻¹ at the estimate. A coefficient beyond ±<see cref="SeparationLimit"/>, or an H that
     /// is not positive definite, is <see cref="FeatureFitStatus.Separated"/>: the counts are (quasi-)completely
-    /// separated by the design and the estimate runs to infinity.
+    /// separated by the design and the estimate runs to infinity. So is a feature with nothing measured whose every group
+    /// is one-sided (every count 0, or every count full), checked before fitting: its likelihood rises towards the
+    /// group-level Bernoulli likelihood as τ and β grow together, and has no maximum.
     /// </para>
     /// Output does not depend on the thread count.
     /// </remarks>
@@ -446,6 +448,25 @@ namespace StatisticalModels
             {
                 fit.StatusValues[f] = FeatureFitStatus.TooFewGroups;
                 return;
+            }
+            // Nothing measured and every group one-sided (every count 0, or every count full): ℓ rises without bound
+            // towards the group-level Bernoulli likelihood as τ grows with β, so no estimate exists. A fit would stop
+            // wherever the u rule loses the ridge, Separated or a spurious Fitted.
+            if (fit.MeasuredValues[f] == 0)
+            {
+                var anySuccess = new bool[G];
+                var anyFailure = new bool[G];
+                for (int i = 0; i < m; i++)
+                {
+                    var c = counts[f, rows[i]]!.Value;
+                    anySuccess[rowGroup[i]] |= c.Successes > 0;
+                    anyFailure[rowGroup[i]] |= c.Successes < c.Trials;
+                }
+                if (Enumerable.Range(0, G).All(g => !(anySuccess[g] && anyFailure[g])))
+                {
+                    fit.StatusValues[f] = FeatureFitStatus.Separated;
+                    return;
+                }
             }
 
             var data = new Data
