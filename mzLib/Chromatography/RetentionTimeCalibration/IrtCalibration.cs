@@ -77,7 +77,7 @@ public static class IrtCalibration
 
     /// <summary>
     /// The anchors outside sparse stretches of their time span (see <see cref="IrtCalibrationOptions.MinimumBinShare"/>). If
-    /// fewer than <see cref="IrtCalibrationOptions.MinimumAnchors"/> would remain, all are kept.
+    /// fewer than <see cref="IrtCalibrationOptions.MinimumAnchors"/> would remain, or those left would span no time, all are kept.
     /// </summary>
     private static (RtMinutes Rt, Irt Irt)[] Dense((RtMinutes Rt, Irt Irt)[] sorted, IrtCalibrationOptions options)
     {
@@ -90,7 +90,7 @@ public static class IrtCalibration
             counts[Bin(anchor.Rt.Value)]++;
         double floor = options.MinimumBinShare * counts.Max();
         var dense = sorted.Where(a => counts[Bin(a.Rt.Value)] >= floor).ToArray();
-        return dense.Length >= options.MinimumAnchors ? dense : sorted;
+        return dense.Length >= options.MinimumAnchors && dense[^1].Rt.Value > dense[0].Rt.Value ? dense : sorted;
     }
 
     /// <summary>
@@ -319,12 +319,16 @@ public sealed record IrtCalibrationModel
     /// <summary>Robust residual SD of the anchors about the fit, in iRT units (wrong identifications set aside).</summary>
     public double ResidualSd { get; init; }
 
+    /// <summary>
+    /// The anchors the fit used. Anchors set aside in near-empty stretches of the run (see
+    /// <see cref="IrtCalibrationOptions.MinimumBinShare"/>) are not counted, so this can be fewer than were given.
+    /// </summary>
     public int AnchorCount { get; init; }
 
-    /// <summary>The earliest anchor's retention time; the map is fitted from here.</summary>
+    /// <summary>The earliest retention time among the anchors the fit used; the map is fitted from here.</summary>
     public RtMinutes FirstAnchor => new(_knotRt[0]);
 
-    /// <summary>The latest anchor's retention time; the map is fitted up to here.</summary>
+    /// <summary>The latest retention time among the anchors the fit used; the map is fitted up to here.</summary>
     public RtMinutes LastAnchor => new(_knotRt[^1]);
 
     public Irt ToIrt(RtMinutes retentionTime) => new(Evaluate(_knotRt, _knotIrt, retentionTime.Value, _slopeBefore, _slopeAfter));

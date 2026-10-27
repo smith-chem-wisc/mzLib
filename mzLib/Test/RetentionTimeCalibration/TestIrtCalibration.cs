@@ -336,6 +336,22 @@ public class TestIrtCalibration
         Assert.That(IrtCalibration.Fit(anchors, new IrtCalibrationOptions(MinimumAnchors: 402)).AnchorCount, Is.EqualTo(403));
     }
 
+    /// <summary>
+    /// Nor does it leave anchors that span no time: then every anchor is kept, rather than the fit refusing anchors that
+    /// span the run.
+    /// </summary>
+    [Test]
+    public void SparseAnchorsAreKeptWhenSettingThemAsideWouldLeaveNoTimeSpan()
+    {
+        var anchors = Enumerable.Range(0, 50).Select(i => (new RtMinutes(10), new Irt(i * 0.01))).ToList();
+        anchors.Add((new RtMinutes(40), new Irt(100)));
+
+        var model = IrtCalibration.Fit(anchors);
+
+        Assert.That(model.AnchorCount, Is.EqualTo(51));
+        Assert.That(model.LastAnchor.Value, Is.EqualTo(40));
+    }
+
     /// <summary>Anchors spread thinly but evenly over the run are all kept: thin is not empty.</summary>
     [Test]
     public void EvenlySparseAnchorsAreAllUsed()
