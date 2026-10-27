@@ -60,7 +60,7 @@ public class PtmQtlTests
         Assert.That(One(occ, "floor", 13).Fraction, Is.NaN, "a floor is not a zero");
         Assert.That(One(occ, "countOnly", 13).State, Is.EqualTo(OccupancyState.CountOnly));
         Assert.That(One(occ, "notDetected", 13).State, Is.EqualTo(OccupancyState.NotDetected));
-        Assert.That(One(occ, "notDetected", 13).Fraction, Is.NaN, "not detected is unknown, not 0");
+        Assert.That(One(occ, "notDetected", 13).Fraction, Is.NaN, "a covered-zero is a bound, not a measured 0");
         Assert.That(One(occ, "quant", 13).Fraction, Is.EqualTo(0.1).Within(1e-15));
     }
 
@@ -131,6 +131,141 @@ public class PtmQtlTests
         Refused(new PeptidoformObservation("r1", "PEPSK", "P1", 0, 4, 5));
         Refused(Obs("r1", "PEPSK", 10, -1));
         Refused(Obs("r1", "PEPSK", 10, double.PositiveInfinity));
+    }
+
+    [Test]
+    public void FractionsOfOneSampleAreSummedBeforeTheRatio()
+    {
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, 30), Obs("f1", "PEPSK", 10, 70),
+            Obs("f2", $"PEPS[{Phos}]K", 10, 10), Obs("f2", "PEPSK", 10, 90),
+            Obs("g1", "PEPSK", 10, 40),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["g1"] = "B" };
+        var occ = SiteOccupancyCalculator.Calculate(obs, map);
+
+        var a = One(occ, "A", 13);
+        Assert.That(a.State, Is.EqualTo(OccupancyState.Quantified));
+        Assert.That(a.Fraction, Is.EqualTo(40.0 / 200).Within(1e-15), "(30 + 10) / (100 + 100), not the mean of 0.3 and 0.1");
+        Assert.That(a.CoveringIntensity, Is.EqualTo(200));
+        Assert.That(One(occ, "B", 13).State, Is.EqualTo(OccupancyState.NotDetected));
+        Assert.That(occ.Select(o => o.Run).Distinct(), Is.EquivalentTo(new[] { "A", "B" }));
+    }
+
+    [Test]
+    public void AFormUnquantifiedInOneFractionAndCoveredInAnotherIsAFloorForTheSample()
+    {
+        var occ = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, double.NaN),
+            Obs("f2", "PEPSK", 10, 50),
+        }, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" });
+        var a = One(occ, "A", 13);
+        Assert.That(a.State, Is.EqualTo(OccupancyState.Floor));
+        Assert.That(a.Fraction, Is.NaN);
+
+        var quantifiedSomewhere = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, double.NaN), Obs("f2", $"PEPS[{Phos}]K", 10, 20), Obs("f2", "PEPSK", 10, 60),
+        }, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" });
+        Assert.That(One(quantifiedSomewhere, "A", 13).Fraction, Is.EqualTo(20.0 / 80).Within(1e-15),
+            "an unquantified fraction adds nothing; the quantified one carries the sum");
+    }
+
+    [Test]
+    public void APeptidoformInTwoFractionsIsNotARepeatedRowButARepeatWithinOneFractionStillIs()
+    {
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" };
+        Assert.DoesNotThrow(() => SiteOccupancyCalculator.Calculate(new[] { Obs("f1", "PEPSK", 10, 1), Obs("f2", "PEPSK", 10, 1) }, map));
+        Assert.Throws<ArgumentException>(() =>
+            SiteOccupancyCalculator.Calculate(new[] { Obs("f1", "PEPSK", 10, 1), Obs("f1", "PEPSK", 10, 1) }, map));
+    }
+
+    [Test]
+    public void CombinedObservationsFeedSameMoleculePairsPerSample()
+    {
+        const string GG = "Trypsin Digested:GG (Ubiquitination Site) on K";
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K[{GG}]R", 10, 20), Obs("f1", "PEPSKR", 10, 80),
+            Obs("f2", $"PEPS[{Phos}]K[{GG}]R", 10, 10), Obs("f2", "PEPSKR", 10, 90),
+            Obs("g1", $"PEPS[{Phos}]K[{GG}]R", 10, double.NaN),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["g1"] = "B" };
+        var combined = SiteOccupancyCalculator.CombineObservations(obs, map);
+        Assert.That(combined.Count, Is.EqualTo(3));
+        Assert.That(combined.Single(o => o.Run == "A" && o.FullSequence == "PEPSKR").Intensity, Is.EqualTo(170));
+        Assert.That(combined.Single(o => o.Run == "B").Intensity, Is.NaN);
+
+        var p = PtmPairEngine.Physical(combined).Single();
+        Assert.That(p.N, Is.EqualTo(2), "two samples, not three runs");
+        Assert.That(p.Statistic, Is.EqualTo(30.0 / 200).Within(1e-15), "co-occupancy of sample A only; B is unquantified");
+    }
+
+    [Test]
+    public void ARunWithoutASampleIsRefused()
+    {
+        var obs = new[] { Obs("f1", "PEPSK", 10, 1), Obs("f2", "PEPSK", 10, 1) };
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(obs, new Dictionary<string, string> { ["f1"] = "A" }));
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(obs, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "" }));
+        Assert.Throws<ArgumentNullException>(() => SiteOccupancyCalculator.Calculate(obs, (IReadOnlyDictionary<string, string>)null!));
+    }
+
+    [Test]
+    public void StoredCellsCombineAsTheObservationsWouldAndKeepTheReportedFraction()
+    {
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, 30), Obs("f1", "PEPSK", 10, 70),
+            Obs("f2", $"PEPS[{Phos}]K", 10, double.NaN), Obs("f2", "PEPSK", 10, 50),
+            Obs("f3", "PEPSK", 10, 30),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["f3"] = "A" };
+        var fromObservations = One(SiteOccupancyCalculator.Calculate(obs, map), "A", 13);
+        var fromCells = One(SiteOccupancyCalculator.CombineRuns(SiteOccupancyCalculator.Calculate(obs), map), "A", 13);
+        Assert.That(fromCells.State, Is.EqualTo(fromObservations.State));
+        Assert.That(fromCells.Fraction, Is.EqualTo(fromObservations.Fraction).Within(1e-15));
+        Assert.That(fromCells.Fraction, Is.EqualTo(30.0 / 180).Within(1e-15), "the Floor and NotDetected runs add covering only");
+        Assert.That(fromCells.UnmodifiedQuantified, Is.True);
+
+        // A stored cell's exact fraction is used, not its rounded intensities.
+        var site = new ModificationSite("P1", 13, 'S', Phos);
+        var stored = new[]
+        {
+            new SiteRunOccupancy(site, "f1", OccupancyState.Quantified, 30, 100, true) { ReportedFraction = 0.25 },
+            new SiteRunOccupancy(site, "f2", OccupancyState.Quantified, 1, 300, true) { ReportedFraction = 0.5 },
+        };
+        var c = SiteOccupancyCalculator.CombineRuns(stored, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" }).Single();
+        Assert.That(c.Fraction, Is.EqualTo((0.25 * 100 + 0.5 * 300) / 400).Within(1e-15));
+    }
+
+    [Test]
+    public void StoredCellStatesCombineByPrecedence()
+    {
+        var site = new ModificationSite("P1", 13, 'S', Phos);
+        SiteRunOccupancy Cell(string run, OccupancyState state, double covering) => new(site, run, state, 0, covering, false);
+        var map = new Dictionary<string, string> { ["a"] = "S", ["b"] = "S" };
+        OccupancyState Combined(params SiteRunOccupancy[] cells) => SiteOccupancyCalculator.CombineRuns(cells, map).Single().State;
+
+        Assert.That(Combined(Cell("a", OccupancyState.CountOnly, double.NaN), Cell("b", OccupancyState.NotDetected, 40)),
+            Is.EqualTo(OccupancyState.Floor), "identified in one fraction, covered in another");
+        Assert.That(Combined(Cell("a", OccupancyState.CountOnly, double.NaN), Cell("b", OccupancyState.CountOnly, double.NaN)),
+            Is.EqualTo(OccupancyState.CountOnly));
+        Assert.That(Combined(Cell("a", OccupancyState.NotDetected, 10), Cell("b", OccupancyState.NotDetected, 40)),
+            Is.EqualTo(OccupancyState.NotDetected));
+    }
+
+    [Test]
+    public void BadStoredCellsAreRefused()
+    {
+        var site = new ModificationSite("P1", 13, 'S', Phos);
+        var map = new Dictionary<string, string> { ["a"] = "S" };
+        var ok = new SiteRunOccupancy(site, "a", OccupancyState.Quantified, 1, 10, true);
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new[] { ok, ok }, map), "repeated (site, run)");
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new[] { ok with { CoveringIntensity = double.NaN } }, map));
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new[] { ok with { Run = "z" } }, map), "run without a sample");
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new SiteRunOccupancy[] { null! }, map));
     }
 
     [Test]
@@ -280,6 +415,161 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void RunLevelRemovalTakesOutABatchShift()
+    {
+        // Twelve runs in two batches; every site reads 0.2 higher in the second. Within a batch, s and t vary
+        // nearly independently (within-batch ρ = 1/35), so almost all their correlation comes from the batch. Four
+        // background sites sit at the batch's centre, so each run's median is its batch level.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var background = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'S', Phos)).ToList();
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            double batch = r < 6 ? 0.1 : 0.3;
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6], site: s));
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6], site: t));
+            foreach (var b in background) occupancy.Add(Cell($"r{r:D2}", batch + 0.035, site: b));
+        }
+        var plain = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()).Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(plain.Statistic, Is.GreaterThan(0.7), "the batch alone correlates the two sites");
+        Assert.That(plain.RunLevelRemoved, Is.False);
+
+        var adjusted = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true)
+            .Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(adjusted.RunLevelRemoved, Is.True);
+        Assert.That(Math.Abs(adjusted.Statistic), Is.LessThan(0.1), "given the batch, the pair is unrelated");
+        Assert.That(adjusted.N, Is.EqualTo(12));
+
+        // The run level is each run's median over the six sites: the background value, batch + 0.035.
+        var level = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.035).ToArray();
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6]).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6]).ToArray();
+        var expected = SpearmanCorrelation.PartialCorrelate(vs, vt, level);
+        Assert.That(adjusted.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+        Assert.That(adjusted.PValue, Is.EqualTo(expected.PValue).Within(1e-12));
+
+        // Below MinRunsForRunLevel shared runs the partial test is not made: t with n − 3 df is too liberal there.
+        var eight = occupancy.Where(o => string.CompareOrdinal(o.Run, "r08") < 0).ToList();
+        var few = PtmPairEngine.CoVarying(eight, Array.Empty<PeptidoformObservation>(), removeRunLevel: true)
+            .Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(few.N, Is.EqualTo(8));
+        Assert.That(few.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.NotEstimable));
+        Assert.That(few.Statistic, Is.NaN);
+        Assert.That(few.Q, Is.NaN, "left out of the adjustment");
+        Assert.That(PtmPairEngine.CoVarying(eight, Array.Empty<PeptidoformObservation>()).Single(p => p.SiteA == s && p.SiteB == t).PValue,
+            Is.Not.NaN, "plain Spearman still tests it");
+    }
+
+    [Test]
+    public void GroupedRunLevelTakesOutAShiftInOneChemistry()
+    {
+        // Two chemistries in twelve runs. Every "GG" site reads 0.2 higher in the second six runs; the "Phospho"
+        // sites do not move with it. One run level for all sites is half one chemistry and half the other, so only a
+        // level per chemistry removes the GG shift. The first phospho site also carries s's own variation within a
+        // batch, which shows only once both levels are taken out.
+        const string Gg = "Trypsin Digested:GG (Ubiquitination Site) on K";
+        var s = new ModificationSite("P1", 13, 'K', Gg);
+        var t = new ModificationSite("P2", 43, 'K', Gg);
+        var ggBackground = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'K', Gg)).ToList();
+        var phospho = Enumerable.Range(0, 7).Select(i => new ModificationSite($"Q{i}", 9, 'S', Phos)).ToList();
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        double[] phosphoLevel = { 0.30, 0.10, 0.25, 0.15, 0.20, 0.35, 0.12, 0.28, 0.18, 0.33, 0.22, 0.14 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            double batch = r < 6 ? 0.1 : 0.3;
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6], site: s));
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6], site: t));
+            foreach (var b in ggBackground) occupancy.Add(Cell($"r{r:D2}", batch + 0.035, site: b));
+            for (int i = 0; i < phospho.Count; i++)
+                occupancy.Add(Cell($"r{r:D2}", phosphoLevel[r] + (i == 0 ? 0.01 * noiseS[r % 6] : 0.001 * i), site: phospho[i]));
+        }
+        PtmPair Pair(IReadOnlyList<PtmPair> pairs) => pairs.Single(p => p.SiteA == s && p.SiteB == t);
+        string Chemistry(ModificationSite site) => site.Modification.Contains("GG") ? "GG" : "phospho";
+
+        var plain = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()));
+        var oneLevel = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true));
+        var perChemistry = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true,
+            runLevelGroup: Chemistry));
+        Assert.That(plain.Statistic, Is.GreaterThan(0.7));
+        Assert.That(Math.Abs(perChemistry.Statistic), Is.LessThan(0.1), "given the GG level, the two GG sites are unrelated");
+        Assert.That(Math.Abs(perChemistry.Statistic), Is.LessThan(Math.Abs(oneLevel.Statistic)));
+
+        // The GG level leaves the pair out: the median of the four background sites, batch + 0.035.
+        var level = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.035).ToArray();
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6]).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6]).ToArray();
+        Assert.That(perChemistry.Statistic, Is.EqualTo(SpearmanCorrelation.PartialCorrelate(vs, vt, level).Rho).Within(1e-12));
+
+        // A cross-chemistry pair is correlated given both levels: two covariates. The GG batch and the phospho level
+        // hide what s and the phospho site share; given both, it shows.
+        var plainCross = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>())
+            .Single(p => p.SiteA == s && p.SiteB == phospho[0]);
+        var cross = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true, runLevelGroup: Chemistry)
+            .Single(p => p.SiteA == s && p.SiteB == phospho[0]);
+        Assert.That(Math.Abs(plainCross.Statistic), Is.LessThan(0.1));
+        Assert.That(cross.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(cross.Statistic, Is.GreaterThan(0.7));
+        Assert.That(double.IsFinite(cross.PValue), Is.True);
+        var phosphoOthers = Enumerable.Range(0, 12).Select(r => phosphoLevel[r] + 0.001 * 3.5).ToArray();   // median of sites 1-6
+        var ggWithT = Enumerable.Range(0, 12).Select(r => new[] { (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6] }
+            .Concat(Enumerable.Repeat((r < 6 ? 0.1 : 0.3) + 0.035, 4)).OrderBy(v => v).ElementAt(2)).ToArray();
+        var vp = Enumerable.Range(0, 12).Select(r => phosphoLevel[r] + 0.01 * noiseS[r % 6]).ToArray();
+        var expected = SpearmanCorrelation.PartialCorrelate(vs, vp, new IReadOnlyList<double>[] { ggWithT, phosphoOthers });
+        Assert.That(cross.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+        Assert.That(cross.PValue, Is.EqualTo(expected.PValue).Within(1e-12));
+
+        // A GG site seen in only two runs does not enter pairs, so it does not move the GG level either.
+        var sparse = new ModificationSite("P9", 3, 'K', Gg);
+        var withSparse = occupancy.Concat(new[] { Cell("r00", 0.9, site: sparse), Cell("r01", 0.95, site: sparse) }).ToList();
+        var unchanged = Pair(PtmPairEngine.CoVarying(withSparse, Array.Empty<PeptidoformObservation>(), removeRunLevel: true,
+            runLevelGroup: Chemistry));
+        Assert.That(unchanged.Statistic, Is.EqualTo(perChemistry.Statistic).Within(1e-15));
+    }
+
+    [Test]
+    public void ARunWithTooFewOtherSitesInTheGroupHasNoLevel()
+    {
+        // The group holds the pair and two more sites: leaving the pair out leaves 2, below MinSitesForRunLevel.
+        var sites = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{i}", 5, 'S', Phos)).ToList();
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+            for (int i = 0; i < sites.Count; i++)
+                occupancy.Add(Cell($"r{r:D2}", 0.1 + 0.01 * ((r * (i + 2)) % 7), site: sites[i]));
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true).First();
+        Assert.That(pair.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.NotEstimable));
+        Assert.That(pair.N, Is.EqualTo(0), "no run has a level");
+    }
+
+    [Test]
+    public void APairWithOneRankOrderKeepsItsTestGivenTheRunLevel()
+    {
+        // Two sites on two proteins rise together over twelve runs; four background sites set a run level unrelated to
+        // them. Given the level, the pair is still the strongest possible (ρ = 1, p = 0), so it keeps its place in the
+        // BH family.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var background = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'S', Phos)).ToList();
+        double[] level = { 5, 3, 8, 1, 7, 2, 4, 6, 12, 9, 11, 10 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            occupancy.Add(Cell($"r{r:D2}", 0.1 + 0.01 * r, site: s));
+            occupancy.Add(Cell($"r{r:D2}", 0.2 + 0.02 * r, site: t));
+            for (int i = 0; i < background.Count; i++) occupancy.Add(Cell($"r{r:D2}", 0.4 + 0.01 * level[r] + 0.001 * i, site: background[i]));
+        }
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true)
+            .Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(pair.Overlapping, Is.False);
+        Assert.That(pair.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(pair.Statistic, Is.EqualTo(1));
+        Assert.That(pair.PValue, Is.EqualTo(0));
+        Assert.That(pair.Q, Is.EqualTo(0), "tested, and the top of the family");
+    }
+
+    [Test]
     public void StoredOccupancyUsesTheReportedFractionAndFeedsTypeA()
     {
         // As MetaMorpheus writes it: the fraction exact, the intensities rounded to 4 significant figures.
@@ -300,6 +590,195 @@ public class PtmQtlTests
         var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()).Single();
         Assert.That(pair.Statistic, Is.EqualTo(1).Within(1e-12));
         Assert.That(pair.Overlapping, Is.False);
+    }
+
+    [Test]
+    public void ACoveredZeroNeedsOnlyAnIdentificationAndCellsCountPeptidoforms()
+    {
+        var occ = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("idOnly", "PEPSK", 10, double.NaN),                 // covered by an identification, nothing quantified
+            Obs("quant", $"PEPS[{Phos}]K", 10, 5), Obs("quant", "PEPSK", 10, 45), Obs("quant", "AAPEPSKR", 8, 50),
+            Obs("onlyModified", $"PEPS[{Phos}]K", 10, double.NaN),
+            Obs("bothForms", $"PEPS[{Phos}]K", 10, double.NaN), Obs("bothForms", "PEPSK", 10, double.NaN),
+            Obs("elsewhere", "GGGGK", 30, 20),                       // a run that never covers the site
+        });
+        var zero = One(occ, "idOnly", 13);
+        Assert.That(zero.State, Is.EqualTo(OccupancyState.NotDetected));
+        Assert.That(zero.CoveringPeptidoforms, Is.EqualTo(1));
+        Assert.That(zero.ModifiedPeptidoforms, Is.EqualTo(0));
+        Assert.That(One(occ, "quant", 13).CoveringPeptidoforms, Is.EqualTo(3));
+        Assert.That(One(occ, "quant", 13).ModifiedPeptidoforms, Is.EqualTo(1));
+        Assert.That(One(occ, "onlyModified", 13).State, Is.EqualTo(OccupancyState.CountOnly));
+        Assert.That(One(occ, "onlyModified", 13).CoveringPeptidoforms, Is.EqualTo(1));
+        Assert.That(One(occ, "onlyModified", 13).ModifiedPeptidoforms, Is.EqualTo(1));
+        Assert.That(One(occ, "bothForms", 13).State, Is.EqualTo(OccupancyState.CountOnly));
+        Assert.That(One(occ, "bothForms", 13).CoveringPeptidoforms, Is.EqualTo(2));
+        Assert.That(occ.Where(o => o.Run == "elsewhere"), Is.Empty, "a site no peptidoform covered has no row");
+    }
+
+    private static SiteRunOccupancy Counted(SiteRunOccupancy cell, int covering, int modified) =>
+        cell with { CoveringPeptidoforms = covering, ModifiedPeptidoforms = modified };
+
+    [Test]
+    public void BoundsEnterTypeAAsTiedRanks()
+    {
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var occupancy = new List<SiteRunOccupancy>();
+        double[] valuesS = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 }, valuesT = { 0.15, 0.1, 0.35, 0.3, 0.6, 0.45 };
+        for (int r = 0; r < 6; r++)
+        {
+            occupancy.Add(Cell($"r{r}", valuesS[r], site: s));
+            occupancy.Add(Cell($"r{r}", valuesT[r], site: t));
+        }
+        occupancy.Add(Cell("r6", double.NaN, OccupancyState.NotDetected, site: s));
+        occupancy.Add(Cell("r6", 1, unmodifiedQuantified: false, site: t));                          // ceiling
+        occupancy.Add(Cell("r7", double.NaN, OccupancyState.Floor, site: s));
+        occupancy.Add(Cell("r7", double.NaN, OccupancyState.NotDetected, site: t));
+        occupancy.Add(Cell("r8", 1, unmodifiedQuantified: false, site: s));
+        occupancy.Add(Counted(Cell("r8", double.NaN, OccupancyState.CountOnly, site: t), 2, 1));     // both forms: no rank
+        occupancy.Add(Counted(Cell("r9", double.NaN, OccupancyState.CountOnly, site: s), 1, 1));     // only modified: high
+        occupancy.Add(Cell("r9", double.NaN, OccupancyState.Floor, site: t));
+
+        // Without bounds, each site has a value in 6 of 10 runs: below 70 %, so no pair.
+        Assert.That(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()), Is.Empty);
+
+        // With them, low bounds tie below every fraction and high bounds above; any such values give the same ranks.
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), includeBounds: true).Single();
+        double lo = -5, hi = 9;
+        var vs = valuesS.Concat(new[] { lo, lo, hi, hi }).ToArray();
+        var vt = valuesT.Concat(new[] { hi, lo, double.NaN, lo }).ToArray();
+        var expected = SpearmanCorrelation.Correlate(vs, vt);
+        Assert.That(pair.N, Is.EqualTo(9), "r8 is left out: t's count-only cell there has no rank");
+        Assert.That(pair.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+        Assert.That(pair.PValue, Is.EqualTo(expected.PValue).Within(1e-12));
+        Assert.That(pair.BoundsIncluded, Is.True);
+        Assert.That(pair.TestStatus, Is.EqualTo(PairTestStatus.Tested));
+
+        var explicitly = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), excludeCeiling: false, includeBounds: true).Single();
+        Assert.That(explicitly.Statistic, Is.EqualTo(pair.Statistic));
+        Assert.Throws<ArgumentException>(() => PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(),
+            excludeCeiling: true, includeBounds: true));
+        Assert.Throws<ArgumentException>(() => PtmPairEngine.CoVarying(
+            new[] { Cell("r0", 0.1, (OccupancyState)99, site: s) }, Array.Empty<PeptidoformObservation>()));
+    }
+
+    [Test]
+    public void APairWhoseSitesAreBothMostlyBoundsIsNotTested()
+    {
+        // Twenty runs. s and t have a value in the same two runs and are covered-zeros elsewhere; u varies everywhere.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var u = new ModificationSite("P3", 7, 'S', Phos);
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 20; r++)
+        {
+            occupancy.Add(r < 2 ? Cell($"r{r:D2}", 0.1 + 0.1 * r, site: s) : Cell($"r{r:D2}", double.NaN, OccupancyState.NotDetected, site: s));
+            occupancy.Add(r < 2 ? Cell($"r{r:D2}", 0.2 + 0.1 * r, site: t) : Cell($"r{r:D2}", double.NaN, OccupancyState.NotDetected, site: t));
+            occupancy.Add(Cell($"r{r:D2}", 0.01 * ((7 * r) % 20 + 1), site: u));
+        }
+        var pairs = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), includeBounds: true);
+        var st = pairs.Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(SpearmanCorrelation.Correlate(
+            Enumerable.Range(0, 20).Select(r => r < 2 ? 1.0 + r : 0).ToArray(),
+            Enumerable.Range(0, 20).Select(r => r < 2 ? 1.0 + r : 0).ToArray()).PValue, Is.LessThan(1e-10),
+            "the t test alone would call this pair");
+        Assert.That(st.TestStatus, Is.EqualTo(PairTestStatus.BothSitesMostlyBounds));
+        Assert.That(st.N, Is.EqualTo(20));
+        Assert.That(st.Statistic, Is.NaN);
+        Assert.That(st.PValue, Is.NaN);
+        Assert.That(st.Q, Is.NaN, "left out of the adjustment");
+
+        // One site with values in most runs is enough: the test is right or conservative there.
+        var su = pairs.Single(p => p.SiteA == s && p.SiteB == u);
+        Assert.That(su.TestStatus, Is.EqualTo(PairTestStatus.Tested));
+        Assert.That(su.Q, Is.Not.NaN);
+    }
+
+    [Test]
+    public void ARunCovariateIsPartialledOut()
+    {
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var background = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'S', Phos)).ToList();
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        double[] psms = { 9000, 12000, 8000, 15000, 11000, 7000, 16000, 10000, 13000, 9500, 14000, 8500 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            double batch = r < 6 ? 0.1 : 0.3;
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6] + psms[r] * 1e-6, site: s));
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6] + psms[r] * 2e-6, site: t));
+            foreach (var b in background) occupancy.Add(Cell($"r{r:D2}", batch + 0.035, site: b));
+        }
+        var depth = Enumerable.Range(0, 12).ToDictionary(r => $"r{r:D2}", r => psms[r]);
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6] + psms[r] * 1e-6).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6] + psms[r] * 2e-6).ToArray();
+        PtmPair Pair(IReadOnlyList<PtmPair> pairs) => pairs.Single(p => p.SiteA == s && p.SiteB == t);
+
+        var givenDepth = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), runCovariate: depth));
+        var expected = SpearmanCorrelation.PartialCorrelate(vs, vt, psms);
+        Assert.That(givenDepth.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+        Assert.That(givenDepth.PValue, Is.EqualTo(expected.PValue).Within(1e-12));
+        Assert.That(givenDepth.RunCovariateRemoved, Is.True);
+        Assert.That(givenDepth.RunLevelRemoved, Is.False);
+
+        // Ranked, so log2 of the PSMs gives the same answer.
+        var log2 = depth.ToDictionary(kv => kv.Key, kv => Math.Log2(kv.Value));
+        Assert.That(Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), runCovariate: log2)).Statistic,
+            Is.EqualTo(givenDepth.Statistic).Within(1e-15));
+
+        // With the run level too: both covariates.
+        var level = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.035).ToArray();
+        var both = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true, runCovariate: depth));
+        Assert.That(both.Statistic, Is.EqualTo(SpearmanCorrelation.PartialCorrelate(vs, vt, new IReadOnlyList<double>[] { level, psms }).Rho).Within(1e-12));
+
+        // A run without a covariate value is left out; below MinRunsForRunLevel shared runs the pair is not tested.
+        var missingOne = depth.Where(kv => kv.Key != "r00").ToDictionary(kv => kv.Key, kv => kv.Value);
+        Assert.That(Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), runCovariate: missingOne)).N, Is.EqualTo(11));
+        var eight = depth.Where(kv => string.CompareOrdinal(kv.Key, "r08") < 0).ToDictionary(kv => kv.Key, kv => kv.Value);
+        var few = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), runCovariate: eight));
+        Assert.That(few.TestStatus, Is.EqualTo(PairTestStatus.TooFewSharedRuns));
+        Assert.That(few.PValue, Is.NaN);
+        Assert.Throws<ArgumentException>(() => PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(),
+            runCovariate: new Dictionary<string, double> { ["r00"] = double.NaN }));
+    }
+
+    [Test]
+    public void BoundsCountInTheRunLevelAtTheirRanks()
+    {
+        // Twelve runs. In the first six, three of the four background sites are covered-zeros: those runs read low.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var background = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'S', Phos)).ToList();
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            double batch = r < 6 ? 0.1 : 0.3;
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6], site: s));
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6], site: t));
+            for (int i = 0; i < background.Count; i++)
+                occupancy.Add(r < 6 && i > 0
+                    ? Cell($"r{r:D2}", double.NaN, OccupancyState.NotDetected, site: background[i])
+                    : Cell($"r{r:D2}", 0.3 + 0.01 * i + 0.001 * r, site: background[i]));
+        }
+        PtmPair Pair(IReadOnlyList<PtmPair> pairs) => pairs.Single(p => p.SiteA == s && p.SiteB == t);
+
+        // The level's median over the four background sites: a bound in the first six runs (three of four are
+        // covered-zeros), the middle two values in the rest.
+        var withBounds = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true, includeBounds: true));
+        var level = Enumerable.Range(0, 12).Select(r => r < 6 ? -5 : 0.315 + 0.001 * r).ToArray();
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6]).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6]).ToArray();
+        Assert.That(withBounds.N, Is.EqualTo(12));
+        Assert.That(withBounds.Statistic, Is.EqualTo(SpearmanCorrelation.PartialCorrelate(vs, vt, level).Rho).Within(1e-12));
+
+        // Without them, three background sites are seen in half the runs, do not enter, and leave no run a level.
+        var without = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true));
+        Assert.That(without.TestStatus, Is.EqualTo(PairTestStatus.NotEstimable));
+        Assert.That(without.N, Is.EqualTo(0));
     }
 
     private static PtmPair APair(string modA, int posA, string protA, int posB, string protB, double rho, double p, int n) => new()
@@ -494,6 +973,38 @@ public class PtmQtlTests
         Assert.That(e.CovariateEffects, Has.Count.EqualTo(1));
         Assert.That(e.CovariateEffects[0], Is.EqualTo(0.02).Within(0.005));   // the injection offset, +0.01 vs -0.01
         Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(occ, trait, rep, null, ["handling"]));
+    }
+
+    [Test]
+    public void TraitFitOnLog2OddsIsTheNaturalLogFitDividedByLn2()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        var cov = trait.Keys.ToDictionary(r => r, r => new[] { r.EndsWith("_0") ? 1.0 : 0.0 });
+        var ln = SiteTraitEffects.Fit(occ, trait, rep, cov, ["handling"]).Single();
+        var log2 = SiteTraitEffects.Fit(occ, trait, rep, cov, ["handling"],
+            new SiteTraitOptions { Scale = OccupancyScale.Log2Odds }).Single();
+        double ln2 = Math.Log(2);
+        Assert.That(ln.Scale, Is.EqualTo(OccupancyScale.NaturalLogOdds));
+        Assert.That(log2.Scale, Is.EqualTo(OccupancyScale.Log2Odds));
+        Assert.That(log2.Status, Is.EqualTo("Fitted"));
+        // Exact: the log2 result is the natural-log fit divided by ln 2, not a second fit.
+        Assert.That(log2.Effect, Is.EqualTo(ln.Effect / ln2));
+        Assert.That(log2.StandardError, Is.EqualTo(ln.StandardError / ln2));
+        Assert.That(log2.CovariateEffects[0], Is.EqualTo(ln.CovariateEffects[0] / ln2));
+        Assert.That(log2.ReplicateVariance, Is.EqualTo(ln.ReplicateVariance / (ln2 * ln2)));
+        Assert.That(log2.ResidualVariance, Is.EqualTo(ln.ResidualVariance / (ln2 * ln2)));
+        Assert.That(log2.DegreesOfFreedom, Is.EqualTo(ln.DegreesOfFreedom));
+        Assert.That(log2.PValue, Is.EqualTo(ln.PValue));
+        Assert.That(log2.Q, Is.EqualTo(ln.Q));
+        Assert.That(log2.MedianFraction, Is.EqualTo(ln.MedianFraction));
+
+        // A site below support records its scale too, and an unknown scale is refused.
+        var below = SiteTraitEffects.Fit(occ, trait, rep,
+            options: new SiteTraitOptions { Scale = OccupancyScale.Log2Odds, MinReplicates = 7 }).Single();
+        Assert.That(below.Status, Is.EqualTo("BelowSupport"));
+        Assert.That(below.Scale, Is.EqualTo(OccupancyScale.Log2Odds));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SiteTraitEffects.Fit(occ, trait, rep, options: new SiteTraitOptions { Scale = (OccupancyScale)2 }));
     }
 
     [Test]
