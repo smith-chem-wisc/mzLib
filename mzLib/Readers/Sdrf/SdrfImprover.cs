@@ -160,7 +160,7 @@ namespace Readers
                     }
                     // A project-level summary is weaker evidence than a per-file statement: it may fill a gap,
                     // never dispute (PRIDE's "LTQ Orbitrap" against a curated per-file "Q Exactive").
-                    else if (cell.Source != SdrfDraftSource.PrideProjectRecord && !Same(r[at], cell))
+                    else if (!SdrfDepositRecord.IsRecord(cell.Source) && !Same(r[at], cell))
                         disagreements.Add(new SdrfDisagreement(r[Col(DataFile)], target.Column, r[at], Write(target, cell), cell.Evidence));
                 }
             }
@@ -287,6 +287,7 @@ namespace Readers
         private static string Word(SdrfDraftSource source) => source switch
         {
             SdrfDraftSource.PrideProjectRecord => "pride project record",
+            SdrfDraftSource.MassiveDatasetRecord => "massive dataset record",
             SdrfDraftSource.Publication => "publication",
             SdrfDraftSource.Deposit => "deposited",
             SdrfDraftSource.Default => "default",

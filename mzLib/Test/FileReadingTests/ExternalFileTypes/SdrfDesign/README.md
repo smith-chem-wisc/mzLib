@@ -21,3 +21,7 @@ every column and cell as deposited; only rows were removed, whole files at a tim
 - `PXD061609.subset.sdrf.tsv`: 108 rows, 6 files, TMTpro 18. Fractions 1 and 2 of each of three SAX
   arms (`NoSAX`, `HighSalt`, `LowSalt` in `comment[sample preparation batch]`) of ONE plex: all 18
   samples are in every arm, and each arm numbers its fractions from 1.
+- `PXD015833-Exp2.subset.sdrf.tsv`: 20 rows, 2 files, TMT10. Fractions 1 and 2 (`PAT8141A12RW2_A1.raw`,
+  `PAT8141A13RW2_B1.raw`) of the one plex of experiment 2 (12 files in all). It labels the last channel
+  `TMT131`, PRIDE's spelling (PRIDE:0000529), where mzLib says 131N. No column names the plex, and no
+  `factor value[...]` column is given.
