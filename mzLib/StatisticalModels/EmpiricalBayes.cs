@@ -128,6 +128,18 @@ namespace StatisticalModels
     public sealed record ContrastWeights(string Name, IReadOnlyList<double> Weights);
 
     /// <summary>
+    /// One fitted feature's part in a contrast c, as a model gives it to the shared moderation
+    /// (<see cref="EmpiricalBayes.ModerateContrastsCore"/>).
+    /// </summary>
+    /// <param name="Estimate">c′β.</param>
+    /// <param name="StdevUnscaled">sqrt(c′Uc), U the coefficients' covariance divided by the residual variance.</param>
+    /// <param name="Df">
+    /// The degrees of freedom of this contrast's residual variance, before the prior's are added: the residual df of a
+    /// linear model; a mixed model's Satterthwaite df for c. Not finite: the feature has no result for this contrast.
+    /// </param>
+    internal readonly record struct FeatureContrast(double Estimate, double StdevUnscaled, double Df);
+
+    /// <summary>
     /// A moderated test of one contrast across all features, with its confidence interval. Read-only to callers. Every
     /// per-feature value is NaN for a feature that was not fitted.
     /// </summary>
@@ -413,19 +425,8 @@ namespace StatisticalModels
         {
             ArgumentNullException.ThrowIfNull(fit);
             ArgumentNullException.ThrowIfNull(contrasts);
-            if (!(confidenceLevel > 0 && confidenceLevel < 1))
-                throw new ArgumentOutOfRangeException(nameof(confidenceLevel), confidenceLevel, "The confidence level must be strictly between 0 and 1.");
-            if (contrasts.Count == 0) throw new ArgumentException("No contrast was given.", nameof(contrasts));
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var c in contrasts)
-            {
-                ArgumentNullException.ThrowIfNull(c);
-                ArgumentException.ThrowIfNullOrWhiteSpace(c.Name, nameof(contrasts));
-                if (!seen.Add(c.Name)) throw new ArgumentException($"Two contrasts are named '{c.Name}'.", nameof(contrasts));
-                fit.ContrastEstimate(0, c.Weights); // length and finiteness, with the coefficient named
-                if (c.Weights.All(w => w == 0))
-                    throw new ArgumentException($"Every weight of contrast '{c.Name}' is zero.", nameof(contrasts));
-            }
+            // Length and finiteness of the weights, with the coefficient named.
+            CheckContrasts(contrasts, confidenceLevel, c => fit.ContrastEstimate(0, c.Weights));
 
             int n = fit.FeatureCount;
             var fitted = Enumerable.Range(0, n).Where(f => fit.Status[f] == FeatureFitStatus.Fitted).ToArray();
@@ -442,32 +443,82 @@ namespace StatisticalModels
                 df[f] = ok ? fit.DfResidual[f] : 0;
             }
             var prior = FitPrior(s2, df, trend ? fit.AverageResponse : null, splineBasisCount, estimator);
-            double pooledDf = fitted.Sum(f => (double)fit.DfResidual[f]);
-            bool dfDiffer = fitted.Any(f => fit.DfResidual[f] != fit.DfResidual[fitted[0]]);
+            return ModerateContrastsCore(contrasts, prior, s2, df, fitted, fit.Status, confidenceLevel,
+                (f, w) => new FeatureContrast(fit.ContrastEstimate(f, w), fit.ContrastStdevUnscaled(f, w), df[f]));
+        }
+
+        /// <summary>
+        /// The checks every <c>ModerateContrasts</c> makes of its request: a level strictly between 0 and 1; at least one
+        /// contrast; names not blank and unique; weights that <paramref name="checkWeights"/> accepts (it throws otherwise),
+        /// not all zero.
+        /// </summary>
+        internal static void CheckContrasts(IReadOnlyList<ContrastWeights> contrasts, double confidenceLevel,
+            Action<ContrastWeights> checkWeights)
+        {
+            if (!(confidenceLevel > 0 && confidenceLevel < 1))
+                throw new ArgumentOutOfRangeException(nameof(confidenceLevel), confidenceLevel, "The confidence level must be strictly between 0 and 1.");
+            if (contrasts.Count == 0) throw new ArgumentException("No contrast was given.", nameof(contrasts));
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var c in contrasts)
+            {
+                ArgumentNullException.ThrowIfNull(c);
+                ArgumentException.ThrowIfNullOrWhiteSpace(c.Name, nameof(contrasts));
+                if (!seen.Add(c.Name)) throw new ArgumentException($"Two contrasts are named '{c.Name}'.", nameof(contrasts));
+                checkWeights(c);
+                if (c.Weights.All(w => w == 0))
+                    throw new ArgumentException($"Every weight of contrast '{c.Name}' is zero.", nameof(contrasts));
+            }
+        }
+
+        /// <summary>
+        /// The moderation every <c>ModerateContrasts</c> shares, once the caller has checked the request and fitted the prior
+        /// from (s², d). Per contrast c, for each feature in <paramref name="features"/>: the model's
+        /// <see cref="FeatureContrast"/> (none when its df is not finite); the posterior variance
+        /// s̃² = (d0·s0² + d·s²) / (d0 + d), or s0² when d0 is infinite; SE = s̃ · sqrt(c′Uc); t on the contrast's df + d0,
+        /// capped at the sum of d over <paramref name="features"/>; the two-sided p; the interval
+        /// estimate ± t-quantile((1 + level)/2, df) × SE; and Benjamini–Hochberg over the features with a result.
+        /// </summary>
+        /// <param name="contrasts">Already checked (<see cref="CheckContrasts"/>).</param>
+        /// <param name="prior">Fitted from <paramref name="variances"/> and <paramref name="df"/>.</param>
+        /// <param name="variances">s² per feature; read only for <paramref name="features"/>.</param>
+        /// <param name="df">d, the degrees of freedom of s², per feature; read only for <paramref name="features"/>.</param>
+        /// <param name="features">The features moderated, in ascending order; at least one.</param>
+        /// <param name="status">Every feature's fit status; its length is the feature count.</param>
+        /// <param name="confidenceLevel">Already checked.</param>
+        /// <param name="contrastOf">The model's estimate, unscaled SD and df of a contrast (its weights) for a feature.</param>
+        internal static IReadOnlyList<ModeratedContrast> ModerateContrastsCore(IReadOnlyList<ContrastWeights> contrasts,
+            VariancePrior prior, IReadOnlyList<double> variances, IReadOnlyList<double> df, IReadOnlyList<int> features,
+            IReadOnlyList<FeatureFitStatus> status, double confidenceLevel, Func<int, double[], FeatureContrast> contrastOf)
+        {
+            int n = status.Count;
+            double dfCap = features.Sum(f => df[f]);
+            bool dfDiffer = features.Any(f => df[f] != df[features[0]]);
             double upper = (1 + confidenceLevel) / 2;
 
             var results = new List<ModeratedContrast>(contrasts.Count);
             foreach (var c in contrasts)
             {
-                var result = new ModeratedContrast(c.Name, c.Weights, prior, fit.Status, dfDiffer, confidenceLevel);
-                foreach (int f in fitted)
+                var w = c.Weights.ToArray();
+                var result = new ModeratedContrast(c.Name, w, prior, status, dfDiffer, confidenceLevel);
+                foreach (int f in features)
                 {
+                    var feature = contrastOf(f, w);
+                    if (!double.IsFinite(feature.Df)) continue;
                     double post = double.IsPositiveInfinity(prior.Df)
                         ? prior.Scale[f]
-                        : (prior.Df * prior.Scale[f] + df[f] * s2[f]) / (prior.Df + df[f]);
-                    double dfTotal = Math.Min(df[f] + prior.Df, pooledDf);
-                    double estimate = fit.ContrastEstimate(f, c.Weights);
-                    double se = Math.Sqrt(post) * fit.ContrastStdevUnscaled(f, c.Weights);
-                    double t = estimate / se;
+                        : (prior.Df * prior.Scale[f] + df[f] * variances[f]) / (prior.Df + df[f]);
+                    double dfTotal = Math.Min(feature.Df + prior.Df, dfCap);
+                    double se = Math.Sqrt(post) * feature.StdevUnscaled;
+                    double t = feature.Estimate / se;
                     double half = Quantile(upper, dfTotal) * se;
-                    result.EstimateValues[f] = estimate;
+                    result.EstimateValues[f] = feature.Estimate;
                     result.PosteriorVarianceValues[f] = post;
                     result.StandardErrorValues[f] = se;
                     result.TValues[f] = t;
                     result.DfTotalValues[f] = dfTotal;
                     result.PValues[f] = TwoSidedP(t, dfTotal);
-                    result.LowValues[f] = estimate - half;
-                    result.HighValues[f] = estimate + half;
+                    result.LowValues[f] = feature.Estimate - half;
+                    result.HighValues[f] = feature.Estimate + half;
                 }
                 var adjusted = MultipleTesting.BenjaminiHochberg(result.PValues);
                 Array.Copy(adjusted, result.AdjustedValues, n);

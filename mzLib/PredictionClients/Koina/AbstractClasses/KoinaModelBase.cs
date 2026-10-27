@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Omics.Modifications;
 using Omics.SequenceConversion;
@@ -11,27 +12,6 @@ namespace PredictionClients.Koina.AbstractClasses;
 public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
     protected static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
-
-    /// <summary>
-    /// An mzLib C-terminal modification group together with its separator, e.g. the "-[Amidation on E]"
-    /// in "PEPTIDE-[Amidation on E]". It is removed before the raw base-sequence check, because
-    /// <see cref="BaseStripper"/> removes only the brackets and would leave the "-" behind, which
-    /// <see cref="AllowedAminoAcidPattern"/> then rejects.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately narrow -- one group, C-terminus only, anchored at the end of the string. That is the
-    /// whole of what mzLib format writes: MzLibSequenceFormatSchema declares an EMPTY N-terminal
-    /// separator, so "[Acetylation on X]PEPTIDE" already passes the check, and no mzLib string has a "-"
-    /// followed by anything but one terminal group at the end.
-    ///
-    /// Widening this to ProForma shapes ("-" at both ends, stacked groups) would be wrong here rather
-    /// than merely generous, because every converter built below parses with MzLibSequenceParser:
-    /// "[UNIMOD:1]-PEPTIDE" would clear this check only to fail one step later, and
-    /// "PEPTIDE-[Amidation on E][Oxidation on M]" would parse as a DIFFERENT peptide -- C-terminal
-    /// amidation plus an oxidation on E -- with no warning. Accepting ProForma needs the model to carry
-    /// a ProForma parser and serializer, not a looser pre-check.
-    /// </remarks>
-    protected static readonly Regex CTerminalModStripper = new(@"-\[[^\]]+\]$", RegexOptions.Compiled);
 
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
@@ -85,10 +65,19 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <summary>
     /// Unimod modification IDs accepted by the model when converting sequences.
     /// Used by the modification converter layer (not parameter validation).
-    /// empty = no modifications are accepted.
+    /// empty = no modifications are accepted, UNLESS <see cref="AcceptsAllUnimodModifications"/> is true.
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
+    /// <summary>
+    /// True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.
+    /// </summary>
+    public virtual bool AcceptsAllUnimodModifications => false;
+
+    /// <summary>
+    /// UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.
+    /// </summary>
+    public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
 
     /// <summary>
     /// Gets the regex pattern for validating amino acid sequences.
@@ -190,16 +179,21 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// </summary>
     protected virtual string? TryCleanSequence(
         string sequence,
+        ISequenceParser? sourceParser,
         out string? apiSequence,
         out WarningException? warning)
     {
         apiSequence = null;
         warning = null;
+        var parser = sourceParser ?? SequenceConverter.Parser;
 
-        var rawBase = BaseStripper.Replace(CTerminalModStripper.Replace(sequence, string.Empty), string.Empty);
-        if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
+        var residues = SeparateResidues(sequence, parser.Schema);
+        if (!IsValidBaseSequence(residues, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
         {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            var message = $"Invalid base sequence '{residues}': residues must match {AllowedAminoAcidPattern} " +
+                          $"and be {MinPeptideLength}-{MaxPeptideLength} long.";
+            HandleFailure(ModHandlingMode, message);
+            warning = new WarningException(message);
             return null;
         }
 
@@ -207,7 +201,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         CanonicalSequence? canonical;
         try
         {
-            canonical = SequenceConverter.Parse(sequence, conversionWarnings, ModHandlingMode);
+            canonical = parser.Parse(sequence, conversionWarnings, ModHandlingMode);
             if (!canonical.HasValue)
             {
                 HandleFailure(ModHandlingMode, "Failed to parse sequence.");
@@ -222,17 +216,51 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
-        if (!IsValidBaseSequence(canonical.Value.BaseSequence, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
-        {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
-            return null;
-        }
-
         var cleaned = canonical.Value;
         if (ModHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence && cleaned.HasModifications)
         {
             cleaned = cleaned.WithModifications(Array.Empty<CanonicalModification>());
             conversionWarnings.AddWarning("Sequence modifications were removed for prediction.");
+        }
+
+        // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
+        var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        var incompatible = new List<CanonicalModification>();
+        foreach (var mod in cleaned.Modifications)
+        {
+            var resolved = SequenceConverter.Serializer.ResolveModification(mod);
+            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+                accepted.Add(resolved);
+            else
+                incompatible.Add(resolved);
+        }
+
+        if (incompatible.Count > 0)
+        {
+            foreach (var mod in incompatible)
+                conversionWarnings.AddIncompatibleItem(mod.ToString());
+
+            if (ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements)
+            {
+                HandleFailure(ModHandlingMode, $"Sequence contains unsupported modifications: {string.Join(", ", incompatible)}");
+                warning = BuildWarning(conversionWarnings, null);
+                return null;
+            }
+
+            foreach (var mod in incompatible)
+                conversionWarnings.AddWarning($"Removing unsupported modification: {mod}");
+        }
+        cleaned = cleaned.WithModifications(accepted);
+
+        if (RequiredNTerminalUnimodIds is { } required
+            && (cleaned.NTerminalModification?.UnimodId is not int nTermId || (required.Count > 0 && !required.Contains(nTermId))))
+        {
+            var message = required.Count == 0
+                ? "Sequence must carry an N-terminal modification."
+                : $"Sequence must carry one of these N-terminal modifications: {string.Join(", ", required.Order().Select(i => $"UNIMOD:{i}"))}.";
+            HandleFailure(ModHandlingMode, message);
+            warning = BuildWarning(conversionWarnings, message);
+            return null;
         }
 
         string? serialized;
@@ -256,6 +284,62 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         apiSequence = serialized;
         warning = BuildWarning(conversionWarnings, null);
         return apiSequence;
+    }
+
+    private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
+    {
+        var residues = new StringBuilder(sequence.Length);
+        var nTermSeparator = schema.NTermSeparator;
+        var cTermSeparator = schema.CTermSeparator;
+
+        int i = SkipModifications(sequence, 0, schema);
+        if (i > 0 && !string.IsNullOrEmpty(nTermSeparator) && sequence.AsSpan(i).StartsWith(nTermSeparator))
+            i += nTermSeparator.Length;
+
+        while (i < sequence.Length)
+        {
+            int afterModifications = SkipModifications(sequence, i, schema);
+            if (afterModifications > i)
+            {
+                i = afterModifications;
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(cTermSeparator) && sequence.AsSpan(i).StartsWith(cTermSeparator))
+            {
+                int modificationsStart = i + cTermSeparator.Length;
+                int afterCTerm = SkipModifications(sequence, modificationsStart, schema);
+                if (afterCTerm > modificationsStart && afterCTerm == sequence.Length)
+                    break;
+            }
+
+            residues.Append(sequence[i]);
+            i++;
+        }
+
+        return residues.ToString();
+    }
+
+    private static int SkipModifications(string sequence, int start, SequenceFormatSchema schema)
+    {
+        int i = start;
+        while (i < sequence.Length && sequence[i] == schema.ModOpenBracket)
+        {
+            int depth = 0;
+            int end = -1;
+            for (int k = i; k < sequence.Length && end < 0; k++)
+            {
+                if (sequence[k] == schema.ModOpenBracket)
+                    depth++;
+                else if (sequence[k] == schema.ModCloseBracket && --depth == 0)
+                    end = k + 1;
+            }
+
+            if (end < 0)
+                break;
+            i = end;
+        }
+        return i;
     }
 
     #endregion
