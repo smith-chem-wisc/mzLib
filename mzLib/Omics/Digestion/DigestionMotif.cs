@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using MzLibUtil;
 
 namespace Omics.Digestion
@@ -29,8 +29,8 @@ namespace Omics.Digestion
         /// </remarks>
         public readonly IReadOnlyList<CleavageRequirement> CleavageRequirements;
 
-        /// <summary>True when this motif is satisfied by sequence alone, as every shipped motif but the
-        /// glycoproteases is.</summary>
+        /// <summary>True when this motif imposes at least one subsite condition on a modification, as only
+        /// the glycoprotease motifs do; false when it is satisfied by sequence alone.</summary>
         public bool HasCleavageRequirement => CleavageRequirements.Count > 0;
 
         private static readonly CleavageRequirement[] NoRequirements = new CleavageRequirement[0];
