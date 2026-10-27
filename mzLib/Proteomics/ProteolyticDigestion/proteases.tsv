@@ -156,26 +156,34 @@ collagenase	GPX|GPX	full
 # aeruginosa, MEROPS M88) and SmE (Serratia marcescens, peptidase_M60/PF13402)
 # all cleave N-terminal to a glycosylated Ser/Thr -- the glycan is at P1'. They
 # were previously left out of this file because that rule could not be written;
-# it can now. They still differ in ways this column cannot yet express, because a
-# Modification carries no monosaccharide composition:
+# it can now. A cell may hold several conditions separated by ";", all of which
+# must hold; "!" marks one that FORBIDS rather than requires; and ">=" sets a
+# minimum monosaccharide composition the glycan must contain. The three differ:
 #   OpeRATOR  optimal on core 1; NOT cleaved on the Tn antigen; blocked by
 #             alpha-2,6-sialylation and by core 2; alpha-2,3-sialyl core 1 is
 #             turned over ~170x slower. Sialidase co-treatment is standard.
+#             Encoded: at least Hex1HexNAc1 at P1' (core 1, so not Tn), and no
+#             glycan with HexNAc2 or more (core 2). Not encoded: sialylation,
+#             whose linkage a composition cannot tell apart.
 #             Trastoy et al., Nat Commun 2020, doi:10.1038/s41467-020-18696-y
 #   IMPa      broad: sialylated and asialylated glycans alike, no sialidase
 #             needed. Will not cleave when P1 is aspartate, nor between two
 #             adjacent O-glycosites (a glycan at P1 forbids the cut). Isoleucine
 #             and arginine at P1 are strong efficiency penalties (8% and 38%
-#             completion), not refusals.
+#             completion), not refusals. Encoded: "[D]|" for aspartate at P1 and
+#             "P1:!O-glycan" for adjacent glycosites. Not encoded: the penalties.
 #             Vainauskas et al., Anal Chem 2022, doi:10.1021/acs.analchem.1c04055
 #   SmE       broadest glycan tolerance of the three, and unlike IMPa it DOES
-#             cleave between two adjacent glycosites.
+#             cleave between two adjacent glycosites, so it has no P1 condition.
 #             Chongsaritsinsuk et al., Nat Commun 2023, doi:10.1038/s41467-023-41756-y
 #
-# Those structure-level and P1-residue rules are deliberately NOT encoded here.
-# A class-level requirement admits glycoforms the real enzyme would refuse, which
-# costs search space and never an identification; inventing a syntax for rules
-# the Modification model cannot yet support would be worse.
+# A composition floor can only be judged on a modification that carries a
+# composition, and today nothing populates one. An unknown composition counts as
+# meeting a REQUIRED floor and as not matching a FORBIDDEN one, so until
+# compositions are populated OpeRATOR's floors leave its cuts as a plain
+# "P1':O-glycan" would. What stays unencoded (linkage, efficiency) costs search
+# space and never an identification: a rule that admits glycoforms the enzyme
+# would refuse proposes extra peptides, never fewer.
 #
 # In a composite entry the requirement attaches only to the motifs that have the
 # named subsite, so StcE-trypsin carries the glycan rule on its four StcE motifs

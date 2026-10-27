@@ -19,10 +19,11 @@ namespace Omics.Digestion
     ///
     /// <para><b>Why the class names are coarse.</b> The value after the colon names a glycosylation
     /// CLASS, not a structure, because that is all a <see cref="Modification"/> can currently be
-    /// resolved to. Real enzymes discriminate far more finely -- OpeRATOR needs core 1 and is refused by
-    /// the Tn antigen, AMUC_1438 needs Tn and is refused by anything larger -- and none of that can be
-    /// written here yet. A rule written at class level admits glycoforms the real enzyme would refuse,
-    /// which costs search space and never an identification.</para>
+    /// resolved to. Real enzymes discriminate more finely -- OpeRATOR needs core 1 and is refused by the
+    /// Tn antigen and by core 2. A <c>&gt;=</c> composition floor writes part of that
+    /// (<c>P1':O-glycan&gt;=Hex1HexNAc1;P1':!O-glycan&gt;=HexNAc2</c>), but linkage cannot be written,
+    /// and a floor only bites on a modification that carries a composition. A rule that admits
+    /// glycoforms the real enzyme would refuse costs search space and never an identification.</para>
     ///
     /// <para>Whitespace is ignored and the keyword is case-insensitive, because these values are typed
     /// by hand into a tab-separated file.</para>

@@ -152,10 +152,11 @@ namespace Proteomics.ProteolyticDigestion
         /// peptide that replaces what it drops. Promoting works in two stages instead. The first removes
         /// sites at which the required modification could never be present, before enumeration, and needs
         /// no slack: the read-through across a site that is not a site is just the ordinary peptide
-        /// between the sites that remain. The second refines OCCUPANCY per peptidoform, and it does NOT
-        /// yet have a read-through -- a peptidoform whose cut is feasible but unoccupied is dropped with
-        /// nothing generated to replace it (truth-set case STCE-08). Note that the two corrections are
-        /// therefore NOT symmetric in one further respect: an unconfigured blocking modification cannot
+        /// between the sites that remain. The second refines OCCUPANCY per peptidoform: a cut that is
+        /// feasible but unoccupied in a given peptidoform is dropped, and that one DOES need slack, because
+        /// the read-through across the unoccupied site spans one more site than the caller's budget
+        /// (truth-set case STCE-08; DigestionAgent.FullDigestion adds it). Note that the two corrections are
+        /// NOT symmetric in one further respect: an unconfigured blocking modification cannot
         /// remove a site the sequence really has, whereas an unsatisfiable promoting requirement means
         /// there is genuinely no site -- which is why this flag has no "nothing configured, go inert"
         /// escape and must not be given one.</para>
