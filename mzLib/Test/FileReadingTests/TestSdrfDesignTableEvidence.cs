@@ -169,6 +169,74 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AResultOrFigureTableWithADesignTablesColumnsIsNoDesignTable()
+        {
+            // MSstats' own input (one row per peptide) and a figure's source data both carry Run, Condition and BioReplicate.
+            string[] header = { "ProteinName", "PeptideSequence", "Run", "Condition", "BioReplicate", "Intensity" };
+            var peptides = Table("quant/msstats_input.csv", header,
+                new[] { "P02768", "LVNEVTEFAK", "c1.raw", "Control", "1", "1.2e7" },
+                new[] { "P02769", "AEFAEVSK", "c2.raw", "Control", "2", "3.4e6" },
+                new[] { "Q9Y6K9", "LLEEVK", "t1.raw", "Treated", "1", "8.8e6" });
+            var figure = new SupplementTable("mmc2.xlsx", "Figure 3 source data", "", new[] { "Run", "Condition", "BioReplicate" },
+                new List<IReadOnlyList<string>> { new[] { "c1.raw", "Control", "1" }, new[] { "t1.raw", "Treated", "1" } }, new List<int> { 2, 3 }, false);
+            var runs = new[] { "c1.raw", "c2.raw", "t1.raw" };
+
+            Assert.That(SampleEvidenceExtractor.ExtractDeposited(new[] { peptides }, runs), Is.Empty, "a result table");
+            Assert.That(SampleEvidenceExtractor.Extract(new[] { figure }, runs), Is.Empty, "figure source data");
+        }
+
+        /// <summary>Replicate columns no rule can read as one numbering: each case is a column the table must not claim from.</summary>
+        private static IEnumerable<TestCaseData> UnreadableReplicates()
+        {
+            yield return new TestCaseData("Replicate", new[] { "0", "1", "2" }).SetName("Spectronaut, numbered from 0");
+            yield return new TestCaseData("Replicate", new[] { "1.0", "2.0", "3.0" }).SetName("Spectronaut, decimals");
+            yield return new TestCaseData("Replicate", new[] { "1", "2", "x" }).SetName("Spectronaut, one word");
+            yield return new TestCaseData("BioReplicate", new[] { "1", "2", "patient_C" }).SetName("MSstats, numbers and a name");
+        }
+
+        [TestCaseSource(nameof(UnreadableReplicates))]
+        public void AReplicateColumnThatIsNeitherOneNumberingNorAllNamesGivesNoReplicateAndNoSample(string column, string[] values)
+        {
+            var header = column == "Replicate"
+                ? new[] { "Run Label", "Condition", "Replicate" }
+                : new[] { "Run", "Condition", "BioReplicate" };
+            var runs = new[] { "c1.raw", "c2.raw", "t1.raw" };
+            var t = Table("design.tsv", header, runs.Select((r, i) => new[] { r, i < 2 ? "Control" : "Treated", values[i] }).ToArray());
+
+            var e = SampleEvidenceExtractor.ExtractDeposited(new[] { t }, runs);
+
+            Assert.That(e.Select(x => x.Column), Has.None.EqualTo("source name"));
+            Assert.That(e.Select(x => x.Column), Has.None.EqualTo("characteristics[biological replicate]"));
+            Assert.That(e.Count(x => x.Column == "factor value[condition]"), Is.EqualTo(3), "the rest of the table still reads");
+        }
+
+        [Test]
+        public void ASpectronautReplicateIsNeverASampleName()
+        {
+            var t = Table("ConditionSetup.tsv", new[] { "Run Label", "Condition", "Replicate" },
+                new[] { "c1.raw", "Control", "A" }, new[] { "c2.raw", "Control", "B" });
+
+            var e = SampleEvidenceExtractor.ExtractDeposited(new[] { t }, new[] { "c1.raw", "c2.raw" });
+
+            Assert.That(e.Select(x => x.Column), Has.None.EqualTo("source name"));
+        }
+
+        [TestCase("nd")]
+        [TestCase("unknown")]
+        [TestCase("?")]
+        public void EveryMissingValueMarkTheOtherRulesKnowIsNoDesignTableClaim(string missing)
+        {
+            var t = Table("annotation.csv", new[] { "Run", "Condition", "BioReplicate" },
+                new[] { "c1.raw", missing, "patient_A" }, new[] { "c2.raw", "Control", missing });
+
+            var e = SampleEvidenceExtractor.ExtractDeposited(new[] { t }, new[] { "c1.raw", "c2.raw" });
+
+            Assert.That(e.Select(x => x.Value), Has.None.EqualTo(missing));
+            Assert.That(One(e, "c1.raw", "source name").Value, Is.EqualTo("patient_A"));
+            Assert.That(One(e, "c2.raw", "factor value[condition]").Value, Is.EqualTo("Control"));
+        }
+
+        [Test]
         public void AnMsstatsTmtAnnotationGivesEachChannelItsOwnClaims()
         {
             // MSV000084266's SpikeIn5mix_MS2_PD_annotation.csv, in shape.
@@ -335,6 +403,109 @@ namespace Test.FileReadingTests
             Assert.That(row["characteristics[biological replicate]"], Is.EqualTo("3"));
             Assert.That(row["comment[biological replicate source]"], Is.EqualTo("deposited"));
             Assert.That(row["comment[biological replicate source reference]"], Is.EqualTo(SetupFile + "!R4C6"));
+        }
+
+        /// <summary>MassIVE.quant's label-free annotation, in shape: a condition and a sample identifier per run.</summary>
+        private static SupplementTable Annotation() => Table("metadata/run_annotation.csv", new[] { "Run", "Condition", "BioReplicate" },
+            new[] { "ctrl_a.raw", "Control", "patient_A" }, new[] { "case_b.raw", "Case", "patient_B" });
+
+        private static readonly string[] AnnotatedRuns = { "ctrl_a.raw", "case_b.raw", "blank_01.raw" };
+
+        [Test]
+        public void AConditionFromADesignTableIsWrittenDepositedWithItsReference()
+        {
+            var d = SdrfDrafter.Draft(Project(), Runs, SampleEvidenceExtractor.ExtractDeposited(new[] { Setup() }, Runs));
+
+            var doc = SdrfDrafter.ToDocument(d);
+            var o3 = doc.Results.Single(r => r["comment[data file]"] == "240418_AM_O3.raw");
+            Assert.That(o3["factor value[condition]"], Is.EqualTo("Old"));
+            Assert.That(o3["comment[factor value condition source]"], Is.EqualTo("deposited"));
+            Assert.That(o3["comment[factor value condition source reference]"], Is.EqualTo(SetupFile + "!R4C4"));
+            Assert.That(o3["comment[factor value condition source method]"], Is.EqualTo("rules"));
+            // A run of the other study keeps what its name said, and says so; a run with no condition has no source.
+            var heart = doc.Results.Single(r => r["comment[data file]"] == "190418_NR_Hanna_DR_HpH_fr1.raw");
+            Assert.That((heart["factor value[condition]"], heart["comment[factor value condition source]"]), Is.EqualTo(("DR", "inferred")));
+            Assert.That(heart["comment[factor value condition source reference]"], Is.EqualTo(SdrfReserved.NotApplicable));
+            var left = doc.Results.Single(r => r["comment[data file]"] == "240418_AM_ODR_3.raw");
+            Assert.That(left["comment[factor value condition source]"], Is.EqualTo(SdrfReserved.NotApplicable));
+            Assert.That(SdrfValidator.Validate(doc).Errors, Is.Empty);
+        }
+
+        [Test]
+        public void ASampleNameFromADesignTableIsWrittenDepositedWithItsReference()
+        {
+            var d = SdrfDrafter.Draft(Project(), AnnotatedRuns, SampleEvidenceExtractor.ExtractDeposited(new[] { Annotation() }, AnnotatedRuns));
+
+            var doc = SdrfDrafter.ToDocument(d);
+            var b = doc.Results.Single(r => r["comment[data file]"] == "case_b.raw");
+            Assert.That(b["source name"], Is.EqualTo("patient_B"));
+            Assert.That(b["comment[source name source]"], Is.EqualTo("deposited"));
+            Assert.That(b["comment[source name source reference]"], Is.EqualTo("metadata/run_annotation.csv!R3C3"));
+            Assert.That(b["comment[source name source method]"], Is.EqualTo("rules"));
+            Assert.That(doc.Results.Single(r => r["comment[data file]"] == "blank_01.raw")["comment[source name source]"], Is.EqualTo("inferred"));
+            Assert.That(SdrfValidator.Validate(doc).Errors, Is.Empty);
+        }
+
+        [Test]
+        public void WithoutEvidenceNoConditionOrSampleNameProvenanceIsWritten()
+        {
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Project(), Runs));
+
+            Assert.That(doc.Header, Has.None.StartWith("comment[factor value "));
+            Assert.That(doc.Header, Has.None.StartWith("comment[source name "));
+        }
+
+        [Test]
+        public void TheImproverWritesWhereADesignTablesConditionsCameFrom()
+        {
+            string[] columns = { "source name", "characteristics[organism]", "assay name", "comment[label]", "comment[data file]" };
+            var header = new SdrfHeader(columns);
+            var deposited = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "s3", "mus musculus", "run 1", "label free sample", "240418_AM_O3.raw" }),
+            });
+            var draft = SdrfDrafter.Draft(Project(), Runs, SampleEvidenceExtractor.ExtractDeposited(new[] { Setup() }, Runs));
+
+            var doc = SdrfImprover.Improve(deposited, draft).Document;
+
+            var o3 = doc.Results.Single(r => r["comment[data file]"] == "240418_AM_O3.raw");
+            Assert.That(o3["factor value[condition]"], Is.EqualTo("Old"));
+            Assert.That(o3["comment[factor value condition source]"], Is.EqualTo("deposited"));
+            Assert.That(o3["comment[factor value condition source reference]"], Is.EqualTo(SetupFile + "!R4C4"));
+            Assert.That(o3["comment[factor value condition source method]"], Is.EqualTo("rules"));
+            // A run the deposit does not list is drafted with the table's condition, and says where it came from.
+            var o4 = doc.Results.Single(r => r["comment[data file]"] == "240418_AM_O4.raw");
+            Assert.That(o4["factor value[condition]"], Is.EqualTo("Old"));
+            Assert.That(o4["comment[factor value condition source reference]"], Is.EqualTo(SetupFile + "!R5C4"));
+            var heart = doc.Results.Single(r => r["comment[data file]"] == "190418_NR_Hanna_DR_HpH_fr1.raw");
+            Assert.That(heart["comment[factor value condition source]"], Is.EqualTo("inferred"));
+        }
+
+        [Test]
+        public void TheImproverFillsAMissingSampleNameFromADesignTableAndSaysDeposited()
+        {
+            string[] columns = { "source name", "characteristics[organism]", "assay name", "comment[label]", "comment[data file]" };
+            var header = new SdrfHeader(columns);
+            var deposited = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "not available", "homo sapiens", "run 1", "label free sample", "ctrl_a.raw" }),
+                new SdrfRow(header, new[] { "the submitter's name", "homo sapiens", "run 2", "label free sample", "blank_01.raw" }),
+            });
+            var draft = SdrfDrafter.Draft(Project(), AnnotatedRuns, SampleEvidenceExtractor.ExtractDeposited(new[] { Annotation() }, AnnotatedRuns));
+
+            var doc = SdrfImprover.Improve(deposited, draft).Document;
+
+            var a = doc.Results.Single(r => r["comment[data file]"] == "ctrl_a.raw");
+            Assert.That(a["source name"], Is.EqualTo("patient_A"));
+            Assert.That(a["comment[source name source]"], Is.EqualTo("deposited"));
+            Assert.That(a["comment[source name source reference]"], Is.EqualTo("metadata/run_annotation.csv!R2C3"));
+            Assert.That(a["comment[source name source method]"], Is.EqualTo("rules"));
+            // A name the deposit states is its own, and a name the drafter only inferred never fills a gap.
+            Assert.That(doc.Results.Single(r => r["comment[data file]"] == "blank_01.raw")["source name"], Is.EqualTo("the submitter's name"));
+            // The run the deposit does not list is drafted with the table's sample, and says where it came from.
+            var b = doc.Results.Single(r => r["comment[data file]"] == "case_b.raw");
+            Assert.That(b["source name"], Is.EqualTo("patient_B"));
+            Assert.That(b["comment[source name source reference]"], Is.EqualTo("metadata/run_annotation.csv!R3C3"));
         }
 
         // ---------------- claims the drafter declines ----------------

@@ -301,6 +301,13 @@ namespace Readers
         /// source]</c> are written on every row (dataRepo SDRF-DR10), <c>default</c> where 1 was written only
         /// because an SDRF needs a value.</para>
         ///
+        /// <para><b>Conditions and sample names from evidence (G53).</b> A factor value or source name is never inferred
+        /// from anything but the file names, so without evidence it carries no provenance. Once evidence (a design table, a
+        /// paper) states one on any row, its column says where it came from on every row that states it:
+        /// <c>comment[factor value &lt;factor&gt; source]</c> (<c>comment[factor value condition source]</c>; the
+        /// <c>factor value</c> keeps it apart from a characteristic of the same name) and <c>comment[source name source]</c>,
+        /// with <c>source reference</c> and <c>source method</c> beside an evidence cell.</para>
+        ///
         /// <para>Assay facts a draft cannot know (cleavage agent, modifications, tolerances) are
         /// <c>not available</c>: the search that uses this SDRF knows them and writes them in the SDRF it
         /// emits (D37). <c>assay name</c> is <c>run &lt;file stem&gt;</c> (MAP-13).</para>
@@ -320,6 +327,9 @@ namespace Readers
             bool FreeText(SdrfDraftCell c) => c.Source != SdrfDraftSource.NotAvailable && c.Term == null && c.Value != "normal";
             bool rawPart = draft.Rows.Any(r => FreeText(r.OrganismPart));
             bool rawDisease = draft.Rows.Any(r => FreeText(r.Disease));
+            var factorsFromEvidence = Enumerable.Range(0, draft.FactorColumns.Count)
+                .Where(k => draft.Rows.Any(r => FromEvidence(r.Factors[k].Source))).ToList();
+            bool namesFromEvidence = draft.Rows.Any(r => FromEvidence(r.SourceName.Source));
 
             var rows = draft.Rows.Select(r =>
             {
@@ -363,6 +373,9 @@ namespace Readers
                         if (!string.IsNullOrEmpty(cell.Reference)) comments[$"comment[{name} source reference]"] = cell.Reference;
                         if (!string.IsNullOrEmpty(cell.Method)) comments[$"comment[{name} source method]"] = cell.Method;
                     }
+                foreach (int k in factorsFromEvidence)
+                    WriteProvenance(comments, FactorProvenance(draft.FactorColumns[k]), r.Factors[k]);
+                if (namesFromEvidence) WriteProvenance(comments, "source name", r.SourceName);
 
                 var characteristics = new Dictionary<string, CvParam>(StringComparer.Ordinal);
                 var raw = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -582,6 +595,21 @@ namespace Readers
         /// <summary>Whether a cell came from evidence (a paper, a supplement, or a file the deposit holds), so it carries a
         /// source reference and method.</summary>
         internal static bool FromEvidence(SdrfDraftSource source) => source is SdrfDraftSource.Publication or SdrfDraftSource.Deposit;
+
+        /// <summary>How a factor column's provenance is named (<c>factor value[condition]</c> -> <c>factor value condition</c>,
+        /// as in <c>comment[factor value condition source]</c>), apart from any characteristic's.</summary>
+        internal static string FactorProvenance(string factorColumn) => "factor value " + Inner(factorColumn);
+
+        /// <summary>A stated cell's source word, and its source reference and method when evidence stated it (G53). A cell
+        /// nothing states has no source.</summary>
+        internal static void WriteProvenance(IDictionary<string, string> comments, string name, SdrfDraftCell cell)
+        {
+            if (cell.Source == SdrfDraftSource.NotAvailable) return;
+            comments[$"comment[{name} source]"] = SourceWord(cell.Source);
+            if (!FromEvidence(cell.Source)) return;
+            if (!string.IsNullOrEmpty(cell.Reference)) comments[$"comment[{name} source reference]"] = cell.Reference;
+            if (!string.IsNullOrEmpty(cell.Method)) comments[$"comment[{name} source method]"] = cell.Method;
+        }
 
         /// <summary>
         /// Conditions from evidence (sdrf MASSIVE-SDRF.md, MV3). Only a Certain claim about one run is a condition: a design

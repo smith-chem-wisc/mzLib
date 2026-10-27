@@ -162,17 +162,21 @@ namespace Readers
         /// format) or MaxQuant's experimental design (Name, Fraction, Experiment). Certain: the columns are the tool's own,
         /// and the table is the design the submitter searched with. A run is matched by its exact stem only.
         /// <para>Never read: Spectronaut's Label (the condition again, or cut short: MSV000090777's <c>Non-i...</c>) and Color.
-        /// A missing value (<c>NA</c>) is no claim. A replicate, fraction or technical replicate is a whole number from 1, or
-        /// no claim. MSstats' BioReplicate is a number in some tables and a sample identifier in others: a column of whole
-        /// numbers is the biological replicate, any other is the sample's name. MaxQuant's Experiment is the sample its
-        /// fractions belong to.</para>
+        /// A missing value (<c>NA</c>, or any mark <see cref="HeaderMap"/> reads as missing) is no claim. A replicate, fraction
+        /// or technical replicate is a whole number from 1, or no claim. MSstats' BioReplicate is a number in some tables and a
+        /// sample identifier in others: a column of whole numbers is the biological replicate, a column with no number in it
+        /// is the sample's name, and any other column (<c>0</c>-based, <c>1.0</c>, numbers beside a name) is neither.
+        /// Spectronaut's Replicate is only ever a replicate number. MaxQuant's Experiment is the sample its fractions belong
+        /// to.</para>
+        /// <para>A result table or figure source data with these columns (MSstats' own per-peptide input) is not the design
+        /// the submitter searched with, and is not read: the guard the guessing rules have.</para>
         /// </summary>
         private static IEnumerable<SdrfEvidence> DesignTables(List<SupplementTable> tables, FileIndex index)
         {
             foreach (var t in tables)
             {
                 var kind = KindOf(t.Header);
-                if (kind == DesignKind.None) continue;
+                if (kind == DesignKind.None || IsResultTable(t) || FigureData(t)) continue;
                 int run = Find(t.Header, kind switch { DesignKind.Spectronaut => "Run Label", DesignKind.Msstats => "Run", _ => "Name" });
                 int alternative = kind == DesignKind.Spectronaut ? Find(t.Header, "File Name") : -1;
                 int condition = Find(t.Header, "Condition");
@@ -181,7 +185,7 @@ namespace Readers
                 int technical = kind == DesignKind.Msstats ? Math.Max(Find(t.Header, "TechRepMixture"), Find(t.Header, "TechReplicate")) : -1;
                 int channel = kind == DesignKind.Msstats ? Find(t.Header, "Channel") : -1;
                 int experiment = kind == DesignKind.MaxQuant ? Find(t.Header, "Experiment") : -1;
-                bool numbered = replicate >= 0 && Column(t, replicate).Where(v => Stated(v.Value)).All(v => WholeNumber(v.Value) != null);
+                var replicates = replicate < 0 ? Replicates.None : ReplicatesOf(t, replicate, kind);
                 for (int k = 0; k < t.Rows.Count; k++)
                 {
                     var row = t.Rows[k];
@@ -196,11 +200,9 @@ namespace Readers
                         SdrfEvidence Design(int j, string column, string value) =>
                             Claim(file, label, column, value, t.Locator(at, j), "design-table", SdrfEvidenceConfidence.Certain);
                         if (condition >= 0 && Stated(row[condition])) yield return Design(condition, "factor value[condition]", row[condition].Trim());
-                        if (replicate >= 0 && Stated(row[replicate]))
-                        {
-                            if (!numbered) yield return Design(replicate, "source name", row[replicate].Trim());
-                            else if (WholeNumber(row[replicate]) is { } n) yield return Design(replicate, "characteristics[biological replicate]", n);
-                        }
+                        if (replicates == Replicates.Names && Stated(row[replicate])) yield return Design(replicate, "source name", row[replicate].Trim());
+                        if (replicates == Replicates.Numbers && WholeNumber(row[replicate]) is { } n)
+                            yield return Design(replicate, "characteristics[biological replicate]", n);
                         if (experiment >= 0 && Stated(row[experiment])) yield return Design(experiment, "source name", row[experiment].Trim());
                         if (fraction >= 0 && WholeNumber(row[fraction]) is { } f) yield return Design(fraction, "comment[fraction identifier]", f);
                         if (technical >= 0 && WholeNumber(row[technical]) is { } r) yield return Design(technical, "comment[technical replicate]", r);
@@ -212,8 +214,24 @@ namespace Readers
         /// <summary>A tool's mark for a value nobody set: Spectronaut writes <c>Not Defined</c> for a run with no condition.</summary>
         private static readonly HashSet<string> NotStated = new(StringComparer.OrdinalIgnoreCase) { "na", "n/a", "nan", "none", "null", "-", "--", "not defined" };
 
-        /// <summary>A cell that states something: not blank, not a reserved word, not a tool's missing-value mark.</summary>
-        private static bool Stated(string v) => Usable(v) && !NotStated.Contains(v.Trim());
+        /// <summary>A cell that states something: not blank, not a reserved word, not a tool's missing-value mark, and not one
+        /// the other rules read as missing (<c>nd</c>, <c>unknown</c>, <c>?</c>).</summary>
+        private static bool Stated(string v) => Usable(v) && !NotStated.Contains(v.Trim()) && !HeaderMap.IsMissing(v);
+
+        private enum Replicates { None, Numbers, Names }
+
+        /// <summary>
+        /// How a design table's replicate column reads, as one column: every stated cell a whole number from 1 is a numbering;
+        /// MSstats' BioReplicate with no number in it names samples; anything else is neither, and gives no claim. One
+        /// <c>0</c> or <c>1.0</c> must not turn a numbering into sample names, nor a stray number into a replicate.
+        /// </summary>
+        private static Replicates ReplicatesOf(SupplementTable t, int j, DesignKind kind)
+        {
+            var stated = Column(t, j).Select(v => v.Value).Where(Stated).ToList();
+            if (stated.All(v => WholeNumber(v) != null)) return Replicates.Numbers;
+            bool anyNumber = stated.Any(v => double.TryParse(v.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out _));
+            return kind == DesignKind.Msstats && !anyNumber ? Replicates.Names : Replicates.None;
+        }
 
         /// <summary>The cell as a whole number from 1 (<c>3</c>), or null.</summary>
         private static string? WholeNumber(string v) =>
@@ -454,6 +472,9 @@ namespace Readers
 
         private static readonly HashSet<string> Missing = new(StringComparer.OrdinalIgnoreCase)
             { "na", "n/a", "nd", "-", "--", "none", "unknown", "not available", "not applicable", "?" };
+
+        /// <summary>Whether a cell is a mark for a value nobody knows (<c>nd</c>, <c>unknown</c>, <c>?</c>).</summary>
+        internal static bool IsMissing(string value) => Missing.Contains(value.Trim());
 
         /// <summary>The value as an SDRF writes it, or null when it cannot be decided without a guess.</summary>
         internal static string? Decode(string column, string header, string value)

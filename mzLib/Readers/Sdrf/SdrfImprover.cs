@@ -168,13 +168,52 @@ namespace Readers
             // ---- factors: the draft's only where the deposit states none ----
             bool draftFactors = !header.Any(h => h.StartsWith("factor value[", StringComparison.OrdinalIgnoreCase)) && draft.FactorColumns.Count > 0;
             if (draftFactors)
-            {
                 foreach (var f in draft.FactorColumns) { header.Add(f); foreach (var r in rows) r.Add(""); addedColumns++; }
-                foreach (var r in rows)
+
+            // ---- where a condition or sample name came from, once evidence states one (G53), as ToDocument writes it ----
+            // Only the improver's own values are marked: the draft's factors where the deposit states none, a sample name
+            // it fills, and drafted rows. Without evidence nothing is added.
+            var provenance = new List<(string Name, Func<SdrfDraftRow, SdrfDraftCell> Cell)>();
+            if (draftFactors)
+                for (int k = 0; k < draft.FactorColumns.Count; k++)
                 {
-                    if (!draftByStem.TryGetValue(StemOf(r), out var d) || Multiplexed(r)) continue;
+                    int at = k;
+                    if (draft.Rows.Any(d => SdrfDrafter.FromEvidence(d.Factors[at].Source)))
+                        provenance.Add((SdrfDrafter.FactorProvenance(draft.FactorColumns[at]), d => d.Factors[at]));
+                }
+            if (Col(SourceName) >= 0 && draft.Rows.Any(d => SdrfDrafter.FromEvidence(d.SourceName.Source)))
+                provenance.Add(("source name", d => d.SourceName));
+            foreach (var (name, cellOf) in provenance)
+            {
+                var cells = draft.Rows.Select(cellOf).Where(c => SdrfDrafter.FromEvidence(c.Source)).ToList();
+                Ensure($"comment[{name} source]");
+                if (cells.Any(c => !string.IsNullOrEmpty(c.Reference))) Ensure($"comment[{name} source reference]");
+                if (cells.Any(c => !string.IsNullOrEmpty(c.Method))) Ensure($"comment[{name} source method]");
+            }
+            void Mark(List<string> row, string name, SdrfDraftCell cell)
+            {
+                if (cell.Source == SdrfDraftSource.NotAvailable) return;
+                row[Col($"comment[{name} source]")] = Word(cell.Source);
+                if (!SdrfDrafter.FromEvidence(cell.Source)) return;
+                if (!string.IsNullOrEmpty(cell.Reference)) row[Col($"comment[{name} source reference]")] = cell.Reference;
+                if (!string.IsNullOrEmpty(cell.Method)) row[Col($"comment[{name} source method]")] = cell.Method;
+            }
+
+            foreach (var r in rows)
+            {
+                if (!draftByStem.TryGetValue(StemOf(r), out var d) || Multiplexed(r)) continue;
+                if (draftFactors)
                     for (int k = 0; k < draft.FactorColumns.Count; k++)
                         if (d.Factors[k].Source != SdrfDraftSource.NotAvailable) { r[Col(draft.FactorColumns[k])] = d.Factors[k].Value; filled++; }
+                foreach (var (name, cellOf) in provenance.Where(p => p.Name != "source name")) Mark(r, name, cellOf(d));
+                // A sample name is the deposit's own key: kept wherever stated, filled only where it is missing, and only by
+                // evidence that names the sample. A name the drafter inferred from a file name states no sample.
+                int nameAt = Col(SourceName);
+                if (nameAt >= 0 && IsGap(r[nameAt]) && SdrfDrafter.FromEvidence(d.SourceName.Source))
+                {
+                    r[nameAt] = d.SourceName.Value;
+                    Mark(r, "source name", d.SourceName);
+                    filled++;
                 }
             }
 
@@ -265,6 +304,7 @@ namespace Readers
                     if (!string.IsNullOrEmpty(cell.Reference)) row[Col($"comment[{target.Name} source reference]")] = cell.Reference;
                     if (!string.IsNullOrEmpty(cell.Method)) row[Col($"comment[{target.Name} source method]")] = cell.Method;
                 }
+                foreach (var (name, cellOf) in provenance) Mark(row, name, cellOf(d));
             }
 
             // An override column's empty cell means "no override on this row" -- not applicable, as the
