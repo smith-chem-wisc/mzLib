@@ -199,6 +199,31 @@ namespace Test.FileReadingTests
             Assert.That(One(e, runs[2], "source name").Value, Is.EqualTo("GM12878_Trypsin_HCD"));
         }
 
+        [Test]
+        public void AMaxQuantDesignWithoutFractionsIsKnownByItsPtmColumn()
+        {
+            var t = Table("metadata/experimentalDesignTemplate.txt", new[] { "Name", "Experiment", "PTM" },
+                new[] { "alpha", "S1", "False" }, new[] { "beta", "S2", "False" });
+
+            var e = SampleEvidenceExtractor.ExtractDeposited(new[] { t }, new[] { "alpha.raw", "beta.raw" });
+
+            Assert.That(One(e, "beta.raw", "source name").Value, Is.EqualTo("S2"));
+        }
+
+        [Test]
+        public void ASpectronautRunLabelThatNamesNoRunFallsBackToTheFileNameAndABlankConditionIsNoClaim()
+        {
+            var t = Table("quant/ConditionSetup.tsv", new[] { "#", "Run Label", "Condition", "Replicate", "File Name" },
+                new[] { "1", "Old 1", "Old", "1", "240418_AM_O1" },
+                new[] { "2", "Old 2", "", "2", "240418_AM_O2" });
+
+            var e = SampleEvidenceExtractor.ExtractDeposited(new[] { t }, Runs);
+
+            Assert.That(One(e, "240418_AM_O1.raw", "factor value[condition]").Value, Is.EqualTo("Old"));
+            Assert.That(One(e, "240418_AM_O2.raw", "characteristics[biological replicate]").Value, Is.EqualTo("2"));
+            Assert.That(e.Where(x => x.DataFile == "240418_AM_O2.raw").Select(x => x.Column), Has.None.EqualTo("factor value[condition]"));
+        }
+
         // ---------------- drafting with them ----------------
 
         [Test]
@@ -310,6 +335,63 @@ namespace Test.FileReadingTests
             Assert.That(row["characteristics[biological replicate]"], Is.EqualTo("3"));
             Assert.That(row["comment[biological replicate source]"], Is.EqualTo("deposited"));
             Assert.That(row["comment[biological replicate source reference]"], Is.EqualTo(SetupFile + "!R4C6"));
+        }
+
+        // ---------------- claims the drafter declines ----------------
+
+        private static readonly string[] TwoRuns = { "alpha.raw", "beta.raw" };
+
+        private static SdrfEvidence Claim(string file, string column, string value) =>
+            new(file, "", column, value, "deposit", "metadata/design.tsv!R2C2", "design-table", SdrfEvidenceConfidence.Certain);
+
+        [Test]
+        public void AClaimAboutAColumnTheDrafterDoesNotTakeIsOnlyNoted()
+        {
+            var d = SdrfDrafter.Draft(Project(), TwoRuns, new[] { Claim("alpha.raw", "comment[instrument]", "Q Exactive") });
+
+            Assert.That(d.EvidenceNotes.Single(n => n.Column == "comment[instrument]").Why, Does.StartWith("only characteristics"));
+            Assert.That(Row(d, "alpha.raw").Characteristics.Keys, Has.None.EqualTo("comment[instrument]"));
+        }
+
+        [Test]
+        public void ATechnicalReplicateFromEvidenceFillsTheDefaultAndAFractionThatIsNoNumberIsNoted()
+        {
+            var d = SdrfDrafter.Draft(Project(), TwoRuns, new[]
+            {
+                Claim("alpha.raw", "comment[technical replicate]", "2"),
+                Claim("beta.raw", "comment[fraction identifier]", "first"),
+            });
+
+            var technical = Row(d, "alpha.raw").TechnicalReplicate;
+            Assert.That((technical.Value, technical.Source), Is.EqualTo(("2", SdrfDraftSource.Deposit)));
+            Assert.That(Row(d, "beta.raw").Fraction.Source, Is.Not.EqualTo(SdrfDraftSource.Deposit));
+            Assert.That(d.EvidenceNotes.Single(n => n.DataFile == "beta.raw").Why, Does.Contain("whole number from 1"));
+        }
+
+        [Test]
+        public void AConditionTheWholeDepositSharesIsNotAFactor()
+        {
+            var d = SdrfDrafter.Draft(Project(), TwoRuns, new[] { Claim("", "factor value[condition]", "fed") });
+
+            Assert.That(d.FactorColumns, Has.None.EqualTo("factor value[condition]"));
+            Assert.That(d.EvidenceNotes.Single(n => n.Column == "factor value[condition]").Why, Does.Contain("whole deposit shares"));
+        }
+
+        [Test]
+        public void ARunTakesEveryConditionTheTableStatesAndNoneWhereItsClaimsDisagree()
+        {
+            var d = SdrfDrafter.Draft(Project(), TwoRuns, new[]
+            {
+                Claim("alpha.raw", "factor value[condition]", "Old"),
+                Claim("alpha.raw", "factor value[diet]", "fed"),
+                Claim("beta.raw", "factor value[condition]", "Old"),
+                Claim("beta.raw", "factor value[condition]", "Young"),
+            });
+
+            Assert.That(Factor(d, "alpha.raw", "factor value[condition]"), Is.EqualTo("Old"));
+            Assert.That(Factor(d, "alpha.raw", "factor value[diet]"), Is.EqualTo("fed"));
+            Assert.That(Factor(d, "beta.raw", "factor value[condition]"), Is.Not.EqualTo("Old").And.Not.EqualTo("Young"));
+            Assert.That(d.EvidenceNotes.Single(n => n.DataFile == "beta.raw").Why, Does.Contain("disagree"));
         }
     }
 }
