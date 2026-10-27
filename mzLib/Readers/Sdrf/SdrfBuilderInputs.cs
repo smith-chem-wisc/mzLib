@@ -45,6 +45,13 @@ namespace Readers
         /// </summary>
         public int? BiologicalReplicate { get; init; } = 1;
 
+        /// <summary>
+        /// The sample is a pool of several biological samples (a QC pool, a reference channel). Its biological
+        /// replicate is written <c>pooled</c>, the specification's reserved word, so leave
+        /// <see cref="BiologicalReplicate"/> at its default or null: any other number throws, since a pool has none.
+        /// </summary>
+        public bool Pooled { get; init; }
+
         /// <summary>The label for this row: "label free sample", or a TMT channel.</summary>
         public CvParam? Label { get; init; }
 
