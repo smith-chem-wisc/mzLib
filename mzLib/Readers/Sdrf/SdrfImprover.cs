@@ -172,7 +172,8 @@ namespace Readers
 
             // ---- where a condition or sample name came from, once evidence states one (G53), as ToDocument writes it ----
             // Only the improver's own values are marked: the draft's factors where the deposit states none, a sample name
-            // it fills, and drafted rows. Without evidence nothing is added.
+            // it fills, and drafted rows. Without evidence nothing is added, and the sample-name columns only when a name
+            // from evidence is written: a deposit naming every sample it lists gains none.
             var provenance = new List<(string Name, Func<SdrfDraftRow, SdrfDraftCell> Cell)>();
             if (draftFactors)
                 for (int k = 0; k < draft.FactorColumns.Count; k++)
@@ -181,7 +182,11 @@ namespace Readers
                     if (draft.Rows.Any(d => SdrfDrafter.FromEvidence(d.Factors[at].Source)))
                         provenance.Add((SdrfDrafter.FactorProvenance(draft.FactorColumns[at]), d => d.Factors[at]));
                 }
-            if (Col(SourceName) >= 0 && draft.Rows.Any(d => SdrfDrafter.FromEvidence(d.SourceName.Source)))
+            var listed = new HashSet<string>(rows.Select(StemOf), StringComparer.OrdinalIgnoreCase);
+            bool FillsName(List<string> r) => draftByStem.TryGetValue(StemOf(r), out var d) && !Multiplexed(r)
+                && IsGap(r[Col(SourceName)]) && SdrfDrafter.FromEvidence(d.SourceName.Source);
+            if (Col(SourceName) >= 0 && (rows.Any(FillsName)
+                || draft.Rows.Any(d => !listed.Contains(SdrfFileNamePattern.Stem(d.DataFile)) && SdrfDrafter.FromEvidence(d.SourceName.Source))))
                 provenance.Add(("source name", d => d.SourceName));
             foreach (var (name, cellOf) in provenance)
             {
@@ -243,7 +248,6 @@ namespace Readers
             }
 
             // ---- raw files the deposit does not list ----
-            var listed = new HashSet<string>(rows.Select(StemOf), StringComparer.OrdinalIgnoreCase);
             var depositedNames = new HashSet<string>(rows.Select(r => r[Col(SourceName) < 0 ? 0 : Col(SourceName)]), StringComparer.Ordinal);
             // A drafted row's default is "inferred"; a cell from the project record, or a placeholder nothing
             // marked, says where it really came from, as ToDocument writes it (D39). Its column is added now,
@@ -273,8 +277,11 @@ namespace Readers
             foreach (var d in draftedRows)
             {
                 var row = constant.ToList();
+                // A name inferred from a file that a deposited sample already has is marked apart; a name evidence
+                // states is the sample it names, so a run of a sample the deposit lists joins that sample.
                 if (Col(SourceName) >= 0)
-                    row[Col(SourceName)] = depositedNames.Contains(d.SourceName.Value) ? d.SourceName.Value + " (drafted)" : d.SourceName.Value;
+                    row[Col(SourceName)] = depositedNames.Contains(d.SourceName.Value) && !SdrfDrafter.FromEvidence(d.SourceName.Source)
+                        ? d.SourceName.Value + " (drafted)" : d.SourceName.Value;
                 if (Col("assay name") >= 0)
                 {
                     // Unique within the document: one run listed under two extensions (X.raw, X.mzXML) would

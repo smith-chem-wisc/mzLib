@@ -508,6 +508,44 @@ namespace Test.FileReadingTests
             Assert.That(b["comment[source name source reference]"], Is.EqualTo("metadata/run_annotation.csv!R3C3"));
         }
 
+        [Test]
+        public void ARunOfASampleTheDepositNamesIsDraftedUnderThatSampleWhenADesignTableSaysSo()
+        {
+            // Two fractions of patient_A; the deposit lists only the first.
+            string[] runs = { "ctrl_a_f1.raw", "ctrl_a_f2.raw" };
+            var table = Table("metadata/run_annotation.csv", new[] { "Run", "Condition", "BioReplicate" },
+                new[] { "ctrl_a_f1.raw", "Control", "patient_A" }, new[] { "ctrl_a_f2.raw", "Control", "patient_A" });
+            string[] columns = { "source name", "characteristics[organism]", "assay name", "comment[label]", "comment[data file]" };
+            var header = new SdrfHeader(columns);
+            var deposited = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "patient_A", "homo sapiens", "run 1", "label free sample", "ctrl_a_f1.raw" }) });
+            var draft = SdrfDrafter.Draft(Project(), runs, SampleEvidenceExtractor.ExtractDeposited(new[] { table }, runs));
+
+            var f2 = SdrfImprover.Improve(deposited, draft).Document.Results.Single(r => r["comment[data file]"] == "ctrl_a_f2.raw");
+
+            Assert.That(f2["source name"], Is.EqualTo("patient_A"));
+            Assert.That(f2["comment[source name source]"], Is.EqualTo("deposited"));
+            Assert.That(f2["comment[source name source reference]"], Is.EqualTo("metadata/run_annotation.csv!R3C3"));
+        }
+
+        [Test]
+        public void ADepositThatNamesEverySampleGainsNoSampleNameProvenanceColumns()
+        {
+            string[] runs = { "ctrl_a.raw", "case_b.raw" };
+            string[] columns = { "source name", "characteristics[organism]", "assay name", "comment[label]", "comment[data file]", "factor value[condition]" };
+            var header = new SdrfHeader(columns);
+            var deposited = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "pA", "homo sapiens", "run 1", "label free sample", "ctrl_a.raw", "Control" }),
+                new SdrfRow(header, new[] { "pB", "homo sapiens", "run 2", "label free sample", "case_b.raw", "Case" }),
+            });
+            var withEvidence = SdrfImprover.Improve(deposited, SdrfDrafter.Draft(Project(), runs, SampleEvidenceExtractor.ExtractDeposited(new[] { Annotation() }, runs)));
+            var without = SdrfImprover.Improve(deposited, SdrfDrafter.Draft(Project(), runs));
+
+            Assert.That(withEvidence.Document.Header, Has.None.StartsWith("comment[source name source"));
+            Assert.That(withEvidence.AddedColumns, Is.EqualTo(without.AddedColumns));
+            Assert.That(withEvidence.Document.Results.Select(r => r["source name"]), Is.EqualTo(new[] { "pA", "pB" }));
+        }
+
         // ---------------- claims the drafter declines ----------------
 
         private static readonly string[] TwoRuns = { "alpha.raw", "beta.raw" };
