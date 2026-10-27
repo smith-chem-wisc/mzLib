@@ -62,7 +62,8 @@ public static class StatisticalReportWriter
     /// </summary>
     /// <exception cref="ArgumentException">The rows or metadata break their contract (see
     /// <see cref="DifferentialMetadataWriter.ToBytes"/>), or the diagnostics are inconsistent: a list of the wrong length, a
-    /// stratum the metadata does not list, or an entry twice for its key.</exception>
+    /// stratum the metadata does not list, or an entry twice for its key; or a row uses the Bayesian method, which the report
+    /// does not cover yet.</exception>
     public static string Write(string directory, DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows,
         DifferentialDiagnostics diagnostics)
     {
@@ -84,6 +85,13 @@ public static class StatisticalReportWriter
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(diagnostics);
         _ = DifferentialMetadataWriter.ToBytes(metadata, rows);
+        // Every section below writes a fitted row up as a p-value test in a Benjamini-Hochberg family; a Bayesian row is
+        // neither, so it is refused until M15 teaches the report its own sentence, column and figures.
+        if (rows.FirstOrDefault(r => r.Method == DifferentialResultWriter.BayesianMethod) is { } bayesian)
+            throw new ArgumentException(
+                $"Row for feature '{bayesian.FeatureId}', contrast '{bayesian.ContrastId}', stratum '{bayesian.Stratum}' uses the " +
+                $"'{DifferentialResultWriter.BayesianMethod}' method; the statistics report does not cover Bayesian rows yet (M15), " +
+                "and would write them up as p-value tests.", nameof(rows));
         Validate(metadata, diagnostics);
 
         var ordered = DifferentialResultWriter.Order(rows);

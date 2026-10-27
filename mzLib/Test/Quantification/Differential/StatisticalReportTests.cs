@@ -381,6 +381,24 @@ public class StatisticalReportTests
         Assert.That(() => StatisticalReportWriter.Build(m, Rows("ffffffffffffffff"), d), Throws.ArgumentException, "rows of another analysis");
     }
 
+    /// <summary>
+    /// The report writes every fitted row up as a p-value test, so it refuses Bayesian rows (no p-value, no Benjamini–Hochberg
+    /// family) until M15 teaches it about them (mzLib #1475 review), even when moderated rows come with them.
+    /// </summary>
+    [Test]
+    public void BayesianRowsAreRefusedUntilTheReportCoversThem()
+    {
+        var m = Metadata();
+        var rows = Rows(m.AnalysisId);
+        rows.AddRange(rows.Where(r => r.QuantBasis == "mbr_kept" && DifferentialStatus.IsFitted(r.Status)).Select(r => r with
+        {
+            Method = "bayesian", ModelUsed = "bayesian_t", PValue = null, PAdjusted = null, AdjustmentMethod = null, FamilySize = null,
+            Pep = 0.01, BayesianFdr = 0.01,
+        }).ToList());
+        Assert.That(() => StatisticalReportWriter.Build(m, rows, Diagnostics()),
+            Throws.ArgumentException.With.Message.Contains("does not cover Bayesian rows yet"));
+    }
+
     [Test]
     public void FilesAreWrittenWithoutABomAndMatchTheGoldenFiles()
     {
