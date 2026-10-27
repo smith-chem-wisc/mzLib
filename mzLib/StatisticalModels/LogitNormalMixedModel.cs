@@ -199,6 +199,16 @@ namespace StatisticalModels
         /// <summary>A coefficient beyond this on the latent scale is taken as running to infinity (separation).</summary>
         public const double SeparationLimit = 30;
 
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+            FeatureFitStatus.Separated, FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups,
+        });
+
         private const int UNodes = 40, ENodes = 12;
         private const double LogSdMin = -8, LogSdMax = 5;
         private static readonly (double[] X, double[] W) UQuadrature = GaussHermite(UNodes);

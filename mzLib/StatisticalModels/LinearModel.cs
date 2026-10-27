@@ -7,7 +7,10 @@ using MathNet.Numerics.LinearAlgebra;
 
 namespace StatisticalModels
 {
-    /// <summary>Why a feature does or does not carry a fitted model.</summary>
+    /// <summary>
+    /// Why a feature does or does not carry a fitted model. Each model reports only some of these; its
+    /// <c>ReportedStatuses</c> (e.g. <see cref="LinearModel.ReportedStatuses"/>) lists which.
+    /// </summary>
     public enum FeatureFitStatus
     {
         /// <summary>The model was fitted and has at least one residual degree of freedom.</summary>
@@ -20,19 +23,21 @@ namespace StatisticalModels
         /// </summary>
         RankDeficient,
         /// <summary>
-        /// Logistic regression and <see cref="LogitNormalMixedModel"/>: the outcomes (counts) are (quasi-)completely
-        /// separated by the design, so the maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
+        /// The outcomes (counts) are (quasi-)completely separated by the design, so the maximum-likelihood estimate does
+        /// not exist (a coefficient runs to ±∞). Reported by <see cref="LogisticRegression"/> and
+        /// <see cref="LogitNormalMixedModel"/>.
         /// </summary>
         Separated,
         /// <summary>An iterative fit did not converge within its iteration limit.</summary>
         NotConverged,
         /// <summary>
-        /// Mixed model only: fewer than two groups, or no group observed twice, so the between-group variance
-        /// cannot be told apart from the residual variance.
+        /// Fewer than two groups, or no group observed twice, so the between-group variance cannot be told apart from
+        /// the residual variance. Reported by the mixed models: <see cref="MixedModel"/>,
+        /// <see cref="LogitNormalMixedModel"/> and <see cref="NestedMixedModel"/>.
         /// </summary>
         TooFewGroups,
         /// <summary>
-        /// Mixed model only: the variance ratio τ²/σ² ran to the top of its search (e¹²), so the estimate would be
+        /// <see cref="MixedModel"/> only: the variance ratio τ²/σ² ran to the top of its search (e¹²), so the estimate would be
         /// a clamped value rather than a maximum. Typically the residual variance is negligible beside the group
         /// variance, e.g. near-identical replicates within each group.
         /// </summary>
@@ -202,6 +207,16 @@ namespace StatisticalModels
         /// design column, marks the restricted design as rank deficient.
         /// </summary>
         public const double RankTolerance = 1e-7;
+
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum, most of which a linear fit never
+        /// reports.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+        });
 
         /// <summary>
         /// Fits one design matrix against every feature (row) of <paramref name="responses"/> by least squares.
