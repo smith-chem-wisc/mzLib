@@ -220,12 +220,26 @@ namespace UsefulProteomicsDatabases
                 spliceSites,
                 protein.DatabaseFilePath,
                 uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                 uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                 uniProtSequenceAttributes: DecoySequenceAttributes(protein.UniProtSequenceAttributes),
                  isEntrapment: protein.IsEntrapment,
                  nonVariantProtein: decoyConsensus,
                  oneBasedFixedModifications: decoyFixedModifications);
 
             return decoyProtein;
+        }
+
+        /// <summary>
+        /// The target's sequence attributes without its displayed isoform: a decoy's sequence is no UniProt isoform, so
+        /// it must not claim the target's (and the writer would otherwise write it out for the decoy accession).
+        /// </summary>
+        private static UniProtSequenceAttributes DecoySequenceAttributes(UniProtSequenceAttributes target)
+        {
+            if (target.DisplayedIsoformId == null)
+            {
+                return target;
+            }
+            return new UniProtSequenceAttributes(target.Length, target.Mass, target.Checksum, target.EntryModified,
+                target.SequenceVersion, target.IsPrecursor, target.Fragment, null);
         }
 
         private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
@@ -459,7 +473,7 @@ namespace UsefulProteomicsDatabases
                     spliceSitesSlide,
                     protein.DatabaseFilePath,
                     uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                     uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                     uniProtSequenceAttributes: DecoySequenceAttributes(protein.UniProtSequenceAttributes),
                      isEntrapment: protein.IsEntrapment,
                      oneBasedFixedModifications: decoyFixedModifications);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }

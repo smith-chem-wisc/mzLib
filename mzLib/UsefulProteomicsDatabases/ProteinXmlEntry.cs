@@ -656,9 +656,11 @@ namespace UsefulProteomicsDatabases
                 if (!string.IsNullOrEmpty(LocationSequenceId))
                 {
                     string acc = Accession ?? "";
+                    // the entry's sequence is its displayed isoform; "-1" is assumed only when the entry does not say which
+                    string displayedIsoform = DisplayedIsoformId ?? (string.IsNullOrEmpty(acc) ? null : $"{acc}-1");
                     appliesToThisSequence =
                         LocationSequenceId.Equals(acc, StringComparison.OrdinalIgnoreCase)
-                        || (!string.IsNullOrEmpty(acc) && LocationSequenceId.Equals($"{acc}-1", StringComparison.OrdinalIgnoreCase));
+                        || (displayedIsoform != null && LocationSequenceId.Equals(displayedIsoform, StringComparison.OrdinalIgnoreCase));
                 }
 
                 if (appliesToThisSequence)

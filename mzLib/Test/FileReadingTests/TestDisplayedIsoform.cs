@@ -131,6 +131,50 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void SequenceVariants_ScopedByDisplayedIsoform()
+        {
+            // P99001 displays isoform -2: a variant located on -2 applies to the entry's sequence, one located on -1 does not
+            string path = Path.Combine(_tempDirectory, "variantScope.xml");
+            File.WriteAllText(path,
+                "<?xml version='1.0' encoding='utf-8'?>\n" +
+                "<uniprot xmlns=\"http://uniprot.org/uniprot\">\n" +
+                "<entry dataset=\"Swiss-Prot\" created=\"2026-01-01\" modified=\"2026-09-02\" version=\"1\">\n" +
+                "<accession>P99001</accession>\n<name>V001_HUMAN</name>\n" +
+                "<comment type=\"alternative products\">\n<event type=\"alternative splicing\"/>\n" +
+                "<isoform>\n<id>P99001-1</id>\n<name>1</name>\n<sequence type=\"described\" ref=\"VSP_900003\"/>\n</isoform>\n" +
+                "<isoform>\n<id>P99001-2</id>\n<name>2</name>\n<sequence type=\"displayed\"/>\n</isoform>\n</comment>\n" +
+                "<feature type=\"sequence variant\" description=\"on isoform 1\">\n<original>P</original>\n<variation>A</variation>\n" +
+                "<location sequence=\"P99001-1\">\n<position position=\"2\"/>\n</location>\n</feature>\n" +
+                "<feature type=\"sequence variant\" description=\"on isoform 2\">\n<original>E</original>\n<variation>K</variation>\n" +
+                "<location sequence=\"P99001-2\">\n<position position=\"3\"/>\n</location>\n</feature>\n" +
+                "<feature type=\"sequence variant\" description=\"on the entry\">\n<original>T</original>\n<variation>S</variation>\n" +
+                "<location>\n<position position=\"5\"/>\n</location>\n</feature>\n" +
+                "<sequence length=\"12\" mass=\"1300\" checksum=\"00000000000000B1\" modified=\"2026-09-02\" version=\"1\">MPEPTIDEKAAR</sequence>\n" +
+                "</entry>\n</uniprot>\n");
+
+            var protein = ProteinDbLoader.LoadProteinXML(path, true, DecoyType.None, null, false, null, out _, 1, 0)
+                .Single(p => p.Accession == "P99001");
+
+            Assert.That(protein.SequenceVariations.Select(v => v.OneBasedBeginPosition).OrderBy(p => p), Is.EqualTo(new[] { 3, 5 }));
+        }
+
+        [TestCase(DecoyType.Reverse)]
+        [TestCase(DecoyType.Slide)]
+        public void Decoys_ClaimNoDisplayedIsoform(DecoyType decoyType)
+        {
+            var proteins = LoadIsoformScope(decoyType);
+            var decoys = proteins.Where(p => p.IsDecoy).ToList();
+
+            string written = WriteAndReload(decoys, out var reloaded);
+
+            Assert.That(decoys.Select(d => d.UniProtSequenceAttributes.DisplayedIsoformId), Is.All.Null,
+                "a decoy's sequence is not the target's isoform");
+            Assert.That(proteins.Single(p => p.Accession == "Q9ZZZ1").UniProtSequenceAttributes.DisplayedIsoformId, Is.EqualTo("Q9ZZZ1-2"));
+            Assert.That(written, Does.Not.Contain("alternative products"));
+            Assert.That(reloaded.Select(d => d.UniProtSequenceAttributes.DisplayedIsoformId), Is.All.Null);
+        }
+
+        [Test]
         public void Decoys_CarryNoIsoformScopedReferences()
         {
             var decoys = LoadIsoformScope(DecoyType.Reverse).Where(p => p.IsDecoy).ToList();
@@ -149,6 +193,22 @@ namespace Test.FileReadingTests
             var merged = ProteinDbLoader.Merge(new[] { first, second }).Single();
 
             Assert.That(merged.UniProtSequenceAttributes.DisplayedIsoformId, Is.EqualTo("P00001-2"));
+        }
+
+        [TestCase("P00001-2", "P00001-3", null)]
+        [TestCase("P00001-3", "P00001-2", null)]
+        [TestCase(null, "P00001-2", "P00001-2")]
+        [TestCase("P00001-2", null, "P00001-2")]
+        public void Merge_DisplayedIsoformIdIsOrderIndependent(string firstId, string secondId, string expected)
+        {
+            // two known isoforms that disagree leave it unknown; an unknown one (e.g. an entry written before the
+            // displayed isoform was kept) yields to the known one
+            var first = new Protein("PEPTIDEK", "P00001", uniProtSequenceAttributes: AttributesDisplaying(firstId));
+            var second = new Protein("PEPTIDEK", "P00001", uniProtSequenceAttributes: AttributesDisplaying(secondId));
+
+            var merged = ProteinDbLoader.Merge(new[] { first, second }).Single();
+
+            Assert.That(merged.UniProtSequenceAttributes.DisplayedIsoformId, Is.EqualTo(expected));
         }
 
         [Test]

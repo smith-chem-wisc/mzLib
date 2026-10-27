@@ -524,9 +524,26 @@ namespace UsefulProteomicsDatabases
                         versions.FirstOrDefault(),
                         xmlnses.FirstOrDefault()),
                     // the merged entries share accession and sequence; keep their sequence attributes (incl. the displayed isoform)
-                    uniProtSequenceAttributes: proteins.Value[0].UniProtSequenceAttributes
+                    uniProtSequenceAttributes: MergedSequenceAttributes(proteins.Value)
                     );
             }
+        }
+
+        /// <summary>
+        /// The first entry's sequence attributes, with the displayed isoform the entries agree on: a known isoform wins
+        /// over an unknown one, and two known isoforms that differ leave it unknown, whatever the input order.
+        /// </summary>
+        private static UniProtSequenceAttributes MergedSequenceAttributes(List<Protein> proteins)
+        {
+            var first = proteins[0].UniProtSequenceAttributes;
+            var known = proteins.Select(p => p.UniProtSequenceAttributes.DisplayedIsoformId).Where(id => id != null).Distinct().ToList();
+            string displayedIsoformId = known.Count == 1 ? known[0] : null;
+            if (first.DisplayedIsoformId == displayedIsoformId)
+            {
+                return first;
+            }
+            return new UniProtSequenceAttributes(first.Length, first.Mass, first.Checksum, first.EntryModified,
+                first.SequenceVersion, first.IsPrecursor, first.Fragment, displayedIsoformId);
         }
 
         internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
