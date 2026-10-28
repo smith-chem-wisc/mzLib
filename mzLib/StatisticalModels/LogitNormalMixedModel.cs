@@ -407,6 +407,47 @@ namespace StatisticalModels
             public required List<int>[] MeasuredRows, CountedRows;   // per group
         }
 
+        /// <summary>Feature <paramref name="f"/>'s observed <paramref name="rows"/> (samples), with their dense groups and design rows.</summary>
+        private static Data MakeData(double[,] responses, BinomialCount?[,] counts, int f, List<int> rows, Matrix<double> x, int[] rowGroup,
+            int G, bool[] measured, DetectionLink link, IReadOnlyList<double>? depth)
+        {
+            int m = rows.Count;
+            var data = new Data
+            {
+                X = x, Group = rowGroup, G = G, IsMeasured = measured, Link = link,
+                Rows = Enumerable.Range(0, m).Select(i => x.Row(i).ToArray()).ToArray(),
+                LogChoose = rows.Select(s => counts[f, s] is BinomialCount c ? LogChoose(c.Trials, c.Successes) : 0).ToArray(),
+                Y = rows.Select(s => responses[f, s]).ToArray(),
+                K = rows.Select(s => counts[f, s]?.Successes ?? 0).ToArray(),
+                N = rows.Select(s => counts[f, s]?.Trials ?? 0).ToArray(),
+                Depth = rows.Select(s => depth?[s] ?? 0).ToArray(),
+                MeasuredRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
+                CountedRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
+            };
+            for (int i = 0; i < m; i++) (measured[i] ? data.MeasuredRows : data.CountedRows)[rowGroup[i]].Add(i);
+            return data;
+        }
+
+        /// <summary>
+        /// One feature's log-likelihood at given β and variances (τ² = 0 allowed), by the quadrature rules a fit centres
+        /// there. For tests: a fit's reported ℓ must be this at its reported estimate.
+        /// </summary>
+        internal static double LogLikelihoodAt(double[] responses, BinomialCount?[] counts, double[,] design, IReadOnlyList<string> groups,
+            DetectionLink link, double[] beta, double groupVariance, double residualVariance, IReadOnlyList<double>? depth = null)
+        {
+            int samples = responses.Length, p = design.GetLength(1);
+            var rows = Enumerable.Range(0, samples).Where(s => double.IsFinite(responses[s]) || counts[s] is not null).ToList();
+            var index = new Dictionary<string, int>(StringComparer.Ordinal);
+            var rowGroup = rows.Select(s => index.TryGetValue(groups[s], out int g) ? g : index[groups[s]] = index.Count).ToArray();
+            var x = Matrix<double>.Build.Dense(rows.Count, p, (i, j) => design[rows[i], j]);
+            var y = new double[1, samples];
+            var c = new BinomialCount?[1, samples];
+            for (int s = 0; s < samples; s++) (y[0, s], c[0, s]) = (responses[s], counts[s]);
+            var data = MakeData(y, c, 0, rows, x, rowGroup, index.Count, rows.Select(s => double.IsFinite(responses[s])).ToArray(), link, depth);
+            double logTau = groupVariance > 0 ? 0.5 * Math.Log(groupVariance) : LogSdMin, logSigma = 0.5 * Math.Log(residualVariance);
+            return Evaluate(data, beta, logTau, logSigma, Centre(data, beta, logTau, logSigma), null, null);
+        }
+
         private static void FitOne(double[,] responses, BinomialCount?[,] counts, double[,] design, int[] groupOf, int groupCount,
             DetectionLink link, IReadOnlyList<double>? depth, double givenSigma2, int f, LogitNormalMixedModelFit fit, VarianceEstimator estimator)
         {
@@ -469,19 +510,7 @@ namespace StatisticalModels
                 }
             }
 
-            var data = new Data
-            {
-                X = x, Group = rowGroup, G = G, IsMeasured = measured, Link = link,
-                Rows = Enumerable.Range(0, m).Select(i => x.Row(i).ToArray()).ToArray(),
-                LogChoose = rows.Select(s => counts[f, s] is BinomialCount c ? LogChoose(c.Trials, c.Successes) : 0).ToArray(),
-                Y = rows.Select(s => responses[f, s]).ToArray(),
-                K = rows.Select(s => counts[f, s]?.Successes ?? 0).ToArray(),
-                N = rows.Select(s => counts[f, s]?.Trials ?? 0).ToArray(),
-                Depth = rows.Select(s => depth?[s] ?? 0).ToArray(),
-                MeasuredRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
-                CountedRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
-            };
-            for (int i = 0; i < m; i++) (measured[i] ? data.MeasuredRows : data.CountedRows)[rowGroup[i]].Add(i);
+            var data = MakeData(responses, counts, f, rows, x, rowGroup, G, measured, link, depth);
 
             bool reml = estimator == VarianceEstimator.Reml;
             double logSigmaGiven = sigmaGiven ? 0.5 * Math.Log(givenSigma2) : double.NaN;
@@ -529,9 +558,13 @@ namespace StatisticalModels
             }
 
             double objective = Outer(logTauHat, logSigmaHat);
+            var betaAtEstimate = beta;
             // The boundary τ = 0, as MixedModel keeps θ = 0 when it is at least as good (here τ = e^LogSdMin, negligible).
+            // The probe moves the warm start, so the final β starts from the estimate's own when τ = 0 loses: from τ = 0's
+            // β it can climb a different local maximum, and report a β and SE that are not those of the reported ℓ.
             double atZero = Outer(LogSdMin, logSigmaHat);
             if (atZero <= objective) (logTauHat, objective) = (LogSdMin, atZero);
+            else beta = betaAtEstimate;
             var final = MaximizeBeta(data, beta, logTauHat, logSigmaHat);
             if (!(objective < double.MaxValue) || final is not (Vector<double> betaHat, double _, Matrix<double> hessian))
             {

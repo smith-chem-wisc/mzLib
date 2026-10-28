@@ -240,6 +240,46 @@ public class LogitNormalMixedModelTests
         Assert.That(fit.PValue(0, 1), Is.NaN);
     }
 
+    /// <summary>
+    /// mzLib #1511's layouts: 8 animals × 3 runs, 2 trials, nothing measured, a trait of animals 4-7; animals 0, 4, 5 and
+    /// 6 every run full, the others every run 0; then one run made 1 of 2, in animal 0 ("A") or animal 1 ("B").
+    /// </summary>
+    private static (double[,] Y, BinomialCount?[,] Counts, double[,] Design, string[] Groups) NearOneSided(string which)
+    {
+        int G = 8, k = 3, n = G * k;
+        var design = new double[n, 2];
+        var groups = new string[n];
+        var y = new double[1, n];
+        var counts = new BinomialCount?[1, n];
+        var full = new[] { true, false, false, false, true, true, true, false };
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; design[s, 1] = g < 4 ? 0 : 1; groups[s] = $"a{g}";
+            y[0, s] = double.NaN;
+            counts[0, s] = new BinomialCount(full[g] ? 2 : 0, 2);
+        }
+        counts[0, which == "A" ? 0 : k] = new BinomialCount(1, 2);
+        return (y, counts, design, groups);
+    }
+
+    [Test]
+    public void TheReportedEstimateIsWhereTheReportedLikelihoodIs()
+    {
+        // The τ = 0 probe after the variance search moved the warm start, and the final β could then climb another local
+        // maximum: on layout A, ℓ −8.4142 was reported with β1 = 22.87, while that ℓ belonged to β1 = 29.58.
+        var (y, counts, design, groups) = NearOneSided("A");
+        var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { 0.25 },
+            estimator: VarianceEstimator.MaximumLikelihood);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        var beta = new[] { fit.Coefficient(0, 0), fit.Coefficient(0, 1) };
+        double at = LogitNormalMixedModel.LogLikelihoodAt(Enumerable.Range(0, y.GetLength(1)).Select(s => y[0, s]).ToArray(),
+            Enumerable.Range(0, y.GetLength(1)).Select(s => counts[0, s]).ToArray(), design, groups, DetectionLink.Identity, beta,
+            fit.GroupVariance[0], fit.ResidualVariance[0]);
+        Assert.That(double.IsFinite(at), Is.True);
+        Assert.That(fit.LogLikelihood[0], Is.EqualTo(at).Within(1e-7));
+    }
+
     [Test]
     public void OneSidedGroupsWithNothingMeasuredAreSeparated()
     {
