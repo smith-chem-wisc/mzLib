@@ -38,6 +38,19 @@ public class LogitNormalMixedModelTests
     }
 
     [Test]
+    public void GaussLegendreIntegratesPolynomialsExactly()
+    {
+        // ∫₋₁¹ x^(2k) dx = 2 / (2k + 1); odd moments vanish. An n-node rule is exact to degree 2n − 1.
+        var (x, w) = LogitNormalMixedModel.GaussLegendre(8);
+        Assert.That(x, Is.Ordered);
+        for (int k = 0; k <= 7; k++)
+        {
+            Assert.That(x.Zip(w, (xi, wi) => wi * Math.Pow(xi, 2 * k)).Sum(), Is.EqualTo(2.0 / (2 * k + 1)).Within(1e-14), $"x^{2 * k}");
+            Assert.That(x.Zip(w, (xi, wi) => wi * Math.Pow(xi, 2 * k + 1)).Sum(), Is.EqualTo(0).Within(1e-15));
+        }
+    }
+
+    [Test]
     public void CountProbabilitiesAreBinomialOrBetaBinomial()
     {
         foreach (double g in new[] { 0.02, 0.3, 0.5, 0.9 })

@@ -216,4 +216,94 @@ public class ReferenceComparisonLogitNormalTests
         Assert.That(compared, Is.GreaterThanOrEqualTo(tmbReml.Count * 9 / 10), "glmmTMB fitted most fixture features");
         Assert.That(discriminating, Is.GreaterThanOrEqualTo(compared / 2), "REML and ML differ in most fixture features");
     }
+
+    /// <summary>
+    /// One group at a time, intercept only, every sample counted: ℓ against the exact integral (make_lnmm_ridge_fixtures.R)
+    /// over one-sided and near-one-sided patterns of 1, 2 and 4 trials, β0 from −12 to 12, τ² from 0.0025 to 21904. At a
+    /// large τ a one-sided group's integrand is the prior times a smoothed step, which the 40-node Gauss-Hermite rule
+    /// missed by up to 0.6 (#1511). σ ≤ 0.5 here, where the 12-node e rule is exact to about 1e-9 per count.
+    /// </summary>
+    [Test]
+    public void OneGroupLikelihoodsMatchTheExactIntegral()
+    {
+        int compared = 0;
+        double worst = 0;
+        foreach (var r in Rows("lnmm_ridge_groups.tsv", r => r["sigma2"] <= 0.25 + 1e-12))
+        {
+            var k = r.Text("successes").Split(',').Select(int.Parse).ToArray();
+            int n = (int)r["trials"];
+            var design = new double[k.Length, 1];
+            for (int s = 0; s < k.Length; s++) design[s, 0] = 1;
+            double at = LogitNormalMixedModel.LogLikelihoodAt(Enumerable.Repeat(double.NaN, k.Length).ToArray(),
+                k.Select(v => (BinomialCount?)new BinomialCount(v, n)).ToArray(), design, Enumerable.Repeat("a", k.Length).ToArray(),
+                DetectionLink.Identity, new[] { r["b0"] }, r["tau2"], r["sigma2"]);
+            Assert.That(double.IsFinite(at), Is.True);
+            worst = Math.Max(worst, Math.Abs(at - r["loglik"]));
+            Assert.That(Math.Abs(at - r["loglik"]), Is.LessThan(1e-8),
+                $"k {r.Text("successes")} of {n}, b0 {r["b0"]}, tau2 {r["tau2"]}, sigma2 {r["sigma2"]}: {at:R} vs {r["loglik"]:R}");
+            compared++;
+        }
+        Assert.That(compared, Is.EqualTo(9 * 5 * 7 * 2));
+        TestContext.Out.WriteLine($"{compared} groups, worst |Δℓ| {worst:G3}");
+    }
+
+    /// <summary>The exact ML fit of one of #1511's layouts, σ² = 0.25 given (make_lnmm_ridge_fixtures.R).</summary>
+    private static (double[,] Unmeasured, BinomialCount?[,] Counts, double[,] Design, string[] Groups, Row Exact) RidgeLayout(string which)
+    {
+        int G = 8, k = 3, n = G * k;
+        var design = new double[n, 2];
+        var groups = new string[n];
+        var y = new double[1, n];
+        var counts = new BinomialCount?[1, n];
+        var full = new[] { true, false, false, false, true, true, true, false };
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; design[s, 1] = g < 4 ? 0 : 1; groups[s] = $"a{g}";
+            y[0, s] = double.NaN;
+            counts[0, s] = new BinomialCount(full[g] ? 2 : 0, 2);
+        }
+        counts[0, which == "A" ? 0 : k] = new BinomialCount(1, 2);
+        return (y, counts, design, groups, Rows("lnmm_ridge_fits.tsv", r => r.Text("layout") == which).Single());
+    }
+
+    /// <summary>
+    /// #1511's layouts, ML with σ² given: the fit lands on the exact maximum. Before, the u rule's error put layout A's
+    /// fit at τ² 233 (exact 142) and called layout B Separated, though its maximum exists. The ridge is flat (ℓ falls by
+    /// 0.05 from τ 12 to 16), so β and τ² are compared to 1e-3 relatively and ℓ to 1e-7.
+    /// </summary>
+    [TestCase("A")]
+    [TestCase("B")]
+    public void NearOneSidedLayoutsFitToTheExactMaximum(string which)
+    {
+        var (y, counts, design, groups, r) = RidgeLayout(which);
+        var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { r["sigma2"] },
+            estimator: VarianceEstimator.MaximumLikelihood);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.LogLikelihood[0], Is.EqualTo(r["loglik"]).Within(1e-7));
+        Assert.That(fit.GroupVariance[0], Is.EqualTo(r["tau2"]).Within(1e-3 * r["tau2"]));
+        Assert.That(fit.Coefficient(0, 0), Is.EqualTo(r["b0"]).Within(1e-3 * Math.Abs(r["b0"])));
+        Assert.That(fit.Coefficient(0, 1), Is.EqualTo(r["b1"]).Within(1e-3 * Math.Abs(r["b1"])));
+    }
+
+    /// <summary>
+    /// At #1511's exact estimates, the panel rule's β-gradient vanishes and its H = −∂²ℓ/∂β² is the exact one (numDeriv in
+    /// R, good to about 1e-7 relatively): the derivatives the Newton steps and standard errors use are right on the rule.
+    /// </summary>
+    [TestCase("A")]
+    [TestCase("B")]
+    public void TheDerivativesAtTheExactEstimateAreExact(string which)
+    {
+        var (y, counts, design, groups, r) = RidgeLayout(which);
+        int n = y.GetLength(1);
+        var gradient = new double[2];
+        var h = new double[2, 2];
+        LogitNormalMixedModel.LogLikelihoodAt(Enumerable.Range(0, n).Select(s => y[0, s]).ToArray(), Enumerable.Range(0, n).Select(s => counts[0, s]).ToArray(),
+            design, groups, DetectionLink.Identity, new[] { r["b0"], r["b1"] }, r["tau2"], r["sigma2"], gradient: gradient, negativeHessian: h);
+        Assert.That(Math.Abs(gradient[0]) + Math.Abs(gradient[1]), Is.LessThan(1e-5));
+        Assert.That(h[0, 0], Is.EqualTo(r["h00"]).Within(1e-5 * r["h00"]));
+        Assert.That(h[0, 1], Is.EqualTo(r["h01"]).Within(1e-5 * Math.Abs(r["h01"])));
+        Assert.That(h[1, 0], Is.EqualTo(h[0, 1]).Within(1e-12 * Math.Abs(h[0, 1])));
+        Assert.That(h[1, 1], Is.EqualTo(r["h11"]).Within(1e-5 * r["h11"]));
+    }
 }

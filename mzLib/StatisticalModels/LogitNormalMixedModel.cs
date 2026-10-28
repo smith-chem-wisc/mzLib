@@ -171,14 +171,28 @@ namespace StatisticalModels
     /// <para>
     /// Likelihood: per group, the measured samples are integrated against u exactly (they are Gaussian), which leaves
     /// u normal with the measured samples' posterior mean and variance. The counted samples are then integrated over
-    /// that normal by 40-node adaptive Gauss-Hermite quadrature (as glmer's nAGQ), each one's e_s by 12 nodes. The u rule
-    /// sits at the mode of the group's integrand over (u, e) and the curvature of u's Laplace marginal there; each e rule,
-    /// per u node, at the mode and curvature of that count's integrand. A rule centred on the prior instead fails when
-    /// a group's counts say much more about u than τ does, or a count says more about its e than σ does. The rules are
-    /// held fixed while β is optimized, so ℓ's derivatives are exact for them, then re-centred at the optimum until
-    /// they stop moving. A count's integrand over e is log-concave and close to normal, so 12 nodes suffice there; u keeps
-    /// 40 for a group whose integrand is one-sided (every count 0, or every count full) at a large τ. Against lme4's exact
-    /// likelihood the fits agree to about 1e-6 (ReferenceComparisonLogitNormalTests).
+    /// that normal, by 40-node adaptive Gauss-Hermite quadrature (as glmer's nAGQ) where that is accurate, each one's e_s
+    /// by 12 nodes. The u rule sits at the mode of the group's integrand over (u, e) and the curvature of u's Laplace
+    /// marginal there; each e rule, per u node, at the mode and curvature of that count's integrand. A rule centred on the
+    /// prior instead fails when a group's counts say much more about u than τ does, or a count says more about its e than
+    /// σ does.
+    /// </para>
+    /// <para>
+    /// The Gauss-Hermite u rule fails where the integrand is not near normal on its own scale. A group whose counts are
+    /// one-sided (every count 0, or every count full) has, at a large τ, an integrand that is the prior times a smoothed
+    /// step a few units wide (a logistic's poles sit π/b off the real axis), with the step far from the prior's mean in
+    /// units of the rule's node spacing; the rule then misses the step, by up to ±0.6 in ℓ (mzLib #1511), and ℓ shows
+    /// bumps an optimizer climbs. So the u rule switches to graded 8-point Gauss-Legendre panels when either check fails:
+    /// the integrand has fallen by less than 24 (log units) at ±8 of the rule's scales, or a count's step (where its
+    /// logit crosses 0) lies within ±8 scales while the scale exceeds half of π/b. The panels cover where the log
+    /// integrand is within 36 of its value at the mode; they are narrowest at the mode and at each step, and widen away
+    /// from them, at most 1.5 local scales (1/√ of the Laplace marginal's curvature) and at most (5 + drop)/slope wide.
+    /// </para>
+    /// <para>
+    /// Either way the rules are held fixed while β is optimized, so ℓ's derivatives are exact for them, then re-centred
+    /// at the optimum until they stop moving. A count's integrand over e is log-concave and close to normal, so 12 nodes
+    /// suffice there at a moderate σ. Against lme4's likelihood the fits agree to about 1e-6, and against an exact one on
+    /// one-sided groups to about 1e-9 (ReferenceComparisonLogitNormalTests).
     /// </para>
     /// <para>
     /// Estimation: for given variances, β maximizes the log-likelihood ℓ (Newton, with ℓ's gradient and Hessian exact
@@ -207,6 +221,17 @@ namespace StatisticalModels
         /// <summary>log w + x², the log weights of a rule for ∫ f(x) dx rather than ∫ f(x) e^(−x²) dx.</summary>
         private static readonly double[] ULogWeights = UQuadrature.X.Select((x, i) => Math.Log(UQuadrature.W[i]) + x * x).ToArray();
         private static readonly double[] ELogWeights = EQuadrature.X.Select((x, i) => Math.Log(EQuadrature.W[i]) + x * x).ToArray();
+
+        // The u rule's switch to panels (Centre): the drop in log integrand the Gauss-Hermite rule's reach (±8 scales) must
+        // show, and the node scale, in units of π/|b|, above which a count's step is too sharp for it.
+        private const double ReachDrop = 24, StepRatio = 0.5;
+        // The panels: they cover where the log integrand is within PanelDrop of its mode's value; each is at most
+        // PanelCap local scales wide, and widths grow by about PanelKappa feature scales per panel away from a feature.
+        private const double PanelDrop = 36, PanelCap = 1.5, PanelKappa = 1;
+        private static readonly (double[] X, double[] W) PanelQuadrature = GaussLegendre(8);
+
+        /// <summary>The longest Newton step in β; a nearly singular H otherwise gives one no step halving brings back.</summary>
+        private const double MaxNewtonStep = 10;
 
         /// <summary>Fits one design, grouping and link against every feature (row).</summary>
         /// <param name="responses">[feature, sample] measured latent values; any non-finite value is not measured.</param>
@@ -430,10 +455,12 @@ namespace StatisticalModels
 
         /// <summary>
         /// One feature's log-likelihood at given β and variances (τ² = 0 allowed), by the quadrature rules a fit centres
-        /// there. For tests: a fit's reported ℓ must be this at its reported estimate.
+        /// there, and optionally ℓ's β-gradient and H = −∂²ℓ/∂β² for those rules. For tests: a fit's reported ℓ must be this
+        /// at its reported estimate.
         /// </summary>
         internal static double LogLikelihoodAt(double[] responses, BinomialCount?[] counts, double[,] design, IReadOnlyList<string> groups,
-            DetectionLink link, double[] beta, double groupVariance, double residualVariance, IReadOnlyList<double>? depth = null)
+            DetectionLink link, double[] beta, double groupVariance, double residualVariance, IReadOnlyList<double>? depth = null,
+            double[]? gradient = null, double[,]? negativeHessian = null)
         {
             int samples = responses.Length, p = design.GetLength(1);
             var rows = Enumerable.Range(0, samples).Where(s => double.IsFinite(responses[s]) || counts[s] is not null).ToList();
@@ -445,7 +472,9 @@ namespace StatisticalModels
             for (int s = 0; s < samples; s++) (y[0, s], c[0, s]) = (responses[s], counts[s]);
             var data = MakeData(y, c, 0, rows, x, rowGroup, index.Count, rows.Select(s => double.IsFinite(responses[s])).ToArray(), link, depth);
             double logTau = groupVariance > 0 ? 0.5 * Math.Log(groupVariance) : LogSdMin, logSigma = 0.5 * Math.Log(residualVariance);
-            return Evaluate(data, beta, logTau, logSigma, Centre(data, beta, logTau, logSigma), null, null);
+            if (gradient == null) return Evaluate(data, beta, logTau, logSigma, Centre(data, beta, logTau, logSigma), null, null);
+            var h = negativeHessian ?? new double[p, p];
+            return Evaluate(data, beta, logTau, logSigma, Centre(data, beta, logTau, logSigma), gradient, h);
         }
 
         private static void FitOne(double[,] responses, BinomialCount?[,] counts, double[,] design, int[] groupOf, int groupCount,
@@ -702,6 +731,10 @@ namespace StatisticalModels
                     Vector<double> step;
                     try { step = hm.Cholesky().Solve(g); }
                     catch (ArgumentException) { step = g / Math.Max(1, hm.Diagonal().AbsoluteMaximum()); }   // not concave here: a gradient step
+                    // A nearly singular H (a count far in its logistic tail) gives a huge Newton step that no halving
+                    // brings back inside the search box; cap its length so step halving can work.
+                    double longest = step.AbsoluteMaximum();
+                    if (longest > MaxNewtonStep) step *= MaxNewtonStep / longest;
                     bool moved = false, small = false;
                     double t = 1;
                     for (int half = 0; half < 40; half++, t /= 2)
@@ -735,19 +768,35 @@ namespace StatisticalModels
         /// </summary>
         private sealed class Rules
         {
-            public required double[] UCentre, UScale;
+            /// <summary>Per group with counts: the u nodes and the log weights of ∫ f(u) du ≈ Σ e^LogWeight f(node).</summary>
+            public required double[][] UNode, ULogWeight;
             public required double[][] ECentre, EScale;
+            /// <summary>Per group: whether the u rule is the panel rule (else the 40-node adaptive Gauss-Hermite).</summary>
+            public required bool[] Paneled;
 
-            /// <summary>Whether every centre moved by less than 1e-8 of its scale, and every scale by less than 1e-8 of itself.</summary>
+            public int MaxNodes => UNode.Max(n => n?.Length ?? 0);
+
+            /// <summary>
+            /// Whether every u node moved by less than 1e-8 of its gap to a neighbour, every log weight by less than 1e-8,
+            /// and every e rule's centre by less than 1e-8 of its scale and scale by less than 1e-8 of itself.
+            /// </summary>
             public bool IsCloseTo(Rules other)
             {
                 const double tolerance = 1e-8;
                 static bool Close(double c0, double s0, double c1, double s1) =>
                     Math.Abs(c0 - c1) <= tolerance * s0 && Math.Abs(s0 - s1) <= tolerance * s0;
-                for (int g = 0; g < UCentre.Length; g++)
+                for (int g = 0; g < UNode.Length; g++)
                 {
                     if (ECentre[g] == null) continue;
-                    if (!Close(UCentre[g], UScale[g], other.UCentre[g], other.UScale[g])) return false;
+                    var a = UNode[g];
+                    var b = other.UNode[g];
+                    if (Paneled[g] != other.Paneled[g] || a.Length != b.Length) return false;
+                    for (int i = 0; i < a.Length; i++)
+                    {
+                        double gap = i + 1 < a.Length ? a[i + 1] - a[i] : a[i] - a[i - 1];
+                        if (Math.Abs(a[i] - b[i]) > tolerance * Math.Abs(gap)) return false;
+                        if (Math.Abs(ULogWeight[g][i] - other.ULogWeight[g][i]) > tolerance) return false;
+                    }
                     for (int i = 0; i < ECentre[g].Length; i++)
                         if (!Close(ECentre[g][i], EScale[g][i], other.ECentre[g][i], other.EScale[g][i])) return false;
                 }
@@ -766,7 +815,7 @@ namespace StatisticalModels
             double s2 = Math.Exp(2 * logSigma), t2 = Math.Exp(2 * logTau), sigma = Math.Exp(logSigma);
             var link = d.Link;
             double b = link.Slope, rho = link.Overdispersion;
-            var rules = new Rules { UCentre = new double[d.G], UScale = new double[d.G], ECentre = new double[d.G][], EScale = new double[d.G][] };
+            var rules = new Rules { UNode = new double[d.G][], ULogWeight = new double[d.G][], Paneled = new bool[d.G], ECentre = new double[d.G][], EScale = new double[d.G][] };
             for (int g = 0; g < d.G; g++)
             {
                 var counted = d.CountedRows[g];
@@ -851,26 +900,173 @@ namespace StatisticalModels
                 double precision = 1 / variance;
                 for (int ci = 0; ci < nc; ci++) precision += w[ci] * (1 / s2) / (1 / s2 + w[ci]);
                 double uScale = 1 / Math.Sqrt(precision);
-                rules.UCentre[g] = uHat;
-                rules.UScale[g] = uScale;
+                var wHat = (double[])w.Clone();
+                double logNormU = -0.5 * (LogTwoPi + Math.Log(variance));
 
-                var centres = new double[UNodes * nc];
-                var scales = new double[UNodes * nc];
-                for (int a = 0; a < UNodes; a++)
+                double EStart(int ci, double u)
                 {
-                    double u = uHat + Math.Sqrt(2) * uScale * UQuadrature.X[a];
+                    double start = eHat[ci] - (u - uHat) * wHat[ci] / (1 / s2 + wHat[ci]);
+                    return double.IsFinite(start) ? start : 0;
+                }
+                // The e rules at every node of a u rule.
+                (double[] C, double[] S) ERules(double[] nodes)
+                {
+                    var c = new double[nodes.Length * nc];
+                    var s = new double[nodes.Length * nc];
+                    for (int a = 0; a < nodes.Length; a++)
+                        for (int ci = 0; ci < nc; ci++)
+                        {
+                            int i = counted[ci];
+                            (c[a * nc + ci], s[a * nc + ci]) =
+                                CellRule(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * nodes[a], b, rho, sigma, EStart(ci, nodes[a]));
+                        }
+                    return (c, s);
+                }
+                // The 40-node adaptive Gauss-Hermite rule, unless the integrand has not fallen by ReachDrop at ±8 scales (mass
+                // beyond the rule's nodes), or a count's step (where its logit crosses 0) lies within ±8 scales while the
+                // scale exceeds StepRatio × π/|b| (a step narrower than the rule's node spacing). Then panels.
+                double top = Shape(uHat).Value;
+                bool reach = Shape(uHat - 8 * uScale).Value < top - ReachDrop && Shape(uHat + 8 * uScale).Value < top - ReachDrop;
+                bool sharpStep = uScale > StepRatio * Math.PI / Math.Abs(b) && offset.Any(o => Math.Abs(-o / b - uHat) < 8 * uScale);
+                bool paneled = !reach || sharpStep;
+                double[] uNodes, uLogW;
+                if (paneled) (uNodes, uLogW) = PanelRule();
+                else
+                {
+                    uNodes = new double[UNodes];
+                    uLogW = new double[UNodes];
+                    for (int a = 0; a < UNodes; a++)
+                    {
+                        uNodes[a] = uHat + Math.Sqrt(2) * uScale * UQuadrature.X[a];
+                        uLogW[a] = ULogWeights[a] + Math.Log(Math.Sqrt(2) * uScale);
+                    }
+                }
+                var (centres, scales) = ERules(uNodes);
+                rules.UNode[g] = uNodes;
+                rules.ULogWeight[g] = uLogW;
+                rules.Paneled[g] = paneled;
+                rules.ECentre[g] = centres;
+                rules.EScale[g] = scales;
+
+                // ℓ_g(u) = log N(u; mean, variance) + Σ log q_c(u) (q_c by its e rule at u), its slope, and the curvature of the
+                // Laplace marginal (as uScale's), for placing panels.
+                (double Value, double Slope, double Precision) Shape(double u)
+                {
+                    double du = u - mean, value = logNormU - du * du / (2 * variance), slope = -du / variance, prec = 1 / variance;
                     for (int ci = 0; ci < nc; ci++)
                     {
                         int i = counted[ci];
-                        double start = eHat[ci] - (u - uHat) * w[ci] / (1 / s2 + w[ci]);
-                        (centres[a * nc + ci], scales[a * nc + ci]) =
-                            CellRule(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * u, b, rho, sigma, double.IsFinite(start) ? start : 0);
+                        var (c, s) = CellRule(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * u, b, rho, sigma, EStart(ci, u));
+                        value += LogCellIntegral(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * u, b, rho, sigma, c, s);
+                        LogCountProbability(d.K[i], d.N[i], offset[ci] + b * (u + c), rho, d.LogChoose[i], out double d1, out double d2);
+                        slope += b * d1;
+                        double wc = Math.Max(-b * b * d2, 0);
+                        prec += wc * (1 / s2) / (1 / s2 + wc);
                     }
+                    return (value, slope, prec);
                 }
-                rules.ECentre[g] = centres;
-                rules.EScale[g] = scales;
+
+                // Graded Gauss-Legendre panels over where ℓ_g is within PanelDrop of its value at the mode. Feature points: the
+                // mode (scale uScale) and each count's step, where its logit crosses 0 (scale: its curvature, at most π/|b|, the
+                // distance of the logistic's poles). Panels start at the feature's scale and double away from it, capped at
+                // PanelCap local scales (1/√ of the curvature) and at (5 + drop)/|slope|, so no panel spans more than a few
+                // e-folds of the integrand where it matters.
+                (double[] Nodes, double[] LogW) PanelRule()
+                {
+                    double Edge(int dir)
+                    {
+                        double dist = uScale;
+                        int it = 0;
+                        while (Shape(uHat + dir * dist).Value > top - PanelDrop && it++ < 60) dist *= 2;
+                        double lo = it == 0 ? 0 : dist / 2, hi = dist;
+                        for (int k = 0; k < 8; k++)
+                        {
+                            double mid = 0.5 * (lo + hi);
+                            if (Shape(uHat + dir * mid).Value > top - PanelDrop) lo = mid; else hi = mid;
+                        }
+                        return uHat + dir * hi;
+                    }
+                    double uL = Edge(-1), uR = Edge(1);
+                    var points = new List<(double U, double Scale)> { (uHat, uScale) };
+                    var steps = offset.Select(o => -o / b).Where(v => v > uL && v < uR).Distinct().OrderBy(v => v).ToList();
+                    foreach (double st in steps)
+                    {
+                        double scale = Math.Min(Math.PI / Math.Abs(b), 1 / Math.Sqrt(Shape(st).Precision));
+                        if (points.Any(p => Math.Abs(p.U - st) < 0.5 * Math.Max(scale, Math.Min(p.Scale, Math.PI / Math.Abs(b))))) continue;
+                        points.Add((st, scale));
+                    }
+                    points.Sort((x, y) => x.U.CompareTo(y.U));
+
+                    // The widest panel allowed starting at x (going right): graded from every feature (κλ + distance, so
+                    // widths about double per panel away from it), at most PanelCap local scales, and at most
+                    // (5 + drop)/|slope|.
+                    double Width(double x)
+                    {
+                        double wdt = double.PositiveInfinity;
+                        foreach (var (fu, fl) in points)
+                        {
+                            double dist = fu - x;
+                            wdt = Math.Min(wdt, dist >= 0 ? (PanelKappa * fl + dist) / 2 : PanelKappa * fl - dist);
+                        }
+                        var sh = Shape(x);
+                        wdt = Math.Min(wdt, PanelCap / Math.Sqrt(sh.Precision));
+                        wdt = Math.Min(wdt, (5 + Math.Max(0, top - sh.Value)) / Math.Max(Math.Abs(sh.Slope), 1e-300));
+                        return wdt;
+                    }
+                    var stops = points.Select(p => p.U).Append(uR).ToList();
+                    var breaks = new List<double> { uL };
+                    double at = uL;
+                    int nextStop = 0;
+                    for (int guard = 0; guard < 400 && at < uR; guard++)
+                    {
+                        while (stops[nextStop] <= at) nextStop++;
+                        double wdt = Width(at), stop = stops[nextStop];
+                        at = stop - at <= 1.3 * wdt ? stop : at + wdt;
+                        breaks.Add(at);
+                    }
+                    var (gx, gw) = PanelQuadrature;
+                    int panels = breaks.Count - 1, q = gx.Length;
+                    var nodes = new double[panels * q];
+                    var logW = new double[panels * q];
+                    for (int pi = 0; pi < panels; pi++)
+                    {
+                        double lo = breaks[pi], width = breaks[pi + 1] - lo;
+                        for (int a = 0; a < q; a++)
+                        {
+                            nodes[pi * q + a] = lo + 0.5 * width * (gx[a] + 1);
+                            logW[pi * q + a] = Math.Log(0.5 * width * gw[a]);
+                        }
+                    }
+                    return (nodes, logW);
+                }
             }
             return rules;
+        }
+
+
+        /// <summary>Gauss-Legendre nodes and weights on [−1, 1], by Golub-Welsch (off-diagonal k/√(4k² − 1), weights 2 v0²).</summary>
+        internal static (double[] X, double[] W) GaussLegendre(int n)
+        {
+            var j = Matrix<double>.Build.Dense(n, n);
+            for (int k = 1; k < n; k++) j[k, k - 1] = j[k - 1, k] = k / Math.Sqrt(4.0 * k * k - 1);
+            var evd = j.Evd(Symmetricity.Symmetric);
+            var order = Enumerable.Range(0, n).OrderBy(i => evd.EigenValues[i].Real).ToArray();
+            var x = new double[n];
+            var w = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                int o = order[i];
+                x[i] = evd.EigenValues[o].Real;
+                double v0 = evd.EigenVectors[0, o];
+                w[i] = 2 * v0 * v0;
+            }
+            for (int i = 0; i < n / 2; i++)
+            {
+                double xs = 0.5 * (x[n - 1 - i] - x[i]), ws = 0.5 * (w[i] + w[n - 1 - i]);
+                x[i] = -xs; x[n - 1 - i] = xs; w[i] = w[n - 1 - i] = ws;
+            }
+            if (n % 2 == 1) x[n / 2] = 0;
+            return (x, w);
         }
 
         /// <summary>
@@ -944,9 +1140,10 @@ namespace StatisticalModels
             var link = d.Link;
             double slope = link.Slope;
             var sx = new double[p];
-            var logF = new double[UNodes];
-            var gF = deriv ? new double[UNodes, p] : null;
-            var hF = deriv ? new double[UNodes, p, p] : null;
+            int maxNodes = rules.MaxNodes;
+            var logF = new double[maxNodes];
+            var gF = deriv ? new double[maxNodes, p] : null;
+            var hF = deriv ? new double[maxNodes, p, p] : null;
             var gL = new double[p];
             var lw = new double[ENodes];
             var s1 = new double[ENodes];
@@ -993,15 +1190,17 @@ namespace StatisticalModels
                 var counted = d.CountedRows[g];
                 int nc = counted.Count;
                 if (nc == 0) continue;
-                double uCentre = rules.UCentre[g], uScale = rules.UScale[g];
+                var uNode = rules.UNode[g];
+                var uLogWeight = rules.ULogWeight[g];
+                int nodes = uNode.Length;
                 var eCentre = rules.ECentre[g];
                 var eScale = rules.EScale[g];
-                double logNormU = -0.5 * (LogTwoPi + Math.Log(variance)) + Math.Log(Math.Sqrt(2) * uScale);
-                for (int a = 0; a < UNodes; a++)
+                double logNormU = -0.5 * (LogTwoPi + Math.Log(variance));
+                for (int a = 0; a < nodes; a++)
                 {
-                    double u = uCentre + Math.Sqrt(2) * uScale * UQuadrature.X[a];
+                    double u = uNode[a];
                     double du = u - mean;
-                    logF[a] = ULogWeights[a] + logNormU - du * du / (2 * variance);
+                    logF[a] = uLogWeight[a] + logNormU - du * du / (2 * variance);
                     if (deriv)
                         for (int j = 0; j < p; j++)
                         {
@@ -1045,16 +1244,16 @@ namespace StatisticalModels
                     }
                 }
                 double lse = double.NegativeInfinity;
-                for (int a = 0; a < UNodes; a++) lse = LogAdd(lse, logF[a]);
+                for (int a = 0; a < nodes; a++) lse = LogAdd(lse, logF[a]);
                 total += lse;
                 if (!deriv) continue;
                 Array.Clear(gL);
-                for (int a = 0; a < UNodes; a++)
+                for (int a = 0; a < nodes; a++)
                 {
                     double pi = Math.Exp(logF[a] - lse);
                     for (int j = 0; j < p; j++) gL[j] += pi * gF![a, j];
                 }
-                for (int a = 0; a < UNodes; a++)
+                for (int a = 0; a < nodes; a++)
                 {
                     double pi = Math.Exp(logF[a] - lse);
                     if (pi == 0) continue;
