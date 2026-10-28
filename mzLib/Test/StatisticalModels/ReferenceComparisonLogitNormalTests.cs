@@ -221,14 +221,16 @@ public class ReferenceComparisonLogitNormalTests
     /// One group at a time, intercept only, every sample counted: ℓ against the exact integral (make_lnmm_ridge_fixtures.R)
     /// over one-sided and near-one-sided patterns of 1, 2 and 4 trials, β0 from −12 to 12, τ² from 0.0025 to 21904. At a
     /// large τ a one-sided group's integrand is the prior times a smoothed step, which the 40-node Gauss-Hermite rule
-    /// missed by up to 0.6 (#1511). σ ≤ 0.5 here, where the 12-node e rule is exact to about 1e-9 per count.
+    /// missed by up to 0.6 (#1511). σ from 0.1 to 3: a one-sided count's integrand over e is the same shape at a large σ,
+    /// which the 12-node e rule missed by 2e-7 at σ = 1, 2e-4 at σ = 2 and 4e-3 at σ = 3.
     /// </summary>
     [Test]
     public void OneGroupLikelihoodsMatchTheExactIntegral()
     {
         int compared = 0;
+        var misses = new List<string>();
         double worst = 0;
-        foreach (var r in Rows("lnmm_ridge_groups.tsv", r => r["sigma2"] <= 0.25 + 1e-12))
+        foreach (var r in Rows("lnmm_ridge_groups.tsv", r => true))
         {
             var k = r.Text("successes").Split(',').Select(int.Parse).ToArray();
             int n = (int)r["trials"];
@@ -239,12 +241,32 @@ public class ReferenceComparisonLogitNormalTests
                 DetectionLink.Identity, new[] { r["b0"] }, r["tau2"], r["sigma2"]);
             Assert.That(double.IsFinite(at), Is.True);
             worst = Math.Max(worst, Math.Abs(at - r["loglik"]));
-            Assert.That(Math.Abs(at - r["loglik"]), Is.LessThan(1e-8),
-                $"k {r.Text("successes")} of {n}, b0 {r["b0"]}, tau2 {r["tau2"]}, sigma2 {r["sigma2"]}: {at:R} vs {r["loglik"]:R}");
+            if (!(Math.Abs(at - r["loglik"]) < 1e-8))
+                misses.Add($"k {r.Text("successes")} of {n}, b0 {r["b0"]}, tau2 {r["tau2"]}, sigma2 {r["sigma2"]}: {at:R} vs {r["loglik"]:R}");
             compared++;
         }
-        Assert.That(compared, Is.EqualTo(9 * 5 * 7 * 2));
+        foreach (var m in misses.Take(30)) TestContext.Out.WriteLine(m);
+        Assert.That(misses, Is.Empty, $"{misses.Count} of {compared} groups miss by 1e-8 or more; worst {worst:G3}");
+        Assert.That(compared, Is.EqualTo(9 * 5 * 7 * 5));
         TestContext.Out.WriteLine($"{compared} groups, worst |Δℓ| {worst:G3}");
+    }
+
+    /// <summary>
+    /// One count's integral over e, against integrate() (make_lnmm_ridge_fixtures.R): counts of 30 or 36 trials, mixed
+    /// and one-sided, and small ones, σ from 0.5 to 5. A count of many trials near one end has a log integrand with one
+    /// linear tail; the 12-node Gauss-Hermite rule missed 34 of 36 at σ = e by 3.8e-5, so such a rule gets panels.
+    /// </summary>
+    [Test]
+    public void OneCountIntegralsMatchTheExactIntegral()
+    {
+        var rows = Rows("lnmm_ridge_cells.tsv", r => true);
+        foreach (var r in rows)
+        {
+            double at = LogitNormalMixedModel.LogCountIntegral((int)r["successes"], (int)r["trials"], r["offset"], 1, Math.Sqrt(r["sigma2"]));
+            Assert.That(Math.Abs(at - r["loglik"]), Is.LessThan(1e-9),
+                $"{r["successes"]} of {r["trials"]}, offset {r["offset"]}, sigma2 {r["sigma2"]}: {at:R} vs {r["loglik"]:R}");
+        }
+        Assert.That(rows.Count, Is.EqualTo(8 * 3 * 4));
     }
 
     /// <summary>The exact ML fit of one of #1511's layouts, σ² = 0.25 given (make_lnmm_ridge_fixtures.R).</summary>

@@ -1,6 +1,8 @@
-generated_utc 2026-10-28 17:45:07 UTC
+generated_utc 2026-10-28 19:56:57 UTC
 R R version 4.6.1 (2026-06-24 ucrt)
 numDeriv 2016.8.1.1
 max_halving_change 6.13e-13
 max_spline_error 3.55e-15
+max_trapezoid_2d_change 2.49e-14
+max_cell_disagreement 1.78e-15
 script make_lnmm_ridge_fixtures.R

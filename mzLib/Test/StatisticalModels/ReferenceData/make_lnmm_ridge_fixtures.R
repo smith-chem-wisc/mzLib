@@ -12,8 +12,11 @@
 # lme4 and glmmTMB cannot serve here: glmer has no observation-level variance with quadrature, glmmTMB's Laplace error
 # is large for 1-4 trials, and on a one-sided group at a large tau every Gauss-Hermite rule misses the step (the
 # integrand is the prior times a smoothed step). So the integrals are computed directly:
-#   * over e, by 200-node Gauss-Hermite on N(0, sigma^2) (the count probability is entire; its nearest poles are
-#     pi / (sigma sqrt 2) from the real axis in GH's variable, so 200 nodes leave an error far below 1e-12);
+#   * over e, by 200-node Gauss-Hermite on N(0, sigma^2), tabulated per count and read by a spline. A rule on the prior
+#     is not exact everywhere (it misses a count whose mass sits far out in the prior's tail, or whose integrand is a
+#     narrow peak or a step against sigma), so the group values are checked against a rule that uses no Gauss-Hermite:
+#     a 2-D trapezoid over (u, e) on the sampled rows with 2 <= tau <= 15.25 and on five of the riskiest (large tau, sigma 2
+#     to 3, beta0 at +-12; max_trapezoid_2d_change in the provenance);
 #   * over u, by the trapezoid rule with step h = min(0.1, tau / 100) over the prior's +-10 tau widened to cover every
 #     count's step with 40 to spare. The integrand is analytic in a strip about the real axis, so the trapezoid error
 #     falls as exp(-2 pi d / h) and is negligible; the range truncation drops prior mass below e^-50.
@@ -24,6 +27,10 @@
 #   lnmm_ridge_fits.tsv    #1511's layouts A and B (8 groups x 3 runs, 2 trials, group trait), sigma^2 = 0.25 given: the
 #                          exact ML estimate (beta, tau^2, l), H = -d2 l / d beta2 there at fixed variances (numDeriv),
 #                          and the ML fit with the trait coefficient fixed at 0.
+#   lnmm_ridge_cells.tsv   one count's integral over e alone, log int N(e; 0, sigma^2) Binom(k; n, offset + e) de, for
+#                          counts of many trials (whose log integrand has one linear tail) and one-sided ones, sigma 0.5 to
+#                          5: by integrate() in pieces about the mode, rel.tol 1e-13, checked against a trapezoid with
+#                          step 1e-3 (max_cell_disagreement in the provenance).
 
 suppressPackageStartupMessages({ library(numDeriv) })
 args <- commandArgs(trailingOnly = TRUE)
@@ -51,7 +58,7 @@ log_count_direct <- function(k, n, eta, sigma) {
   top + log(rowSums(exp(lv - top)))
 }
 # The same, tabulated once per (k, n, sigma) and read by a cubic spline: knots 0.005 apart within 60 of 0 and 0.05
-# beyond, out to 1700. Its error is far below 1e-10 (checked against log_count_direct; max_spline_error in the provenance).
+# beyond, out to 1700 (checked against log_count_direct; max_spline_error in the provenance).
 tables <- new.env()
 log_count <- function(k, n, eta, sigma) {
   key <- paste(k, n, sigma)
@@ -62,14 +69,30 @@ log_count <- function(k, n, eta, sigma) {
   tables[[key]](eta)
 }
 
+# The same by the trapezoid rule over e (step min(0.02, sigma / 20) over +-(12 sigma + n sigma^2 + 10), which holds the
+# integrand's mass wherever the count pulls it), in blocks of eta: no Gauss-Hermite at all.
+log_count_trapezoid <- function(k, n, eta, sigma) {
+  he <- min(0.02, sigma / 20); reach <- 12 * sigma + n * sigma^2 + 10
+  e <- seq(-reach, reach, by = he)
+  out <- numeric(length(eta))
+  for (b in split(seq_along(eta), ceiling(seq_along(eta) / 400))) {
+    x <- outer(eta[b], e, "+")
+    lv <- lchoose(n, k) + k * plogis(x, log.p = TRUE) + (n - k) * plogis(-x, log.p = TRUE) +
+      matrix(dnorm(e, 0, sigma, log = TRUE), length(b), length(e), byrow = TRUE)
+    top <- lv[cbind(seq_along(b), max.col(lv, ties.method = "first"))]
+    out[b] <- top + log(rowSums(exp(lv - top)) * he)
+  }
+  out
+}
+
 # log int N(u; 0, tau^2) prod_s q_s(eta_s + u) du, eta_s = the samples' fixed parts
-log_group <- function(k, n, eta, tau, sigma, halve = FALSE, direct = FALSE) {
+log_group <- function(k, n, eta, tau, sigma, halve = FALSE, direct = FALSE, trapezoid = FALSE) {
   h <- min(0.1, tau / 100); if (halve) h <- h / 2
   steps <- -eta
   lo <- min(-10 * tau, min(steps) - 40); hi <- max(10 * tau, max(steps) + 40)
   u <- seq(lo, hi, by = h)
   lf <- dnorm(u, 0, tau, log = TRUE)
-  q <- if (direct) log_count_direct else log_count
+  q <- if (trapezoid) log_count_trapezoid else if (direct) log_count_direct else log_count
   for (s in seq_along(k)) lf <- lf + q(k[s], n[s], eta[s] + u, sigma)
   top <- max(lf)
   top + log(sum(exp(lf - top)) * h)
@@ -78,7 +101,7 @@ log_group <- function(k, n, eta, tau, sigma, halve = FALSE, direct = FALSE) {
 # ---- one group at a time ----------------------------------------------------------------------------------------
 patterns <- list(c(0, 0, 0), c(2, 2, 2), c(1, 2, 2), c(0, 0, 1), c(0, 0, 0, 0), c(1, 1, 1, 0), c(4, 4, 4), c(0, 0, 0), c(4, 4, 3))
 trials <- c(2, 2, 2, 2, 1, 1, 4, 4, 4)
-rows <- list(); worst <- 0; worst_spline <- 0
+rows <- list(); worst <- 0; worst_spline <- 0; worst_2d <- 0
 for (pi in seq_along(patterns)) for (b0 in c(-12, -3, 0, 3, 12)) for (tau in c(0.05, 0.5, 2, 8, 15.25, 40, 148))
   for (sigma in c(0.1, 0.5, 1, 2, 3)) {
     k <- patterns[[pi]]; n <- rep(trials[pi], length(k)); eta <- rep(b0, length(k))
@@ -86,11 +109,17 @@ for (pi in seq_along(patterns)) for (b0 in c(-12, -3, 0, 3, 12)) for (tau in c(0
     if (length(rows) %% 25 == 0) {
       worst <- max(worst, abs(v - log_group(k, n, eta, tau, sigma, halve = TRUE)))
       worst_spline <- max(worst_spline, abs(v - log_group(k, n, eta, tau, sigma, direct = TRUE)))
+      if (tau >= 2 && tau <= 15.25) worst_2d <- max(worst_2d, abs(v - log_group(k, n, eta, tau, sigma, trapezoid = TRUE)))
     }
     rows[[length(rows) + 1]] <- data.frame(successes = paste(k, collapse = ","), trials = trials[pi], b0 = b0, tau2 = tau^2,
                                            sigma2 = sigma^2, loglik = v)
   }
 w(fmt(do.call(rbind, rows)), "lnmm_ridge_groups.tsv")
+for (cs in list(list(c(4, 4, 4), 4, -12, 148, 3), list(c(0, 0, 0), 2, 12, 40, 3), list(c(1, 2, 2), 2, -3, 15.25, 2),
+                list(c(4, 4, 3), 4, 12, 8, 3), list(c(0, 0, 0, 0), 1, 3, 148, 3))) {
+  k <- cs[[1]]; n <- rep(cs[[2]], length(k)); eta <- rep(cs[[3]], length(k))
+  worst_2d <- max(worst_2d, abs(log_group(k, n, eta, cs[[4]], cs[[5]]) - log_group(k, n, eta, cs[[4]], cs[[5]], trapezoid = TRUE)))
+}
 
 # ---- #1511's layouts --------------------------------------------------------------------------------------------
 trait_g <- c(0, 0, 0, 0, 1, 1, 1, 1)
@@ -130,11 +159,31 @@ for (which in c("A", "B")) {
 }
 w(fmt(do.call(rbind, fits)), "lnmm_ridge_fits.tsv")
 
+# ---- one count's integral over e -----------------------------------------------------------------------------------
+cells <- list(); worst_cell <- 0
+for (kn in list(c(34, 36), c(1, 30), c(29, 30), c(15, 30), c(0, 30), c(30, 30), c(3, 4), c(0, 2)))
+  for (offset in c(-3, 0, 3.4624901444952076)) for (sigma in c(0.5, 1, exp(1), 5)) {
+    k <- kn[1]; n <- kn[2]
+    lf <- function(z) dnorm(z, 0, sigma, log = TRUE) + lchoose(n, k) + k * plogis(offset + z, log.p = TRUE) + (n - k) * plogis(-(offset + z), log.p = TRUE)
+    mode <- optimize(lf, c(-60, 60), maximum = TRUE, tol = 1e-12)$maximum
+    top <- lf(mode)
+    f <- function(z) exp(lf(z) - top)
+    edges <- mode + c(-80, -20, -5, -1, 0, 1, 5, 20, 80)
+    v <- top + log(sum(sapply(seq_len(length(edges) - 1), function(i)
+      integrate(f, edges[i], edges[i + 1], rel.tol = 1e-13, subdivisions = 5000L)$value)))
+    z <- seq(-12 * sigma - 80, 12 * sigma + 80, by = 1e-3)
+    tz <- lf(z); worst_cell <- max(worst_cell, abs(v - (max(tz) + log(sum(exp(tz - max(tz))) * 1e-3))))
+    cells[[length(cells) + 1]] <- data.frame(successes = k, trials = n, offset = offset, sigma2 = sigma^2, loglik = v)
+  }
+w(fmt(do.call(rbind, cells)), "lnmm_ridge_cells.tsv")
+
 writeLines(c(
   paste("generated_utc", format(Sys.time(), tz = "UTC", usetz = TRUE)),
   paste("R", R.version.string),
   paste("numDeriv", as.character(packageVersion("numDeriv"))),
   paste("max_halving_change", sprintf("%.3g", worst)),
   paste("max_spline_error", sprintf("%.3g", worst_spline)),
+  paste("max_trapezoid_2d_change", sprintf("%.3g", worst_2d)),
+  paste("max_cell_disagreement", sprintf("%.3g", worst_cell)),
   "script make_lnmm_ridge_fixtures.R"
 ), file.path(out, "PROVENANCE_lnmm_ridge.txt"))
