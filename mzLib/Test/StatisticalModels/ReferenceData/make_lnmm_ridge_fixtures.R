@@ -27,6 +27,10 @@
 #   lnmm_ridge_fits.tsv    #1511's layouts A and B (8 groups x 3 runs, 2 trials, group trait), sigma^2 = 0.25 given: the
 #                          exact ML estimate (beta, tau^2, l), H = -d2 l / d beta2 there at fixed variances (numDeriv),
 #                          and the ML fit with the trait coefficient fixed at 0.
+#   lnmm_ridge_held.tsv    two more layouts like #1511's, trait estimates under the effect bound of 10: the exact ML fits
+#                          full, with b1 held at 0, and with b1 held at 10 (the ridge check).
+#   lnmm_ridge_glmer_lr.tsv likelihood-ratio statistics from lme4 (glmer, 25-point AGQ, ML) for make_lnmm_fixtures.R's
+#                          count-only features, the trait or x dropped. Reads that script's outputs from <out_dir>.
 #   lnmm_ridge_cells.tsv   one count's integral over e alone, log int N(e; 0, sigma^2) Binom(k; n, offset + e) de, for
 #                          counts of many trials (whose log integrand has one linear tail) and one-sided ones, sigma 0.5 to
 #                          5: by integrate() in pieces about the mode, rel.tol 1e-13, checked against a trapezoid with
@@ -177,10 +181,77 @@ for (kn in list(c(34, 36), c(1, 30), c(29, 30), c(15, 30), c(0, 30), c(30, 30), 
   }
 w(fmt(do.call(rbind, cells)), "lnmm_ridge_cells.tsv")
 
+# ---- the ridge check: layouts held at the effect bound -------------------------------------------------------------
+# Two count-only layouts like #1511's (8 groups x 3 runs, 2 trials, group trait, sigma^2 = 0.25 given), each with its
+# trait estimate under the bound of 10 logits: D, whose likelihood held at b1 = 10 is still within the 95% region
+# (unbounded), and E, whose is not (bounded). The exact ML fits: full, b1 held at 0, and b1 held at 10.
+sigma <- 0.5   # as for #1511's layouts; the cells' loop above leaves sigma at its last value
+ridge_layouts <- list(
+  D = list(c(1, 0, 0), c(0, 0, 0), c(0, 0, 0), c(0, 0, 0), c(2, 2, 2), c(0, 0, 0), c(1, 2, 2), c(0, 0, 1)),
+  E = list(c(0, 0, 1), c(0, 0, 0), c(0, 0, 0), c(1, 0, 0), c(2, 2, 1), c(1, 1, 2), c(2, 1, 2), c(0, 0, 0)))
+ml_fit <- function(k, fix = NA, start) {
+  # over (b0, [b1,] log tau), log tau kept >= log 0.3, where these layouts' maxima are far from the boundary
+  if (is.na(fix)) {
+    f <- function(v) -loglik(k, v[1:2], exp(v[3]), sigma)
+    o <- optim(start, f, method = "L-BFGS-B", lower = c(-Inf, -Inf, log(0.3)), control = list(factr = 1, pgtol = 0, maxit = 2000))
+    list(beta = o$par[1:2], tau = exp(o$par[3]), l = -o$value)
+  } else {
+    f <- function(v) -loglik(k, c(v[1], fix), exp(v[2]), sigma)
+    o <- optim(start[c(1, 3)], f, method = "L-BFGS-B", lower = c(-Inf, log(0.3)), control = list(factr = 1, pgtol = 0, maxit = 2000))
+    list(beta = c(o$par[1], fix), tau = exp(o$par[2]), l = -o$value)
+  }
+}
+held <- list()
+for (which in names(ridge_layouts)) {
+  k <- ridge_layouts[[which]]
+  start <- if (which == "D") c(-4, 5.1, log(2.8)) else c(-2.5, 3.3, log(1.27))
+  full <- ml_fit(k, NA, start)
+  at0 <- ml_fit(k, 0, c(full$beta[1], 0, log(full$tau)))
+  at10 <- ml_fit(k, 10, c(full$beta[1], 10, log(full$tau)))
+  held[[which]] <- data.frame(layout = which, pattern = paste(sapply(k, paste, collapse = ""), collapse = " "), sigma2 = sigma^2,
+                              b0 = full$beta[1], b1 = full$beta[2], tau2 = full$tau^2, loglik = full$l,
+                              null_loglik = at0$l, bound_b1 = 10, bound_loglik = at10$l, bound_tau2 = at10$tau^2)
+}
+w(fmt(do.call(rbind, held)), "lnmm_ridge_held.tsv")
+
+# ---- the likelihood-ratio statistic against lme4 ------------------------------------------------------------------
+# make_lnmm_fixtures.R's count-only features (sigma^2 given tiny in mzLib, none in glmer): glmer's ML fit at 25-point
+# AGQ against the same with the trait, or the covariate x, dropped; LR = 2 (l_full - l_dropped). Read from its outputs.
+read_fx <- function(name) as.matrix(read.delim(file.path(out, name), check.names = FALSE))
+design_fx <- read.delim(file.path(out, "lnmm_design.tsv"))
+group_fx <- read.delim(file.path(out, "lnmm_groups.tsv"))$group
+links_fx <- read.delim(file.path(out, "lnmm_counted_links.tsv"))
+depth_fx <- read.delim(file.path(out, "lnmm_counted_depth.tsv"))$depth
+suppressPackageStartupMessages(library(lme4))
+gctrl <- glmerControl(optimizer = "bobyqa", optCtrl = list(rhoend = 1e-12, maxfun = 1e5), tolPwrss = 1e-12,
+                      check.conv.singular = "ignore", check.conv.grad = "ignore", check.conv.hess = "ignore")
+lrs <- list()
+for (li in seq_len(nrow(links_fx))) {
+  link <- links_fx[li, ]
+  K <- read_fx(sprintf("lnmm_counted_%s_successes.tsv", link$name)); M <- read_fx(sprintf("lnmm_counted_%s_trials.tsv", link$name))
+  for (f in seq_len(nrow(K))) {
+    obs <- !is.na(K[f, ])
+    d <- data.frame(k = K[f, obs], n = M[f, obs], trait = design_fx$trait[obs], x = design_fx$x[obs], group = group_fx[obs],
+                    off = link$a + link$c * depth_fx[obs])
+    fits <- lapply(list(full = cbind(k, n - k) ~ trait + x + (1 | group) + offset(off),
+                        trait = cbind(k, n - k) ~ x + (1 | group) + offset(off),
+                        x = cbind(k, n - k) ~ trait + (1 | group) + offset(off)),
+                   function(form) tryCatch(glmer(form, family = binomial, data = d, nAGQ = 25, control = gctrl), error = function(e) NULL))
+    for (term in c("trait", "x")) {
+      ok <- !is.null(fits$full) && !is.null(fits[[term]]) && all(abs(fixef(fits$full) / link$b) <= 30)
+      lr <- if (ok) 2 * (as.numeric(logLik(fits$full)) - as.numeric(logLik(fits[[term]]))) else NaN
+      lrs[[length(lrs) + 1]] <- data.frame(link = link$name, feature = f - 1, coefficient = term, lr = lr,
+                                           tau2_full = if (ok) (getME(fits$full, "theta") / link$b)^2 else NaN)
+    }
+  }
+}
+w(fmt(do.call(rbind, lrs)), "lnmm_ridge_glmer_lr.tsv")
+
 writeLines(c(
   paste("generated_utc", format(Sys.time(), tz = "UTC", usetz = TRUE)),
   paste("R", R.version.string),
   paste("numDeriv", as.character(packageVersion("numDeriv"))),
+  paste("lme4", as.character(packageVersion("lme4"))),
   paste("max_halving_change", sprintf("%.3g", worst)),
   paste("max_spline_error", sprintf("%.3g", worst_spline)),
   paste("max_trapezoid_2d_change", sprintf("%.3g", worst_2d)),

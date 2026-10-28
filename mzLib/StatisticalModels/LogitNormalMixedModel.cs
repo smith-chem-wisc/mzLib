@@ -37,9 +37,10 @@ namespace StatisticalModels
     public readonly record struct LinkCell(double LatentMean, double LatentSd, int Successes, int Trials, double Depth = 0);
 
     /// <summary>
-    /// Per-feature fits of <see cref="LogitNormalMixedModel"/>. Fixed-effect tests are Wald t with nlme's containment
-    /// degrees of freedom over every sample with a response of either kind (see <see cref="MixedModel"/>). A value that
-    /// could not be computed is NaN, and the reason is in <see cref="Status"/>.
+    /// Per-feature fits of <see cref="LogitNormalMixedModel"/>. A feature with nothing counted is a linear mixed model,
+    /// and its fixed-effect tests are Wald t with nlme's containment degrees of freedom (see <see cref="MixedModel"/>). A
+    /// feature with counted samples is tested by likelihood ratio, read against F(1, containment df) (see
+    /// <see cref="PValue"/>). A value that could not be computed is NaN, and the reason is in <see cref="Status"/>.
     /// </summary>
     public sealed class LogitNormalMixedModelFit
     {
@@ -52,6 +53,8 @@ namespace StatisticalModels
             CoefficientMatrix = Filled(features, p);
             StandardErrorMatrix = Filled(features, p);
             DfMatrix = Filled(features, p);
+            LikelihoodRatioMatrix = Filled(features, p);
+            UnboundedMatrix = new bool[features, p];
             ResidualVarianceValues = Enumerable.Repeat(double.NaN, features).ToArray();
             GroupVarianceValues = Enumerable.Repeat(double.NaN, features).ToArray();
             LogLikelihoodValues = Enumerable.Repeat(double.NaN, features).ToArray();
@@ -65,6 +68,8 @@ namespace StatisticalModels
         internal double[,] CoefficientMatrix { get; }
         internal double[,] StandardErrorMatrix { get; }
         internal double[,] DfMatrix { get; }
+        internal double[,] LikelihoodRatioMatrix { get; }
+        internal bool[,] UnboundedMatrix { get; }
         internal double[] ResidualVarianceValues { get; }
         internal double[] GroupVarianceValues { get; }
         internal double[] LogLikelihoodValues { get; }
@@ -102,12 +107,42 @@ namespace StatisticalModels
         /// <summary>Wald statistic, coefficient / standard error.</summary>
         public double TValue(int feature, int coefficient) => CoefficientMatrix[feature, coefficient] / StandardErrorMatrix[feature, coefficient];
 
-        /// <summary>Two-sided p-value of the t test against a coefficient of zero.</summary>
+        /// <summary>
+        /// Two-sided p-value against a coefficient of zero. With nothing counted, the t test of <see cref="TValue"/>.
+        /// With counted samples, the likelihood-ratio test (<see cref="LikelihoodRatio"/>) read against F(1, df), df the
+        /// containment degrees of freedom, as t² would be: χ² with 1 df rejects up to twice too often with 6 to 12 groups,
+        /// and the Wald test fails outright where β and τ grow together along a ridge (mzLib #1511). NaN for a coefficient
+        /// not tested (see <see cref="LogitNormalMixedModel.Fit"/>'s testedCoefficients). An <see cref="IsUnbounded"/>
+        /// coefficient keeps its p-value: the test of zero holds on a ridge, though no size of effect does.
+        /// </summary>
         public double PValue(int feature, int coefficient)
         {
-            double t = TValue(feature, coefficient), df = DfMatrix[feature, coefficient];
+            double df = DfMatrix[feature, coefficient];
+            if (CountedValues[feature] > 0)
+            {
+                double lr = LikelihoodRatioMatrix[feature, coefficient];
+                if (double.IsNaN(lr)) return double.NaN;
+                double root = Math.Sqrt(lr);
+                return double.IsNaN(df) ? 2 * Normal.CDF(0, 1, -root) : 2 * StudentT.CDF(0, 1, df, -root);
+            }
+            double t = TValue(feature, coefficient);
             return double.IsNaN(t) || double.IsNaN(df) ? double.NaN : 2 * StudentT.CDF(0, 1, df, -Math.Abs(t));
         }
+
+        /// <summary>
+        /// Features with counted samples: 2(ℓ̂ − ℓ̂₀), ℓ̂ the maximized ML log-likelihood and ℓ̂₀ the same with the coefficient
+        /// held at 0, whatever the estimator. NaN when not tested, when the design has one column, or when the held fit
+        /// failed; always NaN with nothing counted.
+        /// </summary>
+        public double LikelihoodRatio(int feature, int coefficient) => LikelihoodRatioMatrix[feature, coefficient];
+
+        /// <summary>
+        /// Whether the coefficient's 95% likelihood interval reaches an effect of ±<see cref="LogitNormalMixedModel.UnboundedEffect"/>
+        /// logits across its column's observed range, or a variance ran to the top of its search: the data bound its sign
+        /// at most, not its size, so its coefficient and standard error are NaN (and the feature's status is
+        /// <see cref="FeatureFitStatus.Unbounded"/>). Tested coefficients of features with counted samples only.
+        /// </summary>
+        public bool IsUnbounded(int feature, int coefficient) => UnboundedMatrix[feature, coefficient];
 
         /// <summary>Residual (run-to-run) variance σ² of the latent, per feature: estimated, or the value given.</summary>
         public IReadOnlyList<double> ResidualVariance => ResidualVarianceValues;
@@ -212,12 +247,36 @@ namespace StatisticalModels
     /// is one-sided (every count 0, or every count full), checked before fitting: its likelihood rises towards the
     /// group-level Bernoulli likelihood as τ and β grow together, and has no maximum.
     /// </para>
+    /// <para>
+    /// Tests, for a feature with counted samples (mzLib #1511). Near such layouts, with one run of one group mixed, a
+    /// maximum exists but sits on a ridge: β and τ grow together and ℓ barely falls. There a standard error at fixed
+    /// variances is several times too small (a Wald p of 7e-17 where the likelihood-ratio p is 0.06), and REML can have
+    /// no maximum at all. So each tested coefficient is tested by likelihood ratio, from ML fits whatever the estimator:
+    /// the full design against the coefficient held at 0, LR = 2(ℓ̂ − ℓ̂₀), read against F(1, df) with df the containment
+    /// degrees of freedom (χ² with 1 df is anticonservative with so few groups: 7-12% at 5% in lme4 fits of 6 to 12
+    /// groups. With F, this model's own fits of 500 null features in each of ten count-only designs, 6 to 12 groups of 2
+    /// to 4 runs, 1 or 2 trials, mean logit 0 to 3, τ 1 to 3, rejected 0-4.5% at 5%, bounded and unbounded features
+    /// alike within simulation error). Then a ridge check: the coefficient is held at an effect of
+    /// ±<see cref="UnboundedEffect"/> logits across its column's observed range (on the side of its estimate), and if
+    /// that fit is still inside the 95% likelihood region (its LR below F's critical value), or the estimate is already
+    /// beyond it, or a variance ran to the top of its search, the coefficient is unbounded: the data bound its sign at
+    /// most. Its β and standard error are then NaN, its p-value stands, and the feature's status is
+    /// <see cref="FeatureFitStatus.Unbounded"/>. Each tested coefficient costs two more ML fits, and REML one more for
+    /// the feature. A design of one column has no test. Features with nothing counted keep the t test.
+    /// </para>
     /// Output does not depend on the thread count.
     /// </remarks>
     public static class LogitNormalMixedModel
     {
         /// <summary>A coefficient beyond this on the latent scale is taken as running to infinity (separation).</summary>
         public const double SeparationLimit = 30;
+
+        /// <summary>
+        /// The effect, in logits per trial across a column's observed range, that a coefficient's 95% likelihood interval
+        /// must stop short of to be bounded (10 logits: an odds ratio of 22,000). See
+        /// <see cref="LogitNormalMixedModelFit.IsUnbounded"/>.
+        /// </summary>
+        public const double UnboundedEffect = 10;
 
         private const int UNodes = 40, ENodes = 12;
         private const double LogSdMin = -8, LogSdMax = 5;
@@ -254,12 +313,19 @@ namespace StatisticalModels
         /// or NaN to estimate. Null (default): estimate every one.
         /// </param>
         /// <param name="coefficientNames">One name per design column; defaults to "c0", "c1", ….</param>
-        /// <param name="estimator">REML (default) or ML.</param>
+        /// <param name="estimator">
+        /// REML (default) or ML, for the estimates. Features with counted samples are tested by ML fits either way.
+        /// </param>
         /// <param name="maxThreads">-1 (default) uses all cores but one; below 1 means one. Results are identical for every value.</param>
+        /// <param name="testedCoefficients">
+        /// Coefficient names to test by likelihood ratio in features with counted samples: two more ML fits each (held at
+        /// 0, and at the effect bound). Null (default) tests every coefficient. Features with nothing counted test every
+        /// coefficient by t either way.
+        /// </param>
         public static LogitNormalMixedModelFit Fit(double[,] responses, BinomialCount?[,] counts, double[,] design,
             IReadOnlyList<string> groups, DetectionLink link, IReadOnlyList<double>? depth = null,
             IReadOnlyList<double>? residualVariance = null, IReadOnlyList<string>? coefficientNames = null,
-            VarianceEstimator estimator = VarianceEstimator.Reml, int maxThreads = -1)
+            VarianceEstimator estimator = VarianceEstimator.Reml, int maxThreads = -1, IReadOnlyList<string>? testedCoefficients = null)
         {
             ArgumentNullException.ThrowIfNull(responses);
             ArgumentNullException.ThrowIfNull(counts);
@@ -306,6 +372,16 @@ namespace StatisticalModels
                 throw new ArgumentException($"{coefficientNames.Count} coefficient names for {p} design columns.", nameof(coefficientNames));
             if (!LinearModel.IsFullRank(Matrix<double>.Build.DenseOfArray(design)))
                 throw new ArgumentException("The design is not of full column rank over all samples; a column is redundant.", nameof(design));
+            var tested = new bool[p];
+            if (testedCoefficients == null) Array.Fill(tested, true);
+            else
+                foreach (string name in testedCoefficients)
+                {
+                    int j = coefficientNames.ToList().IndexOf(name);
+                    if (j < 0)
+                        throw new ArgumentException($"No coefficient named '{name}' to test. The design has: {string.Join(", ", coefficientNames)}.", nameof(testedCoefficients));
+                    tested[j] = true;
+                }
 
             var index = new Dictionary<string, int>(StringComparer.Ordinal);
             var groupOf = new int[samples];
@@ -320,7 +396,7 @@ namespace StatisticalModels
             Parallel.ForEach(Partitioner.Create(0, Math.Max(features, 1)), options, range =>
             {
                 for (int f = range.Item1; f < Math.Min(range.Item2, features); f++)
-                    FitOne(responses, counts, design, groupOf, index.Count, link, depth, residualVariance?[f] ?? double.NaN, f, fit, estimator);
+                    FitOne(responses, counts, design, groupOf, index.Count, link, depth, residualVariance?[f] ?? double.NaN, f, fit, estimator, tested);
             });
             return fit;
         }
@@ -437,6 +513,7 @@ namespace StatisticalModels
             public required double[] Y;                // measured value, or NaN
             public required int[] K, N;                // count, or 0/0
             public required double[] Depth;
+            public required double[] Offset;           // added to xᵀβ: a coefficient held fixed, else 0
             public required DetectionLink Link;
             public required List<int>[] MeasuredRows, CountedRows;   // per group
         }
@@ -455,6 +532,7 @@ namespace StatisticalModels
                 K = rows.Select(s => counts[f, s]?.Successes ?? 0).ToArray(),
                 N = rows.Select(s => counts[f, s]?.Trials ?? 0).ToArray(),
                 Depth = rows.Select(s => depth?[s] ?? 0).ToArray(),
+                Offset = new double[m],
                 MeasuredRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
                 CountedRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
             };
@@ -487,7 +565,8 @@ namespace StatisticalModels
         }
 
         private static void FitOne(double[,] responses, BinomialCount?[,] counts, double[,] design, int[] groupOf, int groupCount,
-            DetectionLink link, IReadOnlyList<double>? depth, double givenSigma2, int f, LogitNormalMixedModelFit fit, VarianceEstimator estimator)
+            DetectionLink link, IReadOnlyList<double>? depth, double givenSigma2, int f, LogitNormalMixedModelFit fit, VarianceEstimator estimator,
+            bool[] tested)
         {
             int samples = responses.GetLength(1), p = design.GetLength(1);
             var rows = new List<int>(samples);
@@ -549,11 +628,145 @@ namespace StatisticalModels
             }
 
             var data = MakeData(responses, counts, f, rows, x, rowGroup, G, measured, link, depth);
-
-            bool reml = estimator == VarianceEstimator.Reml;
             double logSigmaGiven = sigmaGiven ? 0.5 * Math.Log(givenSigma2) : double.NaN;
-            var (logTau0, logSigma0) = StartingVariances(data);
-            var beta = StartingBeta(data);
+            bool reml = estimator == VarianceEstimator.Reml, anyCounted = fit.CountedValues[f] > 0;
+            var (main, status) = EstimateOne(data, reml, logSigmaGiven, null);
+            var (dfWithin, dfBetween, isBetween) = MixedModel.ContainmentDf(x, rowGroup, G, m);
+            for (int j = 0; j < p; j++)
+            {
+                double df = isBetween[j] ? dfBetween : dfWithin;
+                fit.DfMatrix[f, j] = df > 0 ? df : double.NaN;
+            }
+            if (main != null)
+            {
+                fit.ResidualVarianceValues[f] = Math.Exp(2 * main.LogSigma);
+                fit.GroupVarianceValues[f] = main.LogTau <= LogSdMin ? 0 : Math.Exp(2 * main.LogTau);
+                fit.LogLikelihoodValues[f] = -main.Objective;
+                for (int j = 0; j < p; j++)
+                {
+                    fit.CoefficientMatrix[f, j] = main.Beta[j];
+                    fit.StandardErrorMatrix[f, j] = Math.Sqrt(main.Covariance[j, j]);
+                }
+                fit.StatusValues[f] = FeatureFitStatus.Fitted;
+            }
+            if (!anyCounted || (main == null && !reml))
+            {
+                if (main == null) Clear(fit, f, p, status);
+                return;
+            }
+
+            // Counted samples: the tests are ML's. Under REML that is one more fit, from REML's estimate. REML can have no
+            // maximum where ML has one (on #1511's layouts its criterion rises with τ until β passes SeparationLimit);
+            // then the ML fit carries the tests, and REML's ridge makes every coefficient unbounded.
+            Estimate? ml = main;
+            if (reml)
+            {
+                (ml, var mlStatus) = EstimateOne(data, false, logSigmaGiven, main == null ? null : (main.LogTau, main.LogSigma, main.Beta));
+                if (ml == null)
+                {
+                    Clear(fit, f, p, main == null ? status : mlStatus);
+                    return;
+                }
+            }
+            bool AtTop(Estimate e) => e.LogTau >= LogSdMax - 1e-3 || (!sigmaGiven && e.LogSigma >= LogSdMax - 1e-3);
+            TestByLikelihoodRatio(data, ml!, main == null || AtTop(main) || AtTop(ml!), logSigmaGiven, tested, f, fit);
+        }
+
+        /// <summary>
+        /// The likelihood-ratio tests of a feature with counted samples, and its ridge checks (see the class remarks). ML
+        /// fits throughout: the full design (the estimate itself under ML), each tested coefficient held at 0, and each
+        /// tested non-constant coefficient held at the effect bound.
+        /// </summary>
+        /// <param name="ml">The ML estimate at the full design.</param>
+        /// <param name="ridge">
+        /// Whether the estimator's criterion has no maximum: a variance at the top of its search (the criterion still
+        /// rises there), or REML failing where ML did not. Every coefficient is then unbounded.
+        /// </param>
+        private static void TestByLikelihoodRatio(Data data, Estimate ml, bool ridge, double logSigmaGiven, bool[] tested,
+            int f, LogitNormalMixedModelFit fit)
+        {
+            int p = data.X.ColumnCount, m = data.Rows.Length;
+            for (int j = 0; j < p; j++)
+            {
+                if (!tested[j] || p == 1) continue;
+                double df = fit.DfMatrix[f, j];
+                var start = (ml.LogTau, ml.LogSigma, Drop(ml.Beta, j));
+                var (atZero, _) = EstimateOne(Reduced(data, j, 0), false, logSigmaGiven, start);
+                if (atZero != null)
+                {
+                    double lr = 2 * (atZero.Objective - ml.Objective);
+                    // The null fit can come out slightly above the full one only by the optimizers' tolerance.
+                    if (lr > -1e-6) fit.LikelihoodRatioMatrix[f, j] = Math.Max(lr, 0);
+                }
+
+                double low = double.PositiveInfinity, high = double.NegativeInfinity;
+                for (int i = 0; i < m; i++) { low = Math.Min(low, data.X[i, j]); high = Math.Max(high, data.X[i, j]); }
+                if (!(high > low)) continue;
+                double bound = UnboundedEffect / (Math.Abs(data.Link.Slope) * (high - low));
+                bool unbounded = ridge || Math.Abs(ml.Beta[j]) >= bound;
+                if (!unbounded)
+                {
+                    var (atBound, _) = EstimateOne(Reduced(data, j, (ml.Beta[j] < 0 ? -1 : 1) * bound), false, logSigmaGiven, start);
+                    double critical = double.IsNaN(df) ? 3.841458820694124 : Math.Pow(StudentT.InvCDF(0, 1, df, 0.975), 2);
+                    unbounded = atBound == null || 2 * (atBound.Objective - ml.Objective) < critical;
+                }
+                if (!unbounded) continue;
+                fit.UnboundedMatrix[f, j] = true;
+                fit.CoefficientMatrix[f, j] = double.NaN;
+                fit.StandardErrorMatrix[f, j] = double.NaN;
+                fit.StatusValues[f] = FeatureFitStatus.Unbounded;
+            }
+            if (!ridge) return;
+            for (int j = 0; j < p; j++)
+            {
+                fit.UnboundedMatrix[f, j] = true;
+                fit.CoefficientMatrix[f, j] = double.NaN;
+                fit.StandardErrorMatrix[f, j] = double.NaN;
+            }
+            fit.StatusValues[f] = FeatureFitStatus.Unbounded;
+        }
+
+        /// <summary>A feature that could not be fitted: every value NaN, and the reason.</summary>
+        private static void Clear(LogitNormalMixedModelFit fit, int f, int p, FeatureFitStatus status)
+        {
+            for (int j = 0; j < p; j++)
+                fit.CoefficientMatrix[f, j] = fit.StandardErrorMatrix[f, j] = fit.DfMatrix[f, j] = double.NaN;
+            fit.ResidualVarianceValues[f] = fit.GroupVarianceValues[f] = fit.LogLikelihoodValues[f] = double.NaN;
+            fit.StatusValues[f] = status;
+        }
+
+        private static Vector<double> Drop(Vector<double> v, int j) =>
+            Vector<double>.Build.Dense(v.Count - 1, i => v[i < j ? i : i + 1]);
+
+        /// <summary>The feature's data with coefficient <paramref name="j"/> held at <paramref name="value"/>: its column moved into the offset.</summary>
+        private static Data Reduced(Data d, int j, double value)
+        {
+            int m = d.Rows.Length, p = d.X.ColumnCount;
+            var x = Matrix<double>.Build.Dense(m, p - 1, (i, c) => d.X[i, c < j ? c : c + 1]);
+            return new Data
+            {
+                X = x, Group = d.Group, G = d.G, IsMeasured = d.IsMeasured, Link = d.Link, LogChoose = d.LogChoose, Y = d.Y, K = d.K, N = d.N,
+                Depth = d.Depth, MeasuredRows = d.MeasuredRows, CountedRows = d.CountedRows,
+                Rows = Enumerable.Range(0, m).Select(i => x.Row(i).ToArray()).ToArray(),
+                Offset = Enumerable.Range(0, m).Select(i => d.Offset[i] + value * d.X[i, j]).ToArray(),
+            };
+        }
+
+        /// <summary>One estimate: β, H's inverse, the log SDs, and −(the maximized criterion).</summary>
+        private sealed record Estimate(Vector<double> Beta, Matrix<double> Covariance, double LogTau, double LogSigma, double Objective);
+
+        /// <summary>
+        /// Estimates one feature's variances by REML or ML (σ given when <paramref name="logSigmaGiven"/> is not NaN), and β
+        /// and H there. Null, with the reason, when the fit fails or β is separated.
+        /// </summary>
+        /// <param name="start">Starting log SDs; null starts from the measured samples' spread.</param>
+        private static (Estimate? Estimate, FeatureFitStatus Status) EstimateOne(Data data, bool reml, double logSigmaGiven,
+            (double LogTau, double LogSigma, Vector<double> Beta)? start)
+        {
+            int p = data.X.ColumnCount;
+            bool sigmaGiven = !double.IsNaN(logSigmaGiven);
+            var (logTau0, logSigma0) = start is { } s0 ? (s0.LogTau, s0.LogSigma) : StartingVariances(data);
+            var beta = start is { } s1 ? s1.Beta : StartingBeta(data);
 
             // The outer objective: −(profiled) log-likelihood at the variances, β maximized inside (warm-started).
             double Outer(double logTau, double logSigma)
@@ -573,25 +786,28 @@ namespace StatisticalModels
                 return double.IsFinite(value) ? -value : double.MaxValue;
             }
 
+            // From a start (a held fit, beside the full one): a local search, which the held coefficient moves only a
+            // little; from the data's spread: a search over the whole range.
             double logTauHat, logSigmaHat;
             if (sigmaGiven)
             {
                 logSigmaHat = logSigmaGiven;
-                logTauHat = MinimizeOneDimension(u => Outer(u, logSigmaGiven), logTau0);
+                logTauHat = start == null ? MinimizeOneDimension(u => Outer(u, logSigmaGiven), logTau0)
+                    : MinimizeNear(u => Outer(u, logSigmaGiven), logTau0);
             }
             else
             {
                 try
                 {
+                    double size = start == null ? 0.5 : 0.1;
                     var r = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(v => Outer(v[0], v[1])),
-                        Vector<double>.Build.DenseOfArray(new[] { logTau0, logSigma0 }), Vector<double>.Build.DenseOfArray(new[] { 0.5, 0.5 }),
+                        Vector<double>.Build.DenseOfArray(new[] { logTau0, logSigma0 }), Vector<double>.Build.DenseOfArray(new[] { size, size }),
                         1e-10, 4000);
                     (logTauHat, logSigmaHat) = Polish(Outer, r.MinimizingPoint[0], r.MinimizingPoint[1]);
                 }
                 catch (MaximumIterationsException)
                 {
-                    fit.StatusValues[f] = FeatureFitStatus.NotConverged;
-                    return;
+                    return (null, FeatureFitStatus.NotConverged);
                 }
             }
 
@@ -604,36 +820,16 @@ namespace StatisticalModels
             if (atZero <= objective) (logTauHat, objective) = (LogSdMin, atZero);
             else beta = betaAtEstimate;
             var final = MaximizeBeta(data, beta, logTauHat, logSigmaHat);
+            // Separation first: as β runs off, H tends to singular and REML's criterion fails everywhere, so a separated
+            // feature would otherwise read as not converged.
+            if (final is (Vector<double> runaway, double _, Matrix<double> _) && runaway.Any(v => Math.Abs(v) > SeparationLimit))
+                return (null, FeatureFitStatus.Separated);
             if (!(objective < double.MaxValue) || final is not (Vector<double> betaHat, double _, Matrix<double> hessian))
-            {
-                fit.StatusValues[f] = FeatureFitStatus.NotConverged;
-                return;
-            }
-            if (betaHat.Any(v => Math.Abs(v) > SeparationLimit))
-            {
-                fit.StatusValues[f] = FeatureFitStatus.Separated;
-                return;
-            }
+                return (null, FeatureFitStatus.NotConverged);
             Matrix<double> covariance;
             try { covariance = hessian.Cholesky().Solve(Matrix<double>.Build.DenseIdentity(p)); }
-            catch (ArgumentException)
-            {
-                fit.StatusValues[f] = FeatureFitStatus.Separated;
-                return;
-            }
-
-            fit.ResidualVarianceValues[f] = Math.Exp(2 * logSigmaHat);
-            fit.GroupVarianceValues[f] = logTauHat <= LogSdMin ? 0 : Math.Exp(2 * logTauHat);
-            fit.LogLikelihoodValues[f] = -objective;
-            var (dfWithin, dfBetween, isBetween) = MixedModel.ContainmentDf(x, rowGroup, G, m);
-            for (int j = 0; j < p; j++)
-            {
-                fit.CoefficientMatrix[f, j] = betaHat[j];
-                fit.StandardErrorMatrix[f, j] = Math.Sqrt(covariance[j, j]);
-                double df = isBetween[j] ? dfBetween : dfWithin;
-                fit.DfMatrix[f, j] = df > 0 ? df : double.NaN;
-            }
-            fit.StatusValues[f] = FeatureFitStatus.Fitted;
+            catch (ArgumentException) { return (null, FeatureFitStatus.Separated); }
+            return (new Estimate(betaHat, covariance, logTauHat, logSigmaHat, objective), FeatureFitStatus.Fitted);
         }
 
         /// <summary>Starting log SDs: from the measured samples (pooled within-group and between-group spread), else 0.</summary>
@@ -666,7 +862,7 @@ namespace StatisticalModels
             {
                 var xm = Matrix<double>.Build.Dense(measuredRows.Length, p, (i, j) => d.X[measuredRows[i], j]);
                 if (LinearModel.IsFullRank(xm))
-                    return xm.QR().Solve(Vector<double>.Build.Dense(measuredRows.Length, i => d.Y[measuredRows[i]]));
+                    return xm.QR().Solve(Vector<double>.Build.Dense(measuredRows.Length, i => d.Y[measuredRows[i]] - d.Offset[measuredRows[i]]));
             }
             return Vector<double>.Build.Dense(p);
         }
@@ -696,6 +892,27 @@ namespace StatisticalModels
                 if (Math.Max(Math.Abs(du), Math.Abs(dv)) < 1e-10) break;
             }
             return (u, v);
+        }
+
+        /// <summary>
+        /// Brent's method about <paramref name="start"/>: steps of 0.25 downhill, doubling, until the minimum is
+        /// bracketed or the range's end is reached.
+        /// </summary>
+        private static double MinimizeNear(Func<double, double> f, double start)
+        {
+            double a = Math.Clamp(start, LogSdMin, LogSdMax), fa = f(a), step = 0.25;
+            double b = Math.Min(a + step, LogSdMax), fb = f(b);
+            if (fb > fa) { (a, b, fa, fb) = (b, a, fb, fa); step = -step; }   // walk from a to b, downhill
+            double c = b, fc = fb;
+            for (int i = 0; i < 40; i++)
+            {
+                step *= 2;
+                c = Math.Clamp(b + step, LogSdMin, LogSdMax);
+                fc = f(c);
+                if (fc > fb || c == b) break;
+                (a, fa, b, fb) = (b, fb, c, fc);
+            }
+            return MixedModel.Brent(f, Math.Min(a, c), Math.Max(a, c), 1e-10);
         }
 
         /// <summary>Brent's method over [LogSdMin, LogSdMax], bracketed by a coarse grid around the start.</summary>
@@ -837,13 +1054,13 @@ namespace StatisticalModels
                 if (nc == 0) continue;
                 int n = d.MeasuredRows[g].Count;
                 double sr = 0;
-                foreach (int i in d.MeasuredRows[g]) sr += d.Y[i] - Dot(d.Rows[i], beta);
+                foreach (int i in d.MeasuredRows[g]) sr += d.Y[i] - d.Offset[i] - Dot(d.Rows[i], beta);
                 double mean = n > 0 ? t2 * sr / (s2 + n * t2) : 0, variance = n > 0 ? t2 * s2 / (s2 + n * t2) : t2;
                 var offset = new double[nc];
                 for (int ci = 0; ci < nc; ci++)
                 {
                     int i = counted[ci];
-                    offset[ci] = link.Intercept + b * Dot(d.Rows[i], beta) + link.DepthSlope * d.Depth[i];
+                    offset[ci] = link.Intercept + b * (Dot(d.Rows[i], beta) + d.Offset[i]) + link.DepthSlope * d.Depth[i];
                 }
 
                 double Joint(double u, double[] e)
@@ -1207,7 +1424,7 @@ namespace StatisticalModels
                 foreach (int i in measured)
                 {
                     var xi = d.Rows[i];
-                    double r = d.Y[i] - Dot(xi, beta);
+                    double r = d.Y[i] - d.Offset[i] - Dot(xi, beta);
                     sr += r;
                     sr2 += r * r;
                     for (int j = 0; j < p; j++)
@@ -1260,7 +1477,7 @@ namespace StatisticalModels
                     {
                         int i = counted[ci];
                         var xi = d.Rows[i];
-                        double location = link.Intercept + slope * (Dot(xi, beta) + u) + link.DepthSlope * d.Depth[i];
+                        double location = link.Intercept + slope * (Dot(xi, beta) + d.Offset[i] + u) + link.DepthSlope * d.Depth[i];
                         var eRule = eRules[a * nc + ci];
                         var eNode = eRule.Node;
                         var eLogWeight = eRule.LogWeight;

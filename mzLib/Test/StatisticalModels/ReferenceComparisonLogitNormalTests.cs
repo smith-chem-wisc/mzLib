@@ -153,7 +153,9 @@ public class ReferenceComparisonLogitNormalTests
         var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
         var (counts, unmeasured) = Counts($"counted_{linkName}");
         var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
-        var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given, estimator: estimator);
+        // The estimates only; the likelihood-ratio tests are WithEverySampleCountedTheLikelihoodRatioMatchesGlmer's.
+        var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given, estimator: estimator,
+            testedCoefficients: Array.Empty<string>());
 
         var rows = Rows("lnmm_counted_fit.tsv", r => r.Text("link") == linkName && r.Text("method") == method);
         var exact = rows.Where(r => r.Text("status") == "fitted").ToList();
@@ -177,8 +179,10 @@ public class ReferenceComparisonLogitNormalTests
     public void WithRunScatterItMatchesGlmmTmbToTheLaplaceError()
     {
         var (counts, unmeasured) = Counts("scatter");
-        var reml = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, DetectionLink.Identity, estimator: VarianceEstimator.Reml);
-        var ml = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, DetectionLink.Identity, estimator: VarianceEstimator.MaximumLikelihood);
+        // The estimates only (each likelihood-ratio test is two more fits with σ estimated).
+        var none = Array.Empty<string>();
+        var reml = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, DetectionLink.Identity, estimator: VarianceEstimator.Reml, testedCoefficients: none);
+        var ml = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, DetectionLink.Identity, estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: none);
         var tmbReml = Rows("lnmm_scatter_fit.tsv", r => r.Text("method") == "REML").ToDictionary(r => r.Feature);
         var tmbMl = Rows("lnmm_scatter_fit.tsv", r => r.Text("method") == "ML").ToDictionary(r => r.Feature);
         int compared = 0, discriminating = 0;
@@ -299,8 +303,9 @@ public class ReferenceComparisonLogitNormalTests
     public void NearOneSidedLayoutsFitToTheExactMaximum(string which)
     {
         var (y, counts, design, groups, r) = RidgeLayout(which);
+        // Untested: the estimate itself (the ridge check would blank β; see NearOneSidedLayoutsAreUnboundedWithALikelihoodRatioP).
         var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { r["sigma2"] },
-            estimator: VarianceEstimator.MaximumLikelihood);
+            estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: Array.Empty<string>());
         Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
         Assert.That(fit.LogLikelihood[0], Is.EqualTo(r["loglik"]).Within(1e-7));
         Assert.That(fit.GroupVariance[0], Is.EqualTo(r["tau2"]).Within(1e-3 * r["tau2"]));
@@ -327,5 +332,108 @@ public class ReferenceComparisonLogitNormalTests
         Assert.That(h[0, 1], Is.EqualTo(r["h01"]).Within(1e-5 * Math.Abs(r["h01"])));
         Assert.That(h[1, 0], Is.EqualTo(h[0, 1]).Within(1e-12 * Math.Abs(h[0, 1])));
         Assert.That(h[1, 1], Is.EqualTo(r["h11"]).Within(1e-5 * r["h11"]));
+    }
+
+    /// <summary>
+    /// #1511's layouts, the default tests: the likelihood-ratio statistic is the exact one, 2(ℓ̂ − ℓ̂₀) from the exact ML fits,
+    /// read against F(1, 6); and the trait is unbounded (its estimate is past an effect of 10 logits, with the likelihood
+    /// still within 1 of its maximum by β1 = 48), so β and its SE are NaN and the p-value stands. Under REML too: REML
+    /// has no maximum here (its criterion rises with τ until β passes SeparationLimit), and the ML fits carry the tests.
+    /// Before, ML reported p = 0.013 (A) or Separated (B), and REML p = 0.037 and 0.025.
+    /// </summary>
+    [TestCase("A", VarianceEstimator.MaximumLikelihood)]
+    [TestCase("A", VarianceEstimator.Reml)]
+    [TestCase("B", VarianceEstimator.MaximumLikelihood)]
+    [TestCase("B", VarianceEstimator.Reml)]
+    public void NearOneSidedLayoutsAreUnboundedWithALikelihoodRatioP(string which, VarianceEstimator estimator)
+    {
+        var (y, counts, design, groups, r) = RidgeLayout(which);
+        var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { r["sigma2"] },
+            estimator: estimator);
+        double lr = 2 * (r["loglik"] - r["null_loglik"]);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Unbounded));
+        Assert.That(fit.IsUnbounded(0, 1), Is.True);
+        Assert.That(fit.Coefficient(0, 1), Is.NaN);
+        Assert.That(fit.StandardError(0, 1), Is.NaN);
+        Assert.That(fit.DegreesOfFreedom(0, 1), Is.EqualTo(6));
+        Assert.That(fit.LikelihoodRatio(0, 1), Is.EqualTo(lr).Within(2e-7));
+        double p = 2 * MathNet.Numerics.Distributions.StudentT.CDF(0, 1, 6, -Math.Sqrt(lr));
+        Assert.That(double.IsFinite(fit.PValue(0, 1)), Is.True);
+        Assert.That(fit.PValue(0, 1), Is.EqualTo(p).Within(1e-6 * p));
+        TestContext.Out.WriteLine($"{which} {estimator}: LR {fit.LikelihoodRatio(0, 1):G6}, p {fit.PValue(0, 1):G4}");
+    }
+
+    /// <summary>
+    /// The ridge check, against exact fits (make_lnmm_ridge_fixtures.R, lnmm_ridge_held.tsv), on two layouts like #1511's
+    /// whose trait estimates (5.1 and 3.3) are under the effect bound of 10 logits: held at 10, D's likelihood is still
+    /// inside the 95% region (LR below F(1, 6)'s 5.99), so D is unbounded; E's is not, so E is fitted, with its estimate.
+    /// </summary>
+    [TestCase("D", true)]
+    [TestCase("E", false)]
+    public void TheRidgeCheckHoldsTheCoefficientAtTheEffectBound(string which, bool unbounded)
+    {
+        var r = Rows("lnmm_ridge_held.tsv", r => r.Text("layout") == which).Single();
+        var pattern = r.Text("pattern").Split(' ').Select(g => g.Select(c => c - '0').ToArray()).ToArray();
+        int G = 8, k = 3, n = G * k;
+        var design = new double[n, 2];
+        var groups = new string[n];
+        var y = new double[1, n];
+        var counts = new BinomialCount?[1, n];
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; design[s, 1] = g < 4 ? 0 : 1; groups[s] = $"a{g}";
+            y[0, s] = double.NaN;
+            counts[0, s] = new BinomialCount(pattern[g][s % k], 2);
+        }
+        double critical = Math.Pow(MathNet.Numerics.Distributions.StudentT.InvCDF(0, 1, 6, 0.975), 2);
+        double heldLr = 2 * (r["loglik"] - r["bound_loglik"]);
+        Assert.That(heldLr < critical, Is.EqualTo(unbounded), $"the fixture itself: held LR {heldLr:G5} against {critical:G5}");
+        Assert.That(Math.Abs(heldLr - critical), Is.GreaterThan(0.05), "the fixture is not on the edge");
+
+        var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { r["sigma2"] },
+            estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: new[] { "c1" });
+        Assert.That(fit.LikelihoodRatio(0, 1), Is.EqualTo(2 * (r["loglik"] - r["null_loglik"])).Within(2e-6));
+        Assert.That(fit.IsUnbounded(0, 1), Is.EqualTo(unbounded));
+        Assert.That(fit.Status[0], Is.EqualTo(unbounded ? FeatureFitStatus.Unbounded : FeatureFitStatus.Fitted));
+        if (unbounded) Assert.That(fit.Coefficient(0, 1), Is.NaN);
+        else
+        {
+            Assert.That(fit.Coefficient(0, 1), Is.EqualTo(r["b1"]).Within(1e-3 * Math.Abs(r["b1"])));
+            Assert.That(fit.LogLikelihood[0], Is.EqualTo(r["loglik"]).Within(1e-6));
+        }
+    }
+
+    /// <summary>
+    /// The likelihood-ratio statistic against lme4: make_lnmm_fixtures.R's count-only features, glmer at 25-point AGQ with
+    /// the trait or the covariate x dropped (lnmm_ridge_glmer_lr.tsv). Only the fits where glmer's quadrature is exact
+    /// ("fitted" in lnmm_counted_fit.tsv) are compared; σ² is given tiny here and absent in glmer, which moves ℓ by about
+    /// 1e-6. No coefficient there is unbounded: these are ordinary features.
+    /// </summary>
+    [TestCase("identity")]
+    [TestCase("link")]
+    public void WithEverySampleCountedTheLikelihoodRatioMatchesGlmer(string linkName)
+    {
+        var l = Rows("lnmm_counted_links.tsv", r => r.Text("name") == linkName).Single();
+        var link = new DetectionLink(l["a"], l["b"], l["c"]);
+        var depthMatrix = Matrix("lnmm_counted_depth.tsv");
+        var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
+        var (counts, unmeasured) = Counts($"counted_{linkName}");
+        var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
+        var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given,
+            estimator: VarianceEstimator.MaximumLikelihood, coefficientNames: new[] { "intercept", "trait", "x" }, testedCoefficients: new[] { "trait", "x" });
+        var exact = Rows("lnmm_counted_fit.tsv", r => r.Text("link") == linkName && r.Text("method") == "ML" && r.Text("status") == "fitted")
+            .Select(r => r.Feature).ToHashSet();
+        int compared = 0;
+        foreach (var r in Rows("lnmm_ridge_glmer_lr.tsv", r => r.Text("link") == linkName && exact.Contains(r.Feature)))
+        {
+            int j = fit.IndexOf(r.Text("coefficient"));
+            Assert.That(fit.Status[r.Feature], Is.EqualTo(FeatureFitStatus.Fitted), $"feature {r.Feature}");
+            Assert.That(fit.IsUnbounded(r.Feature, j), Is.False);
+            Assert.That(fit.LikelihoodRatio(r.Feature, j), Is.EqualTo(r["lr"]).Within(2e-5),
+                $"feature {r.Feature} {r.Text("coefficient")}: {fit.LikelihoodRatio(r.Feature, j):R} vs {r["lr"]:R}");
+            compared++;
+        }
+        Assert.That(compared, Is.GreaterThanOrEqualTo(2 * 14));
     }
 }
