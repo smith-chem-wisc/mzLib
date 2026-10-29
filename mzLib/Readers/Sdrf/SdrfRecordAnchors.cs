@@ -19,7 +19,7 @@ namespace Readers
         IReadOnlyDictionary<string, IReadOnlyList<string>> LevelsByFile);
 
     /// <summary>
-    /// Finds a deposit's CONDITIONS as the file-name tokens that its own PRIDE record also uses:
+    /// Finds a deposit's CONDITIONS as the file-name tokens that its own record (PRIDE's, MassIVE's) also uses:
     /// <c>LPS</c>, <c>TNF</c>, <c>IL1BETA</c> in the names and "exposed to TNF, IL-1β, and LPS" in the
     /// description.
     ///
@@ -68,8 +68,10 @@ namespace Readers
         /// <summary>
         /// Reads one deposit's file names against its record text (title, description, protocols,
         /// keywords -- any strings; nulls are skipped). Throws only on a null argument.
+        /// <paramref name="recordName"/> is how each factor's reason names the record (<c>the MassIVE record</c>).
         /// </summary>
-        public static SdrfAnchoredFactors Read(IEnumerable<string> fileNames, IEnumerable<string?> recordText)
+        public static SdrfAnchoredFactors Read(IEnumerable<string> fileNames, IEnumerable<string?> recordText,
+            string recordName = "the record")
         {
             if (fileNames == null) throw new ArgumentNullException(nameof(fileNames));
             if (recordText == null) throw new ArgumentNullException(nameof(recordText));
@@ -107,7 +109,7 @@ namespace Readers
 
             var result = factors.Select(f => new SdrfAnchoredFactor(
                 f.Levels.Select(l => written[l]).ToList(),
-                $"'{string.Join("', '", f.Levels.Select(l => written[l]))}' each appear in the PRIDE record text and " +
+                $"'{string.Join("', '", f.Levels.Select(l => written[l]))}' each appear in {recordName} text and " +
                 $"never together in one file name; together they cover {f.Covered} of {n} files")).ToList();
             var byFile = names.ToDictionary(
                 name => name,
