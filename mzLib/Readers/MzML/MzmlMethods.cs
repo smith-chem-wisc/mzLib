@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
@@ -102,6 +103,18 @@ namespace Readers
         }
 
         public static void CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed)
+        {
+            CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, outputFile, writeIndexed, completeIndexInOnePass: true);
+        }
+
+        /// <param name="completeIndexInOnePass">
+        /// False forces the way an indexed file was always completed - read it back line by line, serialize it
+        /// twice more, hash it - which <see cref="TryCompleteIndexedFileInOnePass"/> otherwise replaces and
+        /// falls back to. Tests write both and compare the bytes.
+        /// </param>
+        /// <returns> True if the index was completed in one pass. </returns>
+        internal static bool CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed,
+            bool completeIndexInOnePass)
         {
             string title = Path.GetFileNameWithoutExtension(outputFile);
             string idTitle = ToValidXmlId(title);
@@ -1153,6 +1166,11 @@ namespace Readers
                     indexedSerializer.Serialize(writer, indexedMzml);
                 }
 
+                if (completeIndexInOnePass && TryCompleteIndexedFileInOnePass(outputFile))
+                {
+                    return true;
+                }
+
                 // open the initial file and compute byte offset of the index, and the byte offset for each scan/chromatogram
                 Dictionary<string, long> spectrumNativeIdToByteOffset = new Dictionary<string, long>();
                 Dictionary<string, long> chromatogramIdToByteOffset = new Dictionary<string, long>();
@@ -1265,6 +1283,417 @@ namespace Readers
                     indexedSerializer.Serialize(writer, indexedMzml);
                 }
             }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Completes an indexed mzML whose body has just been written with a placeholder index, the way the
+        /// three-pass code that follows its call does, but without serializing the whole document twice more and
+        /// reading it back twice. That code read the file line by line for the offsets, serialized it all again
+        /// with the index and a placeholder checksum, hashed it, and serialized it all a third time - three of
+        /// every four seconds of writing a calibrated file.
+        /// <para>
+        /// Everything before the &lt;indexList&gt; element is the same in all three passes; only the tail - the
+        /// index, its offset and the checksum - differs. So the file is read once, taking the same offsets the
+        /// line-by-line read took and hashing the bytes before &lt;indexList&gt;; the tail is serialized on its
+        /// own, from a document with no mzML in it, so it comes out exactly as it does inside the full document;
+        /// the hash is finished over the tail through its &lt;fileChecksum&gt; tag; and the file is cut back at
+        /// &lt;indexList&gt; and the final tail written in its place.
+        /// </para>
+        /// <para>
+        /// Returns false, having changed nothing, whenever the result could differ from the three-pass code:
+        /// any byte outside ASCII after the byte-order mark (the line reader's byte offsets are only certain to
+        /// match for one-byte characters), no &lt;indexList&gt; line or more than one, a line start that cannot
+        /// be classified from its first <see cref="LineHeadBytes"/> bytes, or a tail that does not serialize as
+        /// expected. The caller then runs the three-pass code.
+        /// </para>
+        /// </summary>
+        internal static bool TryCompleteIndexedFileInOnePass(string outputFile)
+        {
+            if (!TryScanIndexedFileBody(outputFile, out var spectrumOffsets, out var chromatogramOffsets,
+                    out long indexListOffset, out IncrementalHash prefixHash, ScanChunkBytes))
+            {
+                prefixHash?.Dispose();
+                return false;
+            }
+
+            using (prefixHash)
+            {
+                var tail = new Generated.indexedmzML
+                {
+                    indexList = IndexListFrom(spectrumOffsets, chromatogramOffsets),
+                    indexListOffset = indexListOffset,
+                    fileChecksum = "0"
+                };
+
+                // The checksum covers the file through the <fileChecksum> open tag, which comes after the index
+                // and its offset, so the provisional tail (checksum "0") hashes the same as the final one.
+                byte[] provisional = SerializeIndexedTail(tail);
+                if (provisional == null)
+                {
+                    return false;
+                }
+
+                int throughOpenTag = IndexPastSequence(provisional, provisional.Length, Encoding.UTF8.GetBytes("<fileChecksum>"));
+                if (throughOpenTag < 0)
+                {
+                    return false;
+                }
+
+                prefixHash.AppendData(provisional, 0, throughOpenTag);
+                tail.fileChecksum = BitConverter.ToString(prefixHash.GetHashAndReset()).Replace("-", string.Empty).ToLowerInvariant();
+
+                byte[] final = SerializeIndexedTail(tail);
+                if (final == null || final.Length < throughOpenTag
+                    || !final.AsSpan(0, throughOpenTag).SequenceEqual(provisional.AsSpan(0, throughOpenTag)))
+                {
+                    return false;
+                }
+
+                using (var stream = new FileStream(outputFile, FileMode.Open, FileAccess.Write, FileShare.None))
+                {
+                    stream.SetLength(indexListOffset);
+                    stream.Position = indexListOffset;
+                    stream.Write(final, 0, final.Length);
+                }
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// The index of an indexed mzML, built from the offsets exactly as the three-pass code builds it: spectra
+        /// first, then chromatograms, each in the order its offsets were found.
+        /// </summary>
+        private static Generated.IndexListType IndexListFrom(Dictionary<string, long> spectrumOffsets, Dictionary<string, long> chromatogramOffsets)
+        {
+            var indexList = new Generated.IndexListType
+            {
+                count = "2",
+                index = new Generated.IndexType[2]
+            };
+
+            indexList.index[0] = new Generated.IndexType
+            {
+                name = new Generated.IndexTypeName(),
+            };
+
+            var scans = spectrumOffsets.ToList();
+            indexList.index[0].offset = new Generated.OffsetType[scans.Count];
+            for (int i = 0; i < scans.Count; i++)
+            {
+                indexList.index[0].offset[i] = new Generated.OffsetType
+                {
+                    idRef = scans[i].Key,
+                    Value = scans[i].Value
+                };
+            }
+
+            indexList.index[1] = new Generated.IndexType
+            {
+                name = Generated.IndexTypeName.chromatogram,
+            };
+
+            var chromas = chromatogramOffsets.ToList();
+            indexList.index[1].offset = new Generated.OffsetType[chromas.Count];
+            for (int i = 0; i < chromas.Count; i++)
+            {
+                indexList.index[1].offset[i] = new Generated.OffsetType
+                {
+                    idRef = chromas[i].Key,
+                    Value = chromas[i].Value
+                };
+            }
+
+            return indexList;
+        }
+
+        /// <summary>
+        /// The bytes an indexed document serializes to from its &lt;indexList&gt; tag to the end, written with the
+        /// same serializer and settings as the file. Null if there is no &lt;indexList&gt; tag.
+        /// </summary>
+        private static byte[] SerializeIndexedTail(Generated.indexedmzML tail)
+        {
+            using var memory = new MemoryStream();
+            using (XmlWriter writer = XmlWriter.Create(memory, new() { NewLineChars = "\n", Indent = true }))
+            {
+                indexedSerializer.Serialize(writer, tail);
+            }
+
+            byte[] bytes = memory.ToArray();
+            int start = bytes.AsSpan().IndexOf("<indexList "u8);
+            return start < 0 ? null : bytes[start..];
+        }
+
+        /// <summary>
+        /// How much of a line is looked at to decide whether it starts a spectrum, a chromatogram or the index.
+        /// Indentation in a written mzML is two spaces a level, a few dozen bytes at most.
+        /// </summary>
+        internal const int LineHeadBytes = 256;
+
+        internal const int ScanChunkBytes = 1 << 20;
+
+        /// <summary>
+        /// Reads a just-written indexed mzML once. Takes the offset of every &lt;spectrum&gt;, &lt;chromatogram&gt;
+        /// and &lt;indexList&gt; line exactly as the three-pass code's line-by-line read takes them (the position of
+        /// the line, plus its leading spaces; the id by <see cref="GetIdFromLine"/> on the trimmed line) and hashes
+        /// every byte before the &lt;indexList&gt; offset. False if the file is not one this can do exactly; see
+        /// <see cref="TryCompleteIndexedFileInOnePass"/>. <paramref name="chunkBytes"/> is how much is read at a
+        /// time; tests shrink it to put chunk boundaries inside lines and line endings.
+        /// </summary>
+        internal static bool TryScanIndexedFileBody(string path, out Dictionary<string, long> spectrumOffsets,
+            out Dictionary<string, long> chromatogramOffsets, out long indexListOffset, out IncrementalHash prefixHash,
+            int chunkBytes)
+        {
+            spectrumOffsets = new Dictionary<string, long>();
+            chromatogramOffsets = new Dictionary<string, long>();
+            indexListOffset = -1;
+            prefixHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+
+            byte[] buffer = new byte[chunkBytes + LineHeadBytes];
+            long bufferStart = 0;        // file offset of buffer[0]
+            long hashedTo = 0;           // file offset up to which the prefix is hashed
+            bool hashing = true;
+            int carried = 0;             // buffer[0..carried) is the head of a line read before but not yet classified
+            bool firstChunk = true;
+            bool skipLeadingLineFeed = false;   // the previous chunk ended in '\r'; a '\n' starting this one belongs to it
+
+            bool inLine = false;         // inside a classified line, looking for its end
+            List<byte> lineBytes = null; // the whole of a spectrum or chromatogram line, for its id
+            LineKind lineKind = LineKind.Other;
+            long lineOffset = 0;
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan);
+
+            while (true)
+            {
+                int read = stream.Read(buffer, carried, chunkBytes);
+                int count = carried + read;
+                bool endOfFile = read == 0;
+                int i = 0;
+
+                if (firstChunk)
+                {
+                    firstChunk = false;
+                    // StreamReader skips a UTF-8 byte-order mark; the offsets still count it.
+                    if (count >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF)
+                    {
+                        i = 3;
+                    }
+                }
+
+                int newBytesFrom = Math.Max(carried, i);
+                if (buffer.AsSpan(newBytesFrom, count - newBytesFrom).IndexOfAnyInRange((byte)0x80, (byte)0xFF) >= 0)
+                {
+                    return false;
+                }
+
+                if (skipLeadingLineFeed && carried == 0 && count > 0)
+                {
+                    skipLeadingLineFeed = false;
+                    if (buffer[0] == (byte)'\n')
+                    {
+                        i = 1;
+                    }
+                }
+
+                int carryFrom = -1;
+                long indexListFoundAt = -1;
+
+                while (i < count)
+                {
+                    if (inLine)
+                    {
+                        int relative = buffer.AsSpan(i, count - i).IndexOfAny((byte)'\n', (byte)'\r');
+                        int end = relative < 0 ? count : i + relative;
+                        lineBytes?.AddRange(buffer.AsSpan(i, end - i));
+                        if (relative < 0)
+                        {
+                            i = count;
+                            break;
+                        }
+
+                        if (!FinishLine(lineKind, lineBytes, lineOffset, spectrumOffsets, chromatogramOffsets))
+                        {
+                            return false;
+                        }
+                        inLine = false;
+                        lineBytes = null;
+
+                        // a line ends at "\n", "\r" or "\r\n", as StreamReader.ReadLine ends it
+                        i = end + 1;
+                        if (buffer[end] == (byte)'\r')
+                        {
+                            if (i < count)
+                            {
+                                if (buffer[i] == (byte)'\n')
+                                {
+                                    i++;
+                                }
+                            }
+                            else
+                            {
+                                skipLeadingLineFeed = true;
+                            }
+                        }
+                        continue;
+                    }
+
+                    // a line starts at i; classify it from its head
+                    int available = count - i;
+                    ReadOnlySpan<byte> head = buffer.AsSpan(i, Math.Min(available, LineHeadBytes));
+                    int terminator = head.IndexOfAny((byte)'\n', (byte)'\r');
+                    if (terminator < 0 && available < LineHeadBytes && !endOfFile)
+                    {
+                        carryFrom = i;   // too little of the line in this chunk; take it to the next
+                        break;
+                    }
+
+                    int headLength = terminator < 0 ? head.Length : terminator;
+                    if (!TryClassifyLine(head[..headLength], terminator >= 0 || headLength == available,
+                            out lineKind, out int leadingSpaces))
+                    {
+                        return false;
+                    }
+
+                    lineOffset = bufferStart + i + leadingSpaces;
+                    if (lineKind == LineKind.IndexList)
+                    {
+                        if (indexListOffset >= 0 || lineOffset < hashedTo)
+                        {
+                            return false;
+                        }
+                        indexListOffset = lineOffset;
+                        indexListFoundAt = lineOffset;
+                    }
+
+                    lineBytes = lineKind is LineKind.Spectrum or LineKind.Chromatogram ? new List<byte>(512) : null;
+                    inLine = true;
+                }
+
+                if (endOfFile && inLine)
+                {
+                    // the last line has no terminator
+                    if (!FinishLine(lineKind, lineBytes, lineOffset, spectrumOffsets, chromatogramOffsets))
+                    {
+                        return false;
+                    }
+                    inLine = false;
+                }
+
+                if (hashing)
+                {
+                    long hashEnd = indexListFoundAt >= 0 ? indexListFoundAt
+                        : carryFrom >= 0 ? bufferStart + carryFrom
+                        : bufferStart + count;
+                    if (hashEnd > hashedTo)
+                    {
+                        prefixHash.AppendData(buffer, (int)(hashedTo - bufferStart), (int)(hashEnd - hashedTo));
+                        hashedTo = hashEnd;
+                    }
+                    if (indexListFoundAt >= 0)
+                    {
+                        hashing = false;
+                    }
+                }
+
+                if (endOfFile)
+                {
+                    break;
+                }
+
+                if (carryFrom >= 0)
+                {
+                    carried = count - carryFrom;
+                    Buffer.BlockCopy(buffer, carryFrom, buffer, 0, carried);
+                    bufferStart += carryFrom;
+                }
+                else
+                {
+                    carried = 0;
+                    bufferStart += count;
+                }
+            }
+
+            return indexListOffset >= 0;
+        }
+
+        private enum LineKind { Other, Spectrum, Chromatogram, IndexList }
+
+        /// <summary>
+        /// Which of the lines the offsets are taken for <paramref name="head"/> starts, compared the way the
+        /// line-by-line read compares the trimmed line: case-insensitively. In a written mzML a line that starts
+        /// with '&lt;' is markup, so its element name is plain ASCII and a byte comparison is that comparison.
+        /// <paramref name="leadingSpaces"/> counts only spaces, as that read's offset does. False when the head
+        /// is all whitespace and the line goes on past it, so it cannot be classified here.
+        /// </summary>
+        private static bool TryClassifyLine(ReadOnlySpan<byte> head, bool headIsWholeLine, out LineKind kind, out int leadingSpaces)
+        {
+            kind = LineKind.Other;
+            leadingSpaces = 0;
+            while (leadingSpaces < head.Length && head[leadingSpaces] == (byte)' ')
+            {
+                leadingSpaces++;
+            }
+
+            int start = leadingSpaces;
+            while (start < head.Length && char.IsWhiteSpace((char)head[start]))
+            {
+                start++;
+            }
+
+            ReadOnlySpan<byte> trimmed = head[start..];
+            if (trimmed.Length < "<chromatogram ".Length && !headIsWholeLine)
+            {
+                return false;
+            }
+
+            if (AsciiStartsWithIgnoreCase(trimmed, "<spectrum "u8))
+            {
+                kind = LineKind.Spectrum;
+            }
+            else if (AsciiStartsWithIgnoreCase(trimmed, "<chromatogram "u8))
+            {
+                kind = LineKind.Chromatogram;
+            }
+            else if (AsciiStartsWithIgnoreCase(trimmed, "<indexList "u8))
+            {
+                kind = LineKind.IndexList;
+            }
+
+            return true;
+        }
+
+        private static bool AsciiStartsWithIgnoreCase(ReadOnlySpan<byte> text, ReadOnlySpan<byte> prefix)
+        {
+            return text.Length >= prefix.Length && Ascii.EqualsIgnoreCase(text[..prefix.Length], prefix);
+        }
+
+        /// <summary>
+        /// Records a finished spectrum or chromatogram line by the id <see cref="GetIdFromLine"/> takes from it,
+        /// after checking the trimmed line with the very comparison the line-by-line read makes. False if that
+        /// comparison disagrees with the byte one, which would make the offsets differ, or if the id was seen
+        /// before: the line-by-line read throws on a repeated id, and is left to throw it the same way.
+        /// </summary>
+        private static bool FinishLine(LineKind kind, List<byte> lineBytes, long offset,
+            Dictionary<string, long> spectrumOffsets, Dictionary<string, long> chromatogramOffsets)
+        {
+            if (kind is not (LineKind.Spectrum or LineKind.Chromatogram))
+            {
+                return true;
+            }
+
+            string line = Encoding.ASCII.GetString(CollectionsMarshal.AsSpan(lineBytes)).Trim();
+            if (kind == LineKind.Spectrum)
+            {
+                return line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase)
+                    && spectrumOffsets.TryAdd(GetIdFromLine(line), offset);
+            }
+
+            return !line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase)
+                && line.StartsWith("<chromatogram ", StringComparison.InvariantCultureIgnoreCase)
+                && chromatogramOffsets.TryAdd(GetIdFromLine(line), offset);
         }
 
         /// <summary>
