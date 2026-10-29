@@ -270,6 +270,10 @@ public static class ModificationLoader
                         break;
 
                     case "KW": // ; Separated keywords
+                        // Keywords are read without comment stripping: MODOMICS uses '#' as the one-letter code of Gm
+                        modValue = line.Length > 5 ? line.Substring(5).Trim() : null;
+                        if (string.IsNullOrEmpty(modValue))
+                            break;
                         _keywords = new List<string>(modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
                         break;
 

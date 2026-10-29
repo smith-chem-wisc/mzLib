@@ -31,9 +31,10 @@
             }
             switch (attemptToLocalize.LocationRestriction)
             {
-                    // Only the intact (undigested) terminus
+                    // Only the intact (undigested) terminus. Proteins allow position 2 for initiator-Met cleavage;
+                    // nucleic acids have no such processing, so 5'-terminal mods fit position 1 only.
                 case "N-terminal." when bioPolymerOneBasedIndex > 2:
-                case "5'-terminal." when bioPolymerOneBasedIndex > 2:
+                case "5'-terminal." when bioPolymerOneBasedIndex > 1:
                 case "C-terminal." when bioPolymerOneBasedIndex < sequence.Length:
                 case "3'-terminal." when bioPolymerOneBasedIndex < sequence.Length:
 
