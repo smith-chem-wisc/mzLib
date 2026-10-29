@@ -39,7 +39,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         #region Embedded Resource Existence Tests
 
         /// <summary>
-        /// Verifies that both embedded resources (proteases.tsv and protease_mods.txt) exist in the assembly.
+        /// Verifies that both embedded resources exist: proteases.tsv in Proteomics and protease_mods.txt in Omics.
         /// </summary>
         [Test]
         public static void EmbeddedResources_BothExist()
@@ -50,8 +50,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(resourceNames.Contains("Proteomics.ProteolyticDigestion.proteases.tsv"),
                 $"proteases.tsv not found. Available: {string.Join(", ", resourceNames)}");
 
-            Assert.That(resourceNames.Contains("Proteomics.ProteolyticDigestion.protease_mods.txt"),
-                $"protease_mods.txt not found. Available: {string.Join(", ", resourceNames)}");
+            var omicsResourceNames = Assembly.GetAssembly(typeof(Mods)).GetManifestResourceNames();
+            Assert.That(omicsResourceNames.Contains("Omics.Resources.protease_mods.txt"),
+                $"protease_mods.txt not found. Available: {string.Join(", ", omicsResourceNames)}");
         }
 
         #endregion

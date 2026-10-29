@@ -14,8 +14,8 @@ namespace Proteomics.ProteolyticDigestion
     ///
     /// <para><b>Embedded Resource Architecture:</b></para>
     /// <para>
-    /// All default protease definitions are loaded from embedded resources (proteases.tsv and
-    /// protease_mods.txt) compiled directly into the assembly. When the library is updated, the
+    /// All default protease definitions are loaded from embedded resources (proteases.tsv in this
+    /// assembly and protease_mods.txt in Omics) compiled into the library. When the library is updated, the
     /// embedded resources are updated with it — any local file previously named proteases.tsv is
     /// superseded automatically because the embedded resource is never read from disk.
     /// </para>
@@ -42,7 +42,7 @@ namespace Proteomics.ProteolyticDigestion
     public static class ProteaseDictionary
     {
         private const string EmbeddedProteaseResourceName = "Proteomics.ProteolyticDigestion.proteases.tsv";
-        private const string EmbeddedProteaseModsResourceName = "Proteomics.ProteolyticDigestion.protease_mods.txt";
+        private const string EmbeddedProteaseModsResourceName = "Omics.Resources.protease_mods.txt";
 
         private static readonly Lazy<List<Modification>> CachedEmbeddedProteaseMods =
             new Lazy<List<Modification>>(() => LoadEmbeddedProteaseModsFromResource());
@@ -86,7 +86,8 @@ namespace Proteomics.ProteolyticDigestion
 
         private static List<Modification> LoadEmbeddedProteaseModsFromResource()
         {
-            var assembly = typeof(ProteaseDictionary).Assembly;
+            // Omics embeds the file so Mods can read back the cleavage modifications digestion writes.
+            var assembly = typeof(Mods).Assembly;
 
             using (var stream = assembly.GetManifestResourceStream(EmbeddedProteaseModsResourceName))
             {
