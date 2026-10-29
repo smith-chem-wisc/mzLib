@@ -151,7 +151,7 @@ namespace Readers
                         r[at] = Write(target, cell);
                         int mark = Ensure($"comment[{target.Name} source]");
                         r[mark] = Word(cell.Source);
-                        if (cell.Source == SdrfDraftSource.Publication)
+                        if (SdrfDrafter.FromEvidence(cell.Source))
                         {
                             if (!string.IsNullOrEmpty(cell.Reference)) r[Ensure($"comment[{target.Name} source reference]")] = cell.Reference;
                             if (!string.IsNullOrEmpty(cell.Method)) r[Ensure($"comment[{target.Name} source method]")] = cell.Method;
@@ -160,7 +160,7 @@ namespace Readers
                     }
                     // A project-level summary is weaker evidence than a per-file statement: it may fill a gap,
                     // never dispute (PRIDE's "LTQ Orbitrap" against a curated per-file "Q Exactive").
-                    else if (cell.Source != SdrfDraftSource.PrideProjectRecord && !Same(r[at], cell))
+                    else if (!SdrfDepositRecord.IsRecord(cell.Source) && !Same(r[at], cell))
                         disagreements.Add(new SdrfDisagreement(r[Col(DataFile)], target.Column, r[at], Write(target, cell), cell.Evidence));
                 }
             }
@@ -168,13 +168,57 @@ namespace Readers
             // ---- factors: the draft's only where the deposit states none ----
             bool draftFactors = !header.Any(h => h.StartsWith("factor value[", StringComparison.OrdinalIgnoreCase)) && draft.FactorColumns.Count > 0;
             if (draftFactors)
-            {
                 foreach (var f in draft.FactorColumns) { header.Add(f); foreach (var r in rows) r.Add(""); addedColumns++; }
-                foreach (var r in rows)
+
+            // ---- where a condition or sample name came from, once evidence states one (G53), as ToDocument writes it ----
+            // Only the improver's own values are marked: the draft's factors where the deposit states none, a sample name
+            // it fills, and drafted rows. Without evidence nothing is added, and the sample-name columns only when a name
+            // from evidence is written: a deposit naming every sample it lists gains none.
+            var provenance = new List<(string Name, Func<SdrfDraftRow, SdrfDraftCell> Cell)>();
+            if (draftFactors)
+                for (int k = 0; k < draft.FactorColumns.Count; k++)
                 {
-                    if (!draftByStem.TryGetValue(StemOf(r), out var d) || Multiplexed(r)) continue;
+                    int at = k;
+                    if (draft.Rows.Any(d => SdrfDrafter.FromEvidence(d.Factors[at].Source)))
+                        provenance.Add((SdrfDrafter.FactorProvenance(draft.FactorColumns[at]), d => d.Factors[at]));
+                }
+            var listed = new HashSet<string>(rows.Select(StemOf), StringComparer.OrdinalIgnoreCase);
+            bool FillsName(List<string> r) => draftByStem.TryGetValue(StemOf(r), out var d) && !Multiplexed(r)
+                && IsGap(r[Col(SourceName)]) && SdrfDrafter.FromEvidence(d.SourceName.Source);
+            if (Col(SourceName) >= 0 && (rows.Any(FillsName)
+                || draft.Rows.Any(d => !listed.Contains(SdrfFileNamePattern.Stem(d.DataFile)) && SdrfDrafter.FromEvidence(d.SourceName.Source))))
+                provenance.Add(("source name", d => d.SourceName));
+            foreach (var (name, cellOf) in provenance)
+            {
+                var cells = draft.Rows.Select(cellOf).Where(c => SdrfDrafter.FromEvidence(c.Source)).ToList();
+                Ensure($"comment[{name} source]");
+                if (cells.Any(c => !string.IsNullOrEmpty(c.Reference))) Ensure($"comment[{name} source reference]");
+                if (cells.Any(c => !string.IsNullOrEmpty(c.Method))) Ensure($"comment[{name} source method]");
+            }
+            void Mark(List<string> row, string name, SdrfDraftCell cell)
+            {
+                if (cell.Source == SdrfDraftSource.NotAvailable) return;
+                row[Col($"comment[{name} source]")] = Word(cell.Source);
+                if (!SdrfDrafter.FromEvidence(cell.Source)) return;
+                if (!string.IsNullOrEmpty(cell.Reference)) row[Col($"comment[{name} source reference]")] = cell.Reference;
+                if (!string.IsNullOrEmpty(cell.Method)) row[Col($"comment[{name} source method]")] = cell.Method;
+            }
+
+            foreach (var r in rows)
+            {
+                if (!draftByStem.TryGetValue(StemOf(r), out var d) || Multiplexed(r)) continue;
+                if (draftFactors)
                     for (int k = 0; k < draft.FactorColumns.Count; k++)
                         if (d.Factors[k].Source != SdrfDraftSource.NotAvailable) { r[Col(draft.FactorColumns[k])] = d.Factors[k].Value; filled++; }
+                foreach (var (name, cellOf) in provenance.Where(p => p.Name != "source name")) Mark(r, name, cellOf(d));
+                // A sample name is the deposit's own key: kept wherever stated, filled only where it is missing, and only by
+                // evidence that names the sample. A name the drafter inferred from a file name states no sample.
+                int nameAt = Col(SourceName);
+                if (nameAt >= 0 && IsGap(r[nameAt]) && SdrfDrafter.FromEvidence(d.SourceName.Source))
+                {
+                    r[nameAt] = d.SourceName.Value;
+                    Mark(r, "source name", d.SourceName);
+                    filled++;
                 }
             }
 
@@ -204,7 +248,6 @@ namespace Readers
             }
 
             // ---- raw files the deposit does not list ----
-            var listed = new HashSet<string>(rows.Select(StemOf), StringComparer.OrdinalIgnoreCase);
             var depositedNames = new HashSet<string>(rows.Select(r => r[Col(SourceName) < 0 ? 0 : Col(SourceName)]), StringComparer.Ordinal);
             // A drafted row's default is "inferred"; a cell from the project record, or a placeholder nothing
             // marked, says where it really came from, as ToDocument writes it (D39). Its column is added now,
@@ -216,9 +259,9 @@ namespace Readers
             {
                 var cells = draftedRows.Select(d => target.Cell(d)).ToList();
                 if (cells.Any(Overrides)) Ensure($"comment[{target.Name} source]");
-                if (cells.Any(c => c.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(c.Reference)))
+                if (cells.Any(c => SdrfDrafter.FromEvidence(c.Source) && !string.IsNullOrEmpty(c.Reference)))
                     Ensure($"comment[{target.Name} source reference]");
-                if (cells.Any(c => c.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(c.Method)))
+                if (cells.Any(c => SdrfDrafter.FromEvidence(c.Source) && !string.IsNullOrEmpty(c.Method)))
                     Ensure($"comment[{target.Name} source method]");
             }
             // An ASSAY-WIDE column every deposited row fills with one value is carried to drafted rows (a label,
@@ -234,8 +277,11 @@ namespace Readers
             foreach (var d in draftedRows)
             {
                 var row = constant.ToList();
+                // A name inferred from a file that a deposited sample already has is marked apart; a name evidence
+                // states is the sample it names, so a run of a sample the deposit lists joins that sample.
                 if (Col(SourceName) >= 0)
-                    row[Col(SourceName)] = depositedNames.Contains(d.SourceName.Value) ? d.SourceName.Value + " (drafted)" : d.SourceName.Value;
+                    row[Col(SourceName)] = depositedNames.Contains(d.SourceName.Value) && !SdrfDrafter.FromEvidence(d.SourceName.Source)
+                        ? d.SourceName.Value + " (drafted)" : d.SourceName.Value;
                 if (Col("assay name") >= 0)
                 {
                     // Unique within the document: one run listed under two extensions (X.raw, X.mzXML) would
@@ -261,10 +307,11 @@ namespace Readers
                 {
                     var cell = target.Cell(d);
                     row[Col($"comment[{target.Name} source]")] = Word(cell.Source);
-                    if (cell.Source != SdrfDraftSource.Publication) continue;
+                    if (!SdrfDrafter.FromEvidence(cell.Source)) continue;
                     if (!string.IsNullOrEmpty(cell.Reference)) row[Col($"comment[{target.Name} source reference]")] = cell.Reference;
                     if (!string.IsNullOrEmpty(cell.Method)) row[Col($"comment[{target.Name} source method]")] = cell.Method;
                 }
+                foreach (var (name, cellOf) in provenance) Mark(row, name, cellOf(d));
             }
 
             // An override column's empty cell means "no override on this row" -- not applicable, as the
@@ -287,7 +334,9 @@ namespace Readers
         private static string Word(SdrfDraftSource source) => source switch
         {
             SdrfDraftSource.PrideProjectRecord => "pride project record",
+            SdrfDraftSource.MassiveDatasetRecord => "massive dataset record",
             SdrfDraftSource.Publication => "publication",
+            SdrfDraftSource.Deposit => "deposited",
             SdrfDraftSource.Default => "default",
             SdrfDraftSource.Inferred => "inferred",
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "a cell with no source is never written")

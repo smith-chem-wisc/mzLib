@@ -623,7 +623,7 @@ namespace Test.FileReadingTests
         [Test]
         public void MalformedArgumentsThrow()
         {
-            Assert.Throws<ArgumentNullException>(() => SdrfDrafter.Draft(null!, new[] { "a.raw" }));
+            Assert.Throws<ArgumentNullException>(() => SdrfDrafter.Draft((PrideProject)null!, new[] { "a.raw" }));
             Assert.Throws<ArgumentNullException>(() => SdrfDrafter.Draft(Covid(), null!));
         }
     }
