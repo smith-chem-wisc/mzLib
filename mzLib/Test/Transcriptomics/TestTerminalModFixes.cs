@@ -22,30 +22,40 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        [TestCase("5'-terminal.")]
-        [TestCase("Oligo 5'-terminal.")]
-        public static void TestReverseDecoy_FivePrimeModStaysOnFivePrimeEnd(string restriction)
+        [TestCase("5'-terminal.", 1, 1)]
+        [TestCase("Oligo 5'-terminal.", 1, 1)]
+        [TestCase("N-terminal.", 1, 1)]
+        [TestCase("Peptide N-terminal.", 1, 1)]
+        [TestCase("3'-terminal.", 6, 6)]
+        [TestCase("C-terminal.", 6, 6)]
+        [TestCase("Anywhere.", 1, 6)]
+        [TestCase("Anywhere.", 6, 1)]
+        public static void TestReverseDecoy_TerminalModStaysOnItsTerminus(string restriction, int position, int expectedDecoyPosition)
         {
             var mod = Mod(restriction);
             var rna = new RNA("GUACUG", "rna1",
-                new Dictionary<int, List<Modification>> { { 1, new List<Modification> { mod } } }, null, null, "", null, null);
+                new Dictionary<int, List<Modification>> { { position, new List<Modification> { mod } } }, null, null, "", null, null);
 
             var decoy = RnaDecoyGenerator.GenerateDecoys(new List<RNA> { rna }, DecoyType.Reverse, 1).Single();
 
-            Assert.That(decoy.OneBasedPossibleLocalizedModifications.Keys, Is.EquivalentTo(new[] { 1 }));
-            Assert.That(decoy.OneBasedPossibleLocalizedModifications[1].Single(), Is.EqualTo(mod));
+            Assert.That(decoy.OneBasedPossibleLocalizedModifications.Keys, Is.EquivalentTo(new[] { expectedDecoyPosition }));
+            Assert.That(decoy.OneBasedPossibleLocalizedModifications[expectedDecoyPosition].Single(), Is.EqualTo(mod));
         }
 
         [Test]
-        public static void TestReverseDecoy_ThreePrimeModStaysOnThreePrimeEnd()
+        [TestCase("5'-terminal.", 1, 1)]
+        [TestCase("3'-terminal.", 6, 6)]
+        [TestCase("Anywhere.", 2, 5)]
+        public static void TestReverseDecoy_FixedTerminalModStaysOnItsTerminus(string restriction, int position, int expectedDecoyPosition)
         {
-            var mod = Mod("3'-terminal.");
-            var rna = new RNA("GUACUG", "rna1",
-                new Dictionary<int, List<Modification>> { { 6, new List<Modification> { mod } } }, null, null, "", null, null);
+            var mod = Mod(restriction);
+            var rna = new RNA("GUACUG", "rna1", null, null, null, "", null, null);
+            rna.SetOneBasedFixedModifications(new Dictionary<int, Modification> { { position, mod } });
 
             var decoy = RnaDecoyGenerator.GenerateDecoys(new List<RNA> { rna }, DecoyType.Reverse, 1).Single();
 
-            Assert.That(decoy.OneBasedPossibleLocalizedModifications.Keys, Is.EquivalentTo(new[] { 6 }));
+            Assert.That(decoy.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { expectedDecoyPosition }));
+            Assert.That(decoy.OneBasedFixedModifications[expectedDecoyPosition], Is.EqualTo(mod));
         }
 
         [Test]
@@ -93,6 +103,28 @@ namespace Test.Transcriptomics
 
             Assert.That(mods.Count, Is.EqualTo(1));
             Assert.That(mods[0].Keywords.Single(), Is.EqualTo("# or 2'-O-methylguanosine or Gm"));
+        }
+
+        [Test]
+        [TestCase("KW")]
+        [TestCase("KW   ")]
+        public static void TestReadMod_EmptyKeywordLineIsSkipped(string keywordLine)
+        {
+            string stored = string.Join(Environment.NewLine,
+                "ID   Methyl on G", "MT   test", "TG   G", "PP   Anywhere.", "CF   CH2", keywordLine, "//");
+
+            var mods = ModificationLoader.ReadModsFromString(stored, out var warnings).ToList();
+
+            Assert.That(mods.Count, Is.EqualTo(1));
+            Assert.That(mods[0].Keywords, Is.Null);
+        }
+
+        [Test]
+        public static void TestModFits_ThreePrimeTerminalOnlyAtLastPosition()
+        {
+            var mod = Mod("3'-terminal.");
+            Assert.That(ModificationLocalization.ModFits(mod, "GUACUG", 6, 6, 6), Is.True);
+            Assert.That(ModificationLocalization.ModFits(mod, "GUACUG", 5, 5, 5), Is.False);
         }
     }
 }
