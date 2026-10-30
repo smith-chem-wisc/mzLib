@@ -1587,35 +1587,140 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered. This is
-        /// the convenience over <see cref="GetProjectFilesAsync"/> + <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/>: it fetches
-        /// the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
+        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered, and checks
+        /// each one against PRIDE's checksum list. This is the convenience over <see cref="GetProjectFilesAsync"/>,
+        /// <see cref="GetFileChecksumsAsync"/> and <see cref="DownloadFileAsync(PrideArchiveFile, string, PrideFileChecksum, bool, bool, CancellationToken)"/>:
+        /// it fetches the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A selected file with a row in <see cref="GetFileChecksumsAsync"/> is downloaded through the checked
+        /// overload, without the MD5: its size is checked and its bytes are scanned for EBI's error text, which
+        /// EBI wrote into about a third of large transfers on 2026-10-07/08 at the announced size. A file with no
+        /// row (PRIDE's own <c>generated/</c> files, say) cannot be checked and is downloaded as
+        /// <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/> does, unchecked. The
+        /// checksum list is fetched once, and only when the selection is not empty.
+        /// </para>
+        /// <para>
+        /// A filter that matches no file is a valid answer, not an error: the result is empty and no file is
+        /// downloaded. To name the files instead, and have a name the project does not hold refused before any
+        /// download, use <see cref="DownloadProjectFilesByNameAsync"/>.
+        /// </para>
+        /// </remarks>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
         /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
         /// <param name="filter">
         /// An optional predicate selecting which files to download (e.g. by category or extension — see
         /// <see cref="PrideArchiveExtensions"/>). When null, every file in the manifest is downloaded.
         /// </param>
-        /// <param name="overwrite">Passed through to <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/>; default true.</param>
+        /// <param name="overwrite">
+        /// Passed through to each download; default true. With false, an existing file that has a checksum row is
+        /// kept only if it passes the size check, as the checked overload describes.
+        /// </param>
         /// <param name="cancellationToken">Cancels between and during file downloads.</param>
         /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
         /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
-        /// <exception cref="HttpRequestException">The manifest request or a download returned a non-success status.</exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        /// <exception cref="MzLibException">PRIDE's checksum list could not be read, or a file failed its checks on every attempt.</exception>
+        public Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
+            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default) =>
+            DownloadProjectFilesAsync(accession, destinationDirectory, filter, overwrite, verifyMd5: false, cancellationToken);
+
+        /// <summary>
+        /// As <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, CancellationToken)"/>,
+        /// and with <paramref name="verifyMd5"/> true each file that has a checksum row is also checked against its
+        /// MD5, which reads it once more as it arrives.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="filter">An optional predicate selecting which files to download. When null, every file in the manifest is downloaded.</param>
+        /// <param name="overwrite">Passed through to each download.</param>
+        /// <param name="verifyMd5">Also check each file's MD5, where it has a checksum row.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
+        /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        /// <exception cref="MzLibException">PRIDE's checksum list could not be read, or a file failed its checks on every attempt.</exception>
         public async Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
-            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default)
+            Func<PrideArchiveFile, bool> filter, bool overwrite, bool verifyMd5, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(destinationDirectory))
                 throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
 
             List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
-            IEnumerable<PrideArchiveFile> selected = filter == null ? files : files.Where(filter);
+            List<PrideArchiveFile> selected = filter == null ? files : files.Where(filter).ToList();
+            return await DownloadCheckedAsync(accession, destinationDirectory, selected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false);
+        }
 
+        /// <summary>
+        /// Downloads the named files of a project to <paramref name="destinationDirectory"/>, checked as
+        /// <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, bool, CancellationToken)"/>
+        /// checks them. Every name is looked up in the manifest first, so a name the project does not hold is
+        /// refused before any file is downloaded.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="fileNames">
+        /// The bare file names to download, as <see cref="PrideArchiveFile.FileName"/> gives them (ordinal,
+        /// case-sensitive). A name given twice is downloaded once.
+        /// </param>
+        /// <param name="overwrite">Passed through to each download; default true.</param>
+        /// <param name="verifyMd5">Also check each file's MD5, where it has a checksum row; default false.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Never empty.</returns>
+        /// <exception cref="ArgumentException">
+        /// The accession or destination directory is blank, or <paramref name="fileNames"/> is null, empty, or
+        /// holds a blank name. No request is made.
+        /// </exception>
+        /// <exception cref="MzLibException">
+        /// A name is not in the project's manifest (the message names every one), and nothing was downloaded; or
+        /// PRIDE's checksum list could not be read, or a file failed its checks on every attempt.
+        /// </exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        public async Task<IReadOnlyList<string>> DownloadProjectFilesByNameAsync(string accession, string destinationDirectory,
+            IReadOnlyCollection<string> fileNames, bool overwrite = true, bool verifyMd5 = false,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
+            if (fileNames == null || fileNames.Count == 0)
+                throw new ArgumentException("At least one file name is required.", nameof(fileNames));
+            if (fileNames.Any(string.IsNullOrWhiteSpace))
+                throw new ArgumentException("A file name is blank.", nameof(fileNames));
+
+            List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var wanted = new HashSet<string>(fileNames, StringComparer.Ordinal);
+            var missing = wanted.Except(files.Select(f => f.FileName), StringComparer.Ordinal).ToList();
+            if (missing.Count > 0)
+                throw new MzLibException(
+                    $"{missing.Count} of the {wanted.Count} file names given are not in PRIDE project '{accession}', so nothing was downloaded: {string.Join(", ", missing.Select(n => $"'{n}'"))}.");
+
+            List<PrideArchiveFile> selected = files.Where(f => wanted.Contains(f.FileName)).ToList();
+            return await DownloadCheckedAsync(accession, destinationDirectory, selected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Downloads <paramref name="selected"/> in turn, each through the checked overload when PRIDE's checksum
+        /// list has its row, else unchecked. The list is fetched once, and not at all for an empty selection.
+        /// </summary>
+        private async Task<IReadOnlyList<string>> DownloadCheckedAsync(string accession, string destinationDirectory,
+            List<PrideArchiveFile> selected, bool overwrite, bool verifyMd5, CancellationToken cancellationToken)
+        {
             var downloadedPaths = new List<string>();
+            if (selected.Count == 0)
+                return downloadedPaths;
+
+            IReadOnlyDictionary<string, PrideFileChecksum> checksums =
+                await GetFileChecksumsAsync(accession, cancellationToken).ConfigureAwait(false);
             foreach (PrideArchiveFile file in selected)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                downloadedPaths.Add(await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false));
+                string path = file.FileName != null && checksums.TryGetValue(file.FileName, out PrideFileChecksum expected)
+                    ? await DownloadFileAsync(file, destinationDirectory, expected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false)
+                    : await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false);
+                downloadedPaths.Add(path);
             }
             return downloadedPaths;
         }
