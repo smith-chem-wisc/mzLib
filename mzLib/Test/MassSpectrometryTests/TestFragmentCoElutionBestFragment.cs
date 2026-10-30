@@ -1,0 +1,199 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using MassSpectrometry;
+using NUnit.Framework;
+
+namespace Test.MassSpectrometryTests;
+
+/// <summary>
+/// Co-elution against the best fragment. The fragment that correlates best with the others serves as the elution
+/// profile, once smoothed, and every fragment is then scored against that profile. One reliable reference is harder to
+/// corrupt than an average of all the others, which an interfered fragment drags along.
+/// </summary>
+[TestFixture]
+[ExcludeFromCodeCoverage]
+public class TestFragmentCoElutionBestFragment
+{
+    private static double[] Gaussian(double apex, double height, int length = 21, double sigma = 2.0) =>
+        Enumerable.Range(0, length).Select(s => height * Math.Exp(-0.5 * Math.Pow((s - apex) / sigma, 2))).ToArray();
+
+    /// <summary>Interior points are 0.25/0.5/0.25; an end point renormalizes over the neighbour it has (0.5/0.25 → 2/3, 1/3).</summary>
+    [Test]
+    public void SmoothingWeightsAQuarterHalfQuarter()
+    {
+        double[] smoothed = FragmentCoElution.Smooth([0, 4, 0, 8, 0]);
+
+        Assert.That(smoothed, Is.EqualTo(new[] { 4.0 / 3, 2.0, 3.0, 4.0, 8.0 / 3 }).Within(1e-12));
+        Assert.That(FragmentCoElution.Smooth([5.0]), Is.EqualTo(new[] { 5.0 }));
+        Assert.That(FragmentCoElution.Smooth([]), Is.Empty);
+    }
+
+    /// <summary>
+    /// The best fragment is the one whose summed correlation with the others is largest. Two fragments elute together and
+    /// a third is interference elsewhere, so one of the co-eluting pair wins. On a tie, the lower index wins.
+    /// </summary>
+    [Test]
+    public void TheBestFragmentIsTheOneMostCorrelatedWithTheRest()
+    {
+        var traces = new List<double[]> { Gaussian(4, 50), Gaussian(10, 100), Gaussian(10, 80), Gaussian(10.5, 60) };
+
+        Assert.That(FragmentCoElution.BestFragment(traces, 0, 20), Is.EqualTo(1));
+        Assert.That(FragmentCoElution.BestFragment([Gaussian(10, 5), Gaussian(10, 5)], 0, 20), Is.EqualTo(0), "tie goes to the lower index");
+    }
+
+    /// <summary>Correlation with the reference, per fragment; flat, anti-correlated or silent fragments score 0.</summary>
+    [Test]
+    public void CorrelationsToTheReferenceAreClippedAtZero()
+    {
+        double[] reference = Gaussian(10, 100);
+        var traces = new List<double[]>
+        {
+            Gaussian(10, 3),                                         // same shape: 1
+            new double[21],                                          // silent: 0
+            reference.Select(v => 100 - v).ToArray(),                // anti-correlated: 0
+            Gaussian(12, 50),                                        // shifted: between 0 and 1
+        };
+
+        double[] r = FragmentCoElution.CorrelationsTo(traces, reference, 0, 20);
+
+        Assert.That(r[0], Is.EqualTo(1).Within(1e-12));
+        Assert.That(r[1], Is.EqualTo(0));
+        Assert.That(r[2], Is.EqualTo(0));
+        Assert.That(r[3], Is.GreaterThan(0.3).And.LessThan(0.9));
+    }
+
+    /// <summary>Only the range is compared: a fragment matching the reference inside the range scores 1 whatever lies outside.</summary>
+    [Test]
+    public void OnlyTheRangeIsCompared()
+    {
+        double[] reference = Gaussian(10, 100);
+        double[] trace = Gaussian(10, 7);
+        trace[0] = 1000;
+        trace[20] = 1000;
+
+        Assert.That(FragmentCoElution.CorrelationsTo([trace], reference, 5, 15)[0], Is.EqualTo(1).Within(1e-12));
+        Assert.That(FragmentCoElution.BestFragment([trace, Gaussian(10, 3)], 5, 15), Is.EqualTo(0));
+    }
+
+    /// <summary>
+    /// Candidate peaks: every local maximum of FindApex's apex score, at least a half-width apart, best first. A
+    /// precursor whose true peak scores second to interference is then still in the running.
+    /// </summary>
+    [Test]
+    public void CandidateApexesAreTheDistinctLocalMaximaBestFirst()
+    {
+        double[] library = [1.0, 0.6, 0.3];
+        // Two peak groups in library proportions: a big one at scan 30 and a smaller one at scan 10
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 30) / 2.0, 2)) + 200 * Math.Exp(-0.5 * Math.Pow((s - 10) / 2.0, 2)))).ToArray()).ToList();
+
+        int[] apexes = FragmentCoElution.FindApexes(traces, library, halfWidth: 3, maxCount: 5);
+
+        Assert.That(apexes, Is.EqualTo(new[] { 30, 10 }));
+        Assert.That(apexes[0], Is.EqualTo(FragmentCoElution.FindApex(traces, library, 3)), "the best candidate is FindApex's apex");
+        Assert.That(FragmentCoElution.FindApexes(traces, library, 3, maxCount: 1), Is.EqualTo(new[] { 30 }));
+        Assert.That(FragmentCoElution.FindApexes(library.Select(_ => new double[41]).ToList(), library, 3, 5), Is.Empty, "no signal, no candidates");
+    }
+
+    /// <summary>Within a half-width of a better scan there is no second candidate, whatever small bumps the score has.</summary>
+    [Test]
+    public void CandidatesAreAtLeastAHalfWidthApart()
+    {
+        double[] library = [1.0, 0.5];
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 20) / 3.0, 2)) + (s == 22 ? 50 : 0))).ToArray()).ToList();
+
+        int[] apexes = FragmentCoElution.FindApexes(traces, library, halfWidth: 3, maxCount: 5);
+
+        Assert.That(apexes.Zip(apexes.Skip(1)).All(pair => Math.Abs(pair.First - pair.Second) > 3));
+        Assert.That(apexes[0], Is.EqualTo(20));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(traces, library, 3, maxCount: 0));
+    }
+    /// <summary>
+    /// The per-scan apex score is public, so a caller can judge how much the best peak stands out from the rest of the
+    /// window. FindApex is its arg-max, and a scan without signal scores 0.
+    /// </summary>
+    [Test]
+    public void ApexScoresArePerScanAndFindApexIsTheirMaximum()
+    {
+        double[] library = [1.0, 0.6, 0.3];
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => s < 5 ? 0 : l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 30) / 2.0, 2)) + 200 * Math.Exp(-0.5 * Math.Pow((s - 10) / 2.0, 2)))).ToArray()).ToList();
+
+        double[] scores = FragmentCoElution.ApexScores(traces, library, 3);
+
+        Assert.That(scores, Has.Length.EqualTo(41));
+        Assert.That(scores.Take(5), Is.All.EqualTo(0), "no signal, no score");
+        int argMax = Array.IndexOf(scores, scores.Max());
+        Assert.That(argMax, Is.EqualTo(FragmentCoElution.FindApex(traces, library, 3)));
+        Assert.That(scores[30], Is.GreaterThan(scores[10]));
+        Assert.Throws<ArgumentException>(() => FragmentCoElution.ApexScores(traces, [1.0], 3));
+    }
+
+    /// <summary>Candidates from precomputed apex scores are the candidates from the traces, so a caller scores each scan once.</summary>
+    [Test]
+    public void CandidatesFromPrecomputedScoresMatchCandidatesFromTraces()
+    {
+        double[] library = [1.0, 0.6, 0.3];
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 30) / 2.0, 2)) + 200 * Math.Exp(-0.5 * Math.Pow((s - 10) / 2.0, 2)))).ToArray()).ToList();
+
+        double[] scores = FragmentCoElution.ApexScores(traces, library, 3);
+
+        Assert.That(FragmentCoElution.FindApexes(scores, 3, 5), Is.EqualTo(FragmentCoElution.FindApexes(traces, library, 3, 5)));
+        Assert.That(FragmentCoElution.FindApexes(new double[10], 3, 5), Is.Empty);
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(scores, -1, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(scores, 3, 0));
+        Assert.Throws<ArgumentNullException>(() => FragmentCoElution.FindApexes(null!, 3, 5));
+    }
+
+    /// <summary>
+    /// The 9-point Savitzky–Golay filter (quadratic/cubic; weights −21, 14, 39, 54, 59, 54, 39, 14, −21 over 231, as in
+    /// EncyclopeDIA and Skyline) reproduces any cubic exactly away from the ends, where four neighbours exist on each side.
+    /// </summary>
+    [Test]
+    public void SavitzkyGolayReproducesACubicAwayFromTheEnds()
+    {
+        double[] cubic = Enumerable.Range(0, 20).Select(s => 50 + 3.0 * s + 0.5 * s * s - 0.02 * s * s * s).ToArray();
+
+        double[] smoothed = FragmentCoElution.SavitzkyGolay9(cubic);
+
+        for (int s = 4; s < 16; s++)
+            Assert.That(smoothed[s], Is.EqualTo(cubic[s]).Within(1e-9), $"scan {s}");
+    }
+
+    /// <summary>
+    /// The ends, which lack four neighbours on one side, are left as they are. Negative ringing next to a sharp spike is
+    /// clipped to 0, since intensities cannot be negative.
+    /// </summary>
+    [Test]
+    public void SavitzkyGolayLeavesTheEndsAndClipsNegatives()
+    {
+        double[] spike = new double[21];
+        spike[10] = 231;
+
+        double[] smoothed = FragmentCoElution.SavitzkyGolay9(spike);
+
+        Assert.That(smoothed[10], Is.EqualTo(59).Within(1e-9));
+        Assert.That(smoothed[9], Is.EqualTo(54).Within(1e-9));
+        Assert.That(smoothed[6], Is.EqualTo(0), "4 scans from the spike the -21 weight would give -21; clipped");
+        Assert.That(smoothed[14], Is.EqualTo(0));
+        double[] ends = [5, 6, 7, 8, 9, 10];
+        Assert.That(FragmentCoElution.SavitzkyGolay9(ends), Is.EqualTo(ends), "too short to smooth: unchanged");
+        Assert.Throws<ArgumentNullException>(() => FragmentCoElution.SavitzkyGolay9(null!));
+    }
+
+    [Test]
+    public void ArgumentsAreChecked()
+    {
+        Assert.Throws<ArgumentNullException>(() => FragmentCoElution.Smooth(null!));
+        Assert.Throws<ArgumentNullException>(() => FragmentCoElution.BestFragment(null!, 0, 1));
+        Assert.Throws<ArgumentException>(() => FragmentCoElution.BestFragment([], 0, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.BestFragment([Gaussian(10, 1)], 5, 30));
+        Assert.Throws<ArgumentNullException>(() => FragmentCoElution.CorrelationsTo([Gaussian(10, 1)], null!, 0, 20));
+        Assert.Throws<ArgumentException>(() => FragmentCoElution.CorrelationsTo([Gaussian(10, 1)], new double[5], 0, 4));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.CorrelationsTo([Gaussian(10, 1)], Gaussian(10, 1), 10, 5));
+    }
+}
