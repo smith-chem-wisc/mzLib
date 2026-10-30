@@ -41,7 +41,8 @@ namespace Readers.ProForma
 
             try
             {
-                return DescribeUnrepresentable(ProFormaReader.Read(input)) is null;
+                var term = ProFormaReader.Read(input);
+                return ProFormaReader.StackedTerminus(term) is null && DescribeUnrepresentable(term) is null;
             }
             catch (Tdp.ProFormaParseException)
             {
@@ -68,19 +69,23 @@ namespace Readers.ProForma
             {
                 term = ProFormaReader.Read(input);
             }
-            catch (ProFormaUnsupportedException ex)
-            {
-                // Valid ProForma that a term cannot hold (several modifications on one terminus): the same kind of refusal
-                // as two modifications on one residue, not "not valid ProForma".
-                warnings.AddIncompatibleItem(ex.IncompatibleItem);
-                return SequenceConversionHelpers.HandleParserError(warnings, mode,
-                    ConversionFailureReason.IncompatibleModifications, ex.Message);
-            }
             catch (Tdp.ProFormaParseException ex)
             {
                 return SequenceConversionHelpers.HandleParserError(warnings, mode,
                     ConversionFailureReason.InvalidSequence,
                     $"'{input}' is not valid ProForma 2.0: {ex.Message}");
+            }
+
+            if (ProFormaReader.StackedTerminus(term) is var (side, count))
+            {
+                // Valid ProForma 2.1 that the term holds but the flat model cannot: the same kind of refusal as two
+                // modifications on one residue, not "not valid ProForma".
+                warnings.AddIncompatibleItem($"Multiple {side}-terminal modifications ({count} found).");
+                return SequenceConversionHelpers.HandleParserError(warnings, mode,
+                    ConversionFailureReason.IncompatibleModifications,
+                    $"'{input}' has {count} modifications on the {side}-terminus. That is valid ProForma 2.1 (section 6.3), " +
+                    $"but a CanonicalSequence holds one modification per terminus, so reading it would lose {count - 1}. " +
+                    "Use the ProForma reader (Layer 1) directly to keep them all.");
             }
 
             var unrepresentable = DescribeUnrepresentable(term);
