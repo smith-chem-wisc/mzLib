@@ -70,6 +70,69 @@ namespace StatisticalModels
             Individual = individual;
         }
 
+        /// <summary>
+        /// One feature's problem from a nuisance label per observation (e.g. its peptide), coded as the reference fits
+        /// code it, so no caller has to build the nuisance columns. Observations whose response is not finite are dropped
+        /// first: a label seen only in missing values gets no column, where it would be an all-zero column that leaves the
+        /// feature rank deficient. The labels that remain are treatment-coded against the first in ordinal order
+        /// (<see cref="NuisanceLevels"/>[0]), one 0/1 column per other label; a single label gives no nuisance column.
+        /// When no remaining observation has an individual, none is known.
+        /// </summary>
+        /// <param name="response">One value per observation. A non-finite value is missing and dropped.</param>
+        /// <param name="common">[observation, column] in the order of the fit's common names; finite.</param>
+        /// <param name="nuisanceLabel">The nuisance level of each observation (e.g. its peptide); non-empty.</param>
+        /// <param name="sample">The sample of each observation; non-empty.</param>
+        /// <param name="individual">The individual of each observation, or null when none is known.</param>
+        public static NestedMixedModelProblem FromNuisanceLabels(IReadOnlyList<double> response, double[,] common,
+            IReadOnlyList<string> nuisanceLabel, IReadOnlyList<string> sample, IReadOnlyList<string?>? individual)
+        {
+            ArgumentNullException.ThrowIfNull(response);
+            ArgumentNullException.ThrowIfNull(common);
+            ArgumentNullException.ThrowIfNull(nuisanceLabel);
+            ArgumentNullException.ThrowIfNull(sample);
+            int n = response.Count;
+            if (nuisanceLabel.Count != n)
+                throw new ArgumentException($"There are {nuisanceLabel.Count} nuisance labels for {n} responses.", nameof(nuisanceLabel));
+            if (common.GetLength(0) != n)
+                throw new ArgumentException($"The common design has {common.GetLength(0)} rows but there are {n} responses.", nameof(common));
+            if (sample.Count != n)
+                throw new ArgumentException($"There are {sample.Count} sample labels for {n} responses.", nameof(sample));
+            if (individual is not null && individual.Count != n)
+                throw new ArgumentException($"There are {individual.Count} individual labels for {n} responses.", nameof(individual));
+            for (int i = 0; i < n; i++)
+                if (string.IsNullOrEmpty(nuisanceLabel[i]))
+                    throw new ArgumentException($"Observation {i} has no nuisance label.", nameof(nuisanceLabel));
+
+            var kept = Enumerable.Range(0, n).Where(i => double.IsFinite(response[i])).ToArray();
+            var levels = kept.Select(i => nuisanceLabel[i]).Distinct(StringComparer.Ordinal)
+                .OrderBy(l => l, StringComparer.Ordinal).ToArray();
+            var column = levels.Select((l, k) => (l, k)).ToDictionary(t => t.l, t => t.k - 1, StringComparer.Ordinal);
+            int m = kept.Length, p = common.GetLength(1);
+            var y = new double[m];
+            var x = new double[m, p];
+            var nuisance = levels.Length > 1 ? new double[m, levels.Length - 1] : null;
+            var s = new string[m];
+            var ind = individual is null ? null : new string?[m];
+            for (int r = 0; r < m; r++)
+            {
+                int i = kept[r];
+                y[r] = response[i];
+                for (int j = 0; j < p; j++) x[r, j] = common[i, j];
+                int c = column[nuisanceLabel[i]];
+                if (c >= 0) nuisance![r, c] = 1;
+                s[r] = sample[i];
+                if (ind is not null) ind[r] = individual![i];
+            }
+            if (ind is not null && ind.All(string.IsNullOrEmpty)) ind = null;
+            return new NestedMixedModelProblem(y, x, nuisance, s, ind) { NuisanceLevels = levels };
+        }
+
+        /// <summary>
+        /// The nuisance labels <see cref="FromNuisanceLabels"/> coded, the first being the reference, which has no
+        /// column; the k-th nuisance column is label k. Null for a problem built from nuisance columns directly.
+        /// </summary>
+        public IReadOnlyList<string>? NuisanceLevels { get; private init; }
+
         internal IReadOnlyList<double> Response { get; }
         internal double[,] Common { get; }
         internal double[,]? Nuisance { get; }
