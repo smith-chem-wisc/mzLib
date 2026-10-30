@@ -49,21 +49,47 @@ public class ReferenceComparisonLogitNormalTests
 
     private static string[] Groups => ReadTsv("lnmm_groups.tsv").Rows.Select(r => r[0]).ToArray();
 
-    /// <summary>The counts of one fixture ("NaN" = no count), and an all-missing measured matrix of the same shape.</summary>
-    private static (BinomialCount?[,] Counts, double[,] Unmeasured) Counts(string label)
+    /// <summary>
+    /// The fixture features the required run fits. Counted: the τ² = 0 boundary feature; the largest τ², where more than
+    /// half the groups take the panel rule (identity 4 and 5, link 10); and a feature that fails when the u rule is
+    /// centred on the prior instead of the joint mode (identity 4, link 1; of every feature, identity 1 and 4 and link 1
+    /// and 7 fail, so the subset catches that mutation in the same cases). Scatter: the one whose σ² is on its boundary, one with a
+    /// large σ², and one with a large τ² whose groups take the panel rule (12 and 19 are left out as the slowest, at four
+    /// to nine times the median feature). Every feature took about 15 of the
+    /// build job's 30 minutes (Debug, with coverage, on 4 cores), so the every-feature cases are explicit: run them
+    /// locally (dotnet test --filter TestCategory=EveryFeature) before a push that changes the model.
+    /// </summary>
+    private static readonly Dictionary<string, int[]> RequiredFeatures = new()
+    {
+        ["counted_identity"] = new[] { 0, 4, 5 },
+        ["counted_link"] = new[] { 0, 1, 10 },
+        ["scatter"] = new[] { 2, 4, 14 },
+    };
+
+    private const string EveryFeatureCategory = "EveryFeature";
+    private const string EveryFeatureReason = "Every fixture feature, about 15 minutes in CI; run locally before a push that changes the model.";
+
+    /// <summary>
+    /// The counts of one fixture ("NaN" = no count), and an all-missing measured matrix of the same shape: every feature,
+    /// or only <see cref="RequiredFeatures"/>. Features are fitted independently, so fitting a subset changes none of
+    /// their fits. Features[i] is the fixture feature on row i.
+    /// </summary>
+    private static (BinomialCount?[,] Counts, double[,] Unmeasured, int[] Features) Counts(string label, bool everyFeature)
     {
         var k = Matrix($"lnmm_{label}_successes.tsv");
         var n = Matrix($"lnmm_{label}_trials.tsv");
-        int features = k.GetLength(0), samples = k.GetLength(1);
-        var counts = new BinomialCount?[features, samples];
-        var unmeasured = new double[features, samples];
-        for (int f = 0; f < features; f++)
+        int samples = k.GetLength(1);
+        var features = everyFeature ? Enumerable.Range(0, k.GetLength(0)).ToArray() : RequiredFeatures[label];
+        var counts = new BinomialCount?[features.Length, samples];
+        var unmeasured = new double[features.Length, samples];
+        for (int i = 0; i < features.Length; i++)
             for (int s = 0; s < samples; s++)
             {
-                unmeasured[f, s] = double.NaN;
-                if (!double.IsNaN(k[f, s])) counts[f, s] = new BinomialCount((int)k[f, s], (int)n[f, s]);
+                int f = features[i];
+                unmeasured[i, s] = double.NaN;
+                if (!double.IsNaN(k[f, s])) counts[i, s] = new BinomialCount((int)k[f, s], (int)n[f, s]);
             }
-        return (counts, unmeasured);
+        return (counts, unmeasured, features);
     }
 
     /// <summary>One fixture row's columns by name.</summary>
@@ -82,31 +108,31 @@ public class ReferenceComparisonLogitNormalTests
 
     /// <summary>
     /// β in units of R's standard error, standard errors and σ² relatively, τ² on the scale of max(τ², σ²) (or of
-    /// max(τ², 1) when σ² is given), the log-likelihood absolutely.
+    /// max(τ², 1) when σ² is given), the log-likelihood absolutely. <paramref name="f"/> is the fit's row for r's feature.
     /// </summary>
-    private static void AssertFit(LogitNormalMixedModelFit fit, Row r, double beta, double se, double variance, double logLik, bool sigmaEstimated, string what)
+    private static void AssertFit(LogitNormalMixedModelFit fit, int f, Row r, double beta, double se, double variance, double logLik, bool sigmaEstimated, string what)
     {
-        int f = r.Feature;
-        Assert.That(fit.Status[f], Is.EqualTo(FeatureFitStatus.Fitted), $"{what} feature {f}");
+        int feature = r.Feature;
+        Assert.That(fit.Status[f], Is.EqualTo(FeatureFitStatus.Fitted), $"{what} feature {feature}");
         for (int j = 0; j < 3; j++)
         {
             double rse = r[$"se{j}"];
             Assert.That(Math.Abs(fit.Coefficient(f, j) - r[$"b{j}"]), Is.LessThan(beta * rse),
-                $"{what} feature {f} coefficient {j}: {fit.Coefficient(f, j):R} vs {r[$"b{j}"]:R}");
+                $"{what} feature {feature} coefficient {j}: {fit.Coefficient(f, j):R} vs {r[$"b{j}"]:R}");
             Assert.That(Math.Abs(fit.StandardError(f, j) - rse) / rse, Is.LessThan(se),
-                $"{what} feature {f} SE {j}: {fit.StandardError(f, j):R} vs {rse:R}");
+                $"{what} feature {feature} SE {j}: {fit.StandardError(f, j):R} vs {rse:R}");
         }
         double scale = 1;
         if (sigmaEstimated)
         {
             scale = r["sigma2"];
             Assert.That(Math.Abs(fit.ResidualVariance[f] - scale) / scale, Is.LessThan(variance),
-                $"{what} feature {f} sigma2: {fit.ResidualVariance[f]:R} vs {scale:R}");
+                $"{what} feature {feature} sigma2: {fit.ResidualVariance[f]:R} vs {scale:R}");
         }
         Assert.That(Math.Abs(fit.GroupVariance[f] - r["tau2"]), Is.LessThan(variance * Math.Max(scale, r["tau2"])),
-            $"{what} feature {f} tau2: {fit.GroupVariance[f]:R} vs {r["tau2"]:R}");
+            $"{what} feature {feature} tau2: {fit.GroupVariance[f]:R} vs {r["tau2"]:R}");
         Assert.That(Math.Abs(fit.LogLikelihood[f] - r["loglik"]), Is.LessThan(logLik),
-            $"{what} feature {f} logLik: {fit.LogLikelihood[f]:R} vs {r["loglik"]:R}");
+            $"{what} feature {feature} logLik: {fit.LogLikelihood[f]:R} vs {r["loglik"]:R}");
     }
 
     /// <summary>
@@ -122,7 +148,7 @@ public class ReferenceComparisonLogitNormalTests
         var fit = LogitNormalMixedModel.Fit(responses, counts, Design, Groups, DetectionLink.Identity, estimator: estimator);
         var rows = Rows("lnmm_measured_fit.tsv", r => r.Text("method") == method);
         foreach (var r in rows.Where(r => r.Text("status") == "fitted"))
-            AssertFit(fit, r, beta: 1e-5, se: 1e-4, variance: 2e-4, logLik: 1e-5, sigmaEstimated: true, $"{method}");
+            AssertFit(fit, r.Feature, r, beta: 1e-5, se: 1e-4, variance: 2e-4, logLik: 1e-5, sigmaEstimated: true, $"{method}");
         Assert.That(rows.Count(r => r.Text("status") == "fitted"), Is.EqualTo(rows.Count), "every fixture feature is fittable");
     }
 
@@ -140,29 +166,35 @@ public class ReferenceComparisonLogitNormalTests
     /// fixture checked each fit's log-likelihood against integrate().
     /// </item>
     /// </list>
+    /// The required run fits <see cref="RequiredFeatures"/>; the explicit cases fit every feature.
     /// </summary>
-    [TestCase("identity", "ML", VarianceEstimator.MaximumLikelihood)]
-    [TestCase("identity", "REML", VarianceEstimator.Reml)]
-    [TestCase("link", "ML", VarianceEstimator.MaximumLikelihood)]
-    [TestCase("link", "REML", VarianceEstimator.Reml)]
-    public void WithEverySampleCountedItMatchesGlmerQuadrature(string linkName, string method, VarianceEstimator estimator)
+    [TestCase("identity", "ML", VarianceEstimator.MaximumLikelihood, false)]
+    [TestCase("identity", "REML", VarianceEstimator.Reml, false)]
+    [TestCase("link", "ML", VarianceEstimator.MaximumLikelihood, false)]
+    [TestCase("link", "REML", VarianceEstimator.Reml, false)]
+    [TestCase("identity", "ML", VarianceEstimator.MaximumLikelihood, true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    [TestCase("identity", "REML", VarianceEstimator.Reml, true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    [TestCase("link", "ML", VarianceEstimator.MaximumLikelihood, true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    [TestCase("link", "REML", VarianceEstimator.Reml, true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    public void WithEverySampleCountedItMatchesGlmerQuadrature(string linkName, string method, VarianceEstimator estimator, bool everyFeature)
     {
         var l = Rows("lnmm_counted_links.tsv", r => r.Text("name") == linkName).Single();
         var link = new DetectionLink(l["a"], l["b"], l["c"]);
         var depthMatrix = Matrix("lnmm_counted_depth.tsv");
         var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
-        var (counts, unmeasured) = Counts($"counted_{linkName}");
+        var (counts, unmeasured, features) = Counts($"counted_{linkName}", everyFeature);
         var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
         // The estimates only; the likelihood-ratio tests are WithEverySampleCountedTheLikelihoodRatioMatchesGlmer's.
         var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given, estimator: estimator,
             testedCoefficients: Array.Empty<string>());
 
-        var rows = Rows("lnmm_counted_fit.tsv", r => r.Text("link") == linkName && r.Text("method") == method);
+        var rows = Rows("lnmm_counted_fit.tsv", r => r.Text("link") == linkName && r.Text("method") == method && features.Contains(r.Feature));
+        Assert.That(rows.Count, Is.EqualTo(features.Length));
         var exact = rows.Where(r => r.Text("status") == "fitted").ToList();
         bool ml = estimator == VarianceEstimator.MaximumLikelihood;
         foreach (var r in exact)
-            AssertFit(fit, r, beta: ml ? 1e-5 : 2e-3, se: ml ? 5e-5 : 2e-3, variance: ml ? 5e-5 : 2e-3, logLik: ml ? 1e-5 : 5e-5,
-                sigmaEstimated: false, $"{linkName} {method}");
+            AssertFit(fit, Array.IndexOf(features, r.Feature), r, beta: ml ? 1e-5 : 2e-3, se: ml ? 5e-5 : 2e-3, variance: ml ? 5e-5 : 2e-3,
+                logLik: ml ? 1e-5 : 5e-5, sigmaEstimated: false, $"{linkName} {method}");
         Assert.That(exact.Count, Is.GreaterThanOrEqualTo(rows.Count * 9 / 10), "glmer's quadrature is exact for most fixture features");
     }
 
@@ -173,49 +205,53 @@ public class ReferenceComparisonLogitNormalTests
     /// The fixture's standard errors are glmmTMB's at its estimated variances, as ours are, not its vcov(). Under REML,
     /// glmmTMB reports β as the joint mode of (β, u), not as the maximum of the integrated likelihood, so β is compared
     /// under ML only. The REML and ML variances differ far more than the Laplace error, so the test also requires each of
-    /// ours to sit nearer glmmTMB's same-method value than its other-method value.
+    /// ours to sit nearer glmmTMB's same-method value than its other-method value. The required run fits
+    /// <see cref="RequiredFeatures"/>; the explicit case fits every feature.
     /// </summary>
-    [Test]
-    public void WithRunScatterItMatchesGlmmTmbToTheLaplaceError()
+    [TestCase(false)]
+    [TestCase(true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    public void WithRunScatterItMatchesGlmmTmbToTheLaplaceError(bool everyFeature)
     {
-        var (counts, unmeasured) = Counts("scatter");
+        var (counts, unmeasured, features) = Counts("scatter", everyFeature);
         // The estimates only (each likelihood-ratio test is two more fits with σ estimated).
         var none = Array.Empty<string>();
         var reml = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, DetectionLink.Identity, estimator: VarianceEstimator.Reml, testedCoefficients: none);
         var ml = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, DetectionLink.Identity, estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: none);
-        var tmbReml = Rows("lnmm_scatter_fit.tsv", r => r.Text("method") == "REML").ToDictionary(r => r.Feature);
-        var tmbMl = Rows("lnmm_scatter_fit.tsv", r => r.Text("method") == "ML").ToDictionary(r => r.Feature);
+        var tmbReml = Rows("lnmm_scatter_fit.tsv", r => r.Text("method") == "REML" && features.Contains(r.Feature)).ToDictionary(r => r.Feature);
+        var tmbMl = Rows("lnmm_scatter_fit.tsv", r => r.Text("method") == "ML" && features.Contains(r.Feature)).ToDictionary(r => r.Feature);
+        Assert.That(tmbReml.Count, Is.EqualTo(features.Length));
         int compared = 0, discriminating = 0;
-        foreach (int f in tmbReml.Keys.Where(f => tmbReml[f].Text("status") == "fitted" && tmbMl[f].Text("status") == "fitted"))
+        foreach (int feature in tmbReml.Keys.Where(f => tmbReml[f].Text("status") == "fitted" && tmbMl[f].Text("status") == "fitted"))
         {
             compared++;
-            foreach (var (fit, r, method) in new[] { (reml, tmbReml[f], "REML"), (ml, tmbMl[f], "ML") })
+            int f = Array.IndexOf(features, feature);
+            foreach (var (fit, r, method) in new[] { (reml, tmbReml[feature], "REML"), (ml, tmbMl[feature], "ML") })
             {
-                Assert.That(fit.Status[f], Is.EqualTo(FeatureFitStatus.Fitted), $"{method} feature {f}");
+                Assert.That(fit.Status[f], Is.EqualTo(FeatureFitStatus.Fitted), $"{method} feature {feature}");
                 Assert.That(Math.Abs(fit.GroupVariance[f] - r["tau2"]), Is.LessThan(0.03 * r["tau2"] + 0.003),
-                    $"{method} feature {f} tau2: {fit.GroupVariance[f]:R} vs {r["tau2"]:R}");
+                    $"{method} feature {feature} tau2: {fit.GroupVariance[f]:R} vs {r["tau2"]:R}");
                 Assert.That(Math.Abs(fit.ResidualVariance[f] - r["sigma2"]), Is.LessThan(0.1 * r["sigma2"] + 0.005),
-                    $"{method} feature {f} sigma2: {fit.ResidualVariance[f]:R} vs {r["sigma2"]:R}");
+                    $"{method} feature {feature} sigma2: {fit.ResidualVariance[f]:R} vs {r["sigma2"]:R}");
                 Assert.That(Math.Abs(fit.LogLikelihood[f] - r["loglik"]), Is.LessThan(0.25),
-                    $"{method} feature {f} logLik: {fit.LogLikelihood[f]:R} vs {r["loglik"]:R}");
+                    $"{method} feature {feature} logLik: {fit.LogLikelihood[f]:R} vs {r["loglik"]:R}");
                 for (int j = 0; j < 3; j++)
                 {
                     double rse = r[$"se{j}"];
                     Assert.That(Math.Abs(fit.StandardError(f, j) - rse) / rse, Is.LessThan(0.05),
-                        $"{method} feature {f} SE {j}: {fit.StandardError(f, j):R} vs {rse:R}");
+                        $"{method} feature {feature} SE {j}: {fit.StandardError(f, j):R} vs {rse:R}");
                     if (method == "ML")
                         Assert.That(Math.Abs(fit.Coefficient(f, j) - r[$"b{j}"]), Is.LessThan(0.03 * rse),
-                            $"ML feature {f} coefficient {j}: {fit.Coefficient(f, j):R} vs {r[$"b{j}"]:R}");
+                            $"ML feature {feature} coefficient {j}: {fit.Coefficient(f, j):R} vs {r[$"b{j}"]:R}");
                 }
             }
             // A feature discriminates when glmmTMB's REML and ML τ² differ by well over the Laplace band above.
-            double gap = tmbReml[f]["tau2"] - tmbMl[f]["tau2"];
-            if (Math.Abs(gap) <= 0.1 * tmbReml[f]["tau2"] + 0.01) continue;
+            double gap = tmbReml[feature]["tau2"] - tmbMl[feature]["tau2"];
+            if (Math.Abs(gap) <= 0.1 * tmbReml[feature]["tau2"] + 0.01) continue;
             discriminating++;
-            Assert.That(Math.Abs(reml.GroupVariance[f] - tmbReml[f]["tau2"]), Is.LessThan(Math.Abs(reml.GroupVariance[f] - tmbMl[f]["tau2"])),
-                $"feature {f}: our REML tau2 sits nearer glmmTMB's REML than its ML");
-            Assert.That(Math.Abs(ml.GroupVariance[f] - tmbMl[f]["tau2"]), Is.LessThan(Math.Abs(ml.GroupVariance[f] - tmbReml[f]["tau2"])),
-                $"feature {f}: our ML tau2 sits nearer glmmTMB's ML than its REML");
+            Assert.That(Math.Abs(reml.GroupVariance[f] - tmbReml[feature]["tau2"]), Is.LessThan(Math.Abs(reml.GroupVariance[f] - tmbMl[feature]["tau2"])),
+                $"feature {feature}: our REML tau2 sits nearer glmmTMB's REML than its ML");
+            Assert.That(Math.Abs(ml.GroupVariance[f] - tmbMl[feature]["tau2"]), Is.LessThan(Math.Abs(ml.GroupVariance[f] - tmbReml[feature]["tau2"])),
+                $"feature {feature}: our ML tau2 sits nearer glmmTMB's ML than its REML");
         }
         Assert.That(compared, Is.GreaterThanOrEqualTo(tmbReml.Count * 9 / 10), "glmmTMB fitted most fixture features");
         Assert.That(discriminating, Is.GreaterThanOrEqualTo(compared / 2), "REML and ML differ in most fixture features");
@@ -408,32 +444,35 @@ public class ReferenceComparisonLogitNormalTests
     /// The likelihood-ratio statistic against lme4: make_lnmm_fixtures.R's count-only features, glmer at 25-point AGQ with
     /// the trait or the covariate x dropped (lnmm_ridge_glmer_lr.tsv). Only the fits where glmer's quadrature is exact
     /// ("fitted" in lnmm_counted_fit.tsv) are compared; σ² is given tiny here and absent in glmer, which moves ℓ by about
-    /// 1e-6. No coefficient there is unbounded: these are ordinary features.
+    /// 1e-6. No coefficient there is unbounded: these are ordinary features. The required run fits
+    /// <see cref="RequiredFeatures"/>; the explicit cases fit every feature.
     /// </summary>
-    [TestCase("identity")]
-    [TestCase("link")]
-    public void WithEverySampleCountedTheLikelihoodRatioMatchesGlmer(string linkName)
+    [TestCase("identity", false)]
+    [TestCase("link", false)]
+    [TestCase("identity", true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    [TestCase("link", true, Explicit = true, Reason = EveryFeatureReason, Category = EveryFeatureCategory)]
+    public void WithEverySampleCountedTheLikelihoodRatioMatchesGlmer(string linkName, bool everyFeature)
     {
         var l = Rows("lnmm_counted_links.tsv", r => r.Text("name") == linkName).Single();
         var link = new DetectionLink(l["a"], l["b"], l["c"]);
         var depthMatrix = Matrix("lnmm_counted_depth.tsv");
         var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
-        var (counts, unmeasured) = Counts($"counted_{linkName}");
+        var (counts, unmeasured, features) = Counts($"counted_{linkName}", everyFeature);
         var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
         var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given,
             estimator: VarianceEstimator.MaximumLikelihood, coefficientNames: new[] { "intercept", "trait", "x" }, testedCoefficients: new[] { "trait", "x" });
         var exact = Rows("lnmm_counted_fit.tsv", r => r.Text("link") == linkName && r.Text("method") == "ML" && r.Text("status") == "fitted")
-            .Select(r => r.Feature).ToHashSet();
+            .Select(r => r.Feature).Where(features.Contains).ToHashSet();
         int compared = 0;
         foreach (var r in Rows("lnmm_ridge_glmer_lr.tsv", r => r.Text("link") == linkName && exact.Contains(r.Feature)))
         {
-            int j = fit.IndexOf(r.Text("coefficient"));
-            Assert.That(fit.Status[r.Feature], Is.EqualTo(FeatureFitStatus.Fitted), $"feature {r.Feature}");
-            Assert.That(fit.IsUnbounded(r.Feature, j), Is.False);
-            Assert.That(fit.LikelihoodRatio(r.Feature, j), Is.EqualTo(r["lr"]).Within(2e-5),
-                $"feature {r.Feature} {r.Text("coefficient")}: {fit.LikelihoodRatio(r.Feature, j):R} vs {r["lr"]:R}");
+            int f = Array.IndexOf(features, r.Feature), j = fit.IndexOf(r.Text("coefficient"));
+            Assert.That(fit.Status[f], Is.EqualTo(FeatureFitStatus.Fitted), $"feature {r.Feature}");
+            Assert.That(fit.IsUnbounded(f, j), Is.False);
+            Assert.That(fit.LikelihoodRatio(f, j), Is.EqualTo(r["lr"]).Within(2e-5),
+                $"feature {r.Feature} {r.Text("coefficient")}: {fit.LikelihoodRatio(f, j):R} vs {r["lr"]:R}");
             compared++;
         }
-        Assert.That(compared, Is.GreaterThanOrEqualTo(2 * 14));
+        Assert.That(compared, Is.GreaterThanOrEqualTo(2 * (features.Length - (everyFeature ? 2 : 0))), "both coefficients of (nearly) every feature");
     }
 }

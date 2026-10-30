@@ -438,8 +438,10 @@ public class LogitNormalMixedModelTests
     {
         var (y, counts, design, groups) = Simulated(9, features: 4);
         var link = new DetectionLink(0.4, 0.6);
-        var one = LogitNormalMixedModel.Fit(y, counts, design, groups, link, maxThreads: 1, testedCoefficients: new[] { "c1" });
-        var many = LogitNormalMixedModel.Fit(y, counts, design, groups, link, maxThreads: 4, testedCoefficients: new[] { "c1" });
+        // σ² given: a one-dimensional variance search, about a quarter of the time of estimating σ² too; the threads split the features the same way.
+        var given = Enumerable.Repeat(0.25, 4).ToArray();
+        var one = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: given, maxThreads: 1, testedCoefficients: new[] { "c1" });
+        var many = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: given, maxThreads: 4, testedCoefficients: new[] { "c1" });
         for (int f = 0; f < 4; f++)
         {
             Assert.That(many.Coefficient(f, 1), Is.EqualTo(one.Coefficient(f, 1)));
