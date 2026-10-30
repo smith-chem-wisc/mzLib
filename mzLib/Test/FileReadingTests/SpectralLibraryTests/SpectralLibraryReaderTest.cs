@@ -517,6 +517,60 @@ namespace Test.FileReadingTests.SpectralLibraryTests
             Assert.That(found);
         }
 
+        [Test]
+        [TestCase(30.5, "Prosit_2020_intensity_HCD", "Prosit_2019_irt", " RT=30.5 FragmentModel=Prosit_2020_intensity_HCD RTModel=Prosit_2019_irt")]
+        [TestCase(30.5, null, "Chronologer", " RT=30.5 RTModel=Chronologer")]
+        [TestCase(null, "Prosit_2020_intensity_HCD", null, " FragmentModel=Prosit_2020_intensity_HCD")]
+        [TestCase(30.5, "", "", " RT=30.5")]
+        public static void ModelNamesAreWrittenToTheCommentLineAndIgnoredOnReading(double? retentionTime, string fragmentModelName, string retentionTimeModelName, string expectedFields)
+        {
+            var written = PeptideSpectrum(retentionTime);
+            string textWithoutNames = written.ToString();
+            written.FragmentModelName = fragmentModelName;
+            written.RetentionTimeModelName = retentionTimeModelName;
+
+            var (read, found) = WriteAndRead(written);
+
+            Assert.That(written.ToString(), Does.Contain("\nComment: Parent=464.2504" + expectedFields + "\nNum peaks: 3\n"));
+            Assert.That(found);
+            Assert.That(read.ToString(), Is.EqualTo(textWithoutNames));
+            Assert.That(read.FragmentModelName, Is.Null);
+            Assert.That(read.RetentionTimeModelName, Is.Null);
+        }
+
+        [Test]
+        public static void CrosslinkModelNamesAreWrittenToTheCommentLineAndIgnoredOnReading()
+        {
+            var written = CrosslinkSpectrum();
+            string textWithoutNames = written.ToString();
+            written.FragmentModelName = "Prosit_2023_intensity_XL_CMS2";
+            written.RetentionTimeModelName = "Prosit_2019_irt";
+
+            var (read, found) = WriteAndRead(written);
+
+            Assert.That(written.ToString(), Does.Contain(
+                "Comment: Parent=530.9325 RT=-0.5 FragmentModel=Prosit_2023_intensity_XL_CMS2 RTModel=Prosit_2019_irt" + System.Environment.NewLine + "Num alpha peaks: 2"));
+            Assert.That(found);
+            Assert.That(read.ToString(), Is.EqualTo(textWithoutNames));
+
+            written.FragmentModelName = "";
+            written.RetentionTimeModelName = "";
+            Assert.That(written.ToString(), Is.EqualTo(textWithoutNames));
+        }
+
+        [Test]
+        [TestCase("Prosit 2019 iRT")]
+        [TestCase("iRT:2019")]
+        [TestCase("x=RT")]
+        [TestCase("a\nb")]
+        public static void ModelNameThatWouldBeReadAsOtherFieldsIsRejected(string name)
+        {
+            var spectrum = PeptideSpectrum(retentionTime: 30.5);
+
+            Assert.That(() => spectrum.FragmentModelName = name, Throws.ArgumentException);
+            Assert.That(() => spectrum.RetentionTimeModelName = name, Throws.ArgumentException);
+        }
+
         private static LibrarySpectrum PeptideSpectrum(double? retentionTime)
         {
             var peaks = new List<MatchedFragmentIon>
