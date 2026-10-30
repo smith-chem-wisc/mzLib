@@ -334,7 +334,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
 
                     // skip first N-terminal fragment (b1, aDegree1, ...) for CID
-                    if (r == 0 && (dissociationType == DissociationType.CID || dissociationType == DissociationType.LowCID))
+                    if (r == 0 && dissociationType.IsCid())
                     {
                         goto CTerminusFragments;
                     }
