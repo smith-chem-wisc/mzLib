@@ -2090,10 +2090,11 @@ namespace Test.FlashLFQ
             var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
             var protein = res.ProteinGroups.First().Value;
 
-            // intensity should be NaN (protein is not quantifiable)
+            // no peptide links the two samples, so each is quantified from its own peptide: the number of peptides
+            // times its intensity (it used to be NaN in both, so a second peptide took away the first one's value)
             foreach (SpectraFileInfo file in res.SpectraFiles)
             {
-                Assert.That(double.IsNaN(protein.GetIntensity(file)));
+                Assert.That(protein.GetIntensity(file), Is.EqualTo(2000).Within(1e-6));
             }
         }
 
