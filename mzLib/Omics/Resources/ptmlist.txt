@@ -9,7 +9,7 @@
 
 Description: Controlled vocabulary of posttranslational modifications (PTM)
 Name:        ptmlist.txt
-Release:     2026_01 of 28-Jan-2026
+Release:     2026_03 of 02-Sep-2026
 
 ---------------------------------------------------------------------------
 
@@ -1972,6 +1972,20 @@ KW   Bromination.
 DR   ChEBI; CHEBI:183512.
 DR   Unimod; 340.
 //
+ID   3'-chlorotyrosine
+AC   PTM-0775
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   Cl1 H-1
+MM   33.961028
+MA   34.44
+LC   Intracellular localisation or Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   PSI-MOD; MOD:01046.
+DR   Unimod; 936.
+//
 ID   6'-bromotryptophan
 AC   PTM-0051
 FT   MOD_RES
@@ -2730,6 +2744,19 @@ KW   Bromination.
 DR   RESID; AA0173.
 DR   PSI-MOD; MOD:00182.
 DR   Unimod; 340.
+//
+ID   Cholesterol aspartate ester
+AC   PTM-0776
+FT   LIPID
+TG   Aspartate.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C27 H44
+MM   368.344301
+MA   368.65
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:33208 (Metazoa).
+KW   Lipoprotein.
 //
 ID   Cholesterol glycine ester
 AC   PTM-0090
@@ -5511,7 +5538,8 @@ TG   Lysine.
 PA   Amino acid side chain.
 PP   Anywhere.
 TR   Eukaryota; taxId:2759 (Eukaryota).
-DR   ChEBI; CHEBI:145324.
+TR   Bacteria; taxId:2 (Bacteria).
+DR   ChEBI; CHEBI:231527.
 //
 ID   N6-lipoyllysine
 AC   PTM-0383
@@ -9038,8 +9066,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C50 H82 N4 O35
-MM   1299.19
-MA   1298.47596
+MM   1298.47596
+MA   1299.19
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9052,8 +9080,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C56 H92 N4 O40
-MM   1461.33
-MA   1460.52878
+MM   1460.52878
+MA   1461.33
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9066,8 +9094,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C56 H92 N4 O40
-MM   1461.33
-MA   1460.52878
+MM   1460.52878
+MA   1461.33
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9080,8 +9108,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C62 H102 N4 O45
-MM   1623.48
-MA   1622.58161
+MM   1622.58161
+MA   1623.48
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9094,8 +9122,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C73 H119 N5 O53
-MM   1914.73
-MA   1913.67702
+MM   1913.67702
+MA   1914.73
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9108,8 +9136,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C84 H136 N6 O61
-MM   2205.99
-MA   2204.77244
+MM   2204.77244
+MA   2205.99
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9122,8 +9150,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C58 H95 N5 O40
-MM   1502.39
-MA   1501.55533
+MM   1501.55533
+MA   1502.39
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9136,8 +9164,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C64 H105 N5 O45
-MM   1664.53
-MA   1663.60816
+MM   1663.60816
+MA   1664.53
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9150,8 +9178,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C64 H105 N5 O45
-MM   1664.53
-MA   1663.60816
+MM   1663.60816
+MA   1664.53
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9164,8 +9192,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C70 H115 N5 O50
-MM   1826.67
-MA   1825.66098
+MM   1825.66098
+MA   1826.67
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9178,8 +9206,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C75 H122 N6 O53
-MM   1955.78
-MA   1954.70357
+MM   1954.70357
+MA   1955.78
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9192,8 +9220,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C75 H122 N6 O53
-MM   1955.78
-MA   1954.70357
+MM   1954.70357
+MA   1955.78
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9206,8 +9234,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C81 H132 N6 O58
-MM   2117.92
-MA   2116.7564
+MM   2116.7564
+MA   2117.92
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9220,8 +9248,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C81 H132 N6 O58
-MM   2117.92
-MA   2116.7564
+MM   2116.7564
+MA   2117.92
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9234,8 +9262,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C92 H149 N7 O66
-MM   2409.18
-MA   2407.85181
+MM   2407.85181
+MA   2409.18
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9248,8 +9276,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C56 H92 N4 O39
-MM   1445.34
-MA   1444.53387
+MM   1444.53387
+MA   1445.34
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9262,8 +9290,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C62 H102 N4 O44
-MM   1607.48
-MA   1606.58669
+MM   1606.58669
+MA   1607.48
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9276,8 +9304,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C62 H102 N4 O44
-MM   1607.48
-MA   1606.58669
+MM   1606.58669
+MA   1607.48
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9290,8 +9318,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C68 H112 N4 O49
-MM   1769.62
-MA   1768.63952
+MM   1768.63952
+MA   1769.62
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9304,8 +9332,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C79 H129 N5 O57
-MM   2060.87
-MA   2059.73493
+MM   2059.73493
+MA   2060.87
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9318,8 +9346,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C79 H129 N5 O57
-MM   2060.87
-MA   2059.73493
+MM   2059.73493
+MA   2060.87
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9332,8 +9360,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C90 H146 N6 O65
-MM   2352.13
-MA   2350.83035
+MM   2350.83035
+MA   2352.13
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9346,8 +9374,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C64 H105 N5 O44
-MM   1648.53
-MA   1647.61324
+MM   1647.61324
+MA   1648.53
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9360,8 +9388,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C70 H115 N5 O49
-MM   1810.67
-MA   1809.66607
+MM   1809.66607
+MA   1810.67
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9374,8 +9402,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C70 H115 N5 O49
-MM   1810.67
-MA   1809.66607
+MM   1809.66607
+MA   1810.67
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9388,8 +9416,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C76 H125 N5 O54
-MM   1972.81
-MA   1971.71889
+MM   1971.71889
+MA   1972.81
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9402,8 +9430,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C87 H142 N6 O62
-MM   2264.06
-MA   2262.81431
+MM   2262.81431
+MA   2264.06
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9416,8 +9444,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C87 H142 N6 O62
-MM   2264.06
-MA   2262.81431
+MM   2262.81431
+MA   2264.06
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
@@ -9430,8 +9458,8 @@ TG   Asparagine.
 PA   Amino acid side chain.
 PP   Anywhere.
 CF   C98 H159 N7 O70
-MM   2555.32
-MA   2553.90972
+MM   2553.90972
+MA   2555.32
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
