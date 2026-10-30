@@ -187,8 +187,16 @@ namespace Readers.SpectralLibrary
             string lookupString = sequence + "/" + charge.ToString(CultureInfo.InvariantCulture);
             librarySpectrum = null;
 
-            // look up in buffer to see if this library spectrum was read in already
-            if (LibrarySpectrumBuffer.TryGetValue(lookupString, out var spectrum))
+            // look up in buffer to see if this library spectrum was read in already; under the lock every add and
+            // eviction below takes, since a Dictionary read while another thread changes it may throw or misread
+            LibrarySpectrum spectrum;
+            bool buffered;
+            lock (LibrarySpectrumBuffer)
+            {
+                buffered = LibrarySpectrumBuffer.TryGetValue(lookupString, out spectrum);
+            }
+
+            if (buffered)
             {
                 librarySpectrum = spectrum;
 

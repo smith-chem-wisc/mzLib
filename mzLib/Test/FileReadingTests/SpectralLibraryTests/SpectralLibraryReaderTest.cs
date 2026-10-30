@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
@@ -551,6 +553,39 @@ namespace Test.FileReadingTests.SpectralLibraryTests
                 new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 128.0949, 1, 6, 18.0106), 127.0876, 0.25, -1)
             };
             return new CrosslinkLibrarySpectrum("PEPTIDEK(4)ELVISK(2)", 530.9325, -3, alphaPeaks, -0.5, betaPeaks);
+        }
+
+        /// <summary>
+        /// TryGetSpectrum is called from MetaMorpheus's parallel search, and every add to the buffer and every eviction
+        /// from it happens under <c>lock (LibrarySpectrumBuffer)</c>. A lookup that reads the buffer without that lock
+        /// can meet a Dictionary another thread is changing, which may throw or return the wrong entry. So while
+        /// another thread holds the lock, a lookup of a buffered spectrum must wait for it, and then find the spectrum.
+        /// </summary>
+        [Test]
+        public static void ABufferedLookupWaitsForTheBufferLock()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp");
+            var library = new SpectralLibraryClass(new List<string> { path });
+            try
+            {
+                const string sequence = "ALAVDGAGKPGAEE";
+                Assert.That(library.TryGetSpectrum(sequence, 2, out _), "the first lookup reads the file and buffers the spectrum");
+                Assert.That(library.LibrarySpectrumBuffer.ContainsKey(sequence + "/2"));
+
+                Task<bool> lookup;
+                lock (library.LibrarySpectrumBuffer)
+                {
+                    lookup = Task.Run(() => library.TryGetSpectrum(sequence, 2, out _));
+                    Assert.That(lookup.Wait(TimeSpan.FromMilliseconds(500)), Is.False,
+                        "the lookup read the buffer while another thread held its lock");
+                }
+
+                Assert.That(lookup.Wait(TimeSpan.FromSeconds(30)) && lookup.Result, "once the lock is free the lookup finds the spectrum");
+            }
+            finally
+            {
+                library.CloseConnections();
+            }
         }
 
         private static string TemporaryLibraryPath() => Path.Combine(TestContext.CurrentContext.TestDirectory,
