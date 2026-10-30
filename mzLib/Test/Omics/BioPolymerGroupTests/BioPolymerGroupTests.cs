@@ -177,6 +177,51 @@ namespace Test.Omics.BioPolymerGroupTests
             });
         }
 
+        /// <summary>
+        /// The flags are any-member, so they must follow the members a merge adds. Parsimony merges
+        /// indistinguishable groups into whichever was emitted first (alphabetical accession), so a real
+        /// protein and its entrapment partner otherwise came out a target or entrapment group by sort order.
+        /// Critical: these flags drive FDR, contaminant filtering and the Decoy/Contaminant/Target label.
+        /// </summary>
+        [Test]
+        [TestCase(true, false, false, Description = "Decoy")]
+        [TestCase(false, true, false, Description = "Contaminant")]
+        [TestCase(false, false, true, Description = "Entrapment")]
+        public void MergeWith_AFlaggedMemberFlagsTheSurvivingGroup(bool isDecoy, bool isContaminant, bool isEntrapment)
+        {
+            var flagged = new MockBioPolymer("PEPTLDEK", "BP00001", isDecoy, isContaminant, isEntrapment);
+            var otherGroup = new BioPolymerGroup(new HashSet<IBioPolymer> { flagged },
+                new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+
+            _bioPolymerGroup.MergeWith(otherGroup);
+
+            var rebuilt = new BioPolymerGroup(_bioPolymerGroup.BioPolymers,
+                new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            Assert.Multiple(() =>
+            {
+                Assert.That((_bioPolymerGroup.IsDecoy, _bioPolymerGroup.IsContaminant, _bioPolymerGroup.IsEntrapment),
+                    Is.EqualTo((isDecoy, isContaminant, isEntrapment)));
+                Assert.That((_bioPolymerGroup.IsDecoy, _bioPolymerGroup.IsContaminant, _bioPolymerGroup.IsEntrapment),
+                    Is.EqualTo((rebuilt.IsDecoy, rebuilt.IsContaminant, rebuilt.IsEntrapment)),
+                    "A merged group reads the same as one built from its members");
+            });
+        }
+
+        /// <summary>
+        /// Merging an unflagged group into a flagged one keeps the flag: the survivor still holds the member.
+        /// </summary>
+        [Test]
+        public void MergeWith_AnUnflaggedGroupLeavesTheSurvivorsFlags()
+        {
+            var entrapment = new MockBioPolymer("PEPTLDEK", "Random_BP12345_f0", false, false, true);
+            var survivor = new BioPolymerGroup(new HashSet<IBioPolymer> { entrapment, _decoyBioPolymer, _contaminantBioPolymer },
+                new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+
+            survivor.MergeWith(_bioPolymerGroup);
+
+            Assert.That((survivor.IsDecoy, survivor.IsContaminant, survivor.IsEntrapment), Is.EqualTo((true, true, true)));
+        }
+
         #endregion
 
         #region Equality Tests
