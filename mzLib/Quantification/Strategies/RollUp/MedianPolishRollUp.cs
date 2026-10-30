@@ -86,7 +86,9 @@ namespace Quantification.Strategies
         /// <param name="peptideIntensities">One row per peptide, one column per sample, all rows the same length.
         /// Values are un-logged intensities; a value that is not positive means the peptide was not observed.</param>
         /// <returns>One protein intensity per sample: 0 where no peptide was observed, NaN where peptides were
-        /// observed but the protein is unquantifiable in that sample, and the median polish estimate otherwise.</returns>
+        /// observed but the protein is unquantifiable in that sample, and the median polish estimate otherwise. When no
+        /// peptide is seen in more than one sample, each observed sample gets the value its own peptides give as a
+        /// protein seen only in that sample, scaled to the group's number of peptides.</returns>
         public static double[] QuantifyGroup(double[][] peptideIntensities)
         {
             int numPeptides = peptideIntensities.Length;
@@ -129,6 +131,34 @@ namespace Quantification.Strategies
             // if there are any peptides that have only one measurement, mark them as NaN
             // unless we have ONLY peptides with one measurement
             var peptidesWithMoreThanOneMmt = peptideIntensityMatrix.Skip(1).Count(row => row.Skip(1).Count(cell => !double.IsNaN(cell)) > 1);
+
+            // No peptide is seen in two samples, yet two or more samples are observed. Nothing links the samples, so
+            // the fit would set every column effect to 0, and the unquantifiable check below would then report every
+            // observed sample as unquantifiable. A one-peptide protein seen in one sample has a value, so adding a
+            // second peptide in a second sample would take it away. Instead, give each sample the value its own peptides
+            // get as a protein seen only in that sample (the same fit, on that sample's column), scaled to this group's
+            // number of peptides as every sample of a fitted group is. One observed sample takes the usual path below,
+            // which gives it exactly that value already.
+            if (peptidesWithMoreThanOneMmt == 0 && sampleIsObserved.Count(observed => observed) > 1)
+            {
+                for (int s = 0; s < numSamples; s++)
+                {
+                    if (!sampleIsObserved[s])
+                    {
+                        continue;
+                    }
+
+                    var sampleTable = new List<double[]> { new double[2] };
+                    sampleTable.AddRange(peptideIntensityMatrix.Skip(1)
+                        .Where(row => !double.IsNaN(row[s + 1]))
+                        .Select(row => new[] { 0, row[s + 1] }));
+                    double[][] table = sampleTable.ToArray();
+                    MedianPolish(table);
+                    proteinIntensities[s] = Math.Pow(2, table[0][0] + table[0][1]) * numPeptides;
+                }
+                return proteinIntensities;
+            }
+
             if (peptidesWithMoreThanOneMmt > 0)
             {
                 for (int i = 1; i < peptideIntensityMatrix.Length; i++)

@@ -110,6 +110,46 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsFalse(nTermAcetylK.BlocksCleavage, "alpha-amine N-terminal acetylation does not block cleavage");
         }
 
+        /// <summary>
+        /// Lysine acyl amides that the shipped databases carry under names no earlier stem matched, so a
+        /// search with the flag on still produced them at a cleaved C-terminus (reported by ptmQtl in 107
+        /// deposits). Each is an amide on the epsilon-amine, which removes the charge trypsin needs, exactly as
+        /// acetyl does. The spellings are the shipped ones: UniProt's N6- names and Unimod's short names.
+        /// lactoyl is UniProt's spelling of lactylation, which the older "lactyl" stem misses.
+        /// </summary>
+        [Test]
+        [TestCase("N6-methacryllysine")]
+        [TestCase("N6-isonicotinyllysine")]
+        [TestCase("N6-lipoyllysine")]
+        [TestCase("Lipoyl")]
+        [TestCase("N6-decanoyllysine")]
+        [TestCase("N6-myristoyl lysine")]
+        [TestCase("Myristoyl")]
+        [TestCase("N6-palmitoyl lysine")]
+        [TestCase("Palmitoyl")]
+        [TestCase("N6-stearoyl lysine")]
+        [TestCase("N6-lactoyllysine")]
+        public static void ALysineAcylAmideNamedOnlyByItsAcylGroup_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// The fatty acyls are far more common on cysteine (S-palmitoylation) and on a protein N-terminal glycine
+        /// (N-myristoylation) than on lysine. Neither is a trypsin cleavage residue, so the residue gate must keep
+        /// them non-blocking even though the name matches a stem.
+        /// </summary>
+        [Test]
+        [TestCase("Palmitoyl", "C")]
+        [TestCase("Myristoyl", "G")]
+        public static void AFattyAcylOnAResidueTrypsinDoesNotCleaveAfter_DoesNotBlock(string originalId, string residue)
+        {
+            ModificationMotif.TryGetMotif(residue, out ModificationMotif motif);
+            var modification = new Modification(_originalId: originalId, _modificationType: "Test", _target: motif,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 238.22966);
+            Assert.That(modification.BlocksCleavage, Is.False);
+        }
+
         [Test]
         public static void Digestion_PeptidoformEndingInBlockedLysine_IsDroppedWhenRespected()
         {
