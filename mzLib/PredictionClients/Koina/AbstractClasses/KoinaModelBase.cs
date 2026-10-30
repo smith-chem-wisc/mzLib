@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -177,6 +177,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
     /// Handles incompatible modifications according to the specified ModHandlingMode.
     /// </summary>
+    /// <param name="apiSequence">The sequence as sent to Koina, in the model's API notation (for example UNIMOD).</param>
+    /// <returns>
+    /// The cleaned sequence in mzLib notation, exactly as predicted: the input's own modification labels, minus any
+    /// modification the handling mode removed. Null when the sequence is invalid for this model.
+    /// </returns>
     protected virtual string? TryCleanSequence(
         string sequence,
         ISequenceParser? sourceParser,
@@ -225,12 +230,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
         // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
         var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        // Each accepted modification as the mzLib-notation sequence names it: the input's own label when it gave one, so a
+        // peptide predicted from an mzLib sequence keeps that sequence's names; the resolved one otherwise (ProForma).
+        var acceptedAsLabelled = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+            {
                 accepted.Add(resolved);
+                acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+            }
             else
                 incompatible.Add(resolved);
         }
@@ -282,8 +293,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         }
 
         apiSequence = serialized;
+
+        // The same sequence in mzLib notation, so a caller can rebuild the peptide that was predicted. When incompatible
+        // modifications were removed, keep only those the model's serializer accepts on their own: its rule, not a second one.
+        var predicted = cleaned.WithModifications(Enumerable.Range(0, accepted.Count)
+            .Where(k => ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements
+                || SequenceConverter.Serialize(cleaned.WithModifications(new[] { accepted[k] }), new ConversionWarnings(),
+                    SequenceConversionHandlingMode.ReturnNull) != null)
+            .Select(k => acceptedAsLabelled[k]));
+        string? cleanedFullSequence = MzLibSequenceSerializer.Instance.Serialize(predicted, conversionWarnings, SequenceConversionHandlingMode.ThrowException);
+
         warning = BuildWarning(conversionWarnings, null);
-        return apiSequence;
+        return cleanedFullSequence;
     }
 
     private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
