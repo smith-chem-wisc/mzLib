@@ -40,8 +40,10 @@ namespace StatisticalModels
         NotReallyEntrapment,
 
         /// <summary>
-        /// A target peptide that cannot be traced to one target. It stays a target discovery but must never serve as
-        /// a pairing partner. Dropping it from the target count would bias the estimate the other way.
+        /// A target peptide that can never have a pairing partner: one that cannot be traced to one target, or one that
+        /// begins or ends at a truncation-product boundary (signal peptide, chain, propeptide), which no partner carries.
+        /// It stays a target discovery but must never serve as a pairing partner. Dropping it from the target count would
+        /// bias the estimate the other way.
         /// </summary>
         Unpairable,
     }
@@ -171,7 +173,7 @@ namespace StatisticalModels
         public static EntrapmentExclusionKind ClassifyExclusion(string reason) => reason switch
         {
             "unrepairableRunCollision" or "sharedWithTarget" or "initiatorMethionineCollision" => EntrapmentExclusionKind.NotReallyEntrapment,
-            "ambiguous" => EntrapmentExclusionKind.Unpairable,
+            "ambiguous" or "truncationProductPeptide" => EntrapmentExclusionKind.Unpairable,
             _ => throw new ArgumentException(
                 $"Unrecognised entrapment exclusion reason '{reason}'. It must be classified as removing a real target from the " +
                 "entrapment count or as an unpairable target; the two bias the estimate in opposite directions.", nameof(reason)),

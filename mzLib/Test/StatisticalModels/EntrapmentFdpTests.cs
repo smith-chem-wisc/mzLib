@@ -237,9 +237,33 @@ public class EntrapmentFdpTests
     [TestCase("sharedWithTarget", EntrapmentExclusionKind.NotReallyEntrapment)]
     [TestCase("initiatorMethionineCollision", EntrapmentExclusionKind.NotReallyEntrapment)]
     [TestCase("ambiguous", EntrapmentExclusionKind.Unpairable)]
+    [TestCase("truncationProductPeptide", EntrapmentExclusionKind.Unpairable)]
     public void ExclusionReasonsMapToWhatTheyMeanForTheEstimate(string reason, EntrapmentExclusionKind expected)
     {
         Assert.That(EntrapmentFdp.ClassifyExclusion(reason), Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// The contract with the entrapment generator: a reason its report writes that the estimator cannot classify makes
+    /// every sidecar carrying it throw. These are the report's five sections, with the side each is written for
+    /// (UsefulProteomicsDatabases EntrapmentReport, #1271). A target-side reason is a real target that can never pair; an
+    /// entrapment-side one is a target peptide sitting in the entrapment database.
+    /// </summary>
+    [Test]
+    public void EveryReasonTheEntrapmentGeneratorWritesIsClassifiedByItsSide()
+    {
+        var reasons = new (string Reason, bool TargetSide)[]
+        {
+            ("ambiguous", true),
+            ("truncationProductPeptide", true),
+            ("unrepairableRunCollision", false),
+            ("initiatorMethionineCollision", false),
+            ("sharedWithTarget", false),
+        };
+
+        foreach (var (reason, targetSide) in reasons)
+            Assert.That(EntrapmentFdp.ClassifyExclusion(reason),
+                Is.EqualTo(targetSide ? EntrapmentExclusionKind.Unpairable : EntrapmentExclusionKind.NotReallyEntrapment), reason);
     }
 
     /// <summary>
