@@ -38,7 +38,8 @@ namespace Proteomics.ProteolyticDigestion
         internal IEnumerable<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int minPeptideLength, int maxPeptideLength, Protease specificProtease,
             FragmentationTerminus fragmentationTerminus, CleavageSpecificity? searchModeType = null,
-            bool topDownTruncationSearch = false)
+            bool topDownTruncationSearch = false,
+            bool respectCleavageRequirements = false, IEnumerable<Modification> configuredModifications = null)
         {
             bool retainMethionine = initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M';
             bool cleaveMethionine = initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M';
@@ -60,7 +61,8 @@ namespace Proteomics.ProteolyticDigestion
 
                 // Full proteolytic cleavage
                 CleavageSpecificity.Full => FullDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength,
-                    cleaveMethionine, retainMethionine, CleavageSpecificity.Full, "full").Cast<ProteolyticPeptide>(),
+                    cleaveMethionine, retainMethionine, CleavageSpecificity.Full, "full",
+                    respectCleavageRequirements, configuredModifications).Cast<ProteolyticPeptide>(),
 
                 // Cleavage rules for semi-specific search
                 CleavageSpecificity.Semi when fragmentationTerminus is FragmentationTerminus.N or FragmentationTerminus.C

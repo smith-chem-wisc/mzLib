@@ -14,12 +14,47 @@ namespace Omics.Digestion
         public readonly int CutIndex;
         public readonly string ExcludeFromWildcard;
 
-        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard)
+        /// <summary>
+        /// A modification this motif REQUIRES at one subsite before it will sever its bond, or null when
+        /// the motif is satisfied by sequence alone -- which is every motif that ships today. See
+        /// <see cref="CleavageRequirement"/> for why the requirement carries a subsite address rather
+        /// than a flag.
+        /// </summary>
+        /// <remarks>
+        /// Readonly and constructor-set, like the four fields above it: a motif is immutable once built,
+        /// and a requirement that could be changed afterwards would let a digestion agent's rule drift
+        /// out from under a cached digest. The constructor parameter is optional so that the four-argument
+        /// form every existing call site uses -- <see cref="ParseDigestionMotifsFromString"/>,
+        /// ProteaseDictionary, RnaseDictionary and the test fixtures -- keeps compiling unchanged.
+        /// </remarks>
+        public readonly IReadOnlyList<CleavageRequirement> CleavageRequirements;
+
+        /// <summary>True when this motif imposes at least one subsite condition on a modification, as only
+        /// the glycoprotease motifs do; false when it is satisfied by sequence alone.</summary>
+        public bool HasCleavageRequirement => CleavageRequirements.Count > 0;
+
+        private static readonly CleavageRequirement[] NoRequirements = new CleavageRequirement[0];
+
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            CleavageRequirement cleavageRequirement = null)
+            : this(inducingCleavage, preventingCleavage, cutIndex, excludeFromWildcard,
+                cleavageRequirement is null ? null : new[] { cleavageRequirement })
+        {
+        }
+
+        /// <param name="cleavageRequirements">
+        /// Every subsite condition this motif imposes, ALL of which must hold before the bond is severed.
+        /// A motif can need more than one: IMPa requires a glycan at P1' and forbids one at P1, and those
+        /// are two conditions on two different residues, not one rule with a sign.
+        /// </param>
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            IReadOnlyList<CleavageRequirement> cleavageRequirements)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
             this.ExcludeFromWildcard = excludeFromWildcard;
+            this.CleavageRequirements = cleavageRequirements ?? NoRequirements;
         }
 
         // parsing cleavage rules syntax
