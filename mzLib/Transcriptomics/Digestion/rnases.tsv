@@ -93,7 +93,7 @@
 # RNASE DEFINITIONS		
 # ============================================================================		
 Name	Motif	Specificity	CleavageModification	CleavageModificationType	Notes
-RNase T1	G|	full			G, ssRNA
+RNase T1	G|,I|	full			G, ssRNA
 RNase T2	G|,C|,A|,U|	full			ssRNA
 RNase A	C|,U|	full			ssRNA
 top-down		none
