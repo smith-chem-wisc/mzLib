@@ -50,10 +50,18 @@ namespace Omics.Modifications
         /// <summary>
         /// Acyl (and related) groups on the lysine epsilon-amine that remove its positive charge.
         /// </summary>
+        /// <remarks>
+        /// The second row holds amides the shipped databases name by the acyl group alone, which no stem in the
+        /// first row reaches: methacryl, isonicotinyl and lipoyl, and the fatty acyls from decanoyl (C10) to
+        /// stearoyl (C18). "lactoyl" is UniProt's spelling of lactylation. Over both shipped databases they add
+        /// ten K entries, all epsilon-amine amides, and change nothing else. The fatty acyls are commoner on
+        /// cysteine and on an N-terminal glycine, which the residue gate already rejects.
+        /// </remarks>
         private static readonly string[] ChargeNeutralizingAcylStems =
         {
             "acetyl", "succinyl", "malonyl", "glutaryl", "crotonyl", "propionyl", "butyryl",
             "formyl", "carbamyl", "carbamoyl", "hydroxyisobutyryl", "benzoyl", "lactyl", "biotinyl",
+            "methacryl", "isonicotinyl", "lipoyl", "decanoyl", "myristoyl", "palmitoyl", "stearoyl", "lactoyl",
         };
 
         /// <summary>
