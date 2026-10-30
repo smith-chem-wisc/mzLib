@@ -110,20 +110,22 @@ internal sealed class LmmData
     public List<string> CommonNames { get; } = new();
     public List<ContrastWeights> Contrasts { get; } = new();
     public List<IReadOnlyList<double>> ConditionRows { get; } = new();
+    /// <summary>Per problem, the (peptide, sample) of each observation, in the problem's order.</summary>
+    public List<List<(string Peptide, string Sample)>> Keys { get; } = new();
 
-    public static LmmData Read(string scenario)
+    public static LmmData Read(string scenario, string prefix = "lmm")
     {
         var d = new LmmData();
-        var samples = Rows($"lmm_{scenario}_samples.tsv");
-        var header = Lines($"lmm_{scenario}_samples.tsv")[0];
+        var samples = Rows($"{prefix}_{scenario}_samples.tsv");
+        var header = Lines($"{prefix}_{scenario}_samples.tsv")[0];
         d.CommonNames.AddRange(header.SkipWhile(h => h != "intercept"));
         int p = d.CommonNames.Count;
         var sampleIds = samples.Select(s => s["sample"]).ToList();
-        foreach (var c in Rows($"lmm_{scenario}_contrasts.tsv"))
+        foreach (var c in Rows($"{prefix}_{scenario}_contrasts.tsv"))
             d.Contrasts.Add(new ContrastWeights(c["contrast"], d.CommonNames.Select(n => Parse(c[n])).ToArray()));
         for (int r = 1; r < p; r++) d.ConditionRows.Add(Enumerable.Range(0, p).Select(j => j == r ? 1.0 : 0.0).ToArray());
 
-        foreach (var protein in Rows($"lmm_{scenario}_values.tsv").GroupBy(v => v["protein"]))
+        foreach (var protein in Rows($"{prefix}_{scenario}_values.tsv").GroupBy(v => v["protein"]))
         {
             var observed = protein.Where(v => !double.IsNaN(Parse(v["y"]))).ToList();
             var peptides = observed.Select(v => v["peptide"]).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
@@ -145,6 +147,7 @@ internal sealed class LmmData
                 individual[i] = s["individual"] is "NA" or "" ? null : s["individual"];
             }
             d.Proteins.Add(protein.Key);
+            d.Keys.Add(observed.Select(v => (v["peptide"], v["sample"])).ToList());
             d.Problems.Add(new NestedMixedModelProblem(y, common, peptides.Count > 1 ? nuisance : null, sample,
                 individual.All(x => x is null) ? null : individual));
         }

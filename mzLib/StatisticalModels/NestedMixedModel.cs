@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using MathNet.Numerics.Optimization;
+using MathNet.Numerics.Statistics;
 
 namespace StatisticalModels
 {
@@ -107,7 +108,26 @@ namespace StatisticalModels
             StructureValues = new RandomStructure?[features];
             Jacobians = new double[features][];
             VarParCovariances = new double[features][];
+            WeightValues = new double[features][];
+            RobustIterationsValues = new int[features];
+            RobustConvergedValues = new bool?[features];
         }
+
+        internal double[]?[] WeightValues { get; }
+        internal int[] RobustIterationsValues { get; }
+        internal bool?[] RobustConvergedValues { get; }
+
+        /// <summary>
+        /// The weight each observation of <paramref name="feature"/> carried in the final fit, in the problem's order: 1 when
+        /// the fit was not robust, the Huber weight when it was, NaN for a missing response. For a robust fit whose
+        /// reweighting did not finish (<see cref="FeatureFitStatus.NotConverged"/>), the weights of its last round. Null
+        /// when the feature was not fitted far enough to have weights.
+        /// </summary>
+        public IReadOnlyList<double>? Weights(int feature) => WeightValues[feature];
+        /// <summary>Reweighting rounds per feature; 0 when the fit was not robust.</summary>
+        public IReadOnlyList<int> RobustIterations => RobustIterationsValues;
+        /// <summary>Whether reweighting converged within its round limit; null when the fit was not robust.</summary>
+        public IReadOnlyList<bool?> RobustConverged => RobustConvergedValues;
 
         internal double[] CoefficientValues { get; }
         internal double[] UnscaledValues { get; }
@@ -274,8 +294,11 @@ namespace StatisticalModels
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
     /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
-    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Output does not depend on the
-    /// thread count.
+    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). A robust fit is also
+    /// <see cref="FeatureFitStatus.NotConverged"/> when reweighting does not converge within its round limit, when a
+    /// reweighted refit fails, or when the residuals' MAD is zero (more than half of them exactly 0), so that no Huber
+    /// weight can be formed; such a feature keeps its robust diagnostics and is left out of moderation. Output does not
+    /// depend on the thread count.
     /// </para>
     /// </remarks>
     public static class NestedMixedModel
@@ -284,8 +307,20 @@ namespace StatisticalModels
         /// <param name="problems">One per feature.</param>
         /// <param name="commonNames">One name per common design column; every problem has these columns.</param>
         /// <param name="maxThreads">As <see cref="LinearModel.Fit"/>: -1 uses all cores but one. Results are identical for every value.</param>
+        /// <param name="robust">
+        /// Down-weight outlying observations (QuantProject GR-22): msqrob2 1.20.0's reweighting — Huber weights
+        /// min(1, 1.345 / |r / MAD₀(r)|) on the response residuals r, MAD about zero — refitted until the penalised residual
+        /// sum of squares changes by at most 1e-6 relative (msqrob2 stops after one round by default), then REML,
+        /// Satterthwaite and moderation on the weighted model. Off by default here; QuantProject's differential framework
+        /// turns it on (GR-8). A feature whose reweighting cannot finish is <see cref="FeatureFitStatus.NotConverged"/>.
+        /// </param>
         public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
-            int maxThreads = -1)
+            int maxThreads = -1, bool robust = false) =>
+            Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations);
+
+        /// <summary>As the public overload, with the reweighting round limit set (tests reach the limit with it).</summary>
+        internal static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
+            int maxThreads, bool robust, int maxRobustIterations)
         {
             ArgumentNullException.ThrowIfNull(problems);
             ArgumentNullException.ThrowIfNull(commonNames);
@@ -303,7 +338,7 @@ namespace StatisticalModels
             Parallel.ForEach(Partitioner.Create(0, Math.Max(problems.Count, 1)), options, range =>
             {
                 for (int f = range.Item1; f < Math.Min(range.Item2, problems.Count); f++)
-                    new FeatureModel(problems[f], commonNames.Count).Fit(f, fit);
+                    new FeatureModel(problems[f], commonNames.Count, robust, maxRobustIterations).Fit(f, fit);
             });
             return fit;
         }
@@ -370,21 +405,54 @@ namespace StatisticalModels
             });
         }
 
+        /// <summary>
+        /// Huber weights min(1, k / |r / MAD₀(r)|) into <paramref name="weights"/>, MAD₀ = 1.4826 · median |r| (R's
+        /// <c>mad(r, 0)</c>). False, leaving the weights as they were, when MAD₀ is zero or not finite: with more than
+        /// half the residuals exactly 0 no observation can be scaled (msqrob2 would divide by zero).
+        /// </summary>
+        internal static bool HuberWeights(IReadOnlyList<double> residual, double[] weights)
+        {
+            double mad = 1.4826 * residual.Select(Math.Abs).Median();
+            if (!(mad > 0 && double.IsFinite(mad))) return false;
+            for (int i = 0; i < residual.Count; i++)
+            {
+                double scaled = Math.Abs(residual[i] / mad);
+                weights[i] = scaled > FeatureModel.HuberK ? FeatureModel.HuberK / scaled : 1;
+            }
+            return true;
+        }
+
         /// <summary>One feature's fit: data reduced to cross-products, the REML criterion, its optimum and derivatives.</summary>
         private sealed class FeatureModel
         {
+            /// <summary>Huber's tuning constant, as <c>MASS::psi.huber</c> (msqrob2's weight function).</summary>
+            internal const double HuberK = 1.345;
+            /// <summary>msqrob2's default <c>tol</c>: the relative change in the penalised residual sum of squares that stops reweighting.</summary>
+            private const double RobustTolerance = 1e-6;
+            /// <summary>
+            /// The most reweighting rounds. msqrob2 defaults to 1; GR-22 iterates to convergence, which took 7-47 rounds on
+            /// the reference data (47 for one sample_only protein), so the limit is about twice the most seen.
+            /// </summary>
+            internal const int MaxRobustIterations = 100;
+
             private readonly NestedMixedModelProblem _problem;
             private readonly int _common;
+            private readonly bool _robust;
+            private readonly int _maxRobustIterations;
             private int _m, _p, _q;
             private int[] _termOfColumn = Array.Empty<int>();
             private Matrix<double> _ztz = null!, _ztx = null!, _xtx = null!, _x = null!;
             private Vector<double> _zty = null!, _xty = null!, _y = null!;
             private List<int[]> _columns = new();
+            private double[] _w = Array.Empty<double>();
+            private double _sumLogW;
 
-            public FeatureModel(NestedMixedModelProblem problem, int common)
+            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust, int maxRobustIterations)
             {
                 _problem = problem;
                 _common = common;
+                _robust = robust;
+                _maxRobustIterations = maxRobustIterations;
             }
 
             public void Fit(int f, NestedMixedModelFit fit)
@@ -437,27 +505,48 @@ namespace StatisticalModels
                 }
                 _q = q;
                 _termOfColumn = termOfColumn.ToArray();
-                _ztz = Matrix<double>.Build.Dense(q, q);
-                _ztx = Matrix<double>.Build.Dense(q, _p);
-                _zty = Vector<double>.Build.Dense(q);
-                for (int i = 0; i < _m; i++)
-                    foreach (var a in columns)
-                    {
-                        int ca = a[i];
-                        _zty[ca] += y[i];
-                        for (int j = 0; j < _p; j++) _ztx[ca, j] += x[i, j];
-                        foreach (var b in columns) _ztz[ca, b[i]] += 1;
-                    }
-                _xtx = x.TransposeThisAndMultiply(x);
-                _xty = x.TransposeThisAndMultiply(y);
                 _x = x;
                 _y = y;
                 _columns = columns;
+                _w = Enumerable.Repeat(1.0, _m).ToArray();
+                BuildCrossProducts();
 
                 var theta = Minimise(terms.Count);
                 if (theta is null) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                 var best = Evaluate(theta);
                 if (!best.Ok) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
+
+                if (_robust)
+                {
+                    // msqrob2 1.20.0's .robust_fitting, iterated to convergence (QuantProject GR-22): Huber weights from the
+                    // response residuals scaled by their MAD about zero, refit, until the penalised residual sum of squares
+                    // changes by at most RobustTolerance relative.
+                    // A feature whose reweighting cannot finish (round limit, failed refit, zero MAD) is NotConverged and
+                    // never reaches moderation, but keeps its rounds and last weights so it can be told from a plain fit.
+                    double sseOld = best.R2;
+                    int iteration = 0;
+                    bool converged = false;
+                    while (iteration < _maxRobustIterations)
+                    {
+                        iteration++;
+                        if (!HuberWeights(Residuals(best), _w)) break;
+                        BuildCrossProducts();
+                        var next = Minimise(terms.Count);
+                        if (next is null) break;
+                        var result = Evaluate(next);
+                        if (!result.Ok) break;
+                        theta = next;
+                        best = result;
+                        if (Math.Abs(sseOld - best.R2) / sseOld <= RobustTolerance) { converged = true; break; }
+                        sseOld = best.R2;
+                    }
+                    fit.RobustIterationsValues[f] = iteration;
+                    fit.RobustConvergedValues[f] = converged;
+                }
+                var weights = Enumerable.Repeat(double.NaN, _problem.Response.Count).ToArray();
+                for (int i = 0; i < _m; i++) weights[rows[i]] = _w[i];
+                fit.WeightValues[f] = weights;
+                if (_robust && fit.RobustConvergedValues[f] != true) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                 double sigma2 = best.R2 / (_m - _p);
                 int p = _common;
                 for (int i = 0; i < p; i++)
@@ -506,7 +595,41 @@ namespace StatisticalModels
             }
 
             private readonly record struct Result(bool Ok, double Criterion, double LogDetL, double LogDetRx, double R2,
-                Vector<double>? Beta, Matrix<double>? AInverse);
+                Vector<double>? Beta, Matrix<double>? AInverse, Vector<double>? LambdaU);
+
+            /// <summary>Weighted cross-products: Z′WZ, Z′WX, Z′Wy, X′WX, X′Wy, with W = diag(<see cref="_w"/>).</summary>
+            private void BuildCrossProducts()
+            {
+                _ztz = Matrix<double>.Build.Dense(_q, _q);
+                _ztx = Matrix<double>.Build.Dense(_q, _p);
+                _zty = Vector<double>.Build.Dense(_q);
+                for (int i = 0; i < _m; i++)
+                    foreach (var a in _columns)
+                    {
+                        int ca = a[i];
+                        _zty[ca] += _w[i] * _y[i];
+                        for (int j = 0; j < _p; j++) _ztx[ca, j] += _w[i] * _x[i, j];
+                        foreach (var b in _columns) _ztz[ca, b[i]] += _w[i];
+                    }
+                var wx = Matrix<double>.Build.Dense(_m, _p, (i, j) => _w[i] * _x[i, j]);
+                _xtx = wx.TransposeThisAndMultiply(_x);
+                _xty = wx.TransposeThisAndMultiply(_y);
+                _sumLogW = _w.Sum(Math.Log);
+            }
+
+            /// <summary>Response residuals y − Xβ − ZΛu, unweighted (lme4's <c>resid</c>, which msqrob2 reweights on).</summary>
+            private double[] Residuals(Result r)
+            {
+                var e = _y - _x * r.Beta!;
+                var residual = new double[_m];
+                for (int i = 0; i < _m; i++)
+                {
+                    double ri = e[i];
+                    foreach (var c in _columns) ri -= r.LambdaU![c[i]];
+                    residual[i] = ri;
+                }
+                return residual;
+            }
 
             private Result Evaluate(double[] theta)
             {
@@ -524,11 +647,11 @@ namespace StatisticalModels
                     var cholA = a.Cholesky();
                     var beta = cholA.Solve(b);
                     // The penalised residual sum of squares from the residuals themselves, as lme4 computes it:
-                    // r² = |y − Xβ − ZΛu|² + |u|², u = (ΛZ′ZΛ + I)⁻¹ΛZ′(y − Xβ). Subtracting cross-products instead loses
-                    // ~1e-10 of the criterion to cancellation (log2 intensities near 22), enough to move the optimum.
+                    // r² = Σ wᵢ(y − Xβ − ZΛu)ᵢ² + |u|², u = (ΛZ′WZΛ + I)⁻¹ΛZ′W(y − Xβ). Subtracting cross-products instead
+                    // loses ~1e-10 of the criterion to cancellation (log2 intensities near 22), enough to move the optimum.
                     var e = _y - _x * beta;
                     var lzte = Vector<double>.Build.Dense(_q);
-                    for (int i = 0; i < _m; i++) foreach (var c in _columns) lzte[c[i]] += e[i];
+                    for (int i = 0; i < _m; i++) foreach (var c in _columns) lzte[c[i]] += _w[i] * e[i];
                     lzte = lzte.PointwiseMultiply(lambda);
                     var u = chol.Solve(lzte);
                     var lu = u.PointwiseMultiply(lambda);
@@ -537,14 +660,16 @@ namespace StatisticalModels
                     {
                         double ri = e[i];
                         foreach (var c in _columns) ri -= lu[c[i]];
-                        r2 += ri * ri;
+                        r2 += _w[i] * ri * ri;
                     }
                     if (!(r2 > 0)) return default;
                     int dfr = _m - _p;
-                    double criterion = chol.DeterminantLn + cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr));
+                    // lme4's REMLcrit subtracts Σ log wᵢ (0 without weights); it moves no optimum and no derivative.
+                    double criterion = chol.DeterminantLn + cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr))
+                        - _sumLogW;
                     if (!double.IsFinite(criterion)) return default;
                     return new Result(true, criterion, chol.DeterminantLn, cholA.DeterminantLn, r2, beta,
-                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)));
+                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)), lu);
                 }
                 catch (Exception e) when (e is ArgumentException or InvalidOperationException)
                 {
