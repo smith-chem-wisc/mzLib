@@ -67,8 +67,20 @@ namespace Readers
 
         public required string Condition { get; init; }
 
-        /// <summary>1-based and passed through as written: isobaric numbers are never renumbered (N3).</summary>
+        /// <summary>
+        /// 1-based and passed through as written: isobaric numbers are never renumbered (N3). Only a reference
+        /// channel whose SDRF gives no number (<c>pooled</c>) is numbered, and the <see cref="SdrfIsobaricDesign.Notes"/>
+        /// say so.
+        /// </summary>
         public required int BiologicalReplicate { get; init; }
+
+        /// <summary>
+        /// True for a pooled reference channel (GR-20): kept and carried, and never a sample in a comparison. The SDRF
+        /// marks one in any of four ways: <c>characteristics[sample type]</c> <c>reference</c> or <c>pooled</c>,
+        /// <c>comment[reference channel]</c> naming the channel, <c>characteristics[pooled sample]</c> other than
+        /// <c>not pooled</c>, or a biological replicate of <c>pooled</c>. A role is never inferred from a name.
+        /// </summary>
+        public bool IsReference { get; init; }
     }
 
     /// <summary>One file of an isobaric design and the channels its plex annotates.</summary>
@@ -104,8 +116,16 @@ namespace Readers
     /// the kit only from <see cref="SdrfIsobaricDesignOptions.Tag"/>. A channel a drafted SDRF could
     /// not name (<c>source name</c> unknown, or <c>comment[biological replicate source]</c> =
     /// <c>default</c>) is refused by name rather than read (QP-S23). Biological replicates are passed
-    /// through, not ranked or shifted (N3). Sample type is not read until mzLib has the concept
-    /// (MAP-08): every annotated channel is a study sample.</para>
+    /// through, not ranked or shifted (N3).</para>
+    ///
+    /// <para><b>Pooled reference channels</b> (GR-20, sdrf QP-S28 and QP-S31) are never refused. A channel the SDRF marks
+    /// as one, in any of the four ways <see cref="SdrfIsobaricChannel.IsReference"/> lists, is kept and carried as a
+    /// reference channel (<see cref="IsobaricQuantSampleInfo.IsReferenceChannel"/>, and <c>Sample Type</c> in
+    /// <c>TmtDesign.txt</c>), so statistics leave it out of every comparison. Any one signal is enough; one that
+    /// disagrees is reported, and the channel is still a reference. Its biological replicate, when the SDRF gives none,
+    /// is numbered here. Every other sample type (carrier, empty, single cell, ...) is read as a study sample, as
+    /// before. When every channel of the whole design is marked (judged over the design, never per plex), the mark says how
+    /// the samples were made, so all are study samples, and a note says so (ruled 2026-10-26).</para>
     ///
     /// <para><b>A plex is one channel-to-sample map.</b> As in MetaMorpheus, channels are collected per
     /// plex and every file of the plex carries all of them, so fractions share their samples.</para>
@@ -117,11 +137,18 @@ namespace Readers
         /// <summary>The value a drafter writes when it assigned a biological replicate nobody stated (QP-S23).</summary>
         public const string DefaultReplicateSource = "default";
 
+        /// <summary>The column naming a plex's reference channel(s); one of the four pooled-reference signals (GR-20).</summary>
+        public const string ReferenceChannelColumn = "comment[reference channel]";
+
         /// <summary>
         /// The header written by <see cref="WriteTmtDesign"/>: MetaMorpheus's <c>TmtDesign.txt</c> without
-        /// the optional <c>Sample Type</c> column, which MetaMorpheus reads as study sample when absent.
+        /// the optional <c>Sample Type</c> column, which MetaMorpheus reads as study sample when absent. The column is
+        /// added, as <see cref="TmtDesignSampleTypeColumn"/>, only when a reference channel is marked.
         /// </summary>
         public const string TmtDesignHeader = "File\tPlex\tSample Name\tTMT Channel\tCondition\tBiological Replicate\tFraction\tTechnical Replicate";
+
+        /// <summary>MetaMorpheus's optional <c>TmtDesign.txt</c> column, read since MetaMorpheus 1.1.10.</summary>
+        public const string TmtDesignSampleTypeColumn = "Sample Type";
 
         private readonly List<SdrfIsobaricFile> _files;
 
@@ -201,7 +228,7 @@ namespace Readers
                         plexId: plexIds[file.Plex],
                         channelLabel: label,
                         reporterIonMz: Tag.ReporterIonMzs[i],
-                        isReferenceChannel: false)
+                        isReferenceChannel: channel?.IsReference ?? false)
                     {
                         SampleName = channel?.SampleName,
                     });
@@ -213,15 +240,21 @@ namespace Readers
 
         /// <summary>
         /// Writes MetaMorpheus's <c>TmtDesign.txt</c>: one row per file and annotated channel, 1-based,
-        /// channels in reporter m/z order (MAP-29). Throws when the design was refused, so a refusal
-        /// can never leave a file behind for MetaMorpheus to find.
+        /// channels in reporter m/z order (MAP-29). When a reference channel is marked, MetaMorpheus's
+        /// <c>Sample Type</c> column is added (<c>reference</c> or <c>study sample</c>); otherwise the file is written
+        /// without it, exactly as before. Throws when the design was refused, so a refusal can never leave a file
+        /// behind for MetaMorpheus to find.
         /// </summary>
         public void WriteTmtDesign(string path)
         {
             ThrowIfRefused();
 
+            bool withSampleType = _files.Any(f => f.Channels.Any(c => c.IsReference));
             var text = new StringBuilder();
-            text.Append(TmtDesignHeader).Append('\n');
+            text.Append(TmtDesignHeader);
+            if (withSampleType)
+                text.Append('\t').Append(TmtDesignSampleTypeColumn);
+            text.Append('\n');
             foreach (var file in _files)
             {
                 foreach (var channel in file.Channels)
@@ -233,7 +266,10 @@ namespace Readers
                         .Append(channel.Condition).Append('\t')
                         .Append(channel.BiologicalReplicate.ToString(CultureInfo.InvariantCulture)).Append('\t')
                         .Append(file.Fraction.ToString(CultureInfo.InvariantCulture)).Append('\t')
-                        .Append(file.TechnicalReplicate.ToString(CultureInfo.InvariantCulture)).Append('\n');
+                        .Append(file.TechnicalReplicate.ToString(CultureInfo.InvariantCulture));
+                    if (withSampleType)
+                        text.Append('\t').Append(channel.IsReference ? "reference" : "study sample");
+                    text.Append('\n');
                 }
             }
 
@@ -250,7 +286,21 @@ namespace Readers
             report.AppendLine($"Files keyed on: {FileKeyColumn ?? "(none)"}");
             report.AppendLine($"Plex from: {PlexSource}");
             report.AppendLine($"Condition from: {(ConditionColumns.Count == 0 ? "(none)" : string.Join(" + ", ConditionColumns))}");
-            report.AppendLine("Sample type: not read (MAP-08); every annotated channel is a study sample.");
+            if (IsValid)
+            {
+                var plexIds = PlexIds;
+                var references = _files
+                    .GroupBy(f => f.Plex, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(p => plexIds[p.Key])
+                    .Select(p => (Plex: p.Key, Labels: p.First().Channels.Where(c => c.IsReference).Select(c => c.Label).ToList()))
+                    .Where(p => p.Labels.Count > 0)
+                    .ToList();
+                report.AppendLine(references.Count == 0
+                    ? "Reference channels: none marked; every annotated channel is a study sample."
+                    : $"Reference channels: {references.Sum(p => p.Labels.Count)} (" +
+                      string.Join("; ", references.Select(p => $"plex '{p.Plex}': {string.Join(", ", p.Labels)}")) +
+                      "), kept and carried, and left out of every comparison.");
+            }
             foreach (var note in Notes)
                 report.AppendLine("  note: " + note);
             foreach (var refusal in Refusals)
@@ -315,6 +365,15 @@ namespace Readers
             var parsed = new List<ParsedRow>();
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             var dropped = new List<(int Line, string FileName)>();
+
+            // GR-20: a mark on every channel of the whole design (never judged per plex) says how the samples were made.
+            bool everySampleMarked = SdrfDesignRules.EverySampleIsMarked(rows
+                .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
+                .Select(r => (IReadOnlyList<string>)SdrfDesignRules.ReadReferenceSignals(r, ChannelNamer(r, tag!)).Reference)
+                .ToList(), out string? everySampleNote);
+            if (everySampleNote != null)
+                notes.Add(everySampleNote);
+
             for (int i = 0; i < rows.Count; i++)
             {
                 int line = i + 2;
@@ -326,12 +385,16 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, fileName, keyColumn!, tag!, plexReader!, conditionColumns, conditionDeclared, refusals);
+                var row = ParseRow(rows[i], line, fileName, keyColumn!, tag!, plexReader!, conditionColumns, conditionDeclared,
+                    everySampleMarked, refusals);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
                     unreadFiles.Add(fileName);
             }
+
+            NumberPooledReferences(parsed, tag!, notes);
+            NoteDisagreeingReferenceSignals(parsed, notes);
 
             SdrfDesignRules.RefuseConditionCollisions(parsed.Select(r => (r.Condition, r.FactorValues)), refusals);
             RefuseInconsistentFiles(parsed, refusals);
@@ -385,13 +448,24 @@ namespace Readers
             public required string SampleName { get; init; }
             public required string Condition { get; init; }
             public required IReadOnlyList<string> FactorValues { get; init; }
-            public required int BiologicalReplicate { get; init; }
+            /// <summary>The SDRF's number, or null for a reference channel that gives none (<c>pooled</c>).</summary>
+            public required int? GivenBiologicalReplicate { get; init; }
+            /// <summary>The biological replicate cell as written, for the note that reports an added number.</summary>
+            public required string BiologicalReplicateText { get; init; }
+            /// <summary>The given number, or the one <see cref="NumberPooledReferences"/> adds.</summary>
+            public int BiologicalReplicate { get; set; }
             public required int Fraction { get; init; }
             public required int TechnicalReplicate { get; init; }
+            /// <summary>The reference signals this row carries (GR-20); any one makes the channel a reference.</summary>
+            public required IReadOnlyList<string> ReferenceSignals { get; init; }
+            /// <summary>What this row says that reads as a study sample, reported when a reference signal is also present.</summary>
+            public required IReadOnlyList<string> StudySampleSignals { get; init; }
+            public bool IsReference => ReferenceSignals.Count > 0;
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string fileName, string keyColumn, IsobaricMassTag tag,
-            PlexReader plexReader, List<string> conditionColumns, bool conditionDeclared, List<string> refusals)
+            PlexReader plexReader, List<string> conditionColumns, bool conditionDeclared, bool everySampleMarked,
+            List<string> refusals)
         {
             int before = refusals.Count;
             string where = $"Line {line}{SdrfDesignRules.Describe(fileName)}";
@@ -415,10 +489,22 @@ namespace Readers
                 refusals.Add($"{where}: channel {label ?? "?"} ('{sampleName}') has '{BiologicalReplicateSourceColumn}' '{replicateSource}', " +
                              "so its biological replicate was filled in rather than stated. State it, or remove the row.");
 
-            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals);
+            // GR-20: a reference channel is never refused for giving no number (`pooled`, or an unknown word), nor
+            // for an unknown condition; a number is added later, per plex and sample. A study sample's are required as before.
+            // When every channel of the design is marked, no channel is a reference (SdrfDesignRules.EverySampleIsMarked).
+            var (referenceSignals, studySampleSignals) = everySampleMarked
+                ? (new List<string>(), new List<string>())
+                : SdrfDesignRules.ReadReferenceSignals(row, label == null ? null : cell => NamesChannel(cell, label, tag));
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
+                isReference: referenceSignals.Count > 0);
             string? plex = plexReader.Read(row, fileName, where, refusals);
 
-            int biorep = SdrfDesignRules.ReadPositiveInteger(row, SdrfLabelFreeDesign.BiologicalReplicateColumn, line, fileName, required: true, refusals);
+            string biorepText = (row[SdrfLabelFreeDesign.BiologicalReplicateColumn] ?? string.Empty).Trim();
+            bool givesNoNumber = SdrfDesignRules.IsPooledWord(biorepText)
+                                 || biorepText.Length == 0 || SdrfDesignRules.IsUnknownWord(biorepText);
+            int? biorep = referenceSignals.Count > 0 && givesNoNumber
+                ? null
+                : SdrfDesignRules.ReadPositiveInteger(row, SdrfLabelFreeDesign.BiologicalReplicateColumn, line, fileName, required: true, refusals);
             int fraction = SdrfDesignRules.ReadPositiveInteger(row, SdrfLabelFreeDesign.FractionColumn, line, fileName, required: false, refusals);
             int techrep = SdrfDesignRules.ReadPositiveInteger(row, SdrfLabelFreeDesign.TechnicalReplicateColumn, line, fileName, required: false, refusals);
 
@@ -434,10 +520,79 @@ namespace Readers
                 SampleName = sampleName,
                 Condition = SdrfDesignRules.JoinCondition(factorValues),
                 FactorValues = factorValues,
-                BiologicalReplicate = biorep,
+                GivenBiologicalReplicate = biorep,
+                BiologicalReplicateText = biorepText,
+                BiologicalReplicate = biorep ?? 0,
                 Fraction = fraction,
                 TechnicalReplicate = techrep,
+                ReferenceSignals = referenceSignals,
+                StudySampleSignals = studySampleSignals,
             };
+        }
+
+        // The reference-channel test for a row whose label names a channel of the kit; null when it names none (that row is
+        // refused when it is parsed).
+        private static Func<string, bool>? ChannelNamer(SdrfRow row, IsobaricMassTag tag)
+        {
+            string cell = (row[SdrfLabelFreeDesign.LabelColumn] ?? string.Empty).Trim();
+            return SdrfIsobaricLabels.TryGetChannel(tag.TagType, cell, out string? channel) && channel != null
+                ? referenceCell => NamesChannel(referenceCell, channel, tag)
+                : null;
+        }
+
+        // A reference-channel cell names one channel, or several separated by commas, in any of the label forms the
+        // label column takes (TMT127N, 127N, PRIDE's TMT10 TMT131).
+        private static bool NamesChannel(string cell, string channel, IsobaricMassTag tag) =>
+            new[] { cell }.Concat(cell.Split(',')).Any(item =>
+                SdrfIsobaricLabels.TryGetChannel(tag.TagType, item.Trim(), out string? named)
+                && string.Equals(named, channel, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Numbers each reference channel whose SDRF gives no biological replicate. MetaMorpheus's TmtDesign.txt needs a
+        /// number of 1 or more, and two channels of one sample in a plex need different ones. So, per plex and sample, in
+        /// reporter m/z order, after the highest number that sample is given in its plex: an added number never repeats
+        /// one. Every number added is reported.
+        /// </summary>
+        private static void NumberPooledReferences(List<ParsedRow> rows, IsobaricMassTag tag, List<string> notes)
+        {
+            foreach (var sample in rows.GroupBy(r => (Plex: r.Plex.ToUpperInvariant(), Sample: r.SampleName.ToUpperInvariant())))
+            {
+                var unnumbered = sample.Where(r => r.GivenBiologicalReplicate == null).ToList();
+                if (unnumbered.Count == 0)
+                    continue;
+
+                int highest = sample.Where(r => r.GivenBiologicalReplicate != null)
+                    .Select(r => r.GivenBiologicalReplicate!.Value).DefaultIfEmpty(0).Max();
+                var labels = tag.ChannelLabels
+                    .Where(l => unnumbered.Any(r => string.Equals(r.Label, l, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                var added = new List<string>();
+                foreach (var label in labels)
+                {
+                    int number = ++highest;
+                    foreach (var row in unnumbered.Where(r => string.Equals(r.Label, label, StringComparison.OrdinalIgnoreCase)))
+                        row.BiologicalReplicate = number;
+                    added.Add($"{label} -> {number}");
+                }
+
+                var first = sample.First();
+                string written = string.Join("', '", unnumbered.Select(r => r.BiologicalReplicateText).Distinct(StringComparer.OrdinalIgnoreCase));
+                notes.Add($"Plex '{first.Plex}' sample '{first.SampleName}': channel(s) {string.Join(", ", labels)} give '{written}' " +
+                          "as their biological replicate, a pooled reference with no number, so these were numbered here: " +
+                          string.Join(", ", added) + ".");
+            }
+        }
+
+        // Once per plex and channel, not per fraction (SdrfDesignRules.DisagreementNote).
+        private static void NoteDisagreeingReferenceSignals(List<ParsedRow> rows, List<string> notes)
+        {
+            foreach (var channel in rows.Where(r => r.IsReference && r.StudySampleSignals.Count > 0)
+                         .GroupBy(r => (Plex: r.Plex.ToUpperInvariant(), Label: r.Label.ToUpperInvariant())))
+            {
+                var first = channel.First();
+                notes.Add(SdrfDesignRules.DisagreementNote($"Plex '{first.Plex}' channel {first.Label} ('{first.SampleName}')",
+                    channel.SelectMany(r => r.ReferenceSignals), channel.SelectMany(r => r.StudySampleSignals)));
+            }
         }
 
         // MAP-06 / N4: read per cell, in either form, case-insensitively, and return the kit's own
@@ -510,8 +665,9 @@ namespace Readers
                     if (described.Count == 0)
                         continue;
 
+                    // The role is part of the description, as MetaMorpheus's Sample Type is.
                     var descriptions = described
-                        .GroupBy(r => (r.SampleName.ToUpperInvariant(), r.Condition.ToUpperInvariant(), r.BiologicalReplicate))
+                        .GroupBy(r => (r.SampleName.ToUpperInvariant(), r.Condition.ToUpperInvariant(), r.BiologicalReplicate, r.IsReference))
                         .ToList();
                     if (descriptions.Count > 1)
                     {
@@ -519,7 +675,8 @@ namespace Readers
                                      string.Join("; ", descriptions.Select(d =>
                                      {
                                          var r = d.First();
-                                         return $"'{r.SampleName}' / '{r.Condition}' / biorep {r.BiologicalReplicate} (line(s) {string.Join(", ", d.Select(x => x.Line))})";
+                                         return $"'{r.SampleName}' / '{r.Condition}' / biorep {r.BiologicalReplicate} / " +
+                                                $"{(r.IsReference ? "reference" : "study sample")} (line(s) {string.Join(", ", d.Select(x => x.Line))})";
                                      })) +
                                      ". Every file of a plex shares one channel-to-sample map.");
                         continue;
@@ -532,6 +689,7 @@ namespace Readers
                         SampleName = first.SampleName,
                         Condition = first.Condition,
                         BiologicalReplicate = first.BiologicalReplicate,
+                        IsReference = first.IsReference,
                     });
                 }
 

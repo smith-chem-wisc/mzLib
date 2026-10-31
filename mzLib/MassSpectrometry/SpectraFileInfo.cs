@@ -49,6 +49,15 @@ namespace MassSpectrometry
         public int TechnicalReplicate { get; }
 
         /// <summary>
+        /// True for a pooled reference file, such as a QC pool injection (GR-20): it is quantified like any file and
+        /// carried, but it is no biological sample, so statistics leave it out of every comparison (as
+        /// <see cref="IsobaricQuantSampleInfo.IsReferenceChannel"/> does for a channel). False unless set.
+        /// It is not part of the file's identity: <see cref="Equals(SpectraFileInfo?)"/>, <see cref="GetHashCode"/> and
+        /// <see cref="CompareTo"/> ignore it, so a file is the same dictionary key whatever its role.
+        /// </summary>
+        public bool IsReference { get; init; }
+
+        /// <summary>
         /// Creates a new <see cref="SpectraFileInfo"/> instance with the specified parameters.
         /// </summary>
         /// <param name="fullFilePathWithExtension">The absolute path to the data file including extension.</param>
