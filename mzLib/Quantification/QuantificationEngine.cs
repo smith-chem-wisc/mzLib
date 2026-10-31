@@ -136,14 +136,16 @@ public class QuantificationEngine
         // stated cause rather than being silently smaller than the search.
         // Same predicate the peptide map applies, so the count cannot drift from what was dropped.
         int ambiguousExcluded = SpectralMatches
-            .Count(sm => sm.Intensities != null && SingleIdentifiedFullSequenceOrNull(sm) == null);
+            .Count(sm => sm.Intensities != null && SingleIdentifiedFullSequenceOrNull(sm) == null
+                && LocalizationAmbiguousPeptide.SiteFreeIdentityOrNull(sm) == null);
 
         return new QuantificationResults
         {
             Summary = ambiguousExcluded == 0
                 ? "Quantification completed successfully."
                 : $"Quantification completed successfully. {ambiguousExcluded} spectral match(es) were " +
-                  "excluded because they did not identify exactly one full sequence.",
+                  "excluded because they did not identify exactly one full sequence, or one peptide ambiguous " +
+                  "only in where its modifications sit.",
             Success = true,
             AmbiguousSpectralMatchesExcluded = ambiguousExcluded,
             Samples = proteinMatrix.ColumnKeys.ToList(),
@@ -453,7 +455,7 @@ public class QuantificationEngine
 
         // 3) Per-file roll-up to peptides. The row keys are chosen once, so every file keys a sequence by the same
         //    copy and CombinePeptideMatrices merges them into one row.
-        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers);
+        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers, SpectralMatches);
         var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
         foreach (var kvp in perFileNormalized)
         {
@@ -670,15 +672,53 @@ public class QuantificationEngine
     internal sealed class PeptideRowKeys
     {
         public PeptideRowKeys(IEnumerable<IBioPolymerWithSetMods> bioPolymers)
+            : this(bioPolymers, Enumerable.Empty<ISpectralMatch>())
+        {
+        }
+
+        /// <param name="bioPolymers">The caller's peptides: one row per full sequence.</param>
+        /// <param name="spectralMatches">The matches of the run. Each that is ambiguous only in where its modifications
+        /// sit adds its candidates to the one <see cref="LocalizationAmbiguousPeptide"/> row of its base sequence and
+        /// modifications, so that row is named by every site those matches leave open.</param>
+        public PeptideRowKeys(IEnumerable<IBioPolymerWithSetMods> bioPolymers, IEnumerable<ISpectralMatch> spectralMatches)
         {
             Keys = OnePerFullSequence(bioPolymers);
             BySequence = Keys.ToDictionary(bp => bp.FullSequence, StringComparer.Ordinal);
+
+            BySiteFreeIdentity = new Dictionary<string, LocalizationAmbiguousPeptide>(StringComparer.Ordinal);
+            var candidatesByIdentity = new Dictionary<string, List<IBioPolymerWithSetMods>>(StringComparer.Ordinal);
+            foreach (var spectralMatch in spectralMatches.Where(sm => sm.Intensities != null && SingleIdentifiedFullSequenceOrNull(sm) == null))
+            {
+                string? identity = LocalizationAmbiguousPeptide.SiteFreeIdentityOrNull(spectralMatch);
+                if (identity == null)
+                {
+                    continue;
+                }
+                if (!candidatesByIdentity.TryGetValue(identity, out var candidates))
+                {
+                    candidates = new List<IBioPolymerWithSetMods>();
+                    candidatesByIdentity[identity] = candidates;
+                }
+                candidates.AddRange(spectralMatch.GetIdentifiedBioPolymersWithSetMods().Where(bp => bp != null));
+            }
+
+            foreach (var (identity, candidates) in candidatesByIdentity.OrderBy(kvp => kvp.Key, StringComparer.Ordinal))
+            {
+                var row = new LocalizationAmbiguousPeptide(OnePerFullSequence(candidates));
+                BySiteFreeIdentity[identity] = row;
+                Keys.Add(row);
+            }
         }
 
-        /// <summary>One per full sequence, in the order of first appearance in the caller's list.</summary>
+        /// <summary>One per full sequence, in the order of first appearance in the caller's list, then one per
+        /// localization ambiguity.</summary>
         public List<IBioPolymerWithSetMods> Keys { get; }
 
         public Dictionary<string, IBioPolymerWithSetMods> BySequence { get; }
+
+        /// <summary>The localization-ambiguous row of each base sequence and set of modifications
+        /// (<see cref="LocalizationAmbiguousPeptide.SiteFreeIdentity"/>).</summary>
+        public Dictionary<string, LocalizationAmbiguousPeptide> BySiteFreeIdentity { get; }
     }
 
     /// <summary>
@@ -710,10 +750,13 @@ public class QuantificationEngine
     /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
     /// spectral matches in the smMatrix
     /// </summary>
-    /// <remarks>A spectral match is quantified only when every biopolymer it identifies has the same full sequence.
-    /// An ambiguous match -- one that identifies several sequences -- is excluded rather than attributed to whichever
-    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
-    /// throwing. Sequences not present in the input list are ignored.
+    /// <remarks>A spectral match is quantified when every biopolymer it identifies has the same full sequence, or when
+    /// it is ambiguous only in where its modifications sit (one base sequence, the same modifications, two or more
+    /// sites): such a match goes to the one <see cref="LocalizationAmbiguousPeptide"/> row of its base sequence and
+    /// modifications, built from the matches themselves, so no site is claimed. Any other ambiguous match -- different
+    /// base sequences, or different modifications -- is excluded rather than attributed to whichever biopolymer happens
+    /// to be enumerated first, and a match that identifies none is excluded rather than throwing. Sequences not
+    /// present in the input list are ignored.
     /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.
     /// The map has one key per full sequence (see <see cref="OnePerFullSequence"/>), so a sequence found in several
     /// proteins is one peptide row, not one row per protein.</remarks>
@@ -723,7 +766,7 @@ public class QuantificationEngine
     /// <returns>A dictionary mapping one modified bioPolymer per full sequence in the input list to a list of indices of
     /// PSMs in the matrix that are associated with it. If a sequence has no corresponding PSMs, its list will be empty.</returns>
     public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers) =>
-        GetPsmToPeptideMap(smMatrix, new PeptideRowKeys(modifiedBioPolymers));
+        GetPsmToPeptideMap(smMatrix, new PeptideRowKeys(modifiedBioPolymers, smMatrix.RowKeys));
 
     /// <summary>
     /// <see cref="GetPsmToPeptideMap(QuantMatrix{ISpectralMatch}, List{IBioPolymerWithSetMods})"/> with the row keys
@@ -741,16 +784,25 @@ public class QuantificationEngine
         {
             var sm = smMatrix.RowKeys[i];
 
-            // Only unambiguous matches are quantified.
+            // A match is quantified when it identifies one full sequence, or is ambiguous only in where its
+            // modifications sit; any other ambiguous match is left out.
             var sequence = SingleIdentifiedFullSequenceOrNull(sm);
-            if (sequence == null)
+            IBioPolymerWithSetMods peptide;
+            if (sequence != null)
             {
-                continue;
+                if (!peptideBySequence.TryGetValue(sequence, out peptide))
+                {
+                    continue;
+                }
             }
-
-            if (!peptideBySequence.TryGetValue(sequence, out var peptide))
+            else
             {
-                continue;
+                string? identity = LocalizationAmbiguousPeptide.SiteFreeIdentityOrNull(sm);
+                if (identity == null || !rowKeys.BySiteFreeIdentity.TryGetValue(identity, out var ambiguousRow))
+                {
+                    continue;
+                }
+                peptide = ambiguousRow;
             }
             peptideToPsmMap[peptide].Add(i);
         }
@@ -807,8 +859,8 @@ public class QuantificationEngine
         // group is one being mapped
         for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
         {
-            if (groupsBySequence.TryGetValue(peptideMatrix.RowKeys[i].FullSequence, out var groups) && groups.Count == 1
-                && proteinToPeptideMap.TryGetValue(groups[0], out var rows))
+            var groups = GroupsListing(peptideMatrix.RowKeys[i], groupsBySequence);
+            if (groups.Count == 1 && proteinToPeptideMap.TryGetValue(groups[0], out var rows))
             {
                 rows.Add(i);
             }
@@ -848,15 +900,46 @@ public class QuantificationEngine
         // no row to contribute.
         for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
         {
-            if (groupsBySequence.TryGetValue(peptideMatrix.RowKeys[i].FullSequence, out var groups))
+            var groups = GroupsListing(peptideMatrix.RowKeys[i], groupsBySequence);
+
+            // A localization-ambiguous row whose sites span groups is credited to none: which group it measured would
+            // be a guess on top of which site. A shared peptide with its site known is credited to every group, as
+            // before.
+            if (peptideMatrix.RowKeys[i] is LocalizationAmbiguousPeptide && groups.Count > 1)
             {
-                foreach (var group in groups)
-                {
-                    proteinToPeptideMap[group].Add(i);
-                }
+                continue;
+            }
+
+            foreach (var group in groups)
+            {
+                proteinToPeptideMap[group].Add(i);
             }
         }
 
         return proteinToPeptideMap;
+    }
+
+    /// <summary>
+    /// The groups that list a peptide row, each once, in the caller's order: for a row of one full sequence the groups
+    /// listing that sequence; for a <see cref="LocalizationAmbiguousPeptide"/> the groups listing any of its sites, so
+    /// it is unique to a group only when every site it may be belongs to that group alone.
+    /// </summary>
+    private static List<IBioPolymerGroup> GroupsListing(IBioPolymerWithSetMods row,
+        Dictionary<string, List<IBioPolymerGroup>> groupsBySequence)
+    {
+        if (row is not LocalizationAmbiguousPeptide ambiguous)
+        {
+            return groupsBySequence.TryGetValue(row.FullSequence, out var groups) ? groups : new List<IBioPolymerGroup>();
+        }
+
+        var listing = new List<IBioPolymerGroup>();
+        foreach (var site in ambiguous.Sites)
+        {
+            if (groupsBySequence.TryGetValue(site.FullSequence, out var groups))
+            {
+                listing.AddRange(groups.Where(g => !listing.Contains(g)));
+            }
+        }
+        return listing;
     }
 }
