@@ -172,6 +172,47 @@ public class ServiceFailureTests
     }
 
     [Test]
+    public void Download_BodyShorterThanAnnounced_IsTransient()
+    {
+        // Bridge's "short download" (009): the body ends cleanly but short of its Content-Length.
+        var handler = new ScriptedHandler(_ =>
+        {
+            var content = new ByteArrayContent(Source[..400]);
+            content.Headers.ContentLength = Source.Length;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
+        using var client = ClientOver(handler);
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(MakeFile(), _tempDir));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("came to 400 bytes"));
+            Assert.That(ServiceFailure.IsTransient(exception), Is.True);
+            Assert.That(handler.Requests, Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public void FtpListing_RootThatKeepsComingBackEmpty_IsTransient()
+    {
+        // Bridge's "empty root listing" (009): a statusless failure thrown INSIDE the retry loop, unlike PROXI's.
+        var handler = new ScriptedHandler(r => r.RequestUri!.AbsoluteUri.Contains("/projects/")
+            ? Status(HttpStatusCode.OK, ProjectJson)
+            : Status(HttpStatusCode.OK, "<html><body><pre></pre></body></html>"));
+        using var client = ClientOver(handler);
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetProjectFilesFromFtpAsync("PXD000001"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("came back empty"));
+            Assert.That(ServiceFailure.IsTransient(exception), Is.True);
+            Assert.That(handler.Requests, Is.EqualTo(5), "the project once, then the root listing four times");
+        });
+    }
+
+    [Test]
     public void WithNoRetries_ATransientFailure_IsTransientAfterOneAttempt()
     {
         // MaxRetries = 0 is what every live test sets: the one attempt is also the last, so the loop gives up on it.
