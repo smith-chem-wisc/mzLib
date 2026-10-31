@@ -280,6 +280,16 @@ namespace StatisticalModels
     /// </remarks>
     public static class NestedMixedModel
     {
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+            FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups,
+        });
+
         /// <summary>Fits every problem.</summary>
         /// <param name="problems">One per feature.</param>
         /// <param name="commonNames">One name per common design column; every problem has these columns.</param>
