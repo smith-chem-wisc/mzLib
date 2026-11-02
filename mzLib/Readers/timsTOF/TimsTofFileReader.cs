@@ -73,17 +73,19 @@ namespace Readers
 
         public override void InitiateDynamicConnection()
         {
-            if (File.Exists(FilePath + @"\analysis.tdf")  && File.Exists(FilePath + @"\analysis.tdf_bin"))
+            if (File.Exists(Path.Combine(FilePath, "analysis.tdf")) && File.Exists(Path.Combine(FilePath, "analysis.tdf_bin")))
             {
                 FileType = TimsTofFileType.TDF;
             }
-            else if (File.Exists(FilePath + @"\analysis.tsf") && File.Exists(FilePath + @"\analysis.tsf_bin"))
+            else if (File.Exists(Path.Combine(FilePath, "analysis.tsf")) && File.Exists(Path.Combine(FilePath, "analysis.tsf_bin")))
             {
                 FileType = TimsTofFileType.TSF;
             }
             else
             {
-                throw new FileNotFoundException("Could not locate the the database (analysis.tdf, analysis.tsf) and/or binary (analysis.tdf_bin, analysis.tsf_bin) files");
+                throw new FileNotFoundException(
+                    "Could not locate the database (analysis.tdf, analysis.tsf) and/or binary "
+                    + $"(analysis.tdf_bin, analysis.tsf_bin) files in {FilePath}");
             }
 
             OpenSqlConnection();
@@ -901,7 +903,7 @@ namespace Readers
         public override SourceFile GetSourceFile()
         {
             string extension = FileType == TimsTofFileType.TDF ? ".tdf" : ".tsf";
-            string fileName = FilePath + @"\analysis" + extension;
+            string fileName = Path.Combine(FilePath, "analysis" + extension);
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
                 null, null, id: null, filePath: fileName);
         }

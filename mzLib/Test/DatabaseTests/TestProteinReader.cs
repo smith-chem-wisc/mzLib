@@ -264,6 +264,24 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void LegacyNcbiFastaHeaderYieldsTheAccessionNotConcatenatedFields()
+        {
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"ncbi_gi_legacy.fasta"),
+                true, DecoyType.None, false, out _,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.That(prots.Select(p => p.Accession),
+                Is.EqualTo(new[] { "NP_414555.1", "NP_414556.1", "NP_414557.1" }));
+
+            // The accession is the join key in every output file, and "|" is the separator those
+            // files use for multi-valued columns, so a pipe inside one silently misaligns them.
+            Assert.That(prots.Select(p => p.Accession), Has.None.Contains("|"));
+        }
+
+        [Test]
         public static void FastaWithCustomDecoyIdentifier()
         {
             List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out var a,

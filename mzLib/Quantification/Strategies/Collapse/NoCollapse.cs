@@ -1,17 +1,21 @@
-﻿using Quantification.Interfaces;
+using System;
+using Quantification.Interfaces;
 
 namespace Quantification.Strategies
 {
     /// <summary>
-    /// The NoCollapse strategy does not collapse any samples and returns the original quant matrix.
-    /// This is useful for when the user does not want to perform any collapsing and wants to work with the original quant matrix.
-    /// In the Quant workflow, a collapse strategy is required to be selected, so this strategy allows the user to bypass collapsing if they choose to do so.
+    /// Leaves every sample as its own column. The aggregation strategy is unused, because no group
+    /// ever has more than one member.
     /// </summary>
     public class NoCollapse : ICollapseStrategy
     {
         public string Name => "No Collapse";
-        
-        public QuantMatrix<T> CollapseSamples<T>(QuantMatrix<T> quantMatrix) where T : IEquatable<T>
+
+        /// <inheritdoc />
+        public bool RequiresAggregation => false;
+
+        public QuantMatrix<T> CollapseSamples<T>(QuantMatrix<T> quantMatrix, IAggregationStrategy aggregation)
+            where T : IEquatable<T>
         {
             return quantMatrix;
         }

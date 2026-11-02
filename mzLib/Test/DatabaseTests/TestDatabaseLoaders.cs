@@ -30,6 +30,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Omics.Modifications.IO;
@@ -344,53 +345,56 @@ namespace Test.DatabaseTests
             Directory.CreateDirectory(testDirectory);
             var psiModOboLocation = Path.Combine(testDirectory, "psi-mod.obo");
 
-            using (StringWriter sw = new())
+            // RunAsync turns an outage into Assert.Ignore, which leaves this body at whichever download failed.
+            // Console.Out and the download folder are process-wide, so both are restored in finally: a skip that
+            // left Console.Out on a disposed StringWriter failed every later test's TearDown, and a leftover
+            // psi-mod.obo would fail the next run's "did not exist" assertion.
+            TextWriter originalOut = Console.Out;
+            try
             {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
 
-                string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
+                    string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
+
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                    string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
+
+                //create and empty obo that will be seen as different from the downloaded file and then be updated.
+                File.WriteAllText(psiModOboLocation, "");
+
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                    string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
             }
-
-            using (StringWriter sw = new())
+            finally
             {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
-
-                string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
+                Console.SetOut(originalOut);
+                if (Directory.Exists(testDirectory))
+                {
+                    foreach (string file in Directory.GetFiles(testDirectory))
+                    {
+                        File.SetAttributes(file, FileAttributes.Normal);
+                        File.Delete(file);
+                    }
+                    Directory.Delete(testDirectory, false);
+                }
             }
-
-            //create and empty obo that will be seen as different from the downloaded file and then be updated.
-            File.WriteAllText(psiModOboLocation, "");
-
-            using (StringWriter sw = new())
-            {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
-
-                string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
-            }
-
-            string[] files = Directory.GetFiles(testDirectory);
-            foreach (string file in files)
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-                File.Delete(file);
-            }
-            Directory.Delete(testDirectory, false);
-
-            // Now you have to restore default output stream
-            var standardOutput = new StreamWriter(Console.OpenStandardOutput())
-            {
-                AutoFlush = true
-            };
-            Console.SetOut(standardOutput);
             return Task.CompletedTask;
         });
 
@@ -410,7 +414,11 @@ namespace Test.DatabaseTests
         [Category("UniProt")]
         public void DownloadContentRejectsNonSuccessInsteadOfWritingIt()
         {
-            ExternalServiceTestHelper.EnsureReachable("UniProt", "http://uniprot.org/docs/ptmlist.txt");
+            // Probe the host this test actually calls. It used to probe http://uniprot.org while the
+            // download below goes to https://rest.uniprot.org — a different host, so the probe could pass
+            // while the host that matters was down, which is how a UniProt outage turned this red instead
+            // of skipping it. The probe URL must answer 200; the download URL deliberately does not.
+            ExternalServiceTestHelper.EnsureReachable("UniProt", "https://rest.uniprot.org/uniprotkb/P02768.fasta");
 
             // Same host, a path it answers 404 on — the shape of the bug, not a fabricated one.
             string outputFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "notFound.ptmlist.txt");
@@ -419,8 +427,31 @@ namespace Test.DatabaseTests
             var e = Assert.Throws<HttpRequestException>(
                 () => Loaders.DownloadContent("https://rest.uniprot.org/docs/ptmlist.txt", outputFile));
 
-            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
+            // A non-success response must never reach disk, whatever the status. That half of the contract
+            // holds during an outage too, so it is asserted unconditionally.
             Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+
+            // The other half — that the status reaches the message — can only be checked against the 404
+            // this path is chosen to produce. A degraded UniProt substitutes a 5xx (observed live: 500 on
+            // every endpoint on 2026-08-21), which says nothing about the contract, so skip rather than
+            // fail. Without this the test reports a third-party outage as a code failure.
+            int status = 0;
+            foreach (string token in e.Message.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (token.Length == 3 && int.TryParse(token, out int parsed))
+                {
+                    status = parsed;
+                    break;
+                }
+            }
+
+            if (status >= 500 || status == 408 || status == 429)
+            {
+                Assert.Ignore($"Skipping external-service test: UniProt unavailable (answered {status} where this " +
+                              "path normally answers 404). This is a third-party availability problem, not a code failure.");
+            }
+
+            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
         }
 
         // ---- DownloadContent, offline --------------------------------------------------------
@@ -675,6 +706,209 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
+        /// The formal-charge adjustment is what makes a trimethylated lysine addable to a neutral peptide
+        /// mass. Getting it wrong is a silent one-proton error on every trimethyl site, so the arithmetic
+        /// is pinned here rather than left to be inferred from the file or the code.
+        ///
+        /// UniProt writes N6,N6,N6-trimethyllysine the way it exists on the protein: "CF C3 H7", the
+        /// quaternary ammonium. That nitrogen carries a permanent positive charge and so needs no proton
+        /// to acquire one -- which means the formula as written CANNOT simply be added to a peptide, being
+        /// one hydrogen heavier than the neutral increment. PSI-MOD MOD:00083 carries FormalCharge 1+, and
+        /// subtracting it is what turns 43.05 into the 42.04695 that Unimod calls Trimethyl.
+        ///
+        /// The trap for anyone changing this code: MM and CF are not interchangeable inputs. UniProt's
+        /// "MM 43.054227" is the CATION mass -- an electron lighter than the C3H7 formula mass, which is
+        /// exactly why the two differ by 0.000548 -- so a PROTON is the right thing to subtract from it.
+        /// A mass derived from the FORMULA still has that electron and needs a HYDROGEN ATOM removed
+        /// instead. The two subtractions differ by 0.549 mDa: small enough to survive a loose tolerance,
+        /// and wrong in every spectrum. The last assertion here states that difference so a change that
+        /// reuses the proton path for a formula-derived mass fails on this test rather than in someone's
+        /// search results.
+        /// </summary>
+        [Test]
+        public void TrimethylLysine_FormalChargeAdjustmentYieldsTheNeutralMassIncrement()
+        {
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModPath));
+            Assert.AreEqual(1, formalCharges["PSI-MOD; MOD:00083"],
+                "the fixture must still carry the 1+ charge this test is about");
+
+            Modification adjusted = ReadSingleModification(TrimethylLysineEntry, formalCharges);
+            Modification unadjusted = ReadSingleModification(TrimethylLysineEntry, new Dictionary<string, int>());
+
+            double neutralIncrement = ChemicalFormula.ParseFormula("C3H6").MonoisotopicMass;  // Unimod 37, Trimethyl
+
+            // The thing that actually matters: what comes out is addable to a neutral peptide mass as it
+            // stands, in both the mass and the formula.
+            Assert.That(adjusted.MonoisotopicMass, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "a trimethylated lysine must contribute the NEUTRAL increment, not the charged species");
+            Assert.AreEqual("C3H6", adjusted.ChemicalFormula.Formula,
+                "the formula has to lose the hydrogen too, or formula and mass disagree");
+
+            // Without the dictionary the adjustment cannot fire, so the assertions above cannot be passing
+            // by coincidence -- and this is precisely the one-proton error the adjustment exists to prevent.
+            Assert.That(unadjusted.MonoisotopicMass, Is.EqualTo(43.054227).Within(1e-6));
+            Assert.AreEqual("C3H7", unadjusted.ChemicalFormula.Formula);
+            Assert.That(unadjusted.MonoisotopicMass - adjusted.MonoisotopicMass,
+                Is.EqualTo(Constants.ProtonMass).Within(1e-6),
+                "the MM line is a cation mass, so a proton is what comes off it");
+
+            // The trap, stated as arithmetic. A formula-derived mass needs a hydrogen ATOM removed; reusing
+            // the proton leaves an electron behind.
+            double formulaMass = ChemicalFormula.ParseFormula("C3H7").MonoisotopicMass;
+            double hydrogenAtom = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
+            Assert.That(formulaMass - hydrogenAtom, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "a CF-derived mass reaches the neutral increment by losing a hydrogen atom");
+            Assert.That(formulaMass - Constants.ProtonMass - neutralIncrement, Is.EqualTo(0.000549).Within(1e-5),
+                "and losing a proton instead leaves it an electron mass too heavy");
+        }
+
+        /// <summary>
+        /// The UniProt ptmlist entry for N6,N6,N6-trimethyllysine, verbatim but for the MT line the loader
+        /// requires. Kept as text rather than read from the shipped ptmlist so the test states the input it
+        /// is reasoning about.
+        /// </summary>
+        private const string TrimethylLysineEntry =
+            "ID   N6,N6,N6-trimethyllysine\r\n" +
+            "MT   UniProt\r\n" +
+            "FT   MOD_RES\r\n" +
+            "TG   Lysine.\r\n" +
+            "PP   Anywhere.\r\n" +
+            "CF   C3 H7\r\n" +
+            "MM   43.054227\r\n" +
+            "DR   PSI-MOD; MOD:00083.\r\n" +
+            "//";
+
+        private static Modification ReadSingleModification(string ptmListText, Dictionary<string, int> formalCharges)
+        {
+            using StreamReader reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(ptmListText)));
+            return ModificationLoader.ReadModsFromFile(reader, formalCharges, out List<(Modification, string)> _).Single();
+        }
+
+        private static Modification ReadSingleModificationThroughPtmListLoader(string ptmListText, Dictionary<string, int> formalCharges)
+        {
+            using StreamReader reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(ptmListText)));
+#pragma warning disable CS0618 // PtmListLoader is obsolete in favour of ModificationLoader; the point here is that it still agrees
+            return PtmListLoader.ReadModsFromFile(reader, formalCharges, out List<(Modification, string)> _).Single();
+#pragma warning restore CS0618
+        }
+
+        /// <summary>
+        /// The same invariant through the other public entry point. PtmListLoader is obsolete and is being
+        /// reduced to a forward onto ModificationLoader (#1182), which deletes a second copy of the
+        /// formal-charge arithmetic -- so the two have to agree on the one number where disagreeing would be
+        /// silent. Asserting equality alone would pass if BOTH went wrong together, so this pins the value.
+        /// </summary>
+        [Test]
+        public void TrimethylLysine_FormalChargeAdjustmentIsTheSameThroughPtmListLoader()
+        {
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModPath));
+
+            Modification viaModificationLoader = ReadSingleModification(TrimethylLysineEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(TrimethylLysineEntry, formalCharges);
+
+            double neutralIncrement = ChemicalFormula.ParseFormula("C3H6").MonoisotopicMass;
+
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "the obsolete entry point must reach the same neutral increment");
+            Assert.AreEqual("C3H6", viaPtmListLoader.ChemicalFormula.Formula);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(viaModificationLoader.MonoisotopicMass).Within(1e-9),
+                "the two loaders must not disagree about a mass");
+        }
+
+        /// <summary>
+        /// PSI-MOD writes a formal charge as magnitude then sign ("1+", "2-"). The XML reader used to keep
+        /// only the digits, so every negative charge came back positive. The dictionary drives the proton
+        /// correction in the ptmlist loaders, so a flipped sign moves an anionic modification by two
+        /// protons in the wrong direction: it loses a hydrogen it should have gained. TestPsiModLoading
+        /// already guards the OBO-text reader, which had its sign fixed separately; this pins the XML
+        /// reader, which is the one MetaMorpheus calls.
+        /// </summary>
+        [Test]
+        public void PsiModXml_FormalChargesKeepTheirSign()
+        {
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.LoadPsiMod(TestOntologies.PsiModXml));
+
+            Assert.AreEqual(1, formalCharges["PSI-MOD; MOD:00083"], "N6,N6,N6-trimethyllysine is 1+");
+            Assert.AreEqual(-1, formalCharges["PSI-MOD; MOD:01701"], "deprotonated residue is 1-");
+            Assert.AreEqual(-2, formalCharges["PSI-MOD; MOD:00145"], "tetrakis-L-cysteinyl iron is 2-");
+            Assert.AreEqual(-3, formalCharges["PSI-MOD; MOD:00147"], "hexakis-L-cysteinyl triiron trisulfide is 3-");
+            // The fixture is a trimmed ontology; a re-trim that dropped the anionic terms would leave this test
+            // green against nothing, so require that negative charges are actually present.
+            Assert.That(formalCharges.Values.Count(v => v < 0), Is.GreaterThan(0));
+
+            // The OBO-text reader parses the same ontology; the two must not disagree about a sign.
+            string psiModOboPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> fromObo = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModOboPath));
+            foreach (var (accession, charge) in formalCharges)
+            {
+                if (fromObo.TryGetValue(accession, out int oboCharge))
+                    Assert.AreEqual(oboCharge, charge, accession);
+            }
+        }
+
+        /// <summary>
+        /// The other half of the sign: a negative formal charge has to ADD a hydrogen to the formula, and so
+        /// about a proton to the mass, mirroring the trimethyllysine case above. The entry is synthetic, a
+        /// carboxylate written as the anion, because no current ptmlist entry cross-references a negatively
+        /// charged PSI-MOD term; that is why the flipped sign has so far been silent.
+        /// </summary>
+        [Test]
+        public void NegativeFormalCharge_AdjustmentAddsAProton()
+        {
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.LoadPsiMod(TestOntologies.PsiModXml));
+            const string anionEntry =
+                "ID   Test carboxylate anion\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Glycine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "CF   C2 H3 O2\r\n" +
+                "MM   59.013853\r\n" +
+                "DR   PSI-MOD; MOD:01701.\r\n" +
+                "//";
+
+            Modification adjusted = ReadSingleModification(anionEntry, formalCharges);
+            Modification unadjusted = ReadSingleModification(anionEntry, new Dictionary<string, int>());
+
+            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "a 1- charge puts a hydrogen back on the formula");
+            Assert.That(adjusted.MonoisotopicMass, Is.EqualTo(adjusted.ChemicalFormula.MonoisotopicMass).Within(1e-9),
+                "and the mass is the corrected formula's");
+            // The MM line is the anion's mass, rounded to six decimals, so it is one proton below the result
+            // to within that rounding.
+            Assert.That(adjusted.MonoisotopicMass - unadjusted.MonoisotopicMass,
+                Is.EqualTo(Constants.ProtonMass).Within(1e-6), "which is a proton above the anion's MM line");
+        }
+
+        /// <summary>
+        /// A charged entry with an MM line but no CF line has no formula to correct, so both loaders fall back
+        /// to subtracting one proton per charge from the MM line.
+        /// </summary>
+        [Test]
+        public void FormalChargeWithoutAFormula_SubtractsAProtonFromTheMmLine()
+        {
+            var formalCharges = new Dictionary<string, int> { { "PSI-MOD; MOD:00083", 1 } };
+            const string noFormulaEntry =
+                "ID   Test charged mod without a formula\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Lysine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "MM   43.054227\r\n" +
+                "DR   PSI-MOD; MOD:00083.\r\n" +
+                "//";
+
+            Modification viaModificationLoader = ReadSingleModification(noFormulaEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(noFormulaEntry, formalCharges);
+
+            Assert.That(viaModificationLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaModificationLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
+            Assert.That(viaPtmListLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
+        }
+
+        /// <summary>
         /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
         /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
         /// *2 filenames — which are deliberately absent from the output directory, so Load* downloads them.
@@ -889,7 +1123,7 @@ namespace Test.DatabaseTests
         [Test]
         public void MultiMod_ProteinDbWriter()
         {
-            var sampleModList = PtmListLoader
+            var sampleModList = ModificationLoader
                 .ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"),
                     out var errors).ToList();
             var currentMod = sampleModList.First();
@@ -1394,6 +1628,83 @@ namespace Test.DatabaseTests
             Assert.That(proteins.All(p => p.IsEntrapment), Is.True);
             Assert.That(proteins.All(p => p.Accession.StartsWith("Random_")), Is.True);
 
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        [TestCase("Random_P12345_f0", true)]
+        [TestCase("Random_foreign_P12345", true)]
+        [TestCase("random_p12345", true, Description = "case-insensitive")]
+        [TestCase("P12345_RANDOM", true, Description = "anywhere, not only a prefix")]
+        [TestCase("DECOY_Random_P12345_f0", true, Description = "a decoy of entrapment is still entrapment")]
+        [TestCase("P12345", false)]
+        [TestCase("DECOY_P12345", false)]
+        [TestCase("", false)]
+        [TestCase(null, false)]
+        public static void IsEntrapmentAccession_IsTheLoadersRule(string accession, bool expected)
+        {
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession(accession), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public static void IsEntrapmentAccession_TakesTheIdentifier_AndRefusesAnEmptyOne()
+        {
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession("Shuffled_P1", "shuffled"), Is.True);
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession("Random_P1", "Shuffled"), Is.False);
+            Assert.Throws<ArgumentException>(() => ProteinDbLoader.IsEntrapmentAccession("P1", ""));
+            Assert.Throws<ArgumentException>(() => ProteinDbLoader.IsEntrapmentAccession("P1", null));
+        }
+
+        /// <summary>
+        /// The predicate restates a rule the loaders write inline, so this pins the two together: for every
+        /// accession, it answers what LoadProteinFasta decided when it marked the protein.
+        /// </summary>
+        [Test]
+        public static void IsEntrapmentAccession_AgreesWithLoadProteinFasta()
+        {
+            string[] accessions = { "Random_PROT1_f0", "random_prot2", "PROT3_Random", "PROT4", "RANDOMPROT5", "PROT6" };
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_predicate.fasta");
+            File.WriteAllText(fastapath, string.Concat(accessions.Select(a => $">sp|{a}|{a} desc\nPEPTIDEK\n")));
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors);
+            File.Delete(fastapath);
+
+            Assert.That(errors, Is.Empty);
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(accessions));
+            foreach (var protein in proteins)
+            {
+                Assert.That(ProteinDbLoader.IsEntrapmentAccession(protein.Accession), Is.EqualTo(protein.IsEntrapment), protein.Accession);
+            }
+            Assert.That(proteins.Count(p => p.IsEntrapment), Is.EqualTo(4));
+        }
+
+        [Test]
+        public static void IsEntrapmentAccession_AgreesWithLoadProteinXml()
+        {
+            string[] accessions = { "Random_PROT1_f0", "random_prot2", "PROT3", "PROT4_RANDOM" };
+            string xmlpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_predicate.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                accessions.Select(a => new Protein("PEPTIDEK", a)).ToList(), xmlpath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlpath, true, DecoyType.None, null, false, null, out _);
+            File.Delete(xmlpath);
+
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(accessions));
+            Assert.That(proteins.Select(p => p.IsEntrapment), Is.EqualTo(accessions.Select(a => ProteinDbLoader.IsEntrapmentAccession(a))));
+        }
+
+        /// <summary>
+        /// The loaders now share IsEntrapmentAccession, which refuses an empty identifier. Before, an empty
+        /// one matched every accession and silently loaded the whole database as entrapment.
+        /// </summary>
+        [Test]
+        public static void EntrapmentFasta_EmptyIdentifier_Throws()
+        {
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_empty_identifier.fasta");
+            File.WriteAllText(fastapath, ">sp|PROT1|Prot1 desc\nPEPTIDEK\n");
+
+            Assert.Throws<ArgumentException>(() =>
+                ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out _, entrapmentIdentifier: ""));
             File.Delete(fastapath);
         }
 

@@ -43,4 +43,22 @@ public class ListPoolTests
 
         Assert.That(() => listPool.Return(null), Throws.ArgumentNullException);
     }
+
+    /// <summary>
+    /// Nothing asserted that the pool actually pools. The policy's Return can refuse an instance, in
+    /// which case Get quietly allocates a fresh one -- observationally identical unless the test looks
+    /// at instance identity.
+    /// </summary>
+    [Test]
+    public void ListPool_Return_MakesTheSameInstanceAvailableAgain()
+    {
+        var listPool = new ListPool<int>();
+        var list = listPool.Get();
+        list.Add(1);
+
+        listPool.Return(list);
+
+        Assert.That(listPool.Get(), Is.SameAs(list));
+    }
+
 }

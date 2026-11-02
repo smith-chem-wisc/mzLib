@@ -133,9 +133,9 @@ namespace FlashLFQ
                 treatmentMmtsStringBuilder.Append(peptide.Sequence);
                 treatmentMmtsStringBuilder.Append(":");
 
-                int numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.Condition == ControlCondition).Max(p => p.BiologicalReplicate) + 1;
+                var samplesInGroup = ProteinQuantificationEngine.BiologicalReplicatesIn(FlashLfqResults.SpectraFiles, ControlCondition);
 
-                for (int sample = 0; sample < numSamplesInGroup; sample++)
+                foreach (int sample in samplesInGroup)
                 {
                     double abundance = PeptideToSampleQuantity[(peptide, ControlCondition, sample)].Item1 / peptide.IonizationEfficiency;
 
@@ -143,16 +143,16 @@ namespace FlashLFQ
                     {
                         controlMmtsStringBuilder.Append(Math.Round(Math.Log(abundance, 2), 2));
 
-                        if (sample != numSamplesInGroup - 1)
+                        if (sample != samplesInGroup[^1])
                         {
                             controlMmtsStringBuilder.Append(",");
                         }
                     }
                 }
 
-                numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.Condition == TreatmentCondition).Max(p => p.BiologicalReplicate) + 1;
+                samplesInGroup = ProteinQuantificationEngine.BiologicalReplicatesIn(FlashLfqResults.SpectraFiles, TreatmentCondition);
 
-                for (int sample = 0; sample < numSamplesInGroup; sample++)
+                foreach (int sample in samplesInGroup)
                 {
                     double abundance = PeptideToSampleQuantity[(peptide, TreatmentCondition, sample)].Item1 / peptide.IonizationEfficiency;
 
@@ -160,7 +160,7 @@ namespace FlashLFQ
                     {
                         treatmentMmtsStringBuilder.Append(Math.Round(Math.Log(abundance, 2), 2));
 
-                        if (sample != numSamplesInGroup - 1)
+                        if (sample != samplesInGroup[^1])
                         {
                             treatmentMmtsStringBuilder.Append(",");
                         }
@@ -260,10 +260,10 @@ namespace FlashLFQ
                         ConditionsWithPeptideSampleQuantities.Add(condition, new List<Datum>());
                     }
 
-                    int numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+                    var samplesInGroup = ProteinQuantificationEngine.BiologicalReplicatesIn(FlashLfqResults.SpectraFiles, condition);
                     List<(double, DetectionType)> peptideLogIntensities = new List<(double, DetectionType)>();
 
-                    for (int sample = 0; sample < numSamplesInGroup; sample++)
+                    foreach (int sample in samplesInGroup)
                     {
                         double intensity = PeptideToSampleQuantity[(peptide, condition, sample)].Item1;
                         DetectionType detectionType = PeptideToSampleQuantity[(peptide, condition, sample)].Item2;

@@ -61,7 +61,8 @@ public class TmtSpikeInDevelopmentTests
         INormalizationStrategy peptideNorm,
         ICollapseStrategy collapse,
         IRollUpStrategy peptideToProteinRollUp,
-        INormalizationStrategy proteinNorm)
+        INormalizationStrategy proteinNorm,
+        IAggregationStrategy collapseAggregation = null)
     {
         var design = new SpikeInExperimentalDesign();
         var parameters = new QuantificationParameters
@@ -70,6 +71,7 @@ public class TmtSpikeInDevelopmentTests
             SpectralMatchToPeptideRollUpStrategy = psmToPeptideRollUp,
             PeptideNormalizationStrategy = peptideNorm,
             CollapseStrategy = collapse,
+            CollapseAggregationStrategy = collapseAggregation ?? new MeanAggregation(),
             PeptideToProteinRollUpStrategy = peptideToProteinRollUp,
             ProteinNormalizationStrategy = proteinNorm,
             OutputDirectory = string.Empty,
@@ -162,6 +164,7 @@ public class TmtSpikeInDevelopmentTests
             SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
             PeptideNormalizationStrategy = new NoNormalization(),
             CollapseStrategy = new NoCollapse(),
+            CollapseAggregationStrategy = new SumAggregation(),
             PeptideToProteinRollUpStrategy = new SumRollUp(),
             ProteinNormalizationStrategy = new NoNormalization(),
             OutputDirectory = string.Empty,
@@ -521,7 +524,7 @@ public class TmtSpikeInDevelopmentTests
         var collapses = new ICollapseStrategy[]
         {
             new NoCollapse(),
-            new MeanCollapse()
+            new CollapseFractionsAndTechnicalReplicates()
         };
         var proteinNorms = new INormalizationStrategy[]
         {

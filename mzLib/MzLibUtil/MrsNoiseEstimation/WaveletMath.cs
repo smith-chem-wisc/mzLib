@@ -48,7 +48,6 @@ namespace MzLibUtil.NoiseEstimation
         /// <param name="signal"></param>
         /// <param name="waveletFilter"></param>
         /// <param name="scalingFilter"></param>
-        /// <param name="numScales"></param>
         internal static ModWtOutput ModWt(double[] signal, double[] waveletFilter, 
             double[] scalingFilter, WaveletType waveletType)
         {

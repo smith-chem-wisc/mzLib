@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The required CI run: everything EXCEPT the live external-service tests, which run in the separate,
+  non-blocking external-service job.
+
+  The exclusion is an NUnit Where clause rather than a VSTest testcase filter of the form
+  "Category!=ExternalService", because the two do not mean the same thing. VSTest filters on traits it
+  has projected from NUnit's categories, and a test carrying MORE THAN ONE category (every live
+  fixture here carries two, e.g. ExternalService plus UniProt) can satisfy a not-equals against one of
+  them through the other. NUnit's own engine evaluates "cat != ExternalService" against the test's
+  whole category set, so a fixture-level category excludes every test inside it, which is what was
+  intended all along.
+
+  Not theoretical: live UniProt tests were executing in the required job on 2026-08-21, and were cheap
+  only because UniProt was answering 5xx quickly. Once the download grew a real inactivity deadline
+  they cost minutes each instead, which pushed the job past its budget and turned every open PR
+  red.
+-->
+<RunSettings>
+  <NUnit>
+    <Where>cat != ExternalService</Where>
+  </NUnit>
+</RunSettings>

@@ -8,18 +8,23 @@ on:
 env:
   DOTNET_VERSION: 10.0.x
 
+# Least privilege, and enough to create the Release page in the last step. Everything else this
+# workflow does is authenticated by NUGET_KEY rather than by the job token.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Set up NuGet
-        uses: nuget/setup-nuget@v1
+        uses: nuget/setup-nuget@v4
         with:
           nuget-version: '6.x'
       - name: Verify commit exists in origin/master
@@ -43,10 +48,24 @@ jobs:
           cd mzLib
           dotnet build --no-restore --configuration Release /p:Platform="Any CPU" /p:Version=${version}
       - name: Test
+        # Excludes the live external-service tests (Koina, PRIDE, UniProt), the same way the required job
+        # in dotnet.yml does. They were running here: this step had neither a filter nor a runsettings, so
+        # a tag push tested the package against third-party availability, inside a 30-minute job cap. A
+        # failure there leaves the tag public and the package unpublished, and recovery is deleting a
+        # public tag. Those services are already covered on master by the separate non-blocking
+        # external-service job, so running them again at pack time buys nothing.
+        #
+        # Uses the runsettings rather than a testcase filter to match the required job, so there is one
+        # exclusion to maintain rather than two spellings of it. Measured on this suite the two select
+        # the same 5609 tests, so this is about keeping them in one place, not about a difference.
+        #
+        # Do NOT add a testcase filter to this line. A filter overrides the Where clause outright rather
+        # than combining with it, so the exclusion would be silently discarded and the live tests would
+        # come back. Express any further narrowing as another clause in the runsettings.
         run: |
           $version= &git describe --tags
           cd mzLib
-          dotnet test --configuration Release /p:Platform="Any CPU" /p:Version=${version} --no-build
+          dotnet test --configuration Release /p:Platform="Any CPU" /p:Version=${version} --no-build --settings ./Test/required.runsettings
       - name: Pack and Push NuGet Package
         run: |
           $version= &git describe --tags
@@ -55,3 +74,53 @@ jobs:
           dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
         env:
           GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}
+
+      # Pushing the tag publishes the package but does NOT create the Release page: this workflow
+      # triggers on the tag, and until now nothing here wrote a page, so someone had to remember to
+      # do it by hand afterwards. Until they did, the Releases sidebar and any shields.io
+      # github/v/release badge kept advertising the previous version, because both read
+      # releases/latest -- the Release, not the tag.
+      #
+      # Runs last, after the package is pushed, deliberately. The test step above gates the push, so
+      # a failure there means deleting the tag and re-tagging; a Release page pointing at a build
+      # that never shipped is worse than a page that does not exist yet.
+      #
+      # This automates PUBLISHING the notes, not WRITING them. Commit release-notes/<version>.md on
+      # master before tagging and it becomes the body verbatim. The generated fallback exists so the
+      # page and the badge still move on a release where nobody wrote one -- it is a placeholder that
+      # says so, not a substitute. A list of PR titles is what the house style exists to avoid: it
+      # says what an author did, where notes have to say what it means for a reader.
+      - name: Create the Release page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = &git describe --tags
+
+          # Idempotent: re-running this workflow on an existing tag must not fail, and must never
+          # overwrite a page someone has already edited by hand.
+          gh release view $version --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release page for $version already exists; leaving it alone."
+            exit 0
+          }
+
+          $notes = "release-notes/$version.md"
+          if (-not (Test-Path $notes)) {
+            Write-Host "::warning::No $notes found. Creating the page from generated notes so the sidebar and badge move; please replace the body with written notes."
+            # Built here rather than with --generate-notes so the placeholder can sit ABOVE the list
+            # and the result is one explicit body rather than two flags whose combination we would be
+            # guessing at.
+            $generated = gh api "repos/$env:GITHUB_REPOSITORY/releases/generate-notes" -f tag_name=$version --jq .body
+            if ($LASTEXITCODE -ne 0) { throw "generate-notes failed with exit code $LASTEXITCODE" }
+            $notes = "generated-release-notes.md"
+            @(
+              "_Release notes for $version have not been written yet. What follows is generated from pull request titles and is a placeholder: it says what each author did, not what it means for you._"
+              ""
+              $generated
+            ) | Set-Content -Path $notes -Encoding utf8
+          } else {
+            Write-Host "Publishing hand-written notes from $notes"
+          }
+
+          gh release create $version --repo $env:GITHUB_REPOSITORY --title $version --notes-file $notes --verify-tag
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed with exit code $LASTEXITCODE" }

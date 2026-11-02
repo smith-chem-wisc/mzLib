@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Omics.Modifications;
 using Omics.SequenceConversion;
@@ -64,10 +65,19 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <summary>
     /// Unimod modification IDs accepted by the model when converting sequences.
     /// Used by the modification converter layer (not parameter validation).
-    /// empty = no modifications are accepted.
+    /// empty = no modifications are accepted, UNLESS <see cref="AcceptsAllUnimodModifications"/> is true.
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
+    /// <summary>
+    /// True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.
+    /// </summary>
+    public virtual bool AcceptsAllUnimodModifications => false;
+
+    /// <summary>
+    /// UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.
+    /// </summary>
+    public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
 
     /// <summary>
     /// Gets the regex pattern for validating amino acid sequences.
@@ -117,6 +127,43 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     }
 
     /// <summary>
+    /// How long a whole prediction session is allowed to take: every batch of it at twice this
+    /// model's own benchmarked speed, plus the throttling delay between chunks, rounded up to whole
+    /// minutes and never less than one.
+    /// </summary>
+    /// <remarks>
+    /// Hoisted verbatim from the five model bases, which each carried this expression inline -- and
+    /// two of them (FragmentIntensityModel, RetentionTimeModel) carried it WITHOUT the
+    /// Math.Max(..., 1) the other three had. That divergence was harmless and is preserved as
+    /// harmless rather than fixed as a bug: Math.Ceiling of any positive value is already at least
+    /// 1, and no shipped model declares a benchmarked time of zero, so the clamp never changed an
+    /// outcome. It is kept because it states the floor, and the floor is now load-bearing -- see
+    /// below.
+    ///
+    /// Stated once, it is testable, which five inline copies were not. That matters more than the
+    /// de-duplication: this deadline is the line between "Koina stalled" and "our batching estimate
+    /// is wrong", and the live Koina tests skip on the first while still failing on the second (see
+    /// Test\KoinaTests\KoinaLiveTestFixture.cs). A regression that made this too short would
+    /// otherwise be discovered only as a live test quietly reporting Skipped -- which is exactly the
+    /// mistake that got "out of memory" removed from KoinaServiceException.ServiceFaultMarkers.
+    /// KoinaModelDiscoveryTests.EveryConcreteModel_SessionDeadlineCoversItsOwnBenchmarkedWork
+    /// pins it offline instead, for every model.
+    ///
+    /// The estimate itself, carried over from those copies: two times the benchmarked per-batch
+    /// time gives buffer so a healthy run does not hit the deadline, plus the throttling time
+    /// between chunks. The benchmark covers the whole of Predict(), so it already includes overhead
+    /// beyond the API call. Large requests do not necessarily scale linearly, so this is a rough
+    /// estimate chosen as an aggressive upper bound rather than a tight one.
+    /// </remarks>
+    public TimeSpan SessionDeadline(int batchCount, int chunkCount)
+    {
+        int minutes = (int)Math.Ceiling(
+            (batchCount * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds
+             + ThrottlingDelayInMilliseconds * chunkCount) / 6e4); // 60000ms/min
+        return TimeSpan.FromMinutes(Math.Max(minutes, 1));
+    }
+
+    /// <summary>
     /// Sends a single batch request to the Koina API and returns the raw JSON response.
     /// Seam for testing: overriding this lets the batched prediction pipeline run against a
     /// canned transport instead of the network.
@@ -132,16 +179,21 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// </summary>
     protected virtual string? TryCleanSequence(
         string sequence,
+        ISequenceParser? sourceParser,
         out string? apiSequence,
         out WarningException? warning)
     {
         apiSequence = null;
         warning = null;
+        var parser = sourceParser ?? SequenceConverter.Parser;
 
-        var rawBase = BaseStripper.Replace(sequence, string.Empty);
-        if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
+        var residues = SeparateResidues(sequence, parser.Schema);
+        if (!IsValidBaseSequence(residues, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
         {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            var message = $"Invalid base sequence '{residues}': residues must match {AllowedAminoAcidPattern} " +
+                          $"and be {MinPeptideLength}-{MaxPeptideLength} long.";
+            HandleFailure(ModHandlingMode, message);
+            warning = new WarningException(message);
             return null;
         }
 
@@ -149,7 +201,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         CanonicalSequence? canonical;
         try
         {
-            canonical = SequenceConverter.Parse(sequence, conversionWarnings, ModHandlingMode);
+            canonical = parser.Parse(sequence, conversionWarnings, ModHandlingMode);
             if (!canonical.HasValue)
             {
                 HandleFailure(ModHandlingMode, "Failed to parse sequence.");
@@ -164,17 +216,51 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
-        if (!IsValidBaseSequence(canonical.Value.BaseSequence, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
-        {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
-            return null;
-        }
-
         var cleaned = canonical.Value;
         if (ModHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence && cleaned.HasModifications)
         {
             cleaned = cleaned.WithModifications(Array.Empty<CanonicalModification>());
             conversionWarnings.AddWarning("Sequence modifications were removed for prediction.");
+        }
+
+        // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
+        var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        var incompatible = new List<CanonicalModification>();
+        foreach (var mod in cleaned.Modifications)
+        {
+            var resolved = SequenceConverter.Serializer.ResolveModification(mod);
+            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+                accepted.Add(resolved);
+            else
+                incompatible.Add(resolved);
+        }
+
+        if (incompatible.Count > 0)
+        {
+            foreach (var mod in incompatible)
+                conversionWarnings.AddIncompatibleItem(mod.ToString());
+
+            if (ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements)
+            {
+                HandleFailure(ModHandlingMode, $"Sequence contains unsupported modifications: {string.Join(", ", incompatible)}");
+                warning = BuildWarning(conversionWarnings, null);
+                return null;
+            }
+
+            foreach (var mod in incompatible)
+                conversionWarnings.AddWarning($"Removing unsupported modification: {mod}");
+        }
+        cleaned = cleaned.WithModifications(accepted);
+
+        if (RequiredNTerminalUnimodIds is { } required
+            && (cleaned.NTerminalModification?.UnimodId is not int nTermId || (required.Count > 0 && !required.Contains(nTermId))))
+        {
+            var message = required.Count == 0
+                ? "Sequence must carry an N-terminal modification."
+                : $"Sequence must carry one of these N-terminal modifications: {string.Join(", ", required.Order().Select(i => $"UNIMOD:{i}"))}.";
+            HandleFailure(ModHandlingMode, message);
+            warning = BuildWarning(conversionWarnings, message);
+            return null;
         }
 
         string? serialized;
@@ -198,6 +284,62 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         apiSequence = serialized;
         warning = BuildWarning(conversionWarnings, null);
         return apiSequence;
+    }
+
+    private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
+    {
+        var residues = new StringBuilder(sequence.Length);
+        var nTermSeparator = schema.NTermSeparator;
+        var cTermSeparator = schema.CTermSeparator;
+
+        int i = SkipModifications(sequence, 0, schema);
+        if (i > 0 && !string.IsNullOrEmpty(nTermSeparator) && sequence.AsSpan(i).StartsWith(nTermSeparator))
+            i += nTermSeparator.Length;
+
+        while (i < sequence.Length)
+        {
+            int afterModifications = SkipModifications(sequence, i, schema);
+            if (afterModifications > i)
+            {
+                i = afterModifications;
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(cTermSeparator) && sequence.AsSpan(i).StartsWith(cTermSeparator))
+            {
+                int modificationsStart = i + cTermSeparator.Length;
+                int afterCTerm = SkipModifications(sequence, modificationsStart, schema);
+                if (afterCTerm > modificationsStart && afterCTerm == sequence.Length)
+                    break;
+            }
+
+            residues.Append(sequence[i]);
+            i++;
+        }
+
+        return residues.ToString();
+    }
+
+    private static int SkipModifications(string sequence, int start, SequenceFormatSchema schema)
+    {
+        int i = start;
+        while (i < sequence.Length && sequence[i] == schema.ModOpenBracket)
+        {
+            int depth = 0;
+            int end = -1;
+            for (int k = i; k < sequence.Length && end < 0; k++)
+            {
+                if (sequence[k] == schema.ModOpenBracket)
+                    depth++;
+                else if (sequence[k] == schema.ModCloseBracket && --depth == 0)
+                    end = k + 1;
+            }
+
+            if (end < 0)
+                break;
+            i = end;
+        }
+        return i;
     }
 
     #endregion

@@ -423,7 +423,7 @@ public sealed class MslProteoformIndex
 	}
 
 	/// <summary>
-	/// Returns the index of the last element whose <c>NeutralMass <= maxMass</c>,
+	/// Returns the index of the last element whose <c>NeutralMass &lt;= maxMass</c>,
 	/// or -1 if all elements exceed <paramref name="maxMass"/>.
 	/// </summary>
 	private int UpperBound(double maxMass)

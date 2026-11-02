@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UsefulProteomicsDatabases
@@ -78,11 +79,51 @@ namespace UsefulProteomicsDatabases
         public const string UniProtRestBaseAddress = "https://rest.uniprot.org/";
 
         /// <summary>
-        /// One reused client for every retrieval. The timeout is generous because a proteome download is
-        /// large and slow; exceeding it is reported as an <see cref="HttpRequestException"/> like any other
-        /// availability failure (see <see cref="Get"/>).
+        /// One reused client for every retrieval. This timeout bounds the wait for UniProt to START
+        /// responding — nothing more. Every request is issued with
+        /// <see cref="HttpCompletionOption.ResponseHeadersRead"/> (see <see cref="Get"/>), so the clock
+        /// stops the moment the response headers arrive; the body is read afterwards and this value never
+        /// reaches it. <see cref="BodyStallTimeout"/> is what bounds the transfer itself.
         /// </summary>
-        private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromMinutes(10) };
+        /// <remarks>
+        /// It used to be ten minutes, justified as "generous because a proteome download is large and slow".
+        /// That reasoning did not hold: because of ResponseHeadersRead it was never the download's budget,
+        /// only the wait for a first byte of response — for which ten minutes is not generous but
+        /// indefinite. Two minutes is ample for a healthy service and gives up promptly on a dead one.
+        /// Exceeding it is reported as an <see cref="HttpRequestException"/> like any other availability
+        /// failure.
+        /// </remarks>
+        private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
+
+        /// <summary>
+        /// How long a transfer may go without delivering a single byte before it is abandoned. This is what
+        /// bounds the response BODY, which <see cref="SharedHttpClient"/>'s timeout does not reach.
+        /// </summary>
+        /// <remarks>
+        /// An INACTIVITY timeout, deliberately not a total-duration one. A complete proteome is large and a
+        /// slow link may legitimately need a very long time to finish, so the question worth asking is
+        /// whether data is still arriving — not how long it has been arriving for. A total cap would abort
+        /// exactly the healthy downloads that need the most time.
+        /// <para>
+        /// Before this existed the body read had no deadline at all: a stalled UniProt download stayed open
+        /// until the socket gave up. On 2026-08-21 that let one live test occupy 12m43s of a 20-minute CI
+        /// job before failing, cancelling the job and turning the run red on every open PR.
+        /// </para>
+        /// <para>
+        /// Two minutes, chosen against measurement rather than taste. A transfer that is merely SLOW is
+        /// unaffected, because every byte restarts the clock: on 2026-08-21 a degraded UniProt served
+        /// TryRetrieveEntry_LiveP02768_ReportsFound over 6 minutes and it passed, because data never
+        /// stopped arriving. What the deadline ends is silence, and two minutes of complete silence on an
+        /// HTTP response body is already a dead connection. Five minutes was tried first and was too
+        /// generous to be useful: one live test spent 14m42s stalling three downloads in sequence and took
+        /// the external-service job past its budget with it.
+        /// </para>
+        /// <para>
+        /// Settable for tests, which cannot afford to wait minutes to prove a stall is detected. Restore it
+        /// after changing it — it is process-wide.
+        /// </para>
+        /// </remarks>
+        internal static TimeSpan BodyStallTimeout = TimeSpan.FromMinutes(2);
 
         /// <summary>
         /// Downloads a UniProt proteome — every protein belonging to one organism's proteome ID — and
@@ -139,7 +180,49 @@ namespace UsefulProteomicsDatabases
         /// without a live service.
         /// </summary>
         internal static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
-            Reviewed reviewed, Compress compress, IncludeIsoforms include, HttpClient httpClient)
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, HttpClient httpClient) =>
+            RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include,
+                GeneCentric.no, httpClient);
+
+        /// <summary>
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms)"/>,
+        /// optionally narrowed to the proteome's gene-centric set: one protein per gene, the set UniProt
+        /// distributes as a reference proteome's canonical FASTA/XML on its FTP site
+        /// (reference_proteomes/&lt;kingdom&gt;/&lt;UP id&gt;/&lt;UP id&gt;_&lt;taxon&gt;.fasta.gz).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The reviewed entries of a thinly curated organism are not a whole proteome. Rat (UP000002494) has
+        /// 8,228 reviewed entries but 21,471 genes; the gene-centric set holds one sequence for each of them —
+        /// the Swiss-Prot entry where there is one (8,213), a TrEMBL entry where there is not (13,258) — out of
+        /// the 52,824 entries in the complete proteome. A search against the reviewed entries alone cannot
+        /// identify the other 13,000 genes; a search against the complete proteome scatters each gene's
+        /// peptides across several near-identical entries.
+        /// </para>
+        /// <para>
+        /// <see cref="GeneCentric.yes"/> adds UniProt's <c>is_gene_centric:true</c> clause to the same query, so
+        /// it combines with <paramref name="reviewed"/>: with <see cref="Reviewed.all"/> it is the canonical
+        /// proteome (rat 21,471, human 20,652, mouse 21,860 in release 2026_03, each exactly the FTP file's
+        /// entries); with <see cref="Reviewed.yes"/> it is the Swiss-Prot part of that set. The file name gains
+        /// "_genecentric" so the set is never mistaken on disk for the reviewed or complete download.
+        /// </para>
+        /// </remarks>
+        /// <param name="geneCentric">Whether to keep only the gene-centric (one protein per gene) entries.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// As for the overload without <paramref name="geneCentric"/>, or <paramref name="geneCentric"/> is not a
+        /// defined <see cref="GeneCentric"/> value.
+        /// </exception>
+        public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, GeneCentric geneCentric) =>
+            RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include, geneCentric,
+                SharedHttpClient);
+
+        /// <summary>
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms, GeneCentric)"/>
+        /// over a caller-supplied <see cref="HttpClient"/>.
+        /// </summary>
+        internal static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, GeneCentric geneCentric, HttpClient httpClient)
         {
             if (string.IsNullOrWhiteSpace(proteomeID))
                 throw new ArgumentException("A UniProt proteome ID is required, e.g. \"UP000005640\".", nameof(proteomeID));
@@ -154,6 +237,9 @@ namespace UsefulProteomicsDatabases
             if (!Enum.IsDefined(typeof(Reviewed), reviewed))
                 throw new ArgumentOutOfRangeException(nameof(reviewed), reviewed,
                     $"Review status '{reviewed}' is not a defined {nameof(Reviewed)} value.");
+            if (!Enum.IsDefined(typeof(GeneCentric), geneCentric))
+                throw new ArgumentOutOfRangeException(nameof(geneCentric), geneCentric,
+                    $"'{geneCentric}' is not a defined {nameof(GeneCentric)} value.");
 
             // The proteome ID becomes part of a file name, so refuse anything that could escape the storage
             // directory or, on NTFS, be read as an alternate data stream (a ':' in the name).
@@ -180,6 +266,7 @@ namespace UsefulProteomicsDatabases
 
             string filename = proteomeID
                 + reviewedSuffix
+                + (geneCentric == GeneCentric.yes ? "_genecentric" : "")
                 + (isoformBool ? "_isoform" : "")
                 + "." + format
                 + (compressBool ? ".gz" : "");
@@ -193,6 +280,8 @@ namespace UsefulProteomicsDatabases
             string query = Uri.EscapeDataString(proteomeID);
             if (reviewed != Reviewed.all)
                 query += "+AND+reviewed:" + (reviewed == Reviewed.yes ? "true" : "false");
+            if (geneCentric == GeneCentric.yes)
+                query += "+AND+is_gene_centric:true";
 
             // The isoform fragment is kept verbatim, separator and all: UniProt's parameter is
             // "includeIsoform=", so "includeIsoforms:" has always been ignored. Spelling it correctly would
@@ -557,9 +646,49 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        /// <summary>Reads the whole response body, bridged off the caller's context — see <see cref="Get"/>.</summary>
-        private static byte[] ReadBody(HttpResponseMessage response) =>
-            Task.Run(() => response.Content.ReadAsByteArrayAsync()).GetAwaiter().GetResult();
+        /// <summary>
+        /// Reads the whole response body, bridged off the caller's context — see <see cref="Get"/> — and
+        /// abandoned if it stalls for <see cref="BodyStallTimeout"/>.
+        /// </summary>
+        private static byte[] ReadBody(HttpResponseMessage response)
+        {
+            try
+            {
+                using Stream httpStream = response.Content.ReadAsStream();
+                using var buffer = new MemoryStream();
+                CopyUntilStalled(httpStream, buffer);
+                return buffer.ToArray();
+            }
+            catch (Exception e) when (e is IOException or OperationCanceledException)
+            {
+                // Same reasoning as WriteResponseToFile: the body arrives after the headers were already
+                // classified, so a stall surfaces here and must reach the caller as the "try again later"
+                // type rather than as an unhandled cancellation.
+                throw new HttpRequestException(
+                    $"The UniProt response body failed or delivered nothing for {BodyStallTimeout}.", e);
+            }
+        }
+
+        /// <summary>
+        /// Copies <paramref name="source"/> to <paramref name="destination"/>, giving up if no bytes arrive
+        /// for <see cref="BodyStallTimeout"/>. Each read gets a FRESH window, so a transfer that keeps
+        /// delivering data runs as long as it needs to and only an actual stoppage ends it.
+        /// </summary>
+        private static void CopyUntilStalled(Stream source, Stream destination)
+        {
+            // The framework has no read-inactivity timeout, so the copy is hand-rolled rather than
+            // Stream.CopyTo: CopyTo would inherit the same absence of a deadline this exists to supply.
+            byte[] buffer = new byte[81920];
+            while (true)
+            {
+                using var stallWindow = new CancellationTokenSource(BodyStallTimeout);
+                int read = Task.Run(() => source.ReadAsync(buffer.AsMemory(), stallWindow.Token).AsTask())
+                    .GetAwaiter().GetResult();
+                if (read == 0)
+                    return;
+                destination.Write(buffer, 0, read);
+            }
+        }
 
         /// <summary>
         /// Throws <see cref="HttpRequestException"/> if the response says the service — rather than the
@@ -615,7 +744,7 @@ namespace UsefulProteomicsDatabases
                 {
                     using var fileStream = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     using Stream httpStream = response.Content.ReadAsStream();
-                    httpStream.CopyTo(fileStream);
+                    CopyUntilStalled(httpStream, fileStream);
                 }
                 catch (Exception e) when (e is IOException or OperationCanceledException)
                 {
@@ -624,8 +753,13 @@ namespace UsefulProteomicsDatabases
                     // a 504 and must reach the caller as the same type, or the documented contract — catch
                     // HttpRequestException for "try again later" — silently fails to cover the phase where a
                     // large download actually breaks.
+                    //
+                    // OperationCanceledException is now also how a STALL arrives: CopyUntilStalled cancels a
+                    // read that delivers nothing for BodyStallTimeout. It was previously unreachable in
+                    // practice, because nothing set a deadline on the body at all.
                     throw new HttpRequestException(
-                        $"The UniProt download failed while reading the response body into '{destinationPath}'.", e);
+                        $"The UniProt download failed while reading the response body into '{destinationPath}' " +
+                        $"(no data for {BodyStallTimeout} counts as failed).", e);
                 }
 
                 File.Move(partialPath, destinationPath, overwrite: true);
@@ -679,6 +813,20 @@ namespace UsefulProteomicsDatabases
             /// alternatives, and there was previously no way to ask for the whole thing at once.
             /// </summary>
             all
+        }
+
+        /// <summary>
+        /// Whether to keep only a proteome's gene-centric entries — one protein per gene, UniProt's
+        /// <c>is_gene_centric</c> — the canonical set of a reference proteome. A filter that combines with
+        /// <see cref="Reviewed"/>, not a fourth review status.
+        /// </summary>
+        public enum GeneCentric
+        {
+            /// <summary>Every entry the review status selects (the behaviour before this option existed).</summary>
+            no,
+
+            /// <summary>Only the gene-centric entries: one per gene.</summary>
+            yes
         }
 
         /// <summary>
