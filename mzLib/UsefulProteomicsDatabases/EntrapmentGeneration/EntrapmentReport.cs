@@ -83,8 +83,9 @@ public sealed class EntrapmentStratum
     /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds.
     /// </summary>
     /// <remarks>
-    /// <para>This is the population an FDP estimator's <c>r</c> is over, and the denominator
-    /// <see cref="Ambiguous"/> belongs to -- <see cref="Ambiguous"/> is counted over missed-cleavage
+    /// <para>This is the population an FDP estimator's <c>r</c> is over (with, for an XML database,
+    /// <see cref="EntrapmentReport.TruncationProductPeptidesByAccession"/> added to the target side),
+    /// and the denominator <see cref="Ambiguous"/> belongs to -- <see cref="Ambiguous"/> is counted over missed-cleavage
     /// peptides too, so dividing it by <see cref="TargetPeptides"/> divides two different
     /// populations. On the reviewed human proteome that mistake turned 0.24% into "1.19%".</para>
     /// <para><b>A WHOLE-DATABASE figure, carried on <see cref="EntrapmentReport.Total"/> alone.</b>
@@ -104,7 +105,9 @@ public sealed class EntrapmentStratum
     /// peptide-level <c>r</c>. <see cref="EntrapmentPeptides"/> counts base pieces, so the ratio
     /// built from it is a base-piece ratio; excision makes the two search spaces differ by more than
     /// the fold factor, so this cannot be derived from the target count and a correction. An FDP
-    /// estimator wants <c>entrapmentSearchSpacePeptides / searchSpacePeptides</c>.</para>
+    /// estimator wants <c>entrapmentSearchSpacePeptides / (searchSpacePeptides + truncationProductPeptides)</c>,
+    /// the last being the report's <c># truncationProductPeptides</c> line (absent, so zero, for a
+    /// FASTA database); see <see cref="EntrapmentReport.TruncationProductPeptidesByAccession"/>.</para>
     /// <para><b>A WHOLE-DATABASE figure, on <see cref="EntrapmentReport.Total"/> alone</b>, for the
     /// same reason as <see cref="SearchSpacePeptides"/>: every stratum row reads 0, structurally,
     /// and the ratio above is a whole-database ratio rather than a per-stratum one.</para>
@@ -278,11 +281,17 @@ public sealed class EntrapmentReport
     /// (signal peptide, propeptide, chain), by target accession.
     /// </summary>
     /// <remarks>
-    /// A search of an XML database reports these, and a partner carries no truncation products, so
+    /// <para>A search of an XML database reports these, and a partner carries no truncation products, so
     /// none of them can ever pair. They are left out of <see cref="EntrapmentStratum.SearchSpacePeptides"/>,
-    /// which is why they are named here: the achieved r is over the population without them, and a
-    /// paired estimator has to exclude the same peptides. Empty for a FASTA database.
-    /// See <see cref="EntrapmentPairing.TruncationProductPeptides"/>.
+    /// the pairable population, which is why they are named here. Empty for a FASTA database.
+    /// See <see cref="EntrapmentPairing.TruncationProductPeptides"/>.</para>
+    /// <para>They are still real target peptides, so an FDP estimator counts them as target discoveries
+    /// and never uses one as a pairing partner, as with <see cref="AmbiguousPeptidesByAccession"/>
+    /// (<c>EntrapmentFdp.ClassifyExclusion</c> reads <c>truncationProductPeptide</c> as unpairable,
+    /// smith-chem-wisc/mzLib#1502). For the same reason its <c>r</c> counts them on the target side:
+    /// <c>entrapmentSearchSpacePeptides / (searchSpacePeptides + truncationProductPeptides)</c>.
+    /// Counting them as discoveries but not in <c>r</c> puts the combined estimate low by a factor of
+    /// <c>1 + f / (r + 1)</c>, where <c>f</c> is their share of the target search space.</para>
     /// </remarks>
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> TruncationProductPeptidesByAccession { get; internal set; }
         = new Dictionary<string, IReadOnlyCollection<string>>();

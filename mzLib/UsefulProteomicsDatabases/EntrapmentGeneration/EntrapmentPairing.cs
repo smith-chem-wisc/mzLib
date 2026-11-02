@@ -147,8 +147,9 @@ public sealed class EntrapmentPairing
     /// Target peptides a search reports only because of the target's truncation products -- they
     /// begin or end at a signal-peptide, propeptide or chain boundary rather than at a cleavage
     /// site. A partner carries no truncation products, so these have no partner, and they are left
-    /// out of <see cref="SearchablePeptideCount"/>. A paired estimator should exclude them as it
-    /// excludes <see cref="AmbiguousPeptides"/>.
+    /// out of <see cref="SearchablePeptideCount"/>. They are still target peptides: an FDP estimator
+    /// counts them as target discoveries but never pairs them, as with <see cref="AmbiguousPeptides"/>,
+    /// and adds them to the target side of its <c>r</c>.
     /// </summary>
     public IReadOnlyCollection<string> TruncationProductPeptides => _truncationProductPeptides;
 
@@ -161,14 +162,15 @@ public sealed class EntrapmentPairing
     /// <summary>
     /// Distinct peptides of this protein a search could report -- runs of up to
     /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds, plus the forms of the
-    /// N-terminal runs a search reports without their initiator methionine. This is the population
-    /// an FDP estimator's <c>r</c> is over, and the denominator an ambiguity rate needs: the
+    /// N-terminal runs a search reports without their initiator methionine. This is the pairable
+    /// population, and the denominator an ambiguity rate needs: the
     /// report's own peptide counts are over <i>base pieces</i>, which is a different and smaller
     /// population, and dividing one by the other gives a rate of nothing.
     /// <para>Peptides at truncation-product boundaries are <b>not</b> included, although a search of
-    /// an XML database reports them: they have no partner, so counting them would measure r over a
-    /// population no partner can reach. They are in <see cref="TruncationProductPeptides"/>
-    /// instead, so the two together are what the search actually covers.</para>
+    /// an XML database reports them: they have no partner, so this count stays the population pairing
+    /// covers. They are in <see cref="TruncationProductPeptides"/> instead, so the two together are
+    /// what the search actually covers, and that sum is the target side of an FDP estimator's
+    /// <c>r</c>.</para>
     /// </summary>
     public int SearchablePeptideCount => _byKey.Count + _ambiguous.Count;
 
