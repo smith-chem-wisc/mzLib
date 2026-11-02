@@ -400,5 +400,37 @@ namespace Test.DatabaseTests
         }
 
         #endregion
+
+        #region Accession no-match summary
+
+        [Test]
+        public void HeadersTheAccessionRegexMissesAreCountedAndStillFallBackToTheWholeDefline()
+        {
+            string path = WriteFasta(UniProtDefline, RefSeqDefline, GenBankDefline);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out var errors,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex,
+                ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(new[] { "P0AD86", RefSeqDefline.Substring(1), GenBankDefline.Substring(1) }));
+            Assert.That(errors, Is.EqualTo(new[]
+            {
+                "Warning: 2 of 3 FASTA headers did not match the accession regex, so the whole header line was used as the accession: " + path
+            }));
+        }
+
+        [Test]
+        public void NoSummaryWhenEveryHeaderMatchesTheAccessionRegex()
+        {
+            string path = WriteFasta(UniProtDefline);
+
+            ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out var errors,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex,
+                ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.That(errors, Is.Empty);
+        }
+
+        #endregion
     }
 }

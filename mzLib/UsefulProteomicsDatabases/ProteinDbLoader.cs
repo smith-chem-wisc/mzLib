@@ -310,6 +310,8 @@ namespace UsefulProteomicsDatabases
             List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
+            int headerCount = 0;
+            int headersWithoutAccession = 0;
 
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
@@ -350,6 +352,8 @@ namespace UsefulProteomicsDatabases
                             organismIdRegex ??= preset.OrganismId;
                         }
 
+                        headerCount++;
+
                         accession = ApplyRegex(accessionRegex, line);
                         fullName = ApplyRegex(fullNameRegex, line);
                         name = ApplyRegex(nameRegex, line);
@@ -363,6 +367,7 @@ namespace UsefulProteomicsDatabases
 
                         if (accession == null || accession == "")
                         {
+                            headersWithoutAccession++;
                             accession = line.Substring(1).TrimEnd();
                         }
 
@@ -449,6 +454,10 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
+            if (headersWithoutAccession > 0)
+            {
+                errors.Add($"Warning: {headersWithoutAccession} of {headerCount} FASTA headers did not match the accession regex, so the whole header line was used as the accession: {proteinDbLocation}");
+            }
             if (!targets.Any())
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
