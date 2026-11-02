@@ -79,13 +79,18 @@ namespace Test.Quantification
             (intensities ?? new Dictionary<ISampleInfo, double>()).ToDictionary(
                 kvp => ((IsobaricQuantSampleInfo)kvp.Key).ChannelLabel, kvp => kvp.Value);
 
+        /// <param name="allGroups">Every group of the analysis, quantified or not; null runs the five-argument
+        /// constructor, which judges among <paramref name="groups"/> alone.</param>
         private static QuantificationResults Run(List<ISpectralMatch> matches, List<IBioPolymerWithSetMods> peptides,
-            List<IBioPolymerGroup> groups, bool useSharedPeptides = false)
+            List<IBioPolymerGroup> groups, bool useSharedPeptides = false, List<IBioPolymerGroup> allGroups = null)
         {
             var parameters = QuantificationParameters.GetSimpleParameters();
             parameters.UseSharedPeptidesForProteinQuant = useSharedPeptides;
             var design = new TestExperimentalDesign(new Dictionary<string, ISampleInfo[]> { [File] = Channels });
-            return new QuantificationEngine(parameters, design, matches, peptides, groups).Run();
+            var engine = allGroups == null
+                ? new QuantificationEngine(parameters, design, matches, peptides, groups)
+                : new QuantificationEngine(parameters, design, matches, peptides, groups, allGroups);
+            return engine.Run();
         }
 
         /// <summary>
@@ -219,6 +224,51 @@ namespace Test.Quantification
             Assert.That(result.PeptideIntensities.Keys.OfType<LocalizationAmbiguousPeptide>().Single().FullSequence, Is.EqualTo(Name(at3InP1, at5InP2)));
             Assert.That(ByChannel(result.ProteinIntensities[g1]).Values, Has.None.GreaterThan(0));
             Assert.That(ByChannel(result.ProteinIntensities[g2]).Values, Has.None.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// The same split, with G2 one the caller does not quantify (for instance a group it does not write out): G1 lists
+        /// only M3 and G2 only M5. The row may still be G2's, so G1 does not get it -- with shared peptides off, and on.
+        /// Before, the shared-peptides path judged the span among the quantified groups alone and credited it to G1.
+        /// </summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AMatchWithASiteOnlyAnUnquantifiedGroupLists_CountsForNeither(bool useSharedPeptides)
+        {
+            var p1 = new Protein("ACMDMEKGGGR", "P1");
+            var p2 = new Protein("ACMDMEKWWWR", "P2");
+            var at3InP1 = Peptide(p1, 1, 7, (3, Oxidation));
+            var at5InP2 = Peptide(p2, 1, 7, (5, Oxidation));
+            var g1 = Group(new[] { p1 }, new[] { at3InP1 });
+            var g2 = Group(new[] { p2 }, new[] { at5InP2 });
+
+            var result = Run(new List<ISpectralMatch> { Match(1, new[] { 1000.0, 2000.0 }, at3InP1, at5InP2) },
+                Unrelated(), new List<IBioPolymerGroup> { g1 }, useSharedPeptides, allGroups: new List<IBioPolymerGroup> { g1, g2 });
+
+            Assert.That(result.PeptideIntensities.Keys.OfType<LocalizationAmbiguousPeptide>().Single().FullSequence, Is.EqualTo(Name(at3InP1, at5InP2)));
+            Assert.That(result.ProteinIntensities.Keys, Is.EquivalentTo(new[] { g1 }), "only the quantified group is reported");
+            Assert.That(ByChannel(result.ProteinIntensities[g1]).Values, Has.None.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// The control for the case above: with shared peptides on, a peptide with its site known that an unquantified
+        /// group also lists still counts for the quantified group, as a shared peptide does.
+        /// </summary>
+        [Test]
+        public void ASharedPeptideWithItsSiteKnown_StillCountsForTheQuantifiedGroup_WhenAnUnquantifiedGroupListsIt()
+        {
+            var p1 = new Protein("ACMDMEKGGGR", "P1");
+            var p2 = new Protein("ACMDMEKWWWR", "P2");
+            var at3InP1 = Peptide(p1, 1, 7, (3, Oxidation));
+            var at3InP2 = Peptide(p2, 1, 7, (3, Oxidation));
+            var g1 = Group(new[] { p1 }, new[] { at3InP1 });
+            var g2 = Group(new[] { p2 }, new[] { at3InP2 });
+
+            var result = Run(new List<ISpectralMatch> { Match(1, new[] { 1000.0, 2000.0 }, at3InP1) },
+                new List<IBioPolymerWithSetMods> { at3InP1 }, new List<IBioPolymerGroup> { g1 }, useSharedPeptides: true,
+                allGroups: new List<IBioPolymerGroup> { g1, g2 });
+
+            Assert.That(ByChannel(result.ProteinIntensities[g1]), Is.EqualTo(new Dictionary<string, double> { ["126"] = 1000, ["127N"] = 2000 }));
         }
 
         /// <summary>
