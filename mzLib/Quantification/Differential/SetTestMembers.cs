@@ -130,9 +130,10 @@ public sealed record SetMemberAssignment
 /// every accession is one of them. So a multi-gene entry (one histone H4 entry encoded by many genes) stands for no single
 /// member, and enters only through the exception.</para>
 /// <para><b>The all-members exception:</b> a group whose genes are all members of the part enters once, labelled with each
-/// of them. It enters only for members with no group of their own, and only when none of its genes has a group of its own;
-/// otherwise a member left with it is <see cref="SetMemberState.SharedGroup"/>. So no gene is counted twice (ruled
-/// 2026-10-25, DATA-DEFINITIONS v3.17).</para>
+/// of them. It enters only for members with no group of their own, and only when none of its genes has a group of its own,
+/// including a part member this contrast does not list (found by gene name, since it has no row here); otherwise a member
+/// left with it is <see cref="SetMemberState.SharedGroup"/>. So no gene is counted twice (ruled 2026-10-25,
+/// DATA-DEFINITIONS v3.17).</para>
 /// <para><b>One group per member, chosen without looking at any effect:</b> the most samples of the contrast in which one
 /// of the group's unique peptides (GR-23) has a value; then the most such unique peptides with a value in one of the
 /// contrast's samples (ruled 2026-10-25); then the group name in ordinal order.</para>
@@ -205,7 +206,13 @@ public static class SetMemberResolver
                       && string.Equals(f.Genes[0], row.Member, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
         }
+        // Which genes of the part have a group of their own: a member of this contrast by its own groups above; a part
+        // member this contrast does not list by gene name, as it has no row here.
+        var listed = new HashSet<string>(own.Keys, StringComparer.OrdinalIgnoreCase);
         var gotOwn = new HashSet<string>(own.Where(o => o.Value.Count > 0).Select(o => o.Key), StringComparer.OrdinalIgnoreCase);
+        gotOwn.UnionWith(facts.Values
+            .Where(f => f.OutsideReason is null && !f.HasGenelessAccession && f.Genes.Count == 1 && !listed.Contains(f.Genes[0]))
+            .Select(f => f.Genes[0]));
 
         var result = new List<SetMemberAssignment>();
         foreach (var row in members)

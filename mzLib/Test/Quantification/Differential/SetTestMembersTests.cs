@@ -214,6 +214,17 @@ public class SetTestMembersTests
     }
 
     [Test]
+    public void TheExceptionDoesNotEnter_WhenAPartMemberAbsentFromTheContrastHasItsOwnGroup()
+    {
+        var genes = Genes(("A1", "GeneA"), ("B1", "GeneB"));
+        var table = Table(new Group("A1|B1").With("ABPEP", All), new Group("B1").With("BPEP", All));
+        // The contrast lists only GeneA; GeneB, a member of the part in another dataset, has its own group here.
+        var resolved = Resolve(Contrast("GeneA"), table, genes, partMembers: new[] { "GeneA", "GeneB" });
+        Assert.That(One(resolved, "GeneA").State, Is.EqualTo(SetMemberState.SharedGroup));
+        Assert.That(One(resolved, "GeneA").ProteinGroup, Is.Null);
+    }
+
+    [Test]
     public void TheChoice_TakesTheMostSamplesWithAUniquePeptideValue()
     {
         var genes = Genes(("A1", "GeneA"), ("A2", "GeneA"));
