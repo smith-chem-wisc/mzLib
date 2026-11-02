@@ -68,12 +68,17 @@ namespace Proteomics.ProteolyticDigestion
             //
             // There is deliberately no "can anything satisfy the requirement" gate -- see Protein.Digest
             // for why the promoting correction must NOT go inert when nothing configured can satisfy it.
-            List<Modification> configuredModifications = variableModifications.Concat(allKnownFixedModifications).ToList();
             bool respectCleavageRequirements = digestionParams.RespectCleavagePromotingModifications
                 && digestionParams.SearchModeType == CleavageSpecificity.Full
                 && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                 && digestionParams.DigestionAgent is not null
                 && digestionParams.DigestionAgent.HasCleavageRequirement;
+
+            // Built only when the flag is on: every use below is behind it, and flag-off digestion must
+            // not pay a list copy per peptide for a feature it is not using.
+            List<Modification> configuredModifications = respectCleavageRequirements
+                ? variableModifications.Concat(allKnownFixedModifications).ToList()
+                : null;
 
             // Which internal positions are SITES is a property of the sequence and the configured
             // modifications, identical for every peptidoform of this peptide, so it is found once here
