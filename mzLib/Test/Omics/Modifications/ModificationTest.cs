@@ -2,6 +2,7 @@
 using Chemistry;
 using NUnit.Framework;
 using Omics.Modifications;
+using Omics.Modifications.IO;
 using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
@@ -286,5 +287,192 @@ public static class ModificationTest
         }
 
         Assert.That(mismatches, Is.Empty, string.Join(Environment.NewLine, mismatches));
+    }
+
+    /// <summary>
+    /// A loaded modification's monoisotopic mass must be the mass of its own formula. UniProt's
+    /// ptmlist release 2026_01 had the MM and MA lines swapped on 29 complex N-glycans, so each
+    /// carried its average mass (about 1 Da high), and the 2014 PSI-MOD charge list lacked
+    /// N,N,N-trimethylglycine, so its formula kept one hydrogen too many. Both break this equality.
+    /// </summary>
+    [Test]
+    public static void EveryLoadedModificationsMassIsItsFormulasMass()
+    {
+        var mismatches = Mods.UniprotModifications
+            .Concat(Mods.MetaMorpheusProteinModifications)
+            .Concat(Mods.IsobaricLabelModifications)
+            .Concat(Mods.UnimodModifications)
+            .Where(m => m.ChemicalFormula != null && m.MonoisotopicMass != null
+                        && Math.Abs(m.MonoisotopicMass.Value - m.ChemicalFormula.MonoisotopicMass) > 0.001)
+            .Select(m => $"'{m.IdWithMotif}' ({m.ModificationType}): mass {m.MonoisotopicMass:F5}, " +
+                         $"{m.ChemicalFormula.Formula} {m.ChemicalFormula.MonoisotopicMass:F5}")
+            .ToList();
+
+        Assert.That(mismatches, Is.Empty, string.Join(Environment.NewLine, mismatches));
+    }
+
+    /// <summary>
+    /// The embedded formal-charge table is generated from the current PSI-MOD.obo. It must keep every
+    /// charge the 2014 PSI-MOD.obo.xml gave (the test fixture copy), with the same sign and size, and it
+    /// adds N,N,N-trimethylglycine (MOD:01982), which UniProt cites and the 2014 file did not charge.
+    /// </summary>
+    [Test]
+    public static void EmbeddedFormalChargesKeepEveryChargeOfThePsiModXml()
+    {
+        var assembly = typeof(Mods).Assembly;
+        using var stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Resources.PsiModFormalCharges.tsv");
+        using var reader = new System.IO.StreamReader(stream!);
+        var embedded = ModificationLoader.ReadFormalChargesDictionary(reader);
+        var fromXml = ModificationLoader.GetFormalChargesDictionary(ModificationLoader.LoadPsiMod(TestOntologies.PsiModXml));
+
+        foreach (var (accession, charge) in fromXml)
+        {
+            Assert.That(embedded.TryGetValue(accession, out int embeddedCharge), $"{accession} is missing from the embedded table");
+            Assert.That(embeddedCharge, Is.EqualTo(charge), accession);
+        }
+        Assert.That(embedded["PSI-MOD; MOD:01982"], Is.EqualTo(1));
+        Assert.That(embedded.Values.Any(c => c < 0), "negative charges must keep their sign");
+    }
+
+    /// <summary>
+    /// UniProt writes a charged modification's formula for the charged species. N,N,N-trimethylglycine
+    /// must lose one hydrogen on load, exactly as N6,N6,N6-trimethyllysine always has, and get the same mass.
+    /// </summary>
+    [Test]
+    public static void TrimethylglycineIsChargeCorrectedLikeTrimethyllysine()
+    {
+        var glycine = Mods.UniprotModifications.Single(m => m.IdWithMotif == "N,N,N-trimethylglycine on G");
+        var lysine = Mods.UniprotModifications.Single(m => m.IdWithMotif == "N6,N6,N6-trimethyllysine on K");
+
+        Assert.That(glycine.ChemicalFormula, Is.EqualTo(ChemicalFormula.ParseFormula("C3H6")));
+        Assert.That(glycine.ChemicalFormula, Is.EqualTo(lysine.ChemicalFormula));
+        Assert.That(glycine.MonoisotopicMass, Is.EqualTo(lysine.MonoisotopicMass).Within(1e-9));
+        Assert.That(glycine.MonoisotopicMass, Is.EqualTo(glycine.ChemicalFormula.MonoisotopicMass).Within(1e-9),
+            "UniProt writes this entry's MM as the neutral formula mass, not the cation's; the mass must come from the corrected formula");
+    }
+
+    [Test]
+    public static void ReadFormalChargesDictionarySkipsCommentsKeepsSignsAndRefusesBadLines()
+    {
+        var charges = ModificationLoader.ReadFormalChargesDictionary(
+            new System.IO.StringReader("# header\n\nMOD:00083\t1\nMOD:00147\t-3\n"));
+
+        Assert.That(charges, Has.Count.EqualTo(2));
+        Assert.That(charges["PSI-MOD; MOD:00083"], Is.EqualTo(1));
+        Assert.That(charges["PSI-MOD; MOD:00147"], Is.EqualTo(-3));
+
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadFormalChargesDictionary(new System.IO.StringReader("MOD:00083 1\n")));
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadFormalChargesDictionary(new System.IO.StringReader("MOD:00083\t1+\n")));
+    }
+
+    /// <summary>
+    /// Every curated UniProt-to-Unimod cross-reference must name an entry mzLib loads, and a Unimod record
+    /// of the same composition (against the formula mzLib holds, after the formal-charge correction) that
+    /// lists the entry's residue among its sites. Sameness of chemistry beyond that is a review decision,
+    /// recorded in the table's header.
+    /// </summary>
+    [Test]
+    public static void UniprotUnimodCrossReferencesCiteTheSameCompositionOnTheSameResidue()
+    {
+        var unimodRecords = Mods.UnimodModifications
+            .Where(m => m.ModificationType == "Unimod" && m.DatabaseReference != null && m.DatabaseReference.ContainsKey("Unimod"))
+            .ToLookup(m => m.DatabaseReference["Unimod"].First());
+
+        var problems = new List<string>();
+        foreach (var (accession, unimodId) in ModificationLoader.UniprotUnimodCrossReferences)
+        {
+            var entries = Mods.UniprotModifications.Where(m => m.Accession == accession).ToList();
+            if (entries.Count == 0)
+            {
+                problems.Add($"{accession}: no loaded UniProt modification has this accession");
+                continue;
+            }
+            var cited = unimodRecords[unimodId].ToList();
+            if (cited.Count == 0)
+            {
+                problems.Add($"{accession}: UNIMOD:{unimodId} is not in the embedded unimod.xml");
+                continue;
+            }
+            foreach (var entry in entries)
+            {
+                if (!cited.Any(u => u.ChemicalFormula != null && u.ChemicalFormula.Equals(entry.ChemicalFormula)))
+                    problems.Add($"'{entry.IdWithMotif}' ({entry.ChemicalFormula?.Formula}) cites UNIMOD:{unimodId} " +
+                                 $"({cited.First().ChemicalFormula?.Formula}), a different composition");
+                if (!cited.Any(u => u.Target?.ToString() == entry.Target?.ToString()))
+                    problems.Add($"'{entry.IdWithMotif}' cites UNIMOD:{unimodId}, which does not list {entry.Target} as a site");
+                if (!entry.DatabaseReference["Unimod"].Contains(unimodId))
+                    problems.Add($"'{entry.IdWithMotif}' did not receive UNIMOD:{unimodId}");
+            }
+        }
+
+        Assert.That(ModificationLoader.UniprotUnimodCrossReferences, Is.Not.Empty);
+        Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>
+    /// The curated table only fills a gap. An entry that carries its own Unimod reference keeps it, and an
+    /// entry with no database references at all gets one.
+    /// </summary>
+    [Test]
+    public static void UniprotUnimodCrossReferenceIsAddedOnlyWhenUniProtHasNone()
+    {
+        static Modification Read(string dr) => ModificationLoader.ReadModsFromFile(
+            new System.IO.StreamReader(new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(
+                "ID   N6-succinyllysine\r\nAC   PTM-0438\r\nFT   MOD_RES\r\nTG   Lysine.\r\nPP   Anywhere.\r\n" +
+                "CF   C4 H4 O3\r\nMM   100.016044\r\n" + dr + "//"))),
+            new Dictionary<string, int>(), out _).Single();
+
+        Assert.That(Read("").DatabaseReference["Unimod"], Is.EqualTo(new[] { "64" }));
+        Assert.That(Read("DR   PSI-MOD; MOD:01819.\r\n").DatabaseReference["Unimod"], Is.EqualTo(new[] { "64" }));
+        Assert.That(Read("DR   Unimod; 999.\r\n").DatabaseReference["Unimod"], Is.EqualTo(new[] { "999" }),
+            "UniProt's own Unimod reference wins over the curated one");
+    }
+
+    /// <summary>
+    /// The point of the table: a MetaMorpheus full-sequence name for a UniProt modification resolves to its
+    /// Unimod accession.
+    /// </summary>
+    [Test]
+    public static void SuccinyllysineResolvesToItsUnimodAccession()
+    {
+        var resolved = global::Omics.SequenceConversion.GlobalModificationLookup.Instance.TryResolve("UniProt:N6-succinyllysine on K");
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.UnimodId, Is.EqualTo(64));
+    }
+
+    [Test]
+    public static void ReadUnimodCrossReferencesSkipsCommentsAndRefusesBadLines()
+    {
+        var crossReferences = ModificationLoader.ReadUnimodCrossReferences(
+            new System.IO.StringReader("# header\n\nPTM-0438\t64\tN6-succinyllysine\tSuccinyl\n"));
+
+        Assert.That(crossReferences, Has.Count.EqualTo(1));
+        Assert.That(crossReferences["PTM-0438"], Is.EqualTo("64"));
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadUnimodCrossReferences(new System.IO.StringReader("PTM-0438 64\n")));
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadUnimodCrossReferences(new System.IO.StringReader("PTM-0438\tUNIMOD:64\n")));
+    }
+
+    [Test]
+    public static void ReadFormalChargesDictionaryReadsAFile()
+    {
+        var path = System.IO.Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ReadFormalChargesDictionaryReadsAFile)}.tsv");
+        System.IO.File.WriteAllText(path, "# accession\tcharge\nMOD:00083\t1\nMOD:00147\t-3\n");
+        try
+        {
+            var charges = ModificationLoader.ReadFormalChargesDictionary(path);
+
+            Assert.That(charges, Has.Count.EqualTo(2));
+            Assert.That(charges["PSI-MOD; MOD:00083"], Is.EqualTo(1));
+            Assert.That(charges["PSI-MOD; MOD:00147"], Is.EqualTo(-3));
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
     }
 }
