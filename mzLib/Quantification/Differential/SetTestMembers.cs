@@ -77,7 +77,7 @@ public static class SetMemberState
 {
     /// <summary>The member matches no gene name (or no accession) in the search's databases.</summary>
     public const string Unmapped = "unmapped";
-    /// <summary>No protein group of the search holds the member's gene.</summary>
+    /// <summary>No protein group of the search holds the member's gene; decoy and entrapment groups are not counted.</summary>
     public const string NoGroup = "no_group";
     /// <summary>Its only groups are outside STAT1's row set; followed by the reason.</summary>
     public const string NotInRowSetPrefix = "not_in_rowset:";
@@ -123,7 +123,8 @@ public sealed record SetMemberAssignment
 /// </summary>
 /// <remarks>
 /// <para><b>Which groups can stand for a member:</b> only groups in the stratum's row set (<c>DEF-DIFF-ROWSET</c>: target,
-/// not a contaminant, protein q at most 0.01, and a value for one of its peptides in a sample of the stratum; decoys never),
+/// not a contaminant, protein q at most 0.01, and a value for one of its peptides in a sample of the stratum; decoy and
+/// entrapment groups never, as in <see cref="SharedPeptideNormalization.IsReferenceEligible"/>),
 /// and only a group every accession of which belongs to the member's gene and to no other: by gene name, the group's genes
 /// are exactly the member's gene, and an accession with no gene name counts as another gene; with <c>member_accessions</c>,
 /// every accession is one of them. So a multi-gene entry (one histone H4 entry encoded by many genes) stands for no single
@@ -178,9 +179,9 @@ public static class SetMemberResolver
                 list.Add(p);
             }
 
-        // Decoy groups never stand for a member and never hold its gene.
+        // Decoy and entrapment groups never stand for a member and never hold its gene.
         var facts = stratum.ProteinGroups.Values
-            .Where(g => !g.IsDecoy)
+            .Where(g => !g.IsDecoy && !g.IsEntrapment)
             .Select(g => Describe(g, peptidesOf.TryGetValue(g.Name, out var list) ? list : new List<int>(), stratum,
                 sampleIndex, genes))
             .ToDictionary(f => f.Name, StringComparer.Ordinal);
