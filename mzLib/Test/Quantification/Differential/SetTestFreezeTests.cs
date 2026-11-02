@@ -216,6 +216,26 @@ public class SetTestFreezeTests
         Assert.That(SetTestFreeze.ParseContexts(text).Select(c => $"{c.Factor}:{string.Join(",", c.Levels)}"),
             Is.EqualTo(expected));
 
+    [Test]
+    public void RowsWritingOneContextsRestrictionDifferently_AreOneContrast()
+    {
+        var freeze = Read(Header,
+            Row(member: "GeneA", contexts: "treatment=drug|vehicle"),
+            Row(member: "GeneB", contexts: "treatment=drug|treatment=vehicle", postHoc: "yes"),
+            Row(member: "GeneC", contexts: "treatment=vehicle|drug"),
+            Row(member: "GeneD", contexts: "treatment=drug"),
+            Row(member: "GeneA", dataset: "PXD2", contexts: "sex=male; treatment=drug"),
+            Row(member: "GeneB", dataset: "PXD2", contexts: "treatment=drug;sex=male"));
+
+        var contrasts = freeze.Parts.Single().Contrasts;
+        Assert.That(contrasts, Has.Count.EqualTo(3));
+        Assert.That(contrasts[0].Members, Is.EqualTo(new[] { "GeneA", "GeneB", "GeneC" }));
+        Assert.That(contrasts[0].PostHoc, Is.True);
+        Assert.That(contrasts[0].ContextsText, Is.EqualTo("treatment=drug|vehicle"));
+        Assert.That(contrasts[1].Members, Is.EqualTo(new[] { "GeneD" }));
+        Assert.That(contrasts[2].Members, Is.EqualTo(new[] { "GeneA", "GeneB" }));
+    }
+
     [TestCase("treatment=a|sex=male", "joins levels of one factor")]
     [TestCase("treatment", "names no factor")]
     [TestCase("treatment=a; treatment=b", "names 'treatment' twice")]

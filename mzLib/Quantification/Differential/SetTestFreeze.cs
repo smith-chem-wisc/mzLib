@@ -115,9 +115,12 @@ public sealed record SetDatasetContrast
     public required string TestLevel { get; init; }
     /// <summary><c>reference_level</c>: the denominator.</summary>
     public required string ReferenceLevel { get; init; }
-    /// <summary><c>contexts</c> as written.</summary>
+    /// <summary>
+    /// <c>contexts</c> as its first row writes it. The rows are grouped on the restriction parsed, so they may write it
+    /// differently (<c>treatment=drug|vehicle</c>, <c>treatment=vehicle|treatment=drug</c>).
+    /// </summary>
     public required string ContextsText { get; init; }
-    /// <summary><c>contexts</c> parsed.</summary>
+    /// <summary><c>contexts</c> parsed, from its first row.</summary>
     public required IReadOnlyList<SetContext> Contexts { get; init; }
     /// <summary>The member rows, in file order.</summary>
     public required IReadOnlyList<SetTestRow> Rows { get; init; }
@@ -176,7 +179,8 @@ public sealed record SetHypothesisPart
 /// <para>
 /// <b><c>contexts</c>:</b> factor groups separated by <c>;</c>; within a group, levels joined by <c>|</c>, each written
 /// <c>factor=level</c> or, after the first, <c>level</c> alone (<c>treatment=UBX0101|treatment=vehicle</c> and
-/// <c>treatment=UBX0101|vehicle</c> are the same).
+/// <c>treatment=UBX0101|vehicle</c> are the same). Rows are grouped into one dataset contrast by the restriction parsed,
+/// whatever the order of its factors and levels, never by the text.
 /// </para>
 /// <para>
 /// <b>Refusals</b> (<see cref="FormatException"/>, naming the line): a missing required column or a header named twice; a
@@ -434,7 +438,7 @@ public sealed class SetTestFreeze
                     $"has kinds {string.Join(" and ", kinds.Select(k => $"'{k}'"))}; one part has one kind.");
 
             var contrasts = new List<SetDatasetContrast>();
-            foreach (var contrast in part.GroupBy(r => (r.Dataset, r.Factor, r.TestLevel, r.ReferenceLevel, r.ContextsText)))
+            foreach (var contrast in part.GroupBy(r => (r.Dataset, r.Factor, r.TestLevel, r.ReferenceLevel, ContextsKey(r.Contexts))))
             {
                 var members = contrast.ToList();
                 var primaries = members.Select(r => r.Primary).Distinct().ToList();
@@ -448,7 +452,7 @@ public sealed class SetTestFreeze
                     Factor = contrast.Key.Factor,
                     TestLevel = contrast.Key.TestLevel,
                     ReferenceLevel = contrast.Key.ReferenceLevel,
-                    ContextsText = contrast.Key.ContextsText,
+                    ContextsText = members[0].ContextsText,
                     Contexts = members[0].Contexts,
                     Rows = members,
                     Independence = members.All(r => r.Independence == SetIndependence.Independent) ? SetIndependence.Independent
@@ -471,4 +475,12 @@ public sealed class SetTestFreeze
         }
         return parts;
     }
+
+    /// <summary>
+    /// The restriction a parsed <c>contexts</c> cell makes, written one way: factors in ordinal order, each with its distinct
+    /// levels in ordinal order. Two cells that restrict the samples alike give the same key.
+    /// </summary>
+    private static string ContextsKey(IReadOnlyList<SetContext> contexts) =>
+        string.Join("; ", contexts.OrderBy(c => c.Factor, StringComparer.Ordinal)
+            .Select(c => c.Factor + "=" + string.Join("|", c.Levels.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))));
 }
