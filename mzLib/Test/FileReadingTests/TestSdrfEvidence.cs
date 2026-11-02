@@ -164,6 +164,29 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void APooledReplicateClaimIsWrittenPooledAndAnyOtherWordIsReported()
+        {
+            // QuantProject 041: a pooled reference is kept as written. The spec's reserved word is lowercase.
+            var bare = new[] { "alpha.raw", "beta.raw", "gamma.raw" };
+            var draft = SdrfDrafter.Draft(Project(), bare, new[]
+            {
+                Claim("alpha.raw", "characteristics[biological replicate]", "Pooled"),
+                Claim("beta.raw", "characteristics[biological replicate]", "pool"),
+            });
+
+            var bio = Row(draft, "alpha.raw").BiologicalReplicate;
+            Assert.That((bio.Value, bio.Source), Is.EqualTo(("pooled", SdrfDraftSource.Publication)));
+            Assert.That(Row(draft, "beta.raw").BiologicalReplicate.Source, Is.EqualTo(SdrfDraftSource.Default), "only the reserved word");
+            Assert.That(draft.EvidenceNotes.Select(n => (n.DataFile, n.Column)),
+                Is.EqualTo(new[] { ("beta.raw", "characteristics[biological replicate]") }));
+
+            var doc = SdrfDrafter.ToDocument(draft, "PXD060431");
+            Assert.That(Written(doc, "alpha.raw")["characteristics[biological replicate]"], Is.EqualTo("pooled"));
+            Assert.That(SourceOf(doc, Written(doc, "alpha.raw"), "biological replicate"), Is.EqualTo("publication"));
+            Assert.That(Written(doc, "gamma.raw")["characteristics[biological replicate]"], Is.EqualTo("1"));
+        }
+
+        [Test]
         public void AFileClaimBeatsADepositClaimAndADepositClaimReachesEveryFile()
         {
             var evidence = new[]
