@@ -203,7 +203,7 @@ namespace MassSpectrometry
                 if (!Peak2satisfiesRatio(theoreticalIntensities[0], theoreticalIntensities[indexToLookAt], candidateForMostIntensePeakIntensity, matchedPeakIntensity, intensityRatioLimit)
                     || listOfObservedPeaks.Contains((matchedPeakMz, matchedPeakIntensity)))
                 {
-                    matchedPeakIndex = FindUsablePeakNearTheorMass(theorMassThatTryingToFind, chargeState, deconvolutionTolerancePpm,
+                    matchedPeakIndex = FindUsablePeakNearTheorMass(matchedPeakIndex, theorMassThatTryingToFind, chargeState, deconvolutionTolerancePpm,
                         theoreticalIntensities[0], theoreticalIntensities[indexToLookAt], candidateForMostIntensePeakIntensity,
                         intensityRatioLimit, listOfObservedPeaks);
                     if (matchedPeakIndex < 0)
@@ -310,16 +310,16 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Nearest peak to <paramref name="theorMass"/> that is in tolerance, matches the predicted intensity and is
-        /// unclaimed, or -1 if there is none. Called only when the closest peak itself is unusable (issue #245).
+        /// unclaimed, or -1 if there is none. Called only when the closest peak, <paramref name="nearestIndex"/>, is
+        /// unusable (issue #245).
         /// </summary>
-        private int FindUsablePeakNearTheorMass(double theorMass, int chargeState, double deconvolutionTolerancePpm,
+        private int FindUsablePeakNearTheorMass(int nearestIndex, double theorMass, int chargeState, double deconvolutionTolerancePpm,
             double peak1TheorIntensity, double peak2TheorIntensity, double peak1Intensity,
             double intensityRatioLimit, List<(double, double)> alreadyObservedPeaks)
         {
-            int nearestIndex = spectrum.GetClosestPeakIndex(theorMass.ToMz(chargeState));
-
             //bound the window in the mass domain, since the acceptance test is a ppm check on neutral mass; converting
-            //the other way would clip it by the proton offset
+            //the other way would clip it by the proton offset. That is also why this does not use
+            //MzSpectrum.GetPeakIndicesWithinTolerance, which applies its tolerance to m/z.
             double windowRadius = theorMass * deconvolutionTolerancePpm / 1e6;
             double minMz = (theorMass - windowRadius).ToMz(chargeState);
             double maxMz = (theorMass + windowRadius).ToMz(chargeState);

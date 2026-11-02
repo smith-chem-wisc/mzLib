@@ -58,7 +58,7 @@ namespace Test
         }
 
         private static string[] Describe(IEnumerable<IsotopicEnvelope> envelopes) => envelopes
-            .Select(e => $"z={e.Charge} mono={e.MonoisotopicMass:F4} peaks={e.Peaks.Count}")
+            .Select(e => $"z={e.Charge} mono={e.MonoisotopicMass:F4} peaks={e.Peaks.Count} intensity={e.TotalIntensity:F2}")
             .OrderBy(s => s)
             .ToArray();
 
@@ -127,6 +127,7 @@ namespace Test
                 .Deconvolute(new MzSpectrum(mz, intensities, false), parameters, WholeSpectrum)
                 .ToList();
 
+            Assert.That(envelopes, Is.Not.Empty, "the spectrum must still deconvolute, or the test proves nothing");
             Assert.That(envelopes.Any(e => Math.Abs(e.MonoisotopicMass - 1600.0) < 0.01
                                            && e.Peaks.Count == 6), Is.False,
                 "the full ladder must not be recovered when the only in-tolerance peak has the wrong intensity");
