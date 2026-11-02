@@ -69,7 +69,8 @@ public class SetTestModelTests
 
     private static readonly DesignSpec AgeSpec = new() { Factors = new[] { new FactorSpec("age group", "young") } };
 
-    private static (SetContrastSetup Setup, ObservationTable Table, List<string> Groups, string[] R) Scenario(string name)
+    private static (SetContrastSetup Setup, ObservationTable Table, List<string> Groups, string[] R) Scenario(string name,
+        Func<int, string>? contextsOfRow = null)
     {
         var samples = Tsv($"settest_model_{name}_samples.tsv")
             .Select(c => new AnalysisSample(c[0])
@@ -80,7 +81,8 @@ public class SetTestModelTests
         var table = Table(samples.Select(s => s.SampleId), values);
         var groups = values.Select(v => v.Item1).Distinct().Order(StringComparer.Ordinal).ToList();
         string contexts = name == "context" ? "treatment=a|b" : "";
-        var contrast = Freeze(groups.Select(g => Row(g, contexts: contexts)).ToArray()).Parts.Single().Contrasts.Single();
+        var contrast = Freeze(groups.Select((g, i) => Row(g, contexts: contextsOfRow?.Invoke(i) ?? contexts)).ToArray())
+            .Parts.Single().Contrasts.Single();
         return (SetContrastSetup.Build(contrast, samples, AgeSpec), table, groups, Tsv($"settest_model_{name}_result.tsv").Single());
     }
 
@@ -118,6 +120,26 @@ public class SetTestModelTests
         Assert.That(setup.Design!.ColumnNames, Is.EqualTo(new[] { "intercept", "age group=old", "treatment=b" }));
         Assert.That(setup.NumeratorSamples, Has.Count.EqualTo(6));
         Assert.That(setup.DenominatorSamples, Has.Count.EqualTo(6));
+    }
+
+    [Test]
+    public void ContextLevelsInAnotherOrder_MoveTheTermsReferenceLevel_NotTheEstimate()
+    {
+        // The first row lists b first and the others a first. The freeze makes them one contrast with the first row's
+        // order, so the added term's reference level is b.
+        var (setup, table, groups, r) = Scenario("context", i => i == 0 ? "treatment=b|a" : "treatment=a|b");
+        Assert.That(setup.Design!.ColumnNames, Is.EqualTo(new[] { "intercept", "age group=old", "treatment=a" }));
+
+        var estimate = SetModel.FitSet(setup, groups, table, out string? notRun);
+
+        // Recoding a nuisance factor spans the same columns, so lmerTest's fit with reference a still holds.
+        Assert.That(notRun, Is.Null);
+        Close(estimate!.Log2Effect, r[0], Fit, "reference b estimate");
+        Close(estimate.StandardError, r[1], Fit, "reference b se");
+        Close(estimate.Df, r[2], Df, "reference b Satterthwaite df");
+        Close(estimate.ResidualVariance, r[3], Fit, "reference b sigma^2");
+        Close(estimate.SampleVariance, r[4], Fit, "reference b var (1|sample)");
+        Close(estimate.SampleMemberVariance, r[5], Fit, "reference b var (1|sample:member)");
     }
 
     [Test]
