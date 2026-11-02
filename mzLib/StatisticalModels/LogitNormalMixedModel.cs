@@ -286,6 +286,7 @@ namespace StatisticalModels
         {
             FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
             FeatureFitStatus.Separated, FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups,
+            FeatureFitStatus.Unbounded,
         });
 
         private const int UNodes = 40, ENodes = 12;

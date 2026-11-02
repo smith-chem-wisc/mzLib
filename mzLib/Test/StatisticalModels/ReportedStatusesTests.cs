@@ -30,7 +30,8 @@ public class ReportedStatusesTests
                 .Append(FeatureFitStatus.VarianceRatioAtLimit).ToArray()).SetName("MixedModel");
         yield return new TestCaseData(LogitNormalMixedModel.ReportedStatuses,
             Base.Append(FeatureFitStatus.Separated).Append(FeatureFitStatus.NotConverged)
-                .Append(FeatureFitStatus.TooFewGroups).ToArray()).SetName("LogitNormalMixedModel");
+                .Append(FeatureFitStatus.TooFewGroups).Append(FeatureFitStatus.Unbounded).ToArray())
+            .SetName("LogitNormalMixedModel");
         yield return new TestCaseData(NestedMixedModel.ReportedStatuses,
             Base.Append(FeatureFitStatus.NotConverged).Append(FeatureFitStatus.TooFewGroups).ToArray()).SetName("NestedMixedModel");
     }
@@ -125,6 +126,25 @@ public class ReportedStatusesTests
         }
         statuses.AddRange(LogitNormalMixedModel.Fit(y2, counts, design2, groups2, DetectionLink.Identity,
             residualVariance: new[] { 0.25 }).Status);
+
+        // mzLib #1511's layout A: 8 animals of 3 runs, 4 per arm. Every run has all or none of its 2 trials (all in one animal
+        // with trait 0, in three with trait 1) but one, which has 1. The trait's estimate is past an effect of 10 logits, so it
+        // is unbounded (ML, σ² given, as in ReferenceComparisonLogitNormalTests.NearOneSidedLayoutsAreUnboundedWithALikelihoodRatioP).
+        var full = new[] { true, false, false, false, true, true, true, false };
+        int g3 = full.Length, n3 = g3 * k;
+        var design3 = new double[n3, 2];
+        var groups3 = new string[n3];
+        var y3 = new double[1, n3];
+        var counts3 = new BinomialCount?[1, n3];
+        for (int s = 0; s < n3; s++)
+        {
+            design3[s, 0] = 1; design3[s, 1] = s / k < g3 / 2 ? 0 : 1; groups3[s] = $"a{s / k}";
+            y3[0, s] = double.NaN;
+            counts3[0, s] = new BinomialCount(full[s / k] ? 2 : 0, 2);
+        }
+        counts3[0, 0] = new BinomialCount(1, 2);
+        statuses.AddRange(LogitNormalMixedModel.Fit(y3, counts3, design3, groups3, DetectionLink.Identity,
+            residualVariance: new[] { 0.25 }, estimator: VarianceEstimator.MaximumLikelihood).Status);
         AssertReportsWithin(statuses, LogitNormalMixedModel.ReportedStatuses, unreached: new[] { FeatureFitStatus.NotConverged });
     }
 
