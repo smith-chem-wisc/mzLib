@@ -898,9 +898,19 @@ namespace Omics.Digestion
         }
 
         /// <summary>
+        /// True when the parent carries a modification satisfying <paramref name="requirement"/> at
+        /// <paramref name="oneBasedResidue"/> permanently, in <see cref="IBioPolymer.OneBasedFixedModifications"/>.
+        /// Every copy of the residue carries it, so this is occupancy, not just feasibility.
+        /// </summary>
+        internal static bool PermanentlyCarriesSatisfyingModification(CleavageRequirement requirement,
+            IBioPolymer parent, int oneBasedResidue) =>
+            parent.OneBasedFixedModifications.TryGetValue(oneBasedResidue, out Modification permanent)
+            && requirement.IsSatisfiedBy(permanent);
+
+        /// <summary>
         /// True when a modification satisfying <paramref name="requirement"/> could occupy
-        /// <paramref name="constrainedResidue"/> -- either because the database annotates one there, or
-        /// because the search configures one that fits there.
+        /// <paramref name="constrainedResidue"/> -- because the parent carries one there permanently, because
+        /// the database annotates one there, or because the search configures one that fits there.
         /// </summary>
         /// <remarks>
         /// <para><b>Both sources have to be consulted, and consulting only the first is a real defect.</b>
@@ -920,6 +930,11 @@ namespace Omics.Digestion
         private static bool CouldCarrySatisfyingModification(CleavageRequirement requirement, int constrainedResidue,
             string sequence, IBioPolymer parent, IEnumerable<Modification> configuredModifications)
         {
+            if (PermanentlyCarriesSatisfyingModification(requirement, parent, constrainedResidue))
+            {
+                return true;
+            }
+
             if (parent.OneBasedPossibleLocalizedModifications is not null
                 && parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
                 && candidates is not null

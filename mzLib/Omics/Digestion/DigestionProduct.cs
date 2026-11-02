@@ -283,15 +283,21 @@ namespace Omics.Digestion
             // Outside this product the peptidoform says nothing about the residue, so a forbidden
             // condition is normally given the benefit of the doubt -- guessing would delete a real peptide.
             //
-            // A FIXED modification is the one case where the doubt is settled. Fixed means every copy of
-            // the residue carries it, so if one satisfies this condition and fits there, the subsite IS
-            // occupied and the cleavage was impossible. That is what lets a non-prime forbidden rule prune
+            // A FIXED modification is the one case where the doubt is settled, whether the search
+            // configures it or the parent carries it permanently (OneBasedFixedModifications). Fixed means
+            // every copy of the residue carries it, so if one satisfies this condition and fits there, the
+            // subsite IS occupied and the cleavage was impossible. That is what lets a non-prime forbidden rule prune
             // from BOTH sides of its bond: the product ENDING at the cut sees the subsite in its own
             // pattern, and the product STARTING at it can only ever see it here. Without this, IMPa's
             // "no cleavage between two adjacent glycosites" removes the left-hand peptide and leaves the
             // right-hand one standing, which is half a rule.
             if (requirement.IsForbidden)
             {
+                if (DigestionAgent.PermanentlyCarriesSatisfyingModification(requirement, Parent, constrainedResidue))
+                {
+                    return false;
+                }
+
                 string sequenceForFixed = Parent.BaseSequence;
                 foreach (Modification fixedModification in fixedModifications)
                 {
@@ -314,9 +320,11 @@ namespace Omics.Digestion
             // supplying the glycan as a variable modification against an unannotated database has nothing
             // in OneBasedPossibleLocalizedModifications, so an annotation-only test answers "impossible"
             // for every cut whose constrained residue sits in the neighbouring product -- and silently
-            // deletes every peptide lying C-terminal to a glycan-justified cut.
-            if (Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
-                && candidates.Any(requirement.IsSatisfiedBy))
+            // deletes every peptide lying C-terminal to a glycan-justified cut. A glycan the parent carries
+            // permanently is checked first: it is occupancy, not just feasibility.
+            if (DigestionAgent.PermanentlyCarriesSatisfyingModification(requirement, Parent, constrainedResidue)
+                || (Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
+                    && candidates.Any(requirement.IsSatisfiedBy)))
             {
                 return true;
             }

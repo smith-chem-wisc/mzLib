@@ -669,5 +669,84 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             CollectionAssert.Contains(products, "MRPPITQ",
                 "and so must the Met-retained form, whose N-terminus is the protein's own");
         }
+
+        // ---------------------------------------------------------------------------------------
+        // A glycan the protein carries permanently (OneBasedFixedModifications)
+        // ---------------------------------------------------------------------------------------
+
+        private static List<string> DigestWithPermanentMods(string sequence, string proteaseName,
+            IDictionary<int, Modification> permanentMods)
+        {
+            var protein = new Protein(sequence, "PERMANENT", oneBasedFixedModifications: permanentMods);
+            var parameters = new DigestionParams(protease: proteaseName, maxMissedCleavages: 0, minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                respectCleavagePromotingModifications: true);
+
+            return protein.Digest(parameters, new List<Modification>(), new List<Modification>())
+                .Select(p => p.BaseSequence)
+                .Distinct()
+                .OrderBy(s => s, System.StringComparer.Ordinal)
+                .ToList();
+        }
+
+        [Test]
+        public static void APermanentGlycanMakesItsSiteFeasible()
+        {
+            // Alexander-Sol's probe. Ser2 carries the O-glycan permanently, so the bond before it is a
+            // site for a P1' glycoprotease. The filter read only the annotated and the configured
+            // modifications and removed it.
+            Protease ogpA = GlycanAwareOgpA("OgpA-req-permanent-filter");
+            var protein = new Protein("ASAAA", "PERMANENT",
+                oneBasedFixedModifications: new Dictionary<int, Modification> { { 2, OGlycan("S") } });
+
+            List<int> feasible = ogpA.FilterToFeasibleCleavageSites(new List<int> { 0, 1, 5 }, protein);
+
+            CollectionAssert.AreEqual(new[] { 0, 1, 5 }, feasible,
+                "the cut after Ala1 has its required glycan at P1' (Ser2), carried permanently");
+        }
+
+        [Test]
+        public static void APermanentGlycanJustifiesTheCutFromBothProducts()
+        {
+            // The same substrate digested. SAAA sees the glycan in its own pattern; A ends at the cut
+            // and can only see it in the neighbouring product, so its check has to read the
+            // permanent modifications too.
+            GlycanAwareOgpA("OgpA-req-permanent-digest");
+
+            List<string> products = DigestWithPermanentMods("ASAAA", "OgpA-req-permanent-digest",
+                new Dictionary<int, Modification> { { 2, OGlycan("S") } });
+
+            CollectionAssert.Contains(products, "SAAA", "the product starting at the glycan-justified cut");
+            CollectionAssert.Contains(products, "A",
+                "the product ending at the cut, whose P1' glycan lies in the neighbouring product");
+            CollectionAssert.AreEqual(new[] { "A", "SAAA" }, products);
+        }
+
+        [Test]
+        public static void APermanentGlycanAtAForbiddenSubsiteAbolishesTheCutFromBothProducts()
+        {
+            // IMPa's adjacent-glycosite rule (glycan required at P1', forbidden at P1) on PPDATSAAPLR
+            // with Thr5 and Ser6 glycosylated permanently. CleavageProhibitionTests has the same
+            // substrate with the glycans as configured fixed modifications, and the answer must not
+            // depend on which source the glycan comes from. The bond before Ser6 has a glycan at P1, so
+            // neither PPDAT (which sees Thr5 in its pattern) nor SAAPLR (which sees it only in the
+            // neighbouring product) may exist.
+            var conditions = new[]
+            {
+                CleavageRequirement.Prime(1, GlycosylationClass.OLinked),
+                CleavageRequirement.NonPrimeForbidden(1, GlycosylationClass.OLinked),
+            };
+            var protease = new Protease("IMPa-like-permanent", CleavageSpecificity.Full, null, null,
+                new List<DigestionMotif> { new("T", null, 0, null, conditions), new("S", null, 0, null, conditions) });
+            ProteaseDictionary.Dictionary[protease.Name] = protease;
+
+            List<string> products = DigestWithPermanentMods("PPDATSAAPLR", protease.Name,
+                new Dictionary<int, Modification> { { 5, OGlycan("T") }, { 6, OGlycan("S") } });
+
+            CollectionAssert.DoesNotContain(products, "SAAPLR",
+                "SAAPLR starts at a bond whose P1 (Thr5) carries a glycan permanently");
+            CollectionAssert.AreEqual(new[] { "PPDA", "TSAAPLR" }, products,
+                "only the bond before Thr5 may be cut");
+        }
     }
 }
