@@ -416,7 +416,7 @@ namespace StatisticalModels
         }
 
         /// <summary>nlme's containment degrees of freedom for one grouping level (see the class remarks).</summary>
-        private static (double within, double between, bool[] isBetween) ContainmentDf(Matrix<double> x, int[] rowGroup, int G, int m)
+        internal static (double within, double between, bool[] isBetween) ContainmentDf(Matrix<double> x, int[] rowGroup, int G, int m)
         {
             int p = x.ColumnCount;
             var isBetween = new bool[p];

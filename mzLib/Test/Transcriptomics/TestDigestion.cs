@@ -38,6 +38,11 @@ namespace Test.Transcriptomics
                 0, 1, 6, 2,
                 new[] { 363.057, 1529.234 },
                 new[] { "G", "UACUG" });
+            // 6bp Rnase T1, I instead of G
+            yield return new RnaDigestionTestCase("IUACUI", "RNase T1",
+                0, 1, 6, 2,
+                new[] { 348.047, 1514.225 },
+                new[] { "I", "UACUI" });
             // 6bp Rnase T1, one product too short
             yield return new RnaDigestionTestCase("GUACUG", "RNase T1",
                 0, 3, 6, 1,

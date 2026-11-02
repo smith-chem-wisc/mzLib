@@ -397,6 +397,29 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void APooledSampleIsWrittenPooledAndIsNotAMissingFact()
+        {
+            // The spec: "For pooled samples, use `pooled` for biological replicate" (v1.1.0 README.adoc:333).
+            // QuantProject reads it as a reference role (their 041), so it is a statement, never refused as missing.
+            var row = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample() with { Pooled = true }, Assay()) }).Results[0];
+            Assert.That(row["characteristics[biological replicate]"], Is.EqualTo("pooled"));
+
+            var unnumbered = Sample() with { Pooled = true, BiologicalReplicate = null };
+            Assert.That(SdrfBuilder.Build(new[] { new SdrfRowInput(unnumbered, Assay()) }).Results[0]["characteristics[biological replicate]"],
+                Is.EqualTo("pooled"), "a pool has no replicate number, so a null one is not missing under RequireSampleMetadata");
+        }
+
+        [Test]
+        public void APooledSampleWithAReplicateNumberIsRefused()
+        {
+            var sample = Sample() with { Pooled = true, BiologicalReplicate = 3 };
+
+            var thrown = Assert.Throws<MzLibException>(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) }));
+
+            Assert.That(thrown!.Message, Does.Contain("pooled").And.Contain("3"));
+        }
+
+        [Test]
         public void AThermoNameOnlyInstrumentIsResolvedAgainstPsiMs()
         {
             // A RAW file yields a name with an empty accession. Resolving it here is correct;
