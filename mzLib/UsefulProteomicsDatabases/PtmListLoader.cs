@@ -11,6 +11,10 @@ namespace UsefulProteomicsDatabases
     /// Legacy wrapper for backwards compatibility.
     /// All functionality lives in <see cref="ModificationLoader"/>; every member here forwards to it.
     /// </summary>
+    /// <remarks>
+    /// The copy this replaced dropped BM and BL entries; they now load as
+    /// <see cref="BackboneModification"/> and <see cref="BaseModification"/>.
+    /// </remarks>
     [Obsolete("Use Omics.Modifications.ModificationLoader instead.")]
     public static class PtmListLoader
     {
@@ -40,8 +44,10 @@ namespace UsefulProteomicsDatabases
 
         /// <inheritdoc cref="ModificationLoader.ParseDissociationType(string)"/>
         /// <remarks>
-        /// Now case-insensitive, where the copy this replaced matched exactly. More permissive rather
-        /// than different: every spelling the old switch accepted still resolves to the same value.
+        /// Accepts more than the switch this replaced. That switch matched nine keys exactly (Any, CID,
+        /// MPD, ECD, PQD, ETD, HCD, EThcD, Custom) and returned null for anything else; each of those
+        /// still resolves to the same value. Matching is now case-insensitive, and every other
+        /// <see cref="DissociationType"/> member name resolves to that member where it used to give null.
         /// </remarks>
         public static DissociationType? ModDissociationType(string modType) =>
             ModificationLoader.ParseDissociationType(modType);

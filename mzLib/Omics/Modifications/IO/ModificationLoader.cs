@@ -496,7 +496,10 @@ public static class ModificationLoader
     /// or null when it names nothing recognised.
     /// </summary>
     /// <param name="dissociationTypeName">The text before the colon in a diagnostic ion or neutral loss entry.</param>
-    /// <returns>The resolved type, or null for a null, empty or unrecognised name.</returns>
+    /// <returns>
+    /// The resolved type, or null for a null, empty or unrecognised name. Only member names resolve:
+    /// numeric strings ("7", "99") and comma-joined names return null.
+    /// </returns>
     /// <remarks>
     /// The two special cases are tested before the generic parse, and have to be. "MPD" is itself an
     /// enum member -- MS:1000435 photodissociation, the parent of MS:1000262 IRMPD -- so a generic parse
@@ -512,7 +515,9 @@ public static class ModificationLoader
                 => DissociationType.AnyActivationType,
             _ when dissociationTypeName.Equals("MPD", StringComparison.InvariantCultureIgnoreCase)
                 => DissociationType.IRMPD,
-            _ => Enum.TryParse(dissociationTypeName, true, out DissociationType parsed) ? parsed : null
+            _ => Enum.TryParse(dissociationTypeName, true, out DissociationType parsed)
+                 && string.Equals(Enum.GetName(parsed), dissociationTypeName.Trim(), StringComparison.OrdinalIgnoreCase)
+                ? parsed : null
         };
 
     /// <summary>

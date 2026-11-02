@@ -1934,6 +1934,7 @@ namespace Test.DatabaseTests
         [TestCase("ModificationTests", "", "ModsWithComments.txt")]
         [TestCase("ModificationTests", "", "ProteaseMods.txt")]
         [TestCase("Transcriptomics", "TestData", "RnaMods.txt")]
+        [TestCase("Resources", "", "RnaMods.txt")]
         public static void DeprecatedPtmListLoaderMatchesModificationLoader(string folder, string subFolder, string modsFile)
         {
             string path = subFolder.Length == 0
@@ -1954,8 +1955,28 @@ namespace Test.DatabaseTests
             });
         }
 
+        /// <summary>
+        /// The shipped RnaMods.txt is the file with BM and BL entries, which the deleted copy of the
+        /// parser dropped. Through the forward they come back as their own subtypes.
+        /// </summary>
+        [Test]
+        public static void DeprecatedPtmListLoaderReadsBackboneAndBaseModificationsFromTheShippedRnaMods()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "Resources", "RnaMods.txt");
+
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            var viaDeprecated = PtmListLoader.ReadModsFromFile(path, out _).ToList();
+#pragma warning restore CS0618
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viaDeprecated, Has.Some.InstanceOf<BackboneModification>());
+                Assert.That(viaDeprecated, Has.Some.InstanceOf<BaseModification>());
+            });
+        }
+
         private static string Describe(Modification m) =>
-            $"{m.IdWithMotif}|{m.ModificationType}|{m.MonoisotopicMass}|{m.LocationRestriction}|"
+            $"{m.GetType().Name}|{m.IdWithMotif}|{m.ModificationType}|{m.MonoisotopicMass}|{m.LocationRestriction}|"
             + $"DI:{Flatten(m.DiagnosticIons)}|NL:{Flatten(m.NeutralLosses)}";
 
         private static string Flatten(Dictionary<DissociationType, List<double>> byDissociationType) =>
@@ -2008,21 +2029,50 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
-        /// The deprecated ModDissociationType is a forward now, so it must give the same answer as the
-        /// method it forwards to for every key the old hand-written switch handled.
+        /// The nine keys the old hand-written ModDissociationType switch handled, and what it returned for
+        /// each. Written out rather than compared with ParseDissociationType, which the forward now calls.
         /// </summary>
         [Test]
-        public static void DeprecatedModDissociationTypeAgreesWithItsReplacement()
+        [TestCase("Any", DissociationType.AnyActivationType)]
+        [TestCase("CID", DissociationType.CID)]
+        [TestCase("MPD", DissociationType.IRMPD)]
+        [TestCase("ECD", DissociationType.ECD)]
+        [TestCase("PQD", DissociationType.PQD)]
+        [TestCase("ETD", DissociationType.ETD)]
+        [TestCase("HCD", DissociationType.HCD)]
+        [TestCase("EThcD", DissociationType.EThcD)]
+        [TestCase("Custom", DissociationType.Custom)]
+        public static void DeprecatedModDissociationTypeStillResolvesEveryKeyTheOldSwitchHandled(
+            string key, DissociationType expected)
         {
-            foreach (string key in new[]
-                     { "Any", "CID", "MPD", "ECD", "PQD", "ETD", "HCD", "EThcD", "Custom", "NotADissociationType" })
-            {
 #pragma warning disable CS0618 // deliberately exercising the deprecated entry point
-                var viaDeprecated = PtmListLoader.ModDissociationType(key);
+            Assert.That(PtmListLoader.ModDissociationType(key), Is.EqualTo(expected));
 #pragma warning restore CS0618
-                Assert.That(viaDeprecated, Is.EqualTo(ModificationLoader.ParseDissociationType(key)),
-                    $"the two disagreed on '{key}'");
-            }
+        }
+
+        /// <summary>
+        /// The old switch returned null for these 14 member names; the forward resolves each to itself.
+        /// </summary>
+        [Test]
+        [TestCase(DissociationType.PD)]
+        [TestCase(DissociationType.PSD)]
+        [TestCase(DissociationType.SID)]
+        [TestCase(DissociationType.BIRD)]
+        [TestCase(DissociationType.IRMPD)]
+        [TestCase(DissociationType.SORI)]
+        [TestCase(DissociationType.ISCID)]
+        [TestCase(DissociationType.UVPD)]
+        [TestCase(DissociationType.NETD)]
+        [TestCase(DissociationType.LowCID)]
+        [TestCase(DissociationType.aEPD)]
+        [TestCase(DissociationType.Unknown)]
+        [TestCase(DissociationType.AnyActivationType)]
+        [TestCase(DissociationType.Autodetect)]
+        public static void DeprecatedModDissociationTypeResolvesNamesTheOldSwitchDidNot(DissociationType member)
+        {
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            Assert.That(PtmListLoader.ModDissociationType(member.ToString()), Is.EqualTo(member));
+#pragma warning restore CS0618
         }
 
         /// <summary>
@@ -2147,6 +2197,10 @@ namespace Test.DatabaseTests
         [TestCase("")]
         [TestCase("   ")]
         [TestCase("NotADissociationType")]
+        [TestCase("7")]
+        [TestCase("99")]
+        [TestCase("-1")]
+        [TestCase("CID,HCD")]
         public static void ParseDissociationTypeReturnsNullRatherThanThrowing(string key)
         {
             Assert.That(ModificationLoader.ParseDissociationType(key), Is.Null);
