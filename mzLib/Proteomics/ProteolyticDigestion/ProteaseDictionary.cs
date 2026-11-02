@@ -631,24 +631,6 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Returns the motifs with <paramref name="requirement"/> attached to those that can actually
-        /// carry it, and the rest untouched.
-        /// </summary>
-        /// <remarks>
-        /// A motif can carry the requirement only when the constrained subsite falls INSIDE its own
-        /// recognition sequence. That single test does the right thing for both shapes that matter:
-        ///
-        /// StcE's "TXT" with CutIndex 2 has a P2, so a P2 requirement attaches. Trypsin's "K" with
-        /// CutIndex 1 does not -- P2 lies before the motif begins -- so the same requirement does not
-        /// attach, and a composite entry like StcE-trypsin ends up with the glycan rule on its four StcE
-        /// motifs and none on K| or R|. That is the behaviour the enzymology describes: a tryptic cut in
-        /// a mixed digest is a tryptic cut and needs no glycan.
-        ///
-        /// Attaching a requirement to a motif that cannot express it would be worse than useless. The
-        /// subsite lookup would return the null character, no residue could ever satisfy it, and every
-        /// cut that motif makes would be discarded -- silently turning trypsin off inside a composite.
-        /// </remarks>
-        /// <summary>
         /// Gives each motif the conditions the protease declares, skipping the motifs a composite entry
         /// means to leave alone.
         /// </summary>

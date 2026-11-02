@@ -91,10 +91,6 @@ namespace Omics.Digestion
         public GlycosylationClass RequiredClass { get; }
 
         /// <summary>
-        /// A requirement on the NON-PRIME side, before the bond. <c>NonPrime(2, OLinked)</c> is StcE's:
-        /// an O-glycan two residues before the cut.
-        /// </summary>
-        /// <summary>
         /// True when this condition FORBIDS the modification at its subsite rather than requiring it.
         /// </summary>
         /// <remarks>
@@ -110,6 +106,10 @@ namespace Omics.Digestion
         /// </remarks>
         public bool IsForbidden { get; }
 
+        /// <summary>
+        /// A requirement on the NON-PRIME side, before the bond. <c>NonPrime(2, OLinked)</c> is StcE's:
+        /// an O-glycan two residues before the cut.
+        /// </summary>
         public static CleavageRequirement NonPrime(int subsite, GlycosylationClass requiredClass,
             MonosaccharideComposition minimumComposition = null) =>
             new(isPrimeSide: false, subsite, requiredClass, isForbidden: false, minimumComposition);

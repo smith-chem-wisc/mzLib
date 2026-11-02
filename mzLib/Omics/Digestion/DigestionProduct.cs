@@ -345,6 +345,30 @@ namespace Omics.Digestion
 
 
         /// <summary>
+        /// The obligated sites of <see cref="GetCleavageObligatedSites"/>, each with the conditions the
+        /// protease imposes there -- so a caller can ask not only WHERE a modification must be but WHICH
+        /// modifications would satisfy the rule.
+        /// </summary>
+        /// <remarks>
+        /// This is what lets a glyco search use a composition-level rule. OpeRATOR does not merely require
+        /// "a glycan" at P1'; it requires at least core 1, and is blocked again by core 2. The localizer
+        /// holds real glycans, and a glycan IS a Modification, so it can put each candidate through
+        /// <see cref="CleavageRequirement.IsSatisfiedBy"/> directly and refuse the arrangements that place
+        /// the wrong KIND of glycan on a site the enzyme has already spoken for.
+        /// </remarks>
+        public Dictionary<int, List<CleavageRequirement>> GetCleavageObligations(DigestionAgent agent)
+        {
+            var obligations = new Dictionary<int, List<CleavageRequirement>>();
+            foreach (int site in GetCleavageObligatedSites(agent, obligations))
+            {
+                // GetCleavageObligatedSites fills the dictionary as it goes; the loop is only to run it.
+                _ = site;
+            }
+
+            return obligations;
+        }
+
+        /// <summary>
         /// The residues inside this product that MUST carry a modification satisfying a cleavage
         /// requirement, because the cuts that produced this product could not have happened otherwise.
         /// Empty for every ordinary protease. Keys are two-based, matching the modification-pattern
@@ -379,30 +403,6 @@ namespace Omics.Digestion
         /// cut's subsite is inside and the N-terminal cut's is not; for P1' (the OgpA family) it is the
         /// other way round.</para>
         /// </remarks>
-        /// <summary>
-        /// The obligated sites of <see cref="GetCleavageObligatedSites"/>, each with the conditions the
-        /// protease imposes there -- so a caller can ask not only WHERE a modification must be but WHICH
-        /// modifications would satisfy the rule.
-        /// </summary>
-        /// <remarks>
-        /// This is what lets a glyco search use a composition-level rule. OpeRATOR does not merely require
-        /// "a glycan" at P1'; it requires at least core 1, and is blocked again by core 2. The localizer
-        /// holds real glycans, and a glycan IS a Modification, so it can put each candidate through
-        /// <see cref="CleavageRequirement.IsSatisfiedBy"/> directly and refuse the arrangements that place
-        /// the wrong KIND of glycan on a site the enzyme has already spoken for.
-        /// </remarks>
-        public Dictionary<int, List<CleavageRequirement>> GetCleavageObligations(DigestionAgent agent)
-        {
-            var obligations = new Dictionary<int, List<CleavageRequirement>>();
-            foreach (int site in GetCleavageObligatedSites(agent, obligations))
-            {
-                // GetCleavageObligatedSites fills the dictionary as it goes; the loop is only to run it.
-                _ = site;
-            }
-
-            return obligations;
-        }
-
         public List<int> GetCleavageObligatedSites(DigestionAgent agent) =>
             GetCleavageObligatedSites(agent, null);
 

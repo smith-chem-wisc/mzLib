@@ -600,6 +600,19 @@ namespace Omics.Digestion
         /// Residue-level, context-free, and literal: a motif whose P1 is the wildcard (StcE, collagenase,
         /// non-specific) reports false -- see <see cref="DigestionMotif.CleavesCTerminalTo"/>.
         /// </remarks>
+        public bool CleavesCTerminalTo(char residue)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif.CleavesCTerminalTo(residue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// True when at least one of this agent's motifs will not cleave unless a modification is present
         /// at one of its subsites -- that is, when this is a glycoprotease rather than an ordinary
@@ -954,19 +967,6 @@ namespace Omics.Digestion
                 // could ever sit at this residue of this sequence, not whether it sits on some peptide.
                 if (requirement.IsSatisfiedBy(configured)
                     && ModificationLocalization.ModFits(configured, sequence, constrainedResidue, sequence.Length, constrainedResidue))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public bool CleavesCTerminalTo(char residue)
-        {
-            foreach (DigestionMotif motif in DigestionMotifs)
-            {
-                if (motif.CleavesCTerminalTo(residue))
                 {
                     return true;
                 }
