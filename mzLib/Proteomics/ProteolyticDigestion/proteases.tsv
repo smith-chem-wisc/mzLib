@@ -114,6 +114,24 @@ singleN		SingleN	MS:1001957	single cleavage
 singleC		SingleC	MS:1001958	single cleavage	
 peptidomics		none		no cleavage	
 collagenase	GPX|GPX	full			
+# ----------------------------------------------------------------------------
+# O-GLYCOPROTEASES (mucinases)
+# ----------------------------------------------------------------------------
+# StcE recognizes S/T-X-S/T and cleaves before the last residue of that motif,
+# but ONLY when the FIRST S/T is O-GLYCOSYLATED. Activity is abolished by
+# deglycosylation. Malaker et al., PNAS 2019 (doi:10.1073/pnas.1813020116).
+#
+# WARNING: the motif syntax below matches SEQUENCE ONLY. It cannot express the
+# glycan requirement, so both StcE entries OVER-DIGEST relative to the real
+# enzyme -- their peptides are a superset of true StcE peptides.
+#
+# Other mucinases (SmE, OgpA/OpeRATOR, IMPa) are deliberately NOT listed. All
+# three cleave N-terminal to a glycosylated S/T and differ only in glycan
+# tolerance, which is invisible to a sequence motif, so they would be identical
+# '|S,|T' entries under three different names. '|S,|T' also cuts at every S and
+# T, leaving at most one candidate glycosite per peptide, which is not what any
+# of those enzymes does. Modelling them needs glycosylation-aware digestion.
+StcE	TX|T,TX|S,SX|T,SX|S	full		StcE	
 StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin	
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Homoserine lactone N-terminal on M

@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>1.0.574</version>
+    <version>1.0.589</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -15,16 +15,15 @@
   <group targetFramework="net10.0">
     <!--net10.0 target-->
     <dependency id="Easy.Common" version="6.7.0" />
-    <dependency id="Google.Protobuf" version="3.28.3" />
     <dependency id="MathNet.Numerics" version="5.0.0" />
-    <dependency id="Microsoft.ML" version="2.0.0" />
-    <dependency id="Microsoft.ML.FastTree" version="2.0.0" />
-    <dependency id="NetSerializer" version="4.1.1" />
+    <dependency id="Microsoft.ML" version="3.0.1" />
+    <dependency id="Microsoft.ML.FastTree" version="3.0.1" />
+    <dependency id="NetSerializer" version="4.1.2" />
     <dependency id="OpenMcdf" version="2.3.1" />
     <dependency id="OpenMcdf.Extensions" version="2.3.1" />
-    <dependency id="SharpLearning.Optimization" version="0.28.0" />
-    <dependency id="SharpZipLib" version="1.4.2" />
-    <dependency id="SkiaSharp" version="2.88.9" />
+    <dependency id="PdfPig" version="0.1.16" />
+    <dependency id="Parquet.Net" version="6.1.0" />
+    <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
@@ -33,22 +32,21 @@
     <dependency id="Nett" version="0.15.0" />
     <dependency id="Newtonsoft.Json" version="13.0.4" />
     <dependency id="TopDownProteomics" version="0.0.299" />
-    <dependency id="ZstdSharp.Port" version="0.8.7" />
+    <dependency id="ZstdSharp.Port" version="0.8.8" />
   </group>
   <group targetFramework="net10.0-windows7.0">
     <!--net10.0 target with OxyPlot-->
     <dependency id="Easy.Common" version="6.7.0" />
-    <dependency id="Google.Protobuf" version="3.28.3" />
     <dependency id="MathNet.Numerics" version="5.0.0" />
-    <dependency id="Microsoft.ML" version="2.0.0" />
-    <dependency id="Microsoft.ML.FastTree" version="2.0.0" />
-    <dependency id="NetSerializer" version="4.1.1" />
+    <dependency id="Microsoft.ML" version="3.0.1" />
+    <dependency id="Microsoft.ML.FastTree" version="3.0.1" />
+    <dependency id="NetSerializer" version="4.1.2" />
     <dependency id="OpenMcdf" version="2.3.1" />
     <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="PdfPig" version="0.1.16" />
+    <dependency id="Parquet.Net" version="6.1.0" />
     <dependency id="OxyPlot.Wpf" version="2.0.0" />
-    <dependency id="SharpLearning.Optimization" version="0.28.0" />
-    <dependency id="SharpZipLib" version="1.4.2" />
-    <dependency id="SkiaSharp" version="2.88.9" />
+    <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
@@ -57,7 +55,7 @@
     <dependency id="Nett" version="0.15.0" />
     <dependency id="Newtonsoft.Json" version="13.0.4" />
     <dependency id="TopDownProteomics" version="0.0.299" />
-    <dependency id="ZstdSharp.Port" version="0.8.7" />
+    <dependency id="ZstdSharp.Port" version="0.8.8" />
   </group>
 </dependencies>
   </metadata>
@@ -77,7 +75,7 @@
     <file src="Omics\Resources\substitutions.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\surfactants.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\ptmlist.txt" target="modificationData\Data" />
-    <file src="Omics\Resources\PSI-MOD.obo.xml" target="modificationData\Data" />
+    <file src="Omics\Resources\PsiModFormalCharges.tsv" target="modificationData\Data" />
     <file src="Omics\Resources\unimod.xml" target="modificationData\Data" />
     <!--net10.0 target-->
     <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0" />
@@ -90,6 +88,8 @@
     <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.dll" target="lib\net10.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.xml" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0" />
@@ -139,6 +139,8 @@
     <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0-windows7.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0-windows7.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0-windows7.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.dll" target="lib\net10.0-windows7.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.xml" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0-windows7.0" />

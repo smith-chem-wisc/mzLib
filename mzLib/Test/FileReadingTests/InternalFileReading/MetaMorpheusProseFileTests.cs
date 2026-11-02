@@ -108,6 +108,23 @@ public class MetaMorpheusProseFileTests
         Assert.That(proseFile.DatabasePaths[0], Is.EqualTo(@"B:\Users\Nic\Chimeras\Mann_11cell_analysis\uniprotkb_human_proteome_AND_reviewed_t_2024_03_22.xml"));
     }
 
+    [Test]
+    public void LocateInDirectory_ParsesAllDatabasesFromSuppliedRnaProseFile()
+    {
+        string fixtureDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "FileReadingTests", "TestData", "RnaSearchWithThreeDatabases");
+
+        var proseFile = MetaMorpheusProseFile.LocateInDirectory(fixtureDirectory);
+
+        Assert.That(proseFile, Is.Not.Null);
+        Assert.That(proseFile!.DatabasePaths, Is.EqualTo(new[]
+        {
+            @"B:\Users\Nic\RNA\Databases\20mer1.fasta",
+            @"B:\Users\Nic\RNA\Databases\FLuc_new.fasta",
+            @"B:\Users\Nic\RNA\Databases\MALAT from plasmid.fasta"
+        }));
+    }
+
     [Test] 
     public void FindUnaveragedFile_ReturnsCorrectUnaveragedPath_ForAveragedAndCalib()
     {

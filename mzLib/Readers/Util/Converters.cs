@@ -40,6 +40,28 @@ namespace Readers
         }
     }
 
+    /// <summary>
+    /// Reads "-" or a blank cell as null, and writes null as a blank cell. Unlike
+    /// <see cref="DashToNullOrDoubleConverter"/>, a blank never becomes 0 and unparseable text throws,
+    /// for columns where 0 is a meaningful value (a score or a q-value) and blank means "not applicable".
+    /// </summary>
+    internal class DashOrBlankToNullDoubleConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            if (string.IsNullOrWhiteSpace(text) || text == "-")
+                return null;
+            return double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result)
+                ? result
+                : base.ConvertFromString(text, row, memberMapData);
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            return value is double d ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+        }
+    }
+
     public class DashToNullOrIntegerConverter : DefaultTypeConverter
     {
         public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)

@@ -613,6 +613,94 @@ public class ProteinDbRetrieverTests
         Assert.That(File.Exists(path));
     }
 
+    // ---- RetrieveProteome: the gene-centric (canonical, one protein per gene) set -------------
+
+    /// <summary>
+    /// GeneCentric.yes adds one clause to the query both requests share, after any review-status clause, so the
+    /// count probe and the download always ask for the same set.
+    /// </summary>
+    [Test]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all,
+        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+is_gene_centric:true&format=list&size=0",
+        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+is_gene_centric:true&compressed=false&format=xml")]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes,
+        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+reviewed:true+AND+is_gene_centric:true&format=list&size=0",
+        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+reviewed:true+AND+is_gene_centric:true&compressed=false&format=fasta&includeIsoforms:false")]
+    public void RetrieveProteome_GeneCentric_AddsTheClauseToBothRequests(ProteinDbRetriever.ProteomeFormat format,
+        ProteinDbRetriever.Reviewed reviewed, string expectedCountUrl, string expectedDownloadUrl)
+    {
+        var handler = ProteomeHandler(21471, OneEntryUniProtFasta);
+
+        ProteinDbRetriever.RetrieveProteome("UP000002494", _storageDirectory, format, reviewed,
+            ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no, ProteinDbRetriever.GeneCentric.yes,
+            new HttpClient(handler));
+
+        Assert.That(handler.RequestedUris, Is.EqualTo(new[] { expectedCountUrl, expectedDownloadUrl }));
+    }
+
+    /// <summary>GeneCentric.no is exactly the request the overload without the option makes.</summary>
+    [Test]
+    public void RetrieveProteome_GeneCentricNo_IsTheRequestWithoutTheOption()
+    {
+        var without = ProteomeHandler(4, OneEntryUniProtFasta);
+        ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory, ProteinDbRetriever.ProteomeFormat.xml,
+            ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no,
+            new HttpClient(without));
+
+        var withNo = ProteomeHandler(4, OneEntryUniProtFasta);
+        ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory, ProteinDbRetriever.ProteomeFormat.xml,
+            ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no,
+            ProteinDbRetriever.GeneCentric.no, new HttpClient(withNo));
+
+        Assert.That(withNo.RequestedUris, Is.EqualTo(without.RequestedUris));
+        Assert.That(withNo.RequestedUris, Has.All.Not.Contains("is_gene_centric"));
+    }
+
+    /// <summary>The gene-centric set is its own file, never written over the reviewed or complete download.</summary>
+    [Test]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no, "UP000008595_all_genecentric.xml")]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no, "UP000008595_all_genecentric.xml.gz")]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.yes, "UP000008595_reviewed_genecentric_isoform.fasta")]
+    public void RetrieveProteome_GeneCentric_NamesTheFileGeneCentric(ProteinDbRetriever.ProteomeFormat format,
+        ProteinDbRetriever.Reviewed reviewed, ProteinDbRetriever.Compress compress,
+        ProteinDbRetriever.IncludeIsoforms include, string expectedFileName)
+    {
+        string path = ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory, format, reviewed, compress,
+            include, ProteinDbRetriever.GeneCentric.yes, ClientReturning("payload", totalResults: 4));
+
+        Assert.That(path, Is.EqualTo(Path.Combine(_storageDirectory, expectedFileName)));
+        Assert.That(File.Exists(path));
+    }
+
+    /// <summary>
+    /// The public GeneCentric overload validates before any request, like the one without it: a blank ID is a wrong
+    /// call, reported without touching UniProt.
+    /// </summary>
+    [Test]
+    public void RetrieveProteome_PublicGeneCentricOverload_RefusesABlankIdBeforeAnyRequest()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => ProteinDbRetriever.RetrieveProteome("  ", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteinDbRetriever.GeneCentric.yes));
+        Assert.That(ex.ParamName, Is.EqualTo("proteomeID"));
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
+    /// <summary>An enum value outside the two defined ones must not silently fall through to either.</summary>
+    [Test]
+    public void RetrieveProteome_UndefinedGeneCentricValue_ThrowsArgumentOutOfRange()
+    {
+        var handler = ProteomeHandler(4, OneEntryUniProtFasta);
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595",
+            _storageDirectory, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all,
+            ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no, (ProteinDbRetriever.GeneCentric)42,
+            new HttpClient(handler)));
+
+        Assert.That(ex.ParamName, Is.EqualTo("geneCentric"));
+        Assert.That(handler.RequestedUris, Is.Empty, "the call is wrong, so no request is made");
+    }
+
     /// <summary>
     /// Re-retrieving used to fail with an IOException, because the download opened the destination with
     /// FileMode.CreateNew. It now overwrites, and leaves no ".partial" scratch file behind either way.
@@ -1283,4 +1371,37 @@ public class ProteinDbRetrieverLiveTests
             return Task.CompletedTask;
         });
 
+    /// <summary>
+    /// The gene-centric set is one protein per gene: a strict subset of the complete proteome that still holds
+    /// every reviewed gene-centric entry and more. Asserted as set relations rather than counts, which change
+    /// with each UniProt release. Drosophila melanogaster (UP000000803) is the smallest proteome found where all
+    /// three differ (release 2026_03: 21,947 entries, 13,814 gene-centric, 3,842 of them reviewed), so a
+    /// download that ignored the clause, or kept only Swiss-Prot, fails. Many small proteomes (Plasmodium,
+    /// E. coli, yeast) are already one entry per gene and could not tell the difference. Gene NAMES are not
+    /// asserted unique: UniProt's own set repeats 69 of them in fly (different genes sharing a symbol).
+    /// </summary>
+    [Test]
+    public Task RetrieveProteome_LiveGeneCentric_IsOneProteinPerGeneWithinTheProteome() =>
+        ExternalServiceTestHelper.RunAsync("UniProt", () =>
+        {
+            List<Protein> Download(ProteinDbRetriever.Reviewed reviewed, ProteinDbRetriever.GeneCentric geneCentric) =>
+                ProteinDbLoader.LoadProteinFasta(
+                    ProteinDbRetriever.RetrieveProteome("UP000000803", _storageDirectory,
+                        ProteinDbRetriever.ProteomeFormat.fasta, reviewed, ProteinDbRetriever.Compress.no,
+                        ProteinDbRetriever.IncludeIsoforms.no, geneCentric),
+                    generateTargets: true, DecoyType.None, isContaminant: false, out _);
+
+            var complete = Download(ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.GeneCentric.no);
+            var geneCentric = Download(ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.GeneCentric.yes);
+            var reviewedGeneCentric = Download(ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.GeneCentric.yes);
+
+            var all = complete.Select(p => p.Accession).ToHashSet();
+            var canonical = geneCentric.Select(p => p.Accession).ToHashSet();
+            Assert.That(canonical, Is.SubsetOf(all), "the gene-centric set is drawn from the proteome");
+            Assert.That(canonical.Count, Is.LessThan(all.Count), "it leaves out the extra entries of each gene");
+            Assert.That(reviewedGeneCentric.Select(p => p.Accession), Is.SubsetOf(canonical));
+            Assert.That(canonical.Count, Is.GreaterThan(reviewedGeneCentric.Count),
+                "the unreviewed entries fill the genes Swiss-Prot has not curated");
+            return Task.CompletedTask;
+        });
 }

@@ -21,7 +21,7 @@ namespace UsefulProteomicsDatabases
     /// that happens to a user overnight.
     ///
     /// Size is unremarkable next to what mzLib already ships: psi-ms.obo is 1.1 MB and pride_cv.obo
-    /// 224 KB, against the 4.4 MB PSI-MOD.obo.xml and 2.3 MB unimod.xml already embedded in Omics.
+    /// 224 KB, against the 2.5 MB unimod.xml already embedded in Omics.
     /// The large sample ontologies — NCBITaxon at roughly 600 MB, UBERON, MONDO — are deliberately
     /// NOT here: an organism identifier comes from the search database that was already loaded
     /// (see ProteinDbLoader.NcbiTaxonomyDatabaseReferenceType), so it never has to be looked up.

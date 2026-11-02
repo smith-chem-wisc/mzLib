@@ -109,11 +109,14 @@ public class MetaMorpheusProseFile
             spec.Add(lines[i].Trim());
         }
 
-        // Define a regex pattern to match file paths
-        string pattern = @"[A-Z]:\\[^\s]+";
-        foreach (Match match in Regex.Matches(lines[dbIndex + 1], pattern))
+        // Database paths may contain spaces, and older prose files wrote every database on one line.
+        // Use the download-date marker or the next drive-letter path to identify entry boundaries
+        // instead of treating whitespace as the end of a path.
+        string databaseText = string.Join(Environment.NewLine, lines.Skip(dbIndex + 1));
+        string pattern = @"(?<path>[A-Za-z]:\\.*?)(?=\s+Downloaded on:|\s+[A-Za-z]:\\|$)";
+        foreach (Match match in Regex.Matches(databaseText, pattern))
         {
-            db.Add(match.Value);
+            db.Add(match.Groups["path"].Value.Trim());
         }
 
         SpectraFilePaths = spec.ToArray();

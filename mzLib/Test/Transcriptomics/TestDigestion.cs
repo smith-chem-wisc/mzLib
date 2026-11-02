@@ -38,11 +38,11 @@ namespace Test.Transcriptomics
                 0, 1, 6, 2,
                 new[] { 363.057, 1529.234 },
                 new[] { "G", "UACUG" });
-            // 6bp Cusativin, normal
-            yield return new RnaDigestionTestCase("GUACUG", "Cusativin",
+            // 6bp Rnase T1, I instead of G
+            yield return new RnaDigestionTestCase("IUACUI", "RNase T1",
                 0, 1, 6, 2,
-                new[] { 1303.175, 589.116 },
-                new[] { "GUAC", "UG" });
+                new[] { 348.047, 1514.225 },
+                new[] { "I", "UACUI" });
             // 6bp Rnase T1, one product too short
             yield return new RnaDigestionTestCase("GUACUG", "RNase T1",
                 0, 3, 6, 1,
@@ -320,7 +320,7 @@ namespace Test.Transcriptomics
                     else if (fragment.Terminus == FragmentationTerminus.None)
                         Assert.That(fragment.FragmentNumber, Is.EqualTo(0));
                     else
-                        Assert.That(fragment.AminoAcidPosition, Is.EqualTo(digestionProductSequences[index].Length - theoreticalFragment.FragmentNumber));
+                        Assert.That(fragment.AminoAcidPosition, Is.EqualTo(digestionProductSequences[index].Length - theoreticalFragment.FragmentNumber + 1));
                 }
             }
         }

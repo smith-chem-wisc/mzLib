@@ -492,7 +492,10 @@ public class PrideProjectTests
         [Values(HttpStatusCode.InternalServerError, HttpStatusCode.ServiceUnavailable,
                 HttpStatusCode.RequestTimeout, HttpStatusCode.TooManyRequests)] HttpStatusCode status)
     {
-        using var client = ClientReturning("upstream failure", status);
+        using var client = new PrideArchiveClient(new HttpClient(new StubHandler(_ => JsonResponse("upstream failure", status))))
+        {
+            MaxRetries = 0
+        };
 
         Assert.That(async () => await client.TryGetProjectAsync("PXD012345"),
             Throws.InstanceOf<HttpRequestException>());
@@ -638,7 +641,8 @@ public class PrideProjectLiveTests
     public Task GetProjectAsync_LivePxd012345_ReturnsPopulatedMetadata() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             PrideProject project = await client.GetProjectAsync("PXD012345");
 
             Assert.Multiple(() =>
@@ -663,7 +667,8 @@ public class PrideProjectLiveTests
     public Task TryGetProjectAsync_LiveUnknownAccession_ReportsNotFound() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             (bool found, PrideProject project) = await client.TryGetProjectAsync("PXD999999999");
 
             Assert.Multiple(() =>

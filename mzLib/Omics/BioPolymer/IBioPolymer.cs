@@ -27,10 +27,37 @@ namespace Omics
         /// </summary>
         List<Tuple<string, string>> GeneNames { get; }
         new IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } // new keyword is to define inheritance from IHasSequenceVariants to IBioPolymer
+        IDictionary<int, Modification> OneBasedFixedModifications { get; }
         char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel>? silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);
+
+        /// <summary>
+        /// Adds the modification associated with a digestion agent to the appropriate modification collection.
+        /// Legacy non-cleavage modifications are treated as fixed modifications.
+        /// </summary>
+        static void AddDigestionAgentModification(DigestionAgent digestionAgent,
+            ref List<Modification> fixedModifications, ref List<Modification> variableModifications)
+        {
+            if (digestionAgent?.CleavageMod is null || fixedModifications is null || variableModifications is null)
+                return;
+
+            Modification cleavageMod = digestionAgent.CleavageMod;
+
+            if (cleavageMod is CleavageModification cleavageModification)
+            {
+                if (cleavageModification.IsFixedMod && !fixedModifications.Contains(cleavageModification))
+                    fixedModifications.Add(cleavageModification);
+
+                if (cleavageModification.IsVariableMod && !variableModifications.Contains(cleavageModification))
+                    variableModifications.Add(cleavageModification);
+            }
+            else if (!fixedModifications.Contains(cleavageMod))
+            {
+                fixedModifications.Add(cleavageMod);
+            }
+        }
 
         IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods);
 

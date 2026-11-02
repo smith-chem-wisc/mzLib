@@ -369,6 +369,30 @@ namespace Test.Omics.SequenceConversion
             Assert.That(result, Is.Default);
         }
 
+        [Test]
+        public void TryResolve_ResidueLessDeamidationMass_ResolvesToProteinModNotRnaInosine()
+        {
+            // Regression: folding the MODOMICS RNA set into AllKnownMods made a residue-less mass-only
+            // lookup of the deamidation shift (+0.98402, formula H-1N-1O) resolve to the RNA mod "inosine"
+            // instead of the protein mod "Asn->Asp on N", because ModificationLookupBase's tie-break
+            // prefers the shortest OriginalId ("inosine" is 7 characters, "Asn->Asp" is 8). This pins the
+            // mass-only lookup back to the protein answer.
+            var mod = CanonicalModification.AtNTerminus(
+                originalRepresentation: "[+0.984015583]",
+                mass: 0.984015583); // deamidation mass, no target residue
+
+            // Act
+            var result = _lookup.TryResolve(mod);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Value.IsResolved, Is.True);
+            Assert.That(result.Value.MzLibModification, Is.Not.Null);
+            Assert.That(result.Value.MzLibModification.IdWithMotif, Does.Contain("Asn->Asp"),
+                $"Expected protein 'Asn->Asp on N' but got '{result.Value.MzLibModification.IdWithMotif}'");
+            Assert.That(result.Value.MzLibModification.IdWithMotif, Does.Not.Contain("inosine"));
+        }
+
         #endregion
 
         #region Multiple Sources Tests

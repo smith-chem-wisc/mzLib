@@ -56,8 +56,9 @@ would silently satisfy `FilesLoading`'s `Count > 2700` check against a two-modif
 | `ptmlist.txt` | `http://uniprot.org/docs/ptmlist.txt` | Release 2026_02 of 10-Jun-2026 | 2026-08-09 |
 | `unimod_tables.xml` | `http://www.unimod.org/xml/unimod.xml` | latest `date_time_modified` 2018-08-13 | 2026-08-09 |
 | `PSI-MOD.obo.xml` | `https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true` | header date 30:05:2014 | 2026-08-09 |
+| `go-trimmed.obo` | `http://purl.obolibrary.org/obo/go.obo` (36.7 MB, sha256 `d3593751d885ca160b2ab7baf6c7eccd88ca3c4599f79436c674bad661095ff0`) | `data-version: releases/2026-07-26` | 2026-09-23 |
 
-To refresh, re-fetch the three URLs and re-apply the filters above:
+To refresh, re-fetch the four URLs and re-apply the filters above:
 
 - `PSI-MOD.obo.xml` — keep the header, then every `<term>` whose `xref_analog` contains
   `<dbname>FormalCharge</dbname>`, plus `MOD:00046`. Confirm the resulting formal-charges dictionary
@@ -66,6 +67,16 @@ To refresh, re-fetch the three URLs and re-apply the filters above:
   blocks unchanged (they are needed for mass computation), and inside `<umod:modifications>` keep only
   the `Phospho` and `Oxidation` records.
 - `ptmlist.txt` — copy as-is.
+- `go-trimmed.obo` — keep the header verbatim, then every `[Term]` stanza verbatim that is in the
+  is_a + part_of ancestor closure of `GO:0005743` (mitochondrial inner membrane), `GO:0005634`
+  (nucleus), `GO:0004365` (GAPDH activity) and `GO:0044238` (primary metabolic process), plus the
+  obsolete `GO:0006082` (replaced_by `GO:0008152`, which is in the closure), plus the `part_of` and
+  `has_part` `[Typedef]` stanzas. That is 29 terms, 28.9 KB. The closure is what keeps the slice honest:
+  every ancestor of every kept term is present, so `GeneOntologyGraph.Ancestors` returns the same set
+  here as against the full file (checked for `GO:0005743`: 15 in both). The seeds were chosen for
+  what the tests reach: two is_a parents, an ancestor reachable only via part_of (mitochondrion), real
+  alt_ids (`GO:0016021` merged into `GO:0016020`), all three aspects, an obsolete term, and Typedefs.
+  Named so that no live canary can mistake it for a missing `go.obo`.
 
 A refresh is a reviewable change to this repository rather than something that happens to CI
 overnight, which is the same reasoning applied to the pinned vocabularies in `UsefulProteomicsDatabases`.
