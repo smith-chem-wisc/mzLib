@@ -112,7 +112,7 @@ namespace StatisticalModels
         /// With counted samples, the likelihood-ratio test (<see cref="LikelihoodRatio"/>) read against F(1, df), df the
         /// containment degrees of freedom, as t² would be: χ² with 1 df rejects up to twice too often with 6 to 12 groups,
         /// and the Wald test fails outright where β and τ grow together along a ridge (mzLib #1511). NaN for a coefficient
-        /// not tested (see <see cref="LogitNormalMixedModel.Fit"/>'s testedCoefficients). An <see cref="IsUnbounded"/>
+        /// not tested (see <see cref="LogitNormalMixedModel.Fit"/>'s testedCoefficients), or when df is NaN. An <see cref="IsUnbounded"/>
         /// coefficient keeps its p-value: the test of zero holds on a ridge, though no size of effect does.
         /// </summary>
         public double PValue(int feature, int coefficient)
@@ -121,9 +121,9 @@ namespace StatisticalModels
             if (CountedValues[feature] > 0)
             {
                 double lr = LikelihoodRatioMatrix[feature, coefficient];
-                if (double.IsNaN(lr)) return double.NaN;
+                if (double.IsNaN(lr) || double.IsNaN(df)) return double.NaN;
                 double root = Math.Sqrt(lr);
-                return double.IsNaN(df) ? 2 * Normal.CDF(0, 1, -root) : 2 * StudentT.CDF(0, 1, df, -root);
+                return 2 * StudentT.CDF(0, 1, df, -root);
             }
             double t = TValue(feature, coefficient);
             return double.IsNaN(t) || double.IsNaN(df) ? double.NaN : 2 * StudentT.CDF(0, 1, df, -Math.Abs(t));

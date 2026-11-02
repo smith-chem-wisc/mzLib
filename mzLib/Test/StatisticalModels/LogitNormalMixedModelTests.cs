@@ -333,6 +333,30 @@ public class LogitNormalMixedModelTests
     }
 
     [Test]
+    public void CountedFeatureWithNoDenominatorDfHasNoPValue()
+    {
+        // One group per arm: containment df is G − 2 = 0, so F(1, df) cannot be formed. This read χ² in its place (p 0.018).
+        int G = 2, k = 3, n = G * k;
+        var pattern = new[] { new[] { 0, 1, 0 }, new[] { 3, 4, 4 } };
+        var design = new double[n, 2];
+        var groups = new string[n];
+        var y = new double[1, n];
+        var counts = new BinomialCount?[1, n];
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; design[s, 1] = g; groups[s] = $"a{g}";
+            y[0, s] = double.NaN;
+            counts[0, s] = new BinomialCount(pattern[g][s % k], 4);
+        }
+        var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { 0.25 },
+            estimator: VarianceEstimator.MaximumLikelihood);
+        Assert.That(fit.DegreesOfFreedom(0, 1), Is.NaN);
+        Assert.That(double.IsFinite(fit.LikelihoodRatio(0, 1)), Is.True);
+        Assert.That(fit.PValue(0, 1), Is.NaN);
+    }
+
+    [Test]
     public void OneSidedGroupsWithNothingMeasuredAreSeparated()
     {
         // Every animal is all full or all zero, and the trait does not separate them (1 of 4 trait-0 animals full, 3 of
