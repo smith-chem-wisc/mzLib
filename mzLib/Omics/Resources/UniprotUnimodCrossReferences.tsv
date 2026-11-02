@@ -1,0 +1,34 @@
+# Unimod cross-references for UniProt modifications that UniProt's ptmlist.txt does not link to Unimod.
+# Columns: UniProt PTM accession <TAB> Unimod record id <TAB> UniProt name <TAB> Unimod title.
+# Only the first two columns are read; the names are for review.
+#
+# ModificationLoader adds "Unimod; <id>" to a modification whose AC is listed here, when the entry has no
+# Unimod cross-reference of its own. UniProt's own link always wins, so if a later ptmlist release adds
+# one, this row stops having any effect and can be deleted.
+#
+# A row is added only when the Unimod record is the same modification: its composition equals the formula
+# mzLib holds for the UniProt entry (after the PSI-MOD formal-charge correction), the residue is one of its
+# sites, and the chemistry is the same. A record that merely shares the formula (an isomer, an amino-acid
+# substitution, an unrelated adduct) is not a cross-reference. ModificationTest checks the first two rules.
+PTM-0028	35	3-hydroxyasparagine	Oxidation
+PTM-0355	213	N6-(ADP-ribosyl)lysine	ADP-Ribosyl
+PTM-0370	35	(3S)-3-hydroxyasparagine	Oxidation
+PTM-0400	2139	O-(2-cholinephosphoryl)serine	Phosphocholine
+PTM-0408	130	Diiodotyrosine	Diiodo
+PTM-0411	129	Iodotyrosine	Iodo
+PTM-0434	354	3'-nitrotyrosine	Nitro
+PTM-0438	64	N6-succinyllysine	Succinyl
+PTM-0467	747	N6-malonyllysine	Malonyl
+PTM-0473	35	(3S)-3-hydroxyaspartate	Oxidation
+PTM-0475	1363	N6-crotonyllysine	Crotonyl
+PTM-0476	35	(3R)-3-hydroxyarginine	Oxidation
+PTM-0477	35	(3S)-3-hydroxyhistidine	Oxidation
+PTM-0487	1848	N6-glutaryllysine	Gluratylation
+PTM-0491	35	(4R)-5-hydroxyleucine	Oxidation
+PTM-0492	1918	(4R)-5-oxoleucine	Carbonyl
+PTM-0493	431	O-palmitoleoyl serine	Palmitoleyl
+PTM-0497	213	ADP-ribosyl aspartic acid	ADP-Ribosyl
+PTM-0646	213	ADP-ribosyl glutamic acid	ADP-Ribosyl
+PTM-0651	405	O-AMP-serine	Phosphoadenosine
+PTM-0663	35	(3S)-3-hydroxylysine	Oxidation
+PTM-0706	1992	5-glutamyl serotonin	serotonylation
