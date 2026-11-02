@@ -45,6 +45,18 @@ public class ReportedStatusesTests
         Assert.Throws<NotSupportedException>(() => ((IList<FeatureFitStatus>)reported)[0] = FeatureFitStatus.NotConverged);
     }
 
+    /// <summary>
+    /// A status added to <see cref="FeatureFitStatus"/> must be listed by the model that reports it; the expected lists
+    /// above are copied by hand, so this is what fails when the enum grows and no list does.
+    /// </summary>
+    [Test]
+    public void EveryStatusIsListedBySomeModel()
+    {
+        var listed = Lists().SelectMany(c => (IReadOnlyList<FeatureFitStatus>)c.Arguments[0]!).Distinct();
+        Assert.That(listed, Is.EquivalentTo(Enum.GetValues<FeatureFitStatus>()),
+            "a FeatureFitStatus value is in no model's ReportedStatuses");
+    }
+
     [Test]
     public void LinearModelReportsOnlyAndAllOfItsList()
     {
