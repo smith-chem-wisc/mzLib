@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using MzLibUtil;
+using Omics.BioPolymer;
 using Proteomics;
 
 namespace UsefulProteomicsDatabases.Annotation
@@ -51,20 +51,14 @@ namespace UsefulProteomicsDatabases.Annotation
     /// accessions the database holds, never on what they are annotated with, so one resolution serves any
     /// annotation read from that database: GO, pathways, or anything else carried by a dbReference.
     ///
-    /// The rule parses and never repairs (<see cref="ProteinAccession.Parse"/>): an accession outside UniProt's
-    /// grammar -- a decoy, contaminant or entrapment prefix, a hyphenated name, a RefSeq NP_ -- never takes
+    /// The rule parses and never repairs (<see cref="VariantApplication.ParseAccession"/>, the inverse of the
+    /// name mzLib gives a variant): an accession outside UniProt's grammar -- a decoy, contaminant or entrapment
+    /// prefix, a hyphenated name, a RefSeq NP_, ProteinDbLoader's collision counter P12345_2 -- never takes
     /// another entry's annotation. So an entrapment member absent from the database reads NoEntry rather
     /// than borrowing the annotation of the target it was made from.
     /// </summary>
     public sealed class MemberResolver
     {
-        /// <summary>
-        /// The suffix mzLib appends to a sequence-variant protein's accession
-        /// (VariantApplication.GetAccession): one or more "_{original}{position}{variant}" pieces, as in
-        /// P04406_A20T or P04406-2_A20T_G31.
-        /// </summary>
-        private static readonly Regex SequenceVariantSuffix = new(@"^(?<base>[^_]+)(?:_[A-Z*]*\d+[A-Z*]*)+$", RegexOptions.Compiled);
-
         private readonly HashSet<string> _accessions = new(StringComparer.Ordinal);
         private readonly HashSet<string> _entrapment = new(StringComparer.Ordinal);
 
@@ -108,24 +102,17 @@ namespace UsefulProteomicsDatabases.Annotation
                 throw new ArgumentException("A member accession is null or empty.", nameof(accession));
             }
             bool entrapment = IsEntrapment(accession);
-            var variant = SequenceVariantSuffix.Match(accession);
-            var parsed = ProteinAccession.Parse(variant.Success ? variant.Groups["base"].Value : accession);
-            bool uniProt = parsed.Namespace == AccessionNamespace.UniProt;
-            string sequence = variant.Success && uniProt ? parsed.Verbatim : accession;
+            var (sequence, entries) = ReadGrammar(accession);
 
             if (_accessions.Contains(accession))
             {
                 return new MemberResolution(accession, accession, MemberResolutionKind.Self, entrapment, sequence);
             }
-            if (uniProt)
+            foreach (string entry in entries)
             {
-                if (variant.Success && _accessions.Contains(parsed.Verbatim))
+                if (_accessions.Contains(entry))
                 {
-                    return new MemberResolution(accession, parsed.Verbatim, MemberResolutionKind.Inherited, entrapment, sequence);
-                }
-                if (parsed.Isoform != null && _accessions.Contains(parsed.EntryAccession))
-                {
-                    return new MemberResolution(accession, parsed.EntryAccession, MemberResolutionKind.Inherited, entrapment, sequence);
+                    return new MemberResolution(accession, entry, MemberResolutionKind.Inherited, entrapment, sequence);
                 }
             }
             return new MemberResolution(accession, null, MemberResolutionKind.NoEntry, entrapment, null);
@@ -134,7 +121,8 @@ namespace UsefulProteomicsDatabases.Annotation
         /// <summary>
         /// The sequence an accession names: with mzLib's sequence-variant suffix removed when what remains is a
         /// UniProt accession (P04406-2_A20T is P04406-2, P04406_A20T is P04406), and otherwise the accession itself.
-        /// The UniProt condition keeps an accession that merely looks like a variant (CON_P02768) whole.
+        /// The UniProt condition keeps an accession that merely looks like a variant (CON_P02768) whole, and the
+        /// variant grammar keeps a collision counter (P12345_2) whole.
         /// </summary>
         /// <exception cref="ArgumentException">The accession is null or empty.</exception>
         public static string SequenceAccessionOf(string accession)
@@ -143,13 +131,41 @@ namespace UsefulProteomicsDatabases.Annotation
             {
                 throw new ArgumentException("An accession is null or empty.", nameof(accession));
             }
-            var variant = SequenceVariantSuffix.Match(accession);
-            if (!variant.Success)
+            return ReadGrammar(accession).Sequence;
+        }
+
+        /// <summary>
+        /// True when the grammar lets a member absent from the database take <paramref name="entry"/>'s annotation:
+        /// the accession a sequence variant was applied to, or the entry of a UniProt isoform (or of a variant of
+        /// one). Which of them a resolution picks depends on the database; any other entry is never right.
+        /// </summary>
+        internal static bool MayInherit(string accession, string entry) =>
+            !string.IsNullOrEmpty(accession) && entry != null && ReadGrammar(accession).Entries.Contains(entry);
+
+        /// <summary>
+        /// Reads an accession with mzLib's variant grammar (<see cref="VariantApplication.ParseAccession"/>) over
+        /// UniProt's: the sequence it names, and the entries it may take when absent from the database, in the
+        /// order the rule tries them -- the accession a variant was applied to, then a UniProt isoform's entry.
+        /// Outside UniProt's grammar the sequence is the accession itself and there are no entries.
+        /// </summary>
+        private static (string Sequence, string[] Entries) ReadGrammar(string accession)
+        {
+            var parsed = VariantApplication.ParseAccession(accession);
+            var entry = parsed.Entry;
+            if (entry.Namespace != AccessionNamespace.UniProt)
             {
-                return accession;
+                return (accession, Array.Empty<string>());
             }
-            var parsed = ProteinAccession.Parse(variant.Groups["base"].Value);
-            return parsed.Namespace == AccessionNamespace.UniProt ? parsed.Verbatim : accession;
+            var entries = new List<string>(2);
+            if (parsed.HasAppliedVariants)
+            {
+                entries.Add(entry.Verbatim);
+            }
+            if (entry.Isoform != null)
+            {
+                entries.Add(entry.EntryAccession);
+            }
+            return (entry.Verbatim, entries.ToArray());
         }
 
         /// <summary>

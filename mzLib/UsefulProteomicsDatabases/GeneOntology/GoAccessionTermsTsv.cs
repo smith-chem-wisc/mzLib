@@ -38,11 +38,16 @@ namespace UsefulProteomicsDatabases.GeneOntology
 
         /// <summary>Writes every row of <paramref name="annotation"/>, with the header.</summary>
         /// <exception cref="ArgumentNullException">An argument is null.</exception>
-        /// <exception cref="ArgumentException">A value contains a tab, a line break or, in a set, ';'.</exception>
+        /// <exception cref="ArgumentException">The annotation has no database sha256, which <see cref="Read"/>
+        /// requires; or a value contains a tab, a line break or, in a set, ';'.</exception>
         public static void Write(TextWriter output, GoAccessionAnnotation annotation)
         {
             ArgumentNullException.ThrowIfNull(output);
             ArgumentNullException.ThrowIfNull(annotation);
+            if (string.IsNullOrEmpty(annotation.AnnotationDbSha256))
+            {
+                throw new ArgumentException("The annotation database's sha256 is required: the table is per database.", nameof(annotation));
+            }
             var ontology = annotation.Ontology;
 
             TsvHeader.Write(output, FormatKey, FormatVersion.ToString(CultureInfo.InvariantCulture));

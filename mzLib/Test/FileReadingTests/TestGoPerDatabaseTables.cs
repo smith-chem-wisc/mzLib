@@ -87,6 +87,7 @@ namespace Test.FileReadingTests
         [TestCase("P04406-2_A20T", "P04406|P04406-2", "P04406-2", "P04406-2")]
         [TestCase("P04406-2_A20T_G31", "P04406", "P04406", "P04406-2")]
         [TestCase("CON_P02768", "CON_P02768", "CON_P02768", "CON_P02768")]
+        [TestCase("P04406_2", "P04406|P04406_2", "P04406_2", "P04406_2")] // ProteinDbLoader's collision counter: a different entry
         public void Resolver_SequenceAccession_IsTheMemberWithoutItsVariantSuffix(string member, string database,
             string annotatedAs, string sequence)
         {
@@ -142,6 +143,8 @@ namespace Test.FileReadingTests
         [TestCase("Random_foreign_P04406")]
         [TestCase("NP_000001_A20T")]
         [TestCase("contam-2")]
+        [TestCase("P04406_2")] // a collision counter names a different entry, not a variant of P04406
+        [TestCase("P04406_2_A20T")]
         public void Resolver_NoEntryByTheGrammar_ReadsNoEntry(string member)
         {
             var r = new MemberResolver(new[] { P("P04406"), P("contam"), P("NP_000001") }).Resolve(member);
@@ -308,6 +311,8 @@ namespace Test.FileReadingTests
                         new MemberResolution("P1", "P1", MemberResolutionKind.Self, false, "P1") }, DbSha));
             Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer,
                 new[] { new MemberResolution("P1-2", "P1", MemberResolutionKind.Inherited, false, "P1") }, DbSha));
+            Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer,
+                new[] { new MemberResolution("P04406-2", "Q13148", MemberResolutionKind.Inherited, false, "P04406-2") }, DbSha));
             Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer, Array.Empty<MemberResolution>(), ""));
         }
 
@@ -401,8 +406,13 @@ namespace Test.FileReadingTests
         [TestCase("P1\tP1\tsomewhere\tfalse\tP1\n", "is not self")]
         [TestCase("P1\tP1\tself\t\tP1\n", "entrapment is empty")]
         [TestCase("P1\tP1\tself\tfalse\tP1\nP1\tP1\tself\tfalse\tP1\n", "appears twice")]
-        [TestCase("P1-2\tP1\tinherited\tfalse\tP1\n", "sequence_accession 'P1' contradicts")]
-        [TestCase("P1_A20T\tP1\tinherited\tfalse\t\n", "sequence_accession '' contradicts")]
+        [TestCase("P04406-2\tP04406\tinherited\tfalse\tP04406\n", "sequence_accession 'P04406' contradicts")]
+        [TestCase("P04406_A20T\tP04406\tinherited\tfalse\t\n", "sequence_accession '' contradicts")]
+        // inherited names an entry the member's accession does not give it: another protein, or a collision counter's base
+        [TestCase("P04406-2\tQ13148\tinherited\tfalse\tP04406-2\n", "annotated_as 'Q13148' contradicts")]
+        [TestCase("P04406-2_A20T\tP04406-3\tinherited\tfalse\tP04406-2\n", "annotated_as 'P04406-3' contradicts")]
+        [TestCase("P04406_2\tP04406\tinherited\tfalse\tP04406_2\n", "annotated_as 'P04406' contradicts")]
+        [TestCase("P1-2\tP1\tinherited\tfalse\tP1-2\n", "annotated_as 'P1' contradicts")]
         [TestCase("X1\t\tno_entry\tfalse\tX1\n", "sequence_accession 'X1' contradicts")]
         [TestCase("P1\tP1\tself\tfalse\n", "cells")]
         [TestCase("\t\tno_entry\tfalse\t\n", "accession is empty")]
@@ -456,6 +466,31 @@ namespace Test.FileReadingTests
 
             using var writer = new StringWriter();
             Assert.Throws<ArgumentException>(() => GoAccessionTermsTsv.Write(writer, annotation));
+        }
+
+        // The reader requires annotation_db_sha256, so the writer refuses to write a table without it.
+        [TestCase(null)]
+        [TestCase("")]
+        public void AccessionTerms_Writer_RefusesAnAnnotationWithoutItsDatabaseSha(string sha)
+        {
+            var annotation = new GoAccessionAnnotation(_go, new[] { P("P1", Go(Nucleus)) }, sha);
+
+            using var writer = new StringWriter();
+            var ex = Assert.Throws<ArgumentException>(() => GoAccessionTermsTsv.Write(writer, annotation));
+            Assert.That(ex.Message, Does.Contain("sha256"));
+            Assert.That(writer.ToString(), Is.Empty, "nothing is written");
+        }
+
+        [Test]
+        public void Annotator_FromParts_OfDifferentDatabases_ThrowsNamingTheMember()
+        {
+            var annotation = new GoAccessionAnnotation(_go, new[] { P("P11111", Go(Nucleus)) }, DbSha);
+            var resolver = new MemberResolver(new[] { P("P11111"), P("P22222") });
+            var annotator = new GoGroupAnnotator(annotation, resolver);
+
+            Assert.That(annotator.Annotate(Group("P11111")).Select(r => r.GoId), Does.Contain(Nucleus));
+            var ex = Assert.Throws<InvalidOperationException>(() => annotator.Annotate(Group("P11111|P22222")));
+            Assert.That(ex.Message, Does.Contain("'P22222'").And.Contain("different databases"));
         }
 
         [Test]

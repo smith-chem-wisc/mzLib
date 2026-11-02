@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases.Annotation
         /// <exception cref="ArgumentNullException">output or rows is null.</exception>
         /// <exception cref="ArgumentException">annotationDbSha256 is empty; an accession repeats or contains a
         /// tab or line break; or a row's annotated_as or sequence_accession contradicts its resolution or
-        /// accession.</exception>
+        /// accession (an inherited row must name an entry the accession grammar gives the member).</exception>
         public static void Write(TextWriter output, IEnumerable<MemberResolution> rows, string annotationDbSha256,
             string sourceFileSha256 = null)
         {
@@ -82,7 +82,8 @@ namespace UsefulProteomicsDatabases.Annotation
         /// <exception cref="FileNotFoundException">The file does not exist.</exception>
         /// <exception cref="InvalidDataException">The header or columns are not this format's; a row's
         /// resolution or entrapment is not a known value; annotated_as or sequence_accession contradicts the
-        /// resolution or accession; or an accession repeats.</exception>
+        /// resolution or accession (an inherited row naming an entry the grammar does not give the member, such
+        /// as another protein's); or an accession repeats.</exception>
         public static AnnotationTable<MemberResolution> Read(string path)
         {
             var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -125,15 +126,16 @@ namespace UsefulProteomicsDatabases.Annotation
         };
 
         /// <summary>
-        /// self names the member itself, inherited another entry, no_entry none; and the sequence accession is
-        /// the one the member's accession gives, or none for no_entry.
+        /// self names the member itself, inherited an entry the member's accession may take by the grammar
+        /// (<see cref="MemberResolver.MayInherit"/>), no_entry none; and the sequence accession is the one the
+        /// member's accession gives, or none for no_entry.
         /// </summary>
         private static void Check(MemberResolution row, string where, Func<string, Exception> fail)
         {
             bool consistent = row.Kind switch
             {
                 MemberResolutionKind.Self => row.AnnotatedAs == row.Accession,
-                MemberResolutionKind.Inherited => !string.IsNullOrEmpty(row.AnnotatedAs) && row.AnnotatedAs != row.Accession,
+                MemberResolutionKind.Inherited => MemberResolver.MayInherit(row.Accession, row.AnnotatedAs),
                 MemberResolutionKind.NoEntry => string.IsNullOrEmpty(row.AnnotatedAs),
                 _ => false
             };

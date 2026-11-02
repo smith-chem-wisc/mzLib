@@ -75,7 +75,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
 
         /// <summary>
         /// Builds the annotator from a database's annotation and its member resolver, so a caller that also
-        /// writes the per-database and per-deposit tables reads the database once.
+        /// writes the per-database and per-deposit tables reads the database once. Both must be built from the
+        /// same database's proteins.
         /// </summary>
         /// <exception cref="ArgumentNullException">Either argument is null.</exception>
         public GoGroupAnnotator(GoAccessionAnnotation annotation, MemberResolver resolver)
@@ -90,6 +91,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
         /// The rows for one group, ordered by GO id (ordinal); a term-less group gets exactly one row.
         /// </summary>
         /// <exception cref="ArgumentException">The group is a decoy, or has no members.</exception>
+        /// <exception cref="InvalidOperationException">The resolver matches a member to an entry the annotation
+        /// does not hold: the two were built from different databases.</exception>
         public IReadOnlyList<GoAnnotationRow> Annotate(GoAnnotationGroup group)
         {
             ArgumentNullException.ThrowIfNull(group);
@@ -125,7 +128,12 @@ namespace UsefulProteomicsDatabases.GeneOntology
                     anyMemberMissing = true;
                     continue;
                 }
-                _annotation.TryGetTerms(resolution.AnnotatedAs, out var terms, out bool entryInherited);
+                if (!_annotation.TryGetTerms(resolution.AnnotatedAs, out var terms, out bool entryInherited))
+                {
+                    throw new InvalidOperationException(
+                        $"Member '{member}' resolves to '{resolution.AnnotatedAs}', which the GO annotation does not hold: " +
+                        "the member resolver and the annotation were built from different databases.");
+                }
                 bool inherited = resolution.Kind == MemberResolutionKind.Inherited || entryInherited;
                 foreach (var (termId, evidence) in terms)
                 {
