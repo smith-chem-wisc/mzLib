@@ -20,6 +20,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class MonosaccharideCompositionTests
     {
+        /// <summary>OpeRATOR, IMPa and SmE are held out of proteases.tsv; see HeldGlycoproteases.</summary>
+        [OneTimeSetUp]
+        public static void RegisterHeldGlycoproteases() => HeldGlycoproteases.Register();
+
         private static Modification Glycan(string composition, string residue = "T")
         {
             Assert.IsTrue(ModificationMotif.TryGetMotif(residue, out ModificationMotif motif));

@@ -30,6 +30,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class CleavageObligationTests
     {
+        /// <summary>OpeRATOR, IMPa and SmE are held out of proteases.tsv; see HeldGlycoproteases.</summary>
+        [OneTimeSetUp]
+        public static void RegisterHeldGlycoproteases() => HeldGlycoproteases.Register();
+
         private static Protease StcELike(string name)
         {
             var requirement = CleavageRequirement.NonPrime(2, GlycosylationClass.OLinked);
@@ -287,7 +291,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         [Test]
-        public static void EveryShippedCoDigestKeepsItsTrypticMotifsRuleFree()
+        public static void EveryPrimeSideCoDigestKeepsItsTrypticMotifsRuleFree()
         {
             // If a tryptic motif inherited the glycan rule, trypsin would need a glycan and would be
             // switched off inside the composite. Checked for the PRIME-side composites specifically,

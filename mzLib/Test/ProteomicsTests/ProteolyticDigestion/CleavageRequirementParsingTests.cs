@@ -20,6 +20,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class CleavageRequirementParsingTests
     {
+        /// <summary>OpeRATOR, IMPa and SmE are held out of proteases.tsv; see HeldGlycoproteases.</summary>
+        [OneTimeSetUp]
+        public static void RegisterHeldGlycoproteases() => HeldGlycoproteases.Register();
+
         [Test]
         [TestCase("P2:O-glycan", false, 2, GlycosylationClass.OLinked, TestName = "Parse StcE's P2 O-glycan")]
         [TestCase("P1':O-glycan", true, 1, GlycosylationClass.OLinked, TestName = "Parse the OgpA family's P1-prime O-glycan")]
@@ -83,7 +87,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         [Test]
-        public static void TheShippedGlycoproteasesDeclareTheirRequirement()
+        public static void TheShippedAndHeldGlycoproteasesDeclareTheirRequirement()
         {
             foreach ((string name, bool prime, int subsite) in new[]
                      {
@@ -94,7 +98,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                          ("SmE", true, 1),
                      })
             {
-                Assert.IsTrue(ProteaseDictionary.Dictionary.ContainsKey(name), name + " is missing from proteases.tsv");
+                Assert.IsTrue(ProteaseDictionary.Dictionary.ContainsKey(name), name + " is missing");
                 Protease protease = ProteaseDictionary.Dictionary[name];
 
                 Assert.IsTrue(protease.HasCleavageRequirement, name + " must declare a cleavage requirement");
@@ -106,6 +110,25 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Assert.AreEqual(subsite, requirement.Subsite, name + " subsite number");
                 Assert.AreEqual(GlycosylationClass.OLinked, requirement.RequiredClass, name + " required class");
             }
+        }
+
+        [Test]
+        public static void TheHeldGlycoproteasesAreNotShipped()
+        {
+            // With RespectCleavagePromotingModifications off, the only setting MetaMorpheus can choose
+            // today, each held entry is a cut before every Ser and Thr, and MetaMorpheus lists every
+            // dictionary entry in its protease pickers. They move into proteases.tsv when MetaMorpheus
+            // can set the flag, and this test goes with them.
+#pragma warning disable CS0618 // the only way to see the embedded entries alone; ProteaseLoadingTests does the same
+            ProteaseDictionary.ResetToDefaults();
+#pragma warning restore CS0618
+
+            CustomDigestionAgentLoadResult held = HeldGlycoproteases.Register();
+
+            CollectionAssert.AreEquivalent(
+                new[] { "OpeRATOR", "IMPa", "SmE", "OpeRATOR-trypsin|P", "IMPa-trypsin|P", "SmE-trypsin|P" },
+                held.Added, "every held row parses and is new to the shipped dictionary");
+            CollectionAssert.IsEmpty(held.Skipped, "a held name is already in proteases.tsv");
         }
 
         [Test]

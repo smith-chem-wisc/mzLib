@@ -132,8 +132,10 @@ collagenase	GPX|GPX	full
 #
 # The requirement is honoured only when DigestionParams.
 # RespectCleavagePromotingModifications is set, which defaults to FALSE. With it
-# off these entries digest exactly as they always have, on sequence alone, so
-# nothing about an existing search changes.
+# off the entries below match SEQUENCE ONLY, as StcE and StcE-trypsin always
+# have, so they OVER-DIGEST relative to the real enzyme: their peptides are a
+# superset of true StcE peptides. StcE-trypsin|P is StcE-trypsin with trypsin's
+# proline rule and over-digests the same way.
 #
 # StcE, from enterohemorrhagic E. coli O157:H7 (MEROPS M66), cleaves in an
 # S/T-X-S/T motif, severing the bond before the last residue, but ONLY when the
@@ -152,38 +154,24 @@ collagenase	GPX|GPX	full
 # binding module. So a per-bond rule is the right model, and it will over-generate
 # on folded non-mucin glycoproteins. That is a known and accepted limit.
 #
-# OpeRATOR (OgpA, Akkermansia muciniphila, MEROPS M11), IMPa (Pseudomonas
-# aeruginosa, MEROPS M88) and SmE (Serratia marcescens, peptidase_M60/PF13402)
-# all cleave N-terminal to a glycosylated Ser/Thr -- the glycan is at P1'. They
-# were previously left out of this file because that rule could not be written;
-# it can now. A cell may hold several conditions separated by ";", all of which
-# must hold; "!" marks one that FORBIDS rather than requires; and ">=" sets a
-# minimum monosaccharide composition the glycan must contain. The three differ:
-#   OpeRATOR  optimal on core 1; NOT cleaved on the Tn antigen; blocked by
-#             alpha-2,6-sialylation and by core 2; alpha-2,3-sialyl core 1 is
-#             turned over ~170x slower. Sialidase co-treatment is standard.
-#             Encoded: at least Hex1HexNAc1 at P1' (core 1, so not Tn), and no
-#             glycan with HexNAc2 or more (core 2). Not encoded: sialylation,
-#             whose linkage a composition cannot tell apart.
-#             Trastoy et al., Nat Commun 2020, doi:10.1038/s41467-020-18696-y
-#   IMPa      broad: sialylated and asialylated glycans alike, no sialidase
-#             needed. Will not cleave when P1 is aspartate, nor between two
-#             adjacent O-glycosites (a glycan at P1 forbids the cut). Isoleucine
-#             and arginine at P1 are strong efficiency penalties (8% and 38%
-#             completion), not refusals. Encoded: "[D]|" for aspartate at P1 and
-#             "P1:!O-glycan" for adjacent glycosites. Not encoded: the penalties.
-#             Vainauskas et al., Anal Chem 2022, doi:10.1021/acs.analchem.1c04055
-#   SmE       broadest glycan tolerance of the three, and unlike IMPa it DOES
-#             cleave between two adjacent glycosites, so it has no P1 condition.
-#             Chongsaritsinsuk et al., Nat Commun 2023, doi:10.1038/s41467-023-41756-y
+# OpeRATOR (OgpA), IMPa and SmE are deliberately NOT listed yet. All three cleave
+# N-terminal to a glycosylated Ser/Thr (P1':O-glycan), so with the flag off --
+# the only setting MetaMorpheus can choose today -- each would be '|T,|S', a cut
+# before EVERY Ser and Thr, which none of them makes. Their rows are written and
+# tested in mzLib's test data (TestData/held-glycoproteases.tsv) and move here
+# once MetaMorpheus can set the flag.
+#
+# A cell may hold several conditions separated by ";", all of which must hold;
+# "!" marks one that FORBIDS rather than requires; and ">=" sets a minimum
+# monosaccharide composition the glycan must contain.
 #
 # A composition floor can only be judged on a modification that carries a
 # composition, and today nothing populates one. An unknown composition counts as
 # meeting a REQUIRED floor and as not matching a FORBIDDEN one, so until
-# compositions are populated OpeRATOR's floors leave its cuts as a plain
-# "P1':O-glycan" would. What stays unencoded (linkage, efficiency) costs search
-# space and never an identification: a rule that admits glycoforms the enzyme
-# would refuse proposes extra peptides, never fewer.
+# compositions are populated a floor leaves its condition as it would be without
+# one. What stays unencoded (identity, linkage, efficiency) costs search space and
+# never an identification: a rule that admits glycoforms the enzyme would refuse
+# proposes extra peptides, never fewer.
 #
 # In a composite entry the requirement attaches only to the motifs that have the
 # named subsite, so StcE-trypsin carries the glycan rule on its four StcE motifs
@@ -191,12 +179,6 @@ collagenase	GPX|GPX	full
 StcE	TX|T,TX|S,SX|T,SX|S	full		StcE		P2:O-glycan
 StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin		P2:O-glycan
 StcE-trypsin|P	TX|T,TX|S,SX|T,SX|S,K[P]|,R[P]|	full		StcE/Trypsin		P2:O-glycan
-OpeRATOR	|T,|S	full		OpeRATOR		P1':O-glycan>=Hex1HexNAc1;P1':!O-glycan>=HexNAc2
-IMPa	[D]|T,[D]|S	full		IMPa		P1':O-glycan;P1:!O-glycan
-SmE	|T,|S	full		SmE		P1':O-glycan
-OpeRATOR-trypsin|P	|T,|S,K[P]|,R[P]|	full		OpeRATOR/Trypsin		P1':O-glycan>=Hex1HexNAc1;P1':!O-glycan>=HexNAc2
-IMPa-trypsin|P	[D]|T,[D]|S,K[P]|,R[P]|	full		IMPa/Trypsin		P1':O-glycan;P1:!O-glycan
-SmE-trypsin|P	|T,|S,K[P]|,R[P]|	full		SmE/Trypsin		P1':O-glycan
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Homoserine lactone N-terminal on M
 ProAlanase	P|,A|	full			

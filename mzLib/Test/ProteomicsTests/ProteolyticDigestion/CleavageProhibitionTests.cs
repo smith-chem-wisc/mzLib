@@ -23,6 +23,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class CleavageProhibitionTests
     {
+        /// <summary>OpeRATOR, IMPa and SmE are held out of proteases.tsv; see HeldGlycoproteases.</summary>
+        [OneTimeSetUp]
+        public static void RegisterHeldGlycoproteases() => HeldGlycoproteases.Register();
+
         private static Modification OGlycan(string residue)
         {
             Assert.IsTrue(ModificationMotif.TryGetMotif(residue, out ModificationMotif motif));

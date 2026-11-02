@@ -33,7 +33,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     /// assertion.</para>
     ///
     /// <para><b>Enzyme not modelled</b> (Inconclusive). BT4244, CpaA and AMUC_1438 have no
-    /// <c>proteases.tsv</c> entry, so there is nothing to compare.</para>
+    /// protease entry, so there is nothing to compare.</para>
     ///
     /// <para><b>Efficiency, not possibility.</b> Cases marked <c>reduced:&lt;pct&gt;</c> are REAL
     /// cleavages that happen slowly -- IMPa at 8% completion with isoleucine at P1, OpeRATOR ~170x
@@ -44,8 +44,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class GlycoproteaseTruthSetTests
     {
+        /// <summary>OpeRATOR, IMPa and SmE are held out of proteases.tsv; see HeldGlycoproteases.</summary>
+        [OneTimeSetUp]
+        public static void RegisterHeldGlycoproteases() => HeldGlycoproteases.Register();
+
         /// <summary>
-        /// Whether proteases.tsv actually ships this enzyme. Asked of the dictionary rather than held in
+        /// Whether this enzyme has an entry: shipped in proteases.tsv, or one of the held rows the
+        /// fixture registers. Asked of the dictionary rather than held in
         /// a list here: a hand-maintained allowlist drifts silently the moment an enzyme is added, and it
         /// did -- StcE-trypsin|P was shipped and its two cases kept reporting "not modelled" instead of
         /// being tested.
@@ -54,9 +59,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             !string.IsNullOrWhiteSpace(enzyme) && ProteaseDictionary.Dictionary.ContainsKey(enzyme);
 
         /// <summary>
-        /// The shipped entry an unshipped enzyme name was almost certainly meant to be, or null. The
+        /// The entry an unknown enzyme name was almost certainly meant to be, or null. The
         /// proline suffix is the one spelling that differs between otherwise identical entries
-        /// ("IMPa-trypsin" is not shipped, "IMPa-trypsin|P" is), so a name that is off by exactly that
+        /// ("IMPa-trypsin" is not an entry, "IMPa-trypsin|P" is), so a name that is off by exactly that
         /// suffix is a typo in the truth set, not an enzyme left out on purpose -- and reporting it as
         /// Inconclusive silently skipped the only IMPa co-digest case.
         /// </summary>
@@ -401,11 +406,11 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
             string nearMiss = ShippedNearMiss(c.Enzyme);
             if (nearMiss is not null)
-                Assert.Fail(c.CaseId + ": " + c.Enzyme + " is not a proteases.tsv entry, but " + nearMiss
+                Assert.Fail(c.CaseId + ": " + c.Enzyme + " is not a protease entry, but " + nearMiss
                     + " is. Fix the enzyme column; a misspelt enzyme would otherwise skip the case as not modelled.");
 
             if (!IsModelled(c.Enzyme))
-                Assert.Inconclusive(c.CaseId + ": " + c.Enzyme + " has no proteases.tsv entry, so there is "
+                Assert.Inconclusive(c.CaseId + ": " + c.Enzyme + " has no protease entry, so there is "
                     + "nothing to compare. Source: " + c.Source);
 
             List<string> expected = c.ExpectedProducts.Select(StripGlycanMarkers)
