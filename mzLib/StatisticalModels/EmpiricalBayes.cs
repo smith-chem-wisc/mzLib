@@ -140,8 +140,10 @@ namespace StatisticalModels
     internal readonly record struct FeatureContrast(double Estimate, double StdevUnscaled, double Df);
 
     /// <summary>
-    /// A moderated test of one contrast across all features, with its confidence interval. Read-only to callers. Every
-    /// per-feature value is NaN for a feature that was not fitted.
+    /// A moderated test of one contrast across all features, with its confidence interval, from a linear model
+    /// (<see cref="EmpiricalBayes.ModerateContrasts"/>) or a nested mixed model (<see cref="NestedMixedModel.ModerateContrasts"/>).
+    /// Read-only to callers. Every per-feature value is NaN for a feature with no result: one that was not fitted, or, for
+    /// a mixed model, one whose variance df or contrast df is not finite.
     /// </summary>
     public sealed class ModeratedContrast
     {
@@ -178,15 +180,32 @@ namespace StatisticalModels
         public VariancePrior Prior { get; }
         /// <summary>Per-feature status carried over from the fit.</summary>
         public IReadOnlyList<FeatureFitStatus> Status { get; }
-        /// <summary>As <see cref="ModeratedTest.ResidualDfDiffer"/>.</summary>
+        /// <summary>
+        /// True when the moderated features' variance df d are not all equal. For a linear model d is the residual df, and
+        /// this is <see cref="ModeratedTest.ResidualDfDiffer"/>. For a mixed model d is each feature's joint Satterthwaite
+        /// df of the condition terms (<see cref="NestedMixedModelFit.JointSatterthwaiteDf"/>), and the prior is always
+        /// <see cref="VariancePriorEstimator.MomentsLegacy"/>.
+        /// </summary>
         public bool ResidualDfDiffer { get; }
-        /// <summary>Least-squares estimate of the contrast, c′β (moderation does not change it).</summary>
+        /// <summary>
+        /// The contrast's estimate, c′β: least squares for a linear model, the REML fit's for a mixed model. Moderation does
+        /// not change it.
+        /// </summary>
         public IReadOnlyList<double> Estimate => EstimateValues;
-        /// <summary>Moderated standard error: sqrt(posterior variance) × sqrt(c′(XᵀX)⁻¹c).</summary>
+        /// <summary>
+        /// Moderated standard error: sqrt(posterior variance) × sqrt(c′Uc), with U the coefficients' covariance divided by
+        /// the residual variance: (XᵀX)⁻¹ for a linear model, (XᵀV⁻¹X)⁻¹ for a mixed model
+        /// (<see cref="NestedMixedModelFit.UnscaledCovariance"/>).
+        /// </summary>
         public IReadOnlyList<double> StandardError => StandardErrorValues;
         /// <summary>Moderated t-statistic.</summary>
         public IReadOnlyList<double> T => TValues;
-        /// <summary>Degrees of freedom of the moderated t: residual df plus prior df, capped at the pooled residual df.</summary>
+        /// <summary>
+        /// Degrees of freedom of the moderated t: the contrast's own df plus the prior df, capped at the sum of the moderated
+        /// features' variance df d. For a linear model those are the residual df and the pooled residual df; for a mixed
+        /// model, the contrast's unmoderated Satterthwaite df (<see cref="NestedMixedModelFit.SatterthwaiteDf"/>) and the sum
+        /// of the features' joint Satterthwaite df.
+        /// </summary>
         public IReadOnlyList<double> DfTotal => DfTotalValues;
         /// <summary>Two-sided p-value.</summary>
         public IReadOnlyList<double> PValue => PValues;
