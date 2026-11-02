@@ -221,11 +221,11 @@ namespace Proteomics.ProteolyticDigestion
         public string FullSequenceWithMassShifts => _fullSequenceWithMassShifts ??= this.FullSequenceWithMassShift();
 
         /// <summary>
-        /// Shadows <see cref="DigestionProduct.Parent"/> rather than overriding it, which is not
-        /// possible because the base property is not virtual. The two can disagree: the base backing
-        /// field is [NonSerialized], so it is null on a deserialized peptide until
-        /// SetNonSerializedPeptideInfo runs, while Protein is repopulated. Members inherited from the
-        /// base -- PreviousResidue, NextResidue, BaseSequence -- read the base field, not this.
+        /// Shadows <see cref="DigestionProduct.Parent"/>, which is not virtual. Both return the same
+        /// object: <see cref="ProteolyticPeptide.Protein"/> reads and writes the base backing field.
+        /// That field is [NonSerialized], so on a deserialized peptide both are null until
+        /// <see cref="SetNonSerializedPeptideInfo(Dictionary{string, Modification}, Dictionary{string, Protein}, DigestionParams)"/>
+        /// sets Protein.
         /// </summary>
         public new IBioPolymer Parent => Protein;
 
