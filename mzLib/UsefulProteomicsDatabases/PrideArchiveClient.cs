@@ -766,11 +766,12 @@ namespace UsefulProteomicsDatabases
         /// <para>
         /// A retry resumes rather than restarting: it asks only for the bytes the ".partial" lacks, under
         /// <c>If-Range</c>, so a file that changed on the server is fetched whole instead of spliced. When the
-        /// retries run out the ".partial" is KEPT, beside a ".partial.validator" file recording the validator it
-        /// was served under, and the next call for the same file resumes it. That is what keeps a re-run after a
-        /// failed multi-gigabyte transfer cheap. A ".partial" with no validator (a server that sends neither
-        /// <c>ETag</c> nor <c>Last-Modified</c>) cannot be resumed safely, so it is not kept. After any failure that
-        /// is not transient, both files are deleted.
+        /// retries run out, or the caller cancels, the ".partial" is KEPT, beside a ".partial.validator" file
+        /// recording the validator it was served under, and the next call for the same file resumes it. That is
+        /// what keeps a re-run after a failed or stopped multi-gigabyte transfer cheap. A ".partial" with no
+        /// validator (a server that sends neither <c>ETag</c> nor <c>Last-Modified</c>) cannot be resumed safely
+        /// here, so it is not kept; the overload that checks the MD5 can resume one. After any other failure, both
+        /// files are deleted.
         /// </para>
         /// </remarks>
         /// <param name="file">The file to download. Must not be null and must have a file name.</param>
@@ -814,10 +815,18 @@ namespace UsefulProteomicsDatabases
         /// it throw <see cref="MzLibException"/>, leaving no ".partial" behind.
         /// </para>
         /// <para>
-        /// Cancelling while the downloaded file is being checked keeps its ".partial" and ".partial.validator".
-        /// The next call for the same file with a checksum whose size the ".partial" already has checks it again
-        /// instead of downloading it again, so cancelling the MD5 of a multi-gigabyte file does not throw the
-        /// transfer away.
+        /// Cancelling keeps the ".partial", and its ".partial.validator" when there is one, whether the file was
+        /// still arriving or already being checked. The next call for the same file resumes it, or, when the
+        /// ".partial" already has the checksum's size, checks it again instead of downloading it again, so
+        /// cancelling the MD5 of a multi-gigabyte file does not throw the transfer away either.
+        /// </para>
+        /// <para>
+        /// With <paramref name="verifyMd5"/> true, a ".partial" is resumed even when the server sends no validator
+        /// (neither <c>ETag</c> nor <c>Last-Modified</c>, as PRIDE's Globus HTTPS host does), within a call and
+        /// across calls. The MD5 of the whole file stands in for the validator: a splice of two versions of the file
+        /// fails it, and is then downloaded again from its first byte. The size checked is the checksum's, so a
+        /// resumed body whose <c>Content-Range</c> gives no total is still caught when it comes up short. Without the
+        /// MD5, such a ".partial" is never resumed.
         /// </para>
         /// </remarks>
         /// <param name="file">The file to download. Must not be null and must have a file name.</param>
@@ -888,36 +897,36 @@ namespace UsefulProteomicsDatabases
             string validatorPath = partialPath + ValidatorSuffix;
             string host = HostOf(url);
 
-            // A .partial left by an earlier call is resumable only with the validator it was started under;
-            // without one, nothing proves the bytes on disk are the start of the file the server holds now.
+            // A .partial left by an earlier call is resumable with the validator it was started under, or, with none,
+            // when the whole file's MD5 is checked at the end. Without either, nothing proves the bytes on disk are
+            // the start of the file the server holds now.
+            bool md5ChecksSplice = expected != null && verifyMd5;
             var transfer = new ResumableTransfer
             {
-                Validator = ReadValidator(partialPath, validatorPath),
+                Validator = ReadValidator(partialPath, validatorPath, keepUnvalidated: md5ChecksSplice),
+                ResumableWithoutValidator = md5ChecksSplice,
                 Digest = expected != null ? new DownloadDigest(verifyMd5) : null
             };
-            bool verifying = false;
 
             try
             {
-                // A .partial that already has the listed size was downloaded whole under its validator by a call
-                // cancelled while checking it (see the catch below): check it again rather than fetch it again.
-                // If it fails, it is discarded and the file is downloaded as if it had never been there.
+                // A .partial that already has the listed size was downloaded whole by a call cancelled while checking
+                // it (see the catch below): check it again rather than fetch it again. If it fails, it is discarded
+                // and the file is downloaded as if it had never been there.
                 bool complete = false;
-                if (expected != null && transfer.Validator != null && new FileInfo(partialPath).Length == expected.SizeBytes)
+                if (expected != null && transfer.CanResume && File.Exists(partialPath)
+                    && new FileInfo(partialPath).Length == expected.SizeBytes)
                 {
-                    verifying = true;
                     transfer.Digest.Invalidate();
                     complete = await ContentMismatchAsync(partialPath, expected, verifyMd5, transfer.Digest, cancellationToken).ConfigureAwait(false) == null;
                     if (!complete)
                         Discard(partialPath, validatorPath, transfer);
-                    verifying = false;
                 }
 
                 if (!complete)
                 {
                     await WithRetryAsync(async () =>
                     {
-                        verifying = false;
                         await DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken).ConfigureAwait(false);
                         if (expected == null)
                             return true;
@@ -926,7 +935,6 @@ namespace UsefulProteomicsDatabases
                         // check is made inside the attempt so that a failure is retried: EBI has served files at
                         // their full size with its own storage error text in place of some of their bytes, and a
                         // fresh download of the same file usually comes out right (measured 2026-10-08).
-                        verifying = true;
                         cancellationToken.ThrowIfCancellationRequested();
                         string mismatch = await ContentMismatchAsync(partialPath, expected, verifyMd5, transfer.Digest, cancellationToken).ConfigureAwait(false);
                         if (mismatch != null)
@@ -950,22 +958,25 @@ namespace UsefulProteomicsDatabases
                 DeleteQuietly(validatorPath);
                 throw new MzLibException(e.Message, e);
             }
-            catch (HttpRequestException e) when (IsTransient(e, host) && transfer.Validator != null && File.Exists(partialPath))
+            catch (HttpRequestException e) when (IsTransient(e, host) && transfer.CanResume && File.Exists(partialPath))
             {
-                // Kept on purpose: EBI failed, not the file, and the validator beside it lets the next call
-                // ask only for the bytes that are missing instead of paying for the whole file again.
+                // Kept on purpose: EBI failed, not the file, and the validator beside it (or the MD5 still to be
+                // checked) lets the next call ask only for the bytes that are missing instead of paying for the
+                // whole file again.
                 throw;
             }
-            catch (OperationCanceledException) when (verifying && transfer.Validator != null && File.Exists(partialPath))
+            catch (OperationCanceledException) when (transfer.CanResume && File.Exists(partialPath))
             {
-                // Kept on purpose: the caller stopped the check, not the transfer, and the whole file is on disk.
-                // Deleting it would throw away a complete multi-gigabyte download.
+                // Kept on purpose: the caller stopped the transfer, or its check, not the file. A watchdog that
+                // cancels a stalled multi-gigabyte download must not make the next call start again from byte 0
+                // (PXReprise 019). A stall and HttpClient's own timeout never arrive here: both are
+                // HttpRequestExceptions by now.
                 throw;
             }
             catch
             {
-                // Anything else -- a refusal, a broken contract, the caller's disk, the caller's cancellation --
-                // gives no reason to trust the partial bytes, so neither they nor their validator survive.
+                // Anything else -- a refusal, a broken contract, the caller's disk, bytes that can never be
+                // resumed -- gives no reason to keep the partial bytes, so neither they nor their validator survive.
                 DeleteQuietly(partialPath);
                 DeleteQuietly(validatorPath);
                 throw;
@@ -1062,8 +1073,17 @@ namespace UsefulProteomicsDatabases
         /// <summary>What one download carries from a failed attempt into the next.</summary>
         private sealed class ResumableTransfer
         {
-            /// <summary>The validator the partial bytes were served under, or null when they cannot be resumed.</summary>
+            /// <summary>The validator the partial bytes were served under, or null when there is none.</summary>
             public RangeConditionHeaderValue Validator { get; set; }
+
+            /// <summary>
+            /// Whether the partial bytes may be resumed with no validator: only when the whole file's MD5 is checked
+            /// at the end, which a splice of two versions of the file fails.
+            /// </summary>
+            public bool ResumableWithoutValidator { get; init; }
+
+            /// <summary>Whether the partial bytes may be resumed at all.</summary>
+            public bool CanResume => Validator != null || ResumableWithoutValidator;
 
             /// <summary>The check run over the bytes as they arrive, or null when there is nothing to check them against.</summary>
             public DownloadDigest Digest { get; init; }
@@ -1188,6 +1208,8 @@ namespace UsefulProteomicsDatabases
         /// <remarks>
         /// Bytes are appended only to a <c>206</c> whose <c>Content-Range</c> starts exactly where the partial
         /// ends, sent under <c>If-Range</c> so the server answers with the whole file instead if it has changed.
+        /// With no validator there is no <c>If-Range</c>; the request is sent only when the MD5 checked afterwards
+        /// will catch a changed file instead.
         /// Any other answer to a ranged request -- a <c>200</c>, a <c>206</c> starting elsewhere, a <c>416</c> --
         /// starts the file again from zero. The guarantee is that no truncated or spliced file is ever moved
         /// into place, not that no <c>.partial</c> is ever left behind.
@@ -1195,7 +1217,7 @@ namespace UsefulProteomicsDatabases
         private async Task<bool> DownloadOnceAsync(string url, string described, string partialPath,
             string validatorPath, ResumableTransfer transfer, CancellationToken cancellationToken)
         {
-            long resumeFrom = transfer.Validator != null && File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0;
+            long resumeFrom = transfer.CanResume && File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0;
 
             HttpResponseMessage response = await SendDownloadRequestAsync(url, described, resumeFrom, transfer.Validator, cancellationToken).ConfigureAwait(false);
             try
@@ -1264,16 +1286,17 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Sends the download GET. A positive <paramref name="resumeFrom"/> asks for the rest of the file only,
-        /// and only if it still matches <paramref name="validator"/>.
+        /// and, given a <paramref name="validator"/>, only if the file still matches it.
         /// </summary>
         private Task<HttpResponseMessage> SendDownloadRequestAsync(string url, string described, long resumeFrom,
             RangeConditionHeaderValue validator, CancellationToken cancellationToken)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, url);
-            if (resumeFrom > 0 && validator != null)
+            if (resumeFrom > 0)
             {
                 request.Headers.Range = new RangeHeaderValue(resumeFrom, null);
-                request.Headers.IfRange = validator;
+                if (validator != null)
+                    request.Headers.IfRange = validator;
             }
 
             return SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken, described);
@@ -1284,10 +1307,12 @@ namespace UsefulProteomicsDatabases
         /// else null. A weak ETag is not allowed in <c>If-Range</c>.
         /// </summary>
         /// <remarks>
-        /// With no validator the bytes cannot be resumed, not even within this call: a <c>Range</c> request with
-        /// no <c>If-Range</c> could splice two versions of a file together. PRIDE's public FTP host sends both
-        /// validators. Its reviewer-token route sends neither (measured 2026-09-29), so a private download
-        /// restarts from zero after a failure.
+        /// With no validator the bytes are resumed only when the whole file's MD5 is checked afterwards, not even
+        /// within this call otherwise: a <c>Range</c> request with no <c>If-Range</c> could splice two versions of
+        /// a file together, and only the MD5 would see it. PRIDE's public FTP host sends both validators. Its
+        /// Globus HTTPS host sends neither, though it accepts <c>Range</c> (measured 2026-10-18), and neither does
+        /// its reviewer-token route (measured 2026-09-29). There a download restarts from zero after a failure
+        /// unless its MD5 is checked.
         /// </remarks>
         private static RangeConditionHeaderValue ValidatorOf(HttpResponseMessage response)
         {
@@ -1300,9 +1325,11 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Reads the validator a <c>.partial</c> was started under. An orphan -- a partial with no readable
-        /// validator, or a validator with no partial -- is deleted, because it can never be resumed.
+        /// validator, or a validator with no partial -- is deleted, because it can never be resumed. With
+        /// <paramref name="keepUnvalidated"/>, a partial with no validator is kept: the MD5 checked at the end of
+        /// the download is what vouches for it then.
         /// </summary>
-        private static RangeConditionHeaderValue ReadValidator(string partialPath, string validatorPath)
+        private static RangeConditionHeaderValue ReadValidator(string partialPath, string validatorPath, bool keepUnvalidated)
         {
             RangeConditionHeaderValue validator = null;
             try
@@ -1315,7 +1342,8 @@ namespace UsefulProteomicsDatabases
 
             if (validator == null)
             {
-                DeleteQuietly(partialPath);
+                if (!keepUnvalidated)
+                    DeleteQuietly(partialPath);
                 DeleteQuietly(validatorPath);
             }
             return validator;

@@ -501,6 +501,41 @@ public class PrideChecksumTests
     }
 
     [Test]
+    public async Task DownloadWithChecksum_CompletePartialWithNoValidator_IsCheckedByItsMd5WithoutARequest()
+    {
+        // A server with no validator (PRIDE's Globus host) leaves no sidecar. With the MD5 to check, that is enough.
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Body);
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(Body), Body.Length), verifyMd5: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests, Is.Empty);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Body));
+            Assert.That(File.Exists(Destination + ".partial"), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_CompletePartialWithNoValidator_IsDownloadedAgainWithoutTheMd5()
+    {
+        // The size and the scan cannot vouch for bytes nothing else identifies, so they are not trusted.
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Body);
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientOver(handler);
+
+        await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(Body), Body.Length), verifyMd5: false);
+
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void DownloadWithChecksum_CompletePartialWithTheWrongMd5_IsDeleted()
     {
         Directory.CreateDirectory(_tempDir);
@@ -823,6 +858,96 @@ public class PrideChecksumLiveTests
             {
                 string path = await client.DownloadFileAsync(file, dir, checksums[SdrfName], verifyMd5: true);
                 Assert.That(new FileInfo(path).Length, Is.EqualTo(5842));
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        });
+
+    /// <summary>Records each download response's status, the Range it answered and where it served from, over a real handler.</summary>
+    private sealed class RecordingHandler : DelegatingHandler
+    {
+        public List<(string Range, HttpStatusCode Status, long? ServedFrom, bool HasValidator)> Exchanges { get; } = new();
+
+        public RecordingHandler() : base(new HttpClientHandler()) { }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
+            Exchanges.Add((request.Headers.Range?.ToString(), response.StatusCode, response.Content.Headers.ContentRange?.From,
+                response.Headers.ETag != null || response.Content.Headers.LastModified != null));
+            return response;
+        }
+    }
+
+    /// <summary>
+    /// PRIDE's Globus HTTPS host ("EMBL-EBI Public Data"), which serves the same archive paths as ftp.pride. It is the one
+    /// host known to honour Range while sending no validator (measured 2026-10-18), so it is what proves a resume with no
+    /// validator against a real server. mzLib offers no Globus route (decided 2026-10-12): the test only borrows the host.
+    /// </summary>
+    private const string GlobusHost = "g-a8b222.dd271.03c0.data.globus.org";
+
+    private static string Md5Hex(byte[] bytes) => Convert.ToHexString(MD5.HashData(bytes)).ToLowerInvariant();
+
+    [Test]
+    public Task DownloadWithChecksum_Live_ResumesFromAHostWithNoValidator() =>
+        ExternalServiceTestHelper.RunAsync("PRIDE/Globus", async () =>
+        {
+            // PRIDE's Globus host sends neither ETag nor Last-Modified, though it honours Range (measured 2026-10-18).
+            // With the MD5 checked, the first half already on disk is resumed rather than fetched again. A copy EBI
+            // damaged is EBI's failure and skips; only a splice of ours that a clean whole copy contradicts fails.
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
+            var checksums = await client.GetFileChecksumsAsync("PXD010820");
+            PrideFileChecksum expected = checksums[SdrfName];
+            var file = (await client.GetProjectFilesAsync("PXD010820")).Single(f => f.FileName == SdrfName);
+
+            string dir = Path.Combine(Path.GetTempPath(), "PrideLiveGlobusResume", Guid.NewGuid().ToString("N"));
+            try
+            {
+                // The half to resume comes from a plain download, checked here, so a damaged copy skips rather than fails.
+                string whole = await client.DownloadFileAsync(file, dir);
+                byte[] bytes = await File.ReadAllBytesAsync(whole);
+                if (bytes.Length != expected.SizeBytes || !string.Equals(Md5Hex(bytes), expected.Md5, StringComparison.OrdinalIgnoreCase))
+                    throw new ExternalServiceUnavailableException("PRIDE served a damaged copy of the file to resume");
+                File.Delete(whole);
+                await File.WriteAllBytesAsync(whole + ".partial", bytes.Take(bytes.Length / 2).ToArray());
+
+                var globusUrl = new UriBuilder(file.GetHttpsDownloadUrl()) { Host = GlobusHost }.Uri.ToString();
+                var viaGlobus = new PrideArchiveFile
+                {
+                    FileName = SdrfName,
+                    FileSizeBytes = file.FileSizeBytes,
+                    FileCategory = file.FileCategory,
+                    PublicFileLocations = new List<CvParam> { new("PRIDE", "PRIDE:0000000", "location", globusUrl) }
+                };
+                var recorder = new RecordingHandler();
+                using var http = new HttpClient(recorder) { Timeout = TimeSpan.FromSeconds(100) };
+                using var resuming = new PrideArchiveClient(http) { MaxRetries = 0 };
+
+                string path;
+                try
+                {
+                    path = await resuming.DownloadFileAsync(viaGlobus, dir, expected, verifyMd5: true);
+                }
+                catch (MzLibException)
+                {
+                    // The resumed file failed its MD5. That is our splice only if the host serves the whole file intact.
+                    using var plain = new PrideArchiveClient { MaxRetries = 0 };
+                    byte[] control = await File.ReadAllBytesAsync(await plain.DownloadFileAsync(viaGlobus, Path.Combine(dir, "control")));
+                    if (!string.Equals(Md5Hex(control), expected.Md5, StringComparison.OrdinalIgnoreCase))
+                        throw new ExternalServiceUnavailableException("the Globus host served a damaged copy");
+                    throw;
+                }
+
+                Assert.That(recorder.Exchanges, Is.Not.Empty);
+                Assert.That(recorder.Exchanges[0].Range, Is.EqualTo($"bytes={bytes.Length / 2}-"), "the half on disk was resumed");
+                // Drift on the server's side is inconclusive, not a failure of ours.
+                Assume.That(recorder.Exchanges[0].HasValidator, Is.False, "the Globus host now sends a validator");
+                Assume.That(recorder.Exchanges[0].Status, Is.EqualTo(HttpStatusCode.PartialContent), "the Globus host no longer honours Range");
+                Assume.That(recorder.Exchanges[0].ServedFrom, Is.EqualTo(bytes.Length / 2), "the Globus host served another range");
+                Assert.That(recorder.Exchanges, Has.Count.EqualTo(1), "the resumed tail was appended, not fetched again");
+                Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes), "the MD5 passed, and the file is whole");
             }
             finally
             {
