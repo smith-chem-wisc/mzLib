@@ -849,8 +849,8 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
-        /// The other half of the sign: a negative formal charge has to ADD a proton to the MM line and a
-        /// hydrogen to the formula, mirroring the trimethyllysine case above. The entry is synthetic, a
+        /// The other half of the sign: a negative formal charge has to ADD a hydrogen to the formula, and so
+        /// about a proton to the mass, mirroring the trimethyllysine case above. The entry is synthetic, a
         /// carboxylate written as the anion, because no current ptmlist entry cross-references a negatively
         /// charged PSI-MOD term; that is why the flipped sign has so far been silent.
         /// </summary>
@@ -872,9 +872,40 @@ namespace Test.DatabaseTests
             Modification adjusted = ReadSingleModification(anionEntry, formalCharges);
             Modification unadjusted = ReadSingleModification(anionEntry, new Dictionary<string, int>());
 
+            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "a 1- charge puts a hydrogen back on the formula");
+            Assert.That(adjusted.MonoisotopicMass, Is.EqualTo(adjusted.ChemicalFormula.MonoisotopicMass).Within(1e-9),
+                "and the mass is the corrected formula's");
+            // The MM line is the anion's mass, rounded to six decimals, so it is one proton below the result
+            // to within that rounding.
             Assert.That(adjusted.MonoisotopicMass - unadjusted.MonoisotopicMass,
-                Is.EqualTo(Constants.ProtonMass).Within(1e-9), "a 1- charge puts a proton back on the MM line");
-            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "and a hydrogen back on the formula");
+                Is.EqualTo(Constants.ProtonMass).Within(1e-6), "which is a proton above the anion's MM line");
+        }
+
+        /// <summary>
+        /// A charged entry with an MM line but no CF line has no formula to correct, so both loaders fall back
+        /// to subtracting one proton per charge from the MM line.
+        /// </summary>
+        [Test]
+        public void FormalChargeWithoutAFormula_SubtractsAProtonFromTheMmLine()
+        {
+            var formalCharges = new Dictionary<string, int> { { "PSI-MOD; MOD:00083", 1 } };
+            const string noFormulaEntry =
+                "ID   Test charged mod without a formula\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Lysine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "MM   43.054227\r\n" +
+                "DR   PSI-MOD; MOD:00083.\r\n" +
+                "//";
+
+            Modification viaModificationLoader = ReadSingleModification(noFormulaEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(noFormulaEntry, formalCharges);
+
+            Assert.That(viaModificationLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaModificationLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
+            Assert.That(viaPtmListLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
         }
 
         /// <summary>
