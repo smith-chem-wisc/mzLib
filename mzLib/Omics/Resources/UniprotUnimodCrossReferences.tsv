@@ -10,6 +10,8 @@
 # mzLib holds for the UniProt entry (after the PSI-MOD formal-charge correction), the residue is one of its
 # sites, and the chemistry is the same. A record that merely shares the formula (an isomer, an amino-acid
 # substitution, an unrelated adduct) is not a cross-reference. ModificationTest checks the first two rules.
+# A composition-level record (41 Hex, 43 HexNAc) covers every linkage of its sugar. A record whose name fixes
+# the linkage does not: 428 is GlcNAc-1-phosphoryl and 429 Man-1-phosphoryl, so the 6-phosphate forms stay out.
 PTM-0024	425	3,4-dihydroxyproline	Dioxidation
 PTM-0028	35	3-hydroxyasparagine	Oxidation
 PTM-0029	35	3-hydroxyaspartate	Oxidation
@@ -58,10 +60,8 @@ PTM-0562	41	O-linked (Gal) threonine	Hex
 PTM-0573	41	O-linked (Glc) serine	Hex
 PTM-0580	43	O-linked (GlcNAc) serine	HexNAc
 PTM-0582	43	O-linked (GlcNAc) threonine	HexNAc
-PTM-0587	428	O-linked (GlcNAc6P) serine	PhosphoHexNAc
 PTM-0588	41	O-linked (Man) serine	Hex
 PTM-0591	41	O-linked (Man) threonine	Hex
-PTM-0596	429	O-linked (Man6P) threonine	PhosphoHex
 PTM-0598	1425	O-linked (Xyl) serine	Pentose
 PTM-0606	907	O-linked (Hex) hydroxylysine	Galactosyl
 PTM-0610	41	O-linked (Hex) serine	Hex
