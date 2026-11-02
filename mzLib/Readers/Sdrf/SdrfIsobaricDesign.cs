@@ -124,8 +124,11 @@ namespace Readers
     /// <c>TmtDesign.txt</c>), so statistics leave it out of every comparison. Any one signal is enough; one that
     /// disagrees is reported, and the channel is still a reference. Its biological replicate, when the SDRF gives none,
     /// is numbered here. Every other sample type (carrier, empty, single cell, ...) is read as a study sample, as
-    /// before. When every channel of the whole design is marked (judged over the design, never per plex), the mark says how
-    /// the samples were made, so all are study samples, and a note says so (ruled 2026-10-26).</para>
+    /// before. When every channel of the whole design is marked by <c>characteristics[pooled sample]</c> or a <c>pooled</c>
+    /// replicate (judged over the design, never per plex), the mark says how the samples were made, so it marks none of
+    /// them, and a note says so (ruled 2026-10-26). A sample type of <c>reference</c> or <c>pooled</c>, or
+    /// <c>comment[reference channel]</c> naming the channel, still marks a reference, and a channel it marks need not carry
+    /// the other mark.</para>
     ///
     /// <para><b>A plex is one channel-to-sample map.</b> As in MetaMorpheus, channels are collected per
     /// plex and every file of the plex carries all of them, so fractions share their samples.</para>
@@ -366,10 +369,12 @@ namespace Readers
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             var dropped = new List<(int Line, string FileName)>();
 
-            // GR-20: a mark on every channel of the whole design (never judged per plex) says how the samples were made.
+            // GR-20: a preparation mark on every channel of the whole design (never judged per plex) says how the samples were
+            // made. A sample type or a named reference channel still marks a reference.
             bool everySampleMarked = SdrfDesignRules.EverySampleIsMarked(rows
                 .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
-                .Select(r => (IReadOnlyList<string>)SdrfDesignRules.ReadReferenceSignals(r, ChannelNamer(r, tag!)).Reference)
+                .Select(r => SdrfDesignRules.ReadReferenceSignals(r, ChannelNamer(r, tag!)))
+                .Select(s => ((IReadOnlyList<string>)s.Role, (IReadOnlyList<string>)s.Preparation))
                 .ToList(), out string? everySampleNote);
             if (everySampleNote != null)
                 notes.Add(everySampleNote);
@@ -491,10 +496,11 @@ namespace Readers
 
             // GR-20: a reference channel is never refused for giving no number (`pooled`, or an unknown word), nor
             // for an unknown condition; a number is added later, per plex and sample. A study sample's are required as before.
-            // When every channel of the design is marked, no channel is a reference (SdrfDesignRules.EverySampleIsMarked).
-            var (referenceSignals, studySampleSignals) = everySampleMarked
-                ? (new List<string>(), new List<string>())
-                : SdrfDesignRules.ReadReferenceSignals(row, label == null ? null : cell => NamesChannel(cell, label, tag));
+            // When every channel of the design is marked, the preparation marks are cleared and only a sample type or a named
+            // reference channel marks a reference (SdrfDesignRules.EverySampleIsMarked).
+            var (roleSignals, preparationSignals, studySampleSignals) =
+                SdrfDesignRules.ReadReferenceSignals(row, label == null ? null : cell => NamesChannel(cell, label, tag));
+            var referenceSignals = everySampleMarked ? roleSignals : roleSignals.Concat(preparationSignals).ToList();
             var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
                 isReference: referenceSignals.Count > 0);
             string? plex = plexReader.Read(row, fileName, where, refusals);

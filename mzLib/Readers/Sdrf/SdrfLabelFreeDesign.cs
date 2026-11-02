@@ -66,8 +66,9 @@ namespace Readers
     /// is enough; one that disagrees is reported, and the file is still a reference. A <c>pooled</c> replicate is a sample
     /// that gives no number, numbered by the rule above, and a reference's unknown condition (<c>not applicable</c>) is kept
     /// as written. <c>comment[reference channel]</c> names a channel, which a label-free file has none of. When every sample
-    /// of the design is marked, the mark says how the samples were made, so all are study samples, and a note says so
-    /// (ruled 2026-10-26).</para>
+    /// of the design is marked by <c>characteristics[pooled sample]</c> or a <c>pooled</c> replicate, the mark says how the
+    /// samples were made, so it marks none of them, and a note says so (ruled 2026-10-26). A sample type of
+    /// <c>reference</c> or <c>pooled</c> still marks a reference, and a file it marks need not carry the other mark.</para>
     ///
     /// <para>The rules are the design ↔ SDRF mapping table's read rules: MAP-07 (condition), MAP-12
     /// (file key), MAP-21/22 (technical replicate, fraction), MAP-32..34.</para>
@@ -256,10 +257,12 @@ namespace Readers
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             var dropped = new List<(int Line, string FileName)>();
 
-            // GR-20: a mark on every sample of the design says how the samples were made, not that they are references.
+            // GR-20: a preparation mark on every sample of the design says how the samples were made, not that they are
+            // references. A sample type that says reference still does.
             bool everySampleMarked = SdrfDesignRules.EverySampleIsMarked(rows
                 .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
-                .Select(r => (IReadOnlyList<string>)SdrfDesignRules.ReadReferenceSignals(r, namesThisChannel: null).Reference)
+                .Select(r => SdrfDesignRules.ReadReferenceSignals(r, namesThisChannel: null))
+                .Select(s => ((IReadOnlyList<string>)s.Role, (IReadOnlyList<string>)s.Preparation))
                 .ToList(), out string? everySampleNote);
             if (everySampleNote != null)
                 notes.Add(everySampleNote);
@@ -352,10 +355,10 @@ namespace Readers
                 refusals.Add($"Line {line}: '{keyColumn}' is empty.");
 
             // GR-20: a label-free file has no channel, so comment[reference channel] is not read. When every sample of the
-            // design is marked, no sample is a reference (SdrfDesignRules.EverySampleIsMarked).
-            var (referenceSignals, studySampleSignals) = everySampleMarked
-                ? (new List<string>(), new List<string>())
-                : SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
+            // design is marked, the preparation marks are cleared and only a sample type marks a reference
+            // (SdrfDesignRules.EverySampleIsMarked).
+            var (roleSignals, preparationSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
+            var referenceSignals = everySampleMarked ? roleSignals : roleSignals.Concat(preparationSignals).ToList();
             var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
                 isReference: referenceSignals.Count > 0);
 

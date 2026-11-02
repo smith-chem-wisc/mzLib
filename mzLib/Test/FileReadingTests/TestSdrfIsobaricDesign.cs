@@ -353,6 +353,29 @@ namespace Test.FileReadingTests
             Assert.That(design.Notes, Has.None.Contains("Every sample in this design"));
         }
 
+        /// <summary>
+        /// A mark on every channel clears only the marks that can say how a sample was made. A channel that
+        /// comment[reference channel] names stays the reference: every channel's pooled sample is SN=..., and PRIDE's TMT10
+        /// TMT131 still names 131N.
+        /// </summary>
+        [Test]
+        public void ANamedReferenceChannelKeepsItsRoleWhenEveryChannelIsMarkedPooled()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1", PooledSample: "SN=S1a;SN=S1b", ReferenceChannel: "TMT131"),
+                new RoleRow("a.raw", "TMT127N", "S2", PooledSample: "SN=S2a;SN=S2b", ReferenceChannel: "TMT131", Condition: "B"),
+                new RoleRow("a.raw", "TMT131N", "pool", PooledSample: "SN=S1a;SN=S1b;SN=S2a;SN=S2b", ReferenceChannel: "TMT131")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.True, "the named reference stands");
+            Assert.That(ChannelOf(design, "a.raw", "126").IsReferenceChannel, Is.False);
+            Assert.That(ChannelOf(design, "a.raw", "127N").IsReferenceChannel, Is.False);
+            Assert.That(design.Notes, Has.Some.EqualTo("Every sample in this design is marked by pooled sample, so the mark says how the " +
+                "samples were made, not that they are pooled references: all are read as study samples, except those that sample type " +
+                "or reference channel marks as a reference."));
+        }
+
         [Test]
         public void AChannelThatIsAReferenceInOneFileOfAPlexOnlyIsRefused()
         {

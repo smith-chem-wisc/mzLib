@@ -837,6 +837,29 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// A mark on every sample clears only the marks that can say how a sample was made (pooled sample, a pooled
+        /// replicate). An explicit role stands: a QC file whose sample type is reference stays a reference, with or without
+        /// the pooled mark the other samples carry, and is in no comparison.
+        /// </summary>
+        [TestCase("pooled")]
+        [TestCase("not pooled")]
+        public void AnExplicitReferenceKeepsItsRoleWhenEveryOtherSampleIsMarkedPooled(string qcPooledSample)
+        {
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("pool A1", "a1.raw", "A", PooledSample: "pooled"), new RoleRow("pool A2", "a2.raw", "A", Biorep: "2", PooledSample: "pooled"),
+                new RoleRow("pool B1", "b1.raw", "B", PooledSample: "pooled"),
+                new RoleRow("QC pool", "qc.raw", "A", Biorep: "3", SampleType: "reference", PooledSample: qcPooledSample)));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single(f => Path.GetFileName(f.FullFilePathWithExtension) == "qc.raw").IsReference, Is.True,
+                "the explicit role stands");
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "A_1", "A_2", "B_1" }), "the QC file is in no comparison");
+            Assert.That(design.Notes, Has.Some.EqualTo("Every sample in this design is marked by pooled sample, so the mark says how the " +
+                "samples were made, not that they are pooled references: all are read as study samples, except those that sample type " +
+                "or reference channel marks as a reference."));
+        }
+
+        /// <summary>
         /// PXD011349 (deposited, label-free) writes characteristics[pooled sample] = pooled on all 56 rows, with integer
         /// replicates: each sample is itself a pool. They are the design's 56 study samples, as master reads them.
         /// </summary>

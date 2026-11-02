@@ -35,23 +35,26 @@ namespace Readers
 
         /// <summary>
         /// The pooled-reference signals a row carries (GR-20), each read on its own; any one makes the row's sample a
-        /// reference: <c>characteristics[sample type]</c> <c>reference</c> or <c>pooled</c>, <c>characteristics[pooled
-        /// sample]</c> other than <c>not pooled</c>, a biological replicate of <c>pooled</c>, and, for an isobaric channel,
-        /// <c>comment[reference channel]</c> naming it (<paramref name="namesThisChannel"/>; a label-free file has no
-        /// channel). Beside them, what the row says that reads as a study sample (a sample type naming something else,
+        /// reference. They come in two kinds. <c>Role</c> states the sample's role: <c>characteristics[sample type]</c>
+        /// <c>reference</c> or <c>pooled</c>, and, for an isobaric channel, <c>comment[reference channel]</c> naming it
+        /// (<paramref name="namesThisChannel"/>; a label-free file has no channel). <c>Preparation</c> can also say only how
+        /// the sample was made: <c>characteristics[pooled sample]</c> other than <c>not pooled</c>, and a biological replicate
+        /// of <c>pooled</c>. Only a preparation signal is cleared when it marks every sample (<see cref="EverySampleIsMarked"/>).
+        /// Beside them, what the row says that reads as a study sample (a sample type naming something else,
         /// <c>not pooled</c>), so a disagreement can be reported. Empty cells and unknown words say neither. A role is never
         /// read from a name.
         /// </summary>
-        internal static (List<string> Reference, List<string> StudySample) ReadReferenceSignals(SdrfRow row,
+        internal static (List<string> Role, List<string> Preparation, List<string> StudySample) ReadReferenceSignals(SdrfRow row,
             Func<string, bool>? namesThisChannel)
         {
-            var reference = new List<string>();
+            var role = new List<string>();
+            var preparation = new List<string>();
             var studySample = new List<string>();
 
             string sampleTypeCell = (row[SdrfLabelFreeDesign.SampleTypeColumn] ?? string.Empty).Trim();
             string sampleType = sampleTypeCell.Length == 0 ? string.Empty : SdrfQuantAuditor.ReadLabel(sampleTypeCell).Name;
             if (ReferenceSampleTypes.Contains(sampleType))
-                reference.Add($"sample type '{sampleType}'");
+                role.Add($"sample type '{sampleType}'");
             else if (sampleType.Length > 0 && !IsUnknownWord(sampleType))
                 studySample.Add($"sample type '{sampleType}'");
 
@@ -60,20 +63,20 @@ namespace Readers
             if (namesThisChannel != null && referenceChannel.Length > 0 && !IsUnknownWord(referenceChannel)
                 && namesThisChannel(referenceChannel))
             {
-                reference.Add($"reference channel '{referenceChannel}'");
+                role.Add($"reference channel '{referenceChannel}'");
             }
 
             string pooledSample = (row[SdrfLabelFreeDesign.PooledSampleColumn] ?? string.Empty).Trim();
             if (string.Equals(pooledSample, NotPooled, StringComparison.OrdinalIgnoreCase))
                 studySample.Add($"pooled sample '{pooledSample}'");
             else if (pooledSample.Length > 0 && !IsUnknownWord(pooledSample))
-                reference.Add("pooled sample");
+                preparation.Add("pooled sample");
 
             string biorep = (row[SdrfLabelFreeDesign.BiologicalReplicateColumn] ?? string.Empty).Trim();
             if (IsPooledWord(biorep))
-                reference.Add($"biological replicate '{biorep}'");
+                preparation.Add($"biological replicate '{biorep}'");
 
-            return (reference, studySample);
+            return (role, preparation, studySample);
         }
 
         /// <summary>
@@ -87,20 +90,26 @@ namespace Readers
 
         /// <summary>
         /// GR-20, ruled 2026-10-26: when every sample of a whole design carries a pooled signal, the mark says how the samples
-        /// were made (each is itself a pool), not that they are references, so every sample is read as a study sample. Judged
-        /// over the whole design, never per plex: a plex holding only reference channels beside plexes of study samples keeps
-        /// its references. A design with a mark on only some samples reads the marks as references.
+        /// were made (each is itself a pool), not that they are references, so it is cleared and those samples are read as
+        /// study samples. Only a preparation signal (<c>pooled sample</c>, a <c>pooled</c> replicate) is cleared: a role
+        /// signal (sample type <c>reference</c> or <c>pooled</c>, a named reference channel) still marks its sample a
+        /// reference, so "every sample" means every sample without one. Judged over the whole design, never per plex: a plex
+        /// holding only reference channels beside plexes of study samples keeps its references. A design with a mark on only
+        /// some samples reads the marks as references.
         /// </summary>
-        /// <param name="signalsByRow">The reference signals of every row the design reads (dropped rows excluded).</param>
+        /// <param name="signalsByRow">The role and preparation signals of every row the design reads (dropped rows excluded).</param>
         /// <param name="note">The one sentence for the design's notes, naming the signal(s), when it applies.</param>
-        internal static bool EverySampleIsMarked(IReadOnlyList<IReadOnlyList<string>> signalsByRow, out string? note)
+        internal static bool EverySampleIsMarked(IReadOnlyList<(IReadOnlyList<string> Role, IReadOnlyList<string> Preparation)> signalsByRow,
+            out string? note)
         {
             note = null;
-            if (signalsByRow.Count == 0 || signalsByRow.Any(s => s.Count == 0))
+            var withoutRole = signalsByRow.Where(s => s.Role.Count == 0).ToList();
+            if (withoutRole.Count == 0 || withoutRole.Any(s => s.Preparation.Count == 0))
                 return false;
-            var signals = signalsByRow.SelectMany(s => s).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var signals = withoutRole.SelectMany(s => s.Preparation).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             note = $"Every sample in this design is marked by {string.Join(" or ", signals)}, so the mark says how the samples " +
-                   "were made, not that they are pooled references: all are read as study samples.";
+                   "were made, not that they are pooled references: all are read as study samples" +
+                   (withoutRole.Count == signalsByRow.Count ? "." : ", except those that sample type or reference channel marks as a reference.");
             return true;
         }
 
