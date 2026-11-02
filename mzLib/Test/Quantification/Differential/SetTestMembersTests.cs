@@ -36,7 +36,8 @@ public class SetTestMembersTests
             (e.Accession, (IEnumerable<string>)e.Genes.Split(';', StringSplitOptions.RemoveEmptyEntries))));
 
     /// <summary>A protein group with its peptides: each peptide's values in the four samples (NaN = none).</summary>
-    private sealed record Group(string Name, double QValue = 0.001, bool Contaminant = false, bool Decoy = false)
+    private sealed record Group(string Name, double QValue = 0.001, bool Contaminant = false, bool Decoy = false,
+        bool Entrapment = false)
     {
         public List<(string Sequence, string Groups, double[] Values)> Peptides { get; } = new();
 
@@ -58,7 +59,7 @@ public class SetTestMembersTests
                 Samples.Select((s, i) => (s, p.Values[i])).Where(x => !double.IsNaN(x.Item2))
                     .ToDictionary(x => x.s + ".raw", x => new RunValue(x.Item2, ObservationState.Quantified))))
             .ToList();
-        var infos = groups.Select(g => new ProteinGroupInfo(g.Name, g.QValue, g.Decoy, g.Contaminant)).ToList();
+        var infos = groups.Select(g => new ProteinGroupInfo(g.Name, g.QValue, g.Decoy, g.Contaminant, g.Entrapment)).ToList();
         return ObservationTable.Build(runs, runs.Select(r => r.FileName), peptides, infos, QuantBasis.MsmsOnly);
     }
 
@@ -169,6 +170,22 @@ public class SetTestMembersTests
     }
 
     [Test]
+    public void AnEntrapmentGroup_NeverStandsForAMember_NorCompetesWithItsTargetGroup()
+    {
+        // An entrapment database's entry carries the member's primary name; gene names match in any case.
+        var genes = Genes(("T1", "Stat1"), ("foreign_STAT1", "STAT1"));
+        var alone = Table(new Group("foreign_STAT1", Entrapment: true).With("FPEP", All));
+        Assert.That(One(Resolve(Contrast("Stat1"), alone, genes), "Stat1").State, Is.EqualTo(SetMemberState.NoGroup));
+
+        // Beside a target group seen in fewer samples, the entrapment group is neither chosen nor listed.
+        var both = Table(new Group("foreign_STAT1", Entrapment: true).With("FPEP", All),
+            new Group("T1").With("TPEP", Only(0, 1)));
+        var a = One(Resolve(Contrast("Stat1"), both, genes), "Stat1");
+        Assert.That(a.ProteinGroup, Is.EqualTo("T1"));
+        Assert.That(a.OtherGroups, Is.Empty);
+    }
+
+    [Test]
     public void AMultiGeneEntry_StandsForNoSingleMember_ButEntersOnceWhenAllItsGenesAreMembers()
     {
         // One histone H4 entry, encoded by two genes.
@@ -194,6 +211,17 @@ public class SetTestMembersTests
         // The contrast lists only H4c1, but H4c2 is a member of the part in another dataset.
         var resolved = Resolve(Contrast("H4c1"), table, genes, partMembers: new[] { "H4c1", "H4c2" });
         Assert.That(One(resolved, "H4c1").ProteinGroup, Is.EqualTo("H4X"));
+    }
+
+    [Test]
+    public void TheExceptionDoesNotEnter_WhenAPartMemberAbsentFromTheContrastHasItsOwnGroup()
+    {
+        var genes = Genes(("A1", "GeneA"), ("B1", "GeneB"));
+        var table = Table(new Group("A1|B1").With("ABPEP", All), new Group("B1").With("BPEP", All));
+        // The contrast lists only GeneA; GeneB, a member of the part in another dataset, has its own group here.
+        var resolved = Resolve(Contrast("GeneA"), table, genes, partMembers: new[] { "GeneA", "GeneB" });
+        Assert.That(One(resolved, "GeneA").State, Is.EqualTo(SetMemberState.SharedGroup));
+        Assert.That(One(resolved, "GeneA").ProteinGroup, Is.Null);
     }
 
     [Test]
