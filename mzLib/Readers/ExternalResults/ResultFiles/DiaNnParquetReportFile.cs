@@ -102,26 +102,27 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
     /// <summary>
     /// True when <paramref name="filePath"/> is a parquet file carrying the columns of a DIA-NN main
-    /// report. A file that exists but is not a readable parquet gives false rather than throwing.
+    /// report. A file that opens but is not a readable parquet gives false rather than throwing.
     /// </summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="IOException">The file cannot be opened, for example because another process holds it.</exception>
+    /// <exception cref="UnauthorizedAccessException">The file may not be read.</exception>
     internal static bool HasDiaNnReportColumns(string filePath)
     {
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"File not found: '{filePath}'", filePath);
 
+        // Opened outside the try, so a file that is busy or unreadable reports that, not "not supported".
+        // Parquet.Net reports bytes that are not parquet as IOException too, so once both share the
+        // catch below they cannot be told apart.
+        using FileStream stream = OpenRead(filePath);
         try
         {
-            ParquetReader reader = ParquetReader.CreateAsync(filePath).GetAwaiter().GetResult();
-            try
+            return WithReader(stream, reader =>
             {
                 var columns = reader.Schema.GetDataFields().Select(field => field.Name).ToHashSet();
                 return IdentifyingColumns.All(columns.Contains);
-            }
-            finally
-            {
-                reader.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
+            });
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
@@ -133,16 +134,32 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
     private static List<DiaNnPrecursor> ReadTargets(string filePath)
     {
-        ParquetReader reader = ParquetReader.CreateAsync(filePath).GetAwaiter().GetResult();
-        try
-        {
-            return ReadTargets(reader, filePath);
-        }
-        finally
-        {
-            reader.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        }
+        using FileStream stream = OpenRead(filePath);
+        return WithReader(stream, reader => ReadTargets(reader, filePath));
     }
+
+    private static FileStream OpenRead(string filePath) =>
+        new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    /// <summary>
+    /// Runs <paramref name="read"/> on a Parquet.Net reader over <paramref name="stream"/>, which the
+    /// caller opened and disposes. Every parquet read in this class goes through here, for two reasons:
+    /// <list type="bullet">
+    /// <item>Parquet.Net is never given a path. When the bytes are not parquet, CreateAsync(path) throws
+    /// before returning a reader and leaves its own handle open, so the file stays locked until a
+    /// garbage collection finalizes it.</item>
+    /// <item>The read runs on the thread pool. Parquet.Net's API is async, this reader blocks on it,
+    /// and Parquet.Net 6.1 resumes on the caller's SynchronizationContext. Called from a UI thread
+    /// (the MetaMorpheus GUI), the continuation would wait for the very thread that is blocked
+    /// waiting for it.</item>
+    /// </list>
+    /// </summary>
+    private static T WithReader<T>(Stream stream, Func<ParquetReader, T> read) =>
+        Task.Run(async () =>
+        {
+            await using ParquetReader reader = await ParquetReader.CreateAsync(stream, leaveStreamOpen: true);
+            return read(reader);
+        }).GetAwaiter().GetResult();
 
     private static List<DiaNnPrecursor> ReadTargets(ParquetReader reader, string filePath)
     {
