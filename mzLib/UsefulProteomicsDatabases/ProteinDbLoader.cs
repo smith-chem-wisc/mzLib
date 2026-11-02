@@ -95,6 +95,25 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex GencodeFullNameRegex = new FastaHeaderFieldRegex("fullName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
         public static readonly FastaHeaderFieldRegex GencodeGeneNameRegex = new FastaHeaderFieldRegex("geneName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
 
+        public static readonly FastaHeaderFieldRegexBundle UniprotFieldRegexes = new FastaHeaderFieldRegexBundle(
+            UniprotAccessionRegex, UniprotFullNameRegex, UniprotNameRegex, UniprotGeneNameRegex, UniprotOrganismRegex, UniprotOrganismIdRegex);
+        public static readonly FastaHeaderFieldRegexBundle EnsemblFieldRegexes = new FastaHeaderFieldRegexBundle(
+            EnsemblAccessionRegex, EnsemblFullNameRegex, null, EnsemblGeneNameRegex, null, null);
+        public static readonly FastaHeaderFieldRegexBundle GencodeFieldRegexes = new FastaHeaderFieldRegexBundle(
+            GencodeAccessionRegex, GencodeFullNameRegex, null, GencodeGeneNameRegex, null, null);
+
+        /// <summary>
+        /// The regexes <see cref="LoadProteinFasta"/> applies when it detects <paramref name="headerType"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><see cref="FastaHeaderType.Unknown"/> or an undefined value.</exception>
+        public static FastaHeaderFieldRegexBundle GetFieldRegexes(FastaHeaderType headerType) => headerType switch
+        {
+            FastaHeaderType.UniProt => UniprotFieldRegexes,
+            FastaHeaderType.Ensembl => EnsemblFieldRegexes,
+            FastaHeaderType.Gencode => GencodeFieldRegexes,
+            _ => throw new ArgumentOutOfRangeException(nameof(headerType), headerType, "No field regexes for this FASTA header type."),
+        };
+
         public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
         public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
 
@@ -308,29 +327,14 @@ namespace UsefulProteomicsDatabases
                                 throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
                             }
 
-                            switch (HeaderType)
-                            {
-                                case FastaHeaderType.UniProt:
-                                    accessionRegex = UniprotAccessionRegex;
-                                    fullNameRegex = UniprotFullNameRegex;
-                                    nameRegex = UniprotNameRegex;
-                                    organismRegex = UniprotOrganismRegex;
-                                    organismIdRegex ??= UniprotOrganismIdRegex;
-                                    geneNameRegex = UniprotGeneNameRegex;
-                                    break;
-
-                                case FastaHeaderType.Ensembl:
-                                    accessionRegex = EnsemblAccessionRegex;
-                                    fullNameRegex = EnsemblFullNameRegex;
-                                    geneNameRegex = EnsemblGeneNameRegex;
-                                    break;
-
-                                case FastaHeaderType.Gencode:
-                                    accessionRegex = GencodeAccessionRegex;
-                                    fullNameRegex = GencodeFullNameRegex;
-                                    geneNameRegex = GencodeGeneNameRegex;
-                                    break;
-                            }
+                            // A field the preset leaves null keeps the caller's regex; organismId never overrides the caller's.
+                            var preset = GetFieldRegexes(HeaderType.Value);
+                            accessionRegex = preset.Accession;
+                            fullNameRegex = preset.FullName ?? fullNameRegex;
+                            nameRegex = preset.Name ?? nameRegex;
+                            geneNameRegex = preset.GeneName ?? geneNameRegex;
+                            organismRegex = preset.Organism ?? organismRegex;
+                            organismIdRegex ??= preset.OrganismId;
                         }
 
                         accession = ApplyRegex(accessionRegex, line);
