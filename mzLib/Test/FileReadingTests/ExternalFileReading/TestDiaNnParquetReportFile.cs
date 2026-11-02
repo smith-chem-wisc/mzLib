@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime;
+using System.Threading;
 using System.Threading.Tasks;
 using FlashLFQ;
 using MassSpectrometry;
@@ -264,6 +266,27 @@ internal class TestDiaNnParquetReportFile
         Assert.Throws<FileNotFoundException>(() => missing.ParseFileType());
     }
 
+    /// <summary>
+    /// A report that another handle holds is in use, not unsupported. Detection lets the open's
+    /// IOException through, as ParseFileType already does for a .tsv; loading names the file and keeps
+    /// the IOException as the cause.
+    /// </summary>
+    [Test]
+    public void AFileThatIsInUseIsReportedAsInUse()
+    {
+        string busy = Path.Combine(_outputDirectory, "busy_report.parquet");
+        File.Copy(TestFilePath, busy, true);
+
+        using (new FileStream(busy, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.Throws<IOException>(() => busy.ParseFileType());
+            var e = Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(busy).LoadResults());
+            Assert.That(e!.InnerException, Is.TypeOf<IOException>());
+        }
+
+        Assert.That(busy.ParseFileType(), Is.EqualTo(SupportedFileType.DiaNnReportParquet));
+    }
+
     [Test]
     public void AFileThatIsNotParquetIsRefusedByName()
     {
@@ -272,6 +295,80 @@ internal class TestDiaNnParquetReportFile
 
         var e = Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(fakePath).LoadResults());
         Assert.That(e!.Message, Does.Contain(fakePath));
+    }
+
+    [Test]
+    public void RefusingAFileThatIsNotParquetReleasesIt()
+    {
+        string detected = Path.Combine(_outputDirectory, "released_after_detection.parquet");
+        string loaded = Path.Combine(_outputDirectory, "released_after_loading.parquet");
+        File.WriteAllText(detected, "Precursor.Id\tStripped.Sequence\tRun\n");
+        File.WriteAllText(loaded, "Precursor.Id\tStripped.Sequence\tRun\n");
+
+        // A handle left open by the refusal makes an exclusive open throw IOException until a garbage
+        // collection happens to finalize it; on Windows the file cannot be deleted either. A collection
+        // between the refusal and the exclusive open would hide a leak, so a no-GC region holds
+        // collections off over that window. If the runtime cannot start the region, or something
+        // allocates past its budget, the check is best-effort: it can then miss a leak, but it never
+        // fails without one.
+        GC.TryStartNoGCRegion(16 * 1024 * 1024);
+        try
+        {
+            Assert.Throws<MzLibException>(() => detected.ParseFileType());
+            Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(loaded).LoadResults());
+
+            Assert.Multiple(() =>
+            {
+                Assert.DoesNotThrow(() => new FileStream(detected, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
+                Assert.DoesNotThrow(() => new FileStream(loaded, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
+            });
+        }
+        finally
+        {
+            if (GCSettings.LatencyMode == GCLatencyMode.NoGCRegion)
+                GC.EndNoGCRegion();
+        }
+    }
+
+    /// <summary>
+    /// A GUI calls in on a thread whose SynchronizationContext only that thread can run. Parquet.Net is
+    /// async and this reader blocks on it, so a continuation posted back to that context would wait
+    /// forever for the thread that is waiting for it. This context never runs what is posted to it,
+    /// just as a blocked UI thread never would.
+    /// </summary>
+    [Test]
+    public void ReadingOnAThreadWithASynchronizationContextDoesNotDeadlock()
+    {
+        SupportedFileType? detected = null;
+        int loaded = 0;
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(new BlockedThreadContext());
+            try
+            {
+                detected = TestFilePath.ParseFileType();
+                loaded = new DiaNnParquetReportFile(TestFilePath).Count();
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+        }) { IsBackground = true };
+        thread.Start();
+
+        Assert.That(thread.Join(TimeSpan.FromSeconds(60)), Is.True, "deadlocked on the caller's SynchronizationContext");
+        Assert.That(error, Is.Null);
+        Assert.That(detected, Is.EqualTo(SupportedFileType.DiaNnReportParquet));
+        Assert.That(loaded, Is.EqualTo(TargetRows));
+    }
+
+    private sealed class BlockedThreadContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state) { }
+
+        public override void Send(SendOrPostCallback d, object? state) =>
+            throw new NotSupportedException("the owning thread is blocked");
     }
 
     [Test]
