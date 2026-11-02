@@ -196,6 +196,26 @@ namespace Omics.Digestion
             return InducingCleavage[CutIndex - 1] == residue;
         }
 
+        /// <summary>
+        /// The motif character at non-prime subsite P<paramref name="position"/> (Schechter-Berger: P1 is
+        /// the residue before the cut, P2 the one before that), or '\0' if the motif names no residue
+        /// there. Returned as written, so it may be the wildcard 'X'.
+        /// </summary>
+        public char NonPrimeSubsite(int position) =>
+            position < 1 ? '\0' : SubsiteAt(CutIndex - position);
+
+        /// <summary>
+        /// The motif character at prime subsite P<paramref name="position"/>' (P1' is the residue after
+        /// the cut), or '\0' if the motif names no residue there.
+        /// </summary>
+        public char PrimeSubsite(int position) =>
+            position < 1 ? '\0' : SubsiteAt(CutIndex + position - 1);
+
+        private char SubsiteAt(int index) =>
+            InducingCleavage is null || index < 0 || index >= InducingCleavage.Length
+                ? '\0'
+                : InducingCleavage[index];
+
         private bool MotifMatches(char motifChar, char sequenceChar)
         {
             return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludeFromWildcard)
