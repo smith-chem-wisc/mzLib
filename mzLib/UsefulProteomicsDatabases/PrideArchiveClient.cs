@@ -1602,6 +1602,21 @@ namespace UsefulProteomicsDatabases
         /// checksum list is fetched once, and only when the selection is not empty.
         /// </para>
         /// <para>
+        /// The list is read before any file is downloaded, so a list that cannot be read (its request still fails
+        /// after the retries, or PRIDE answers with a list <see cref="GetFileChecksumsAsync"/> refuses) fails the
+        /// call with nothing downloaded. It does not fall back to unchecked downloads: a broken list taken as an
+        /// empty one would turn "PRIDE's list is broken" into "nothing to check", which is why that method reads
+        /// the list strictly.
+        /// </para>
+        /// <para>
+        /// Without the MD5 the scan is the only check of a file's bytes, so any <c>&lt;Error&gt;&lt;Code&gt;</c>
+        /// counts as EBI's error text. A listed file whose own bytes hold it (a log quoting a storage error, say)
+        /// is refused on every attempt, and, as after any failure here, the files after it are not downloaded.
+        /// Download it with the MD5,
+        /// <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, bool, CancellationToken)"/>
+        /// with <c>verifyMd5: true</c>, where its MD5 decides instead.
+        /// </para>
+        /// <para>
         /// A filter that matches no file is a valid answer, not an error: the result is empty and no file is
         /// downloaded. To name the files instead, and have a name the project does not hold refused before any
         /// download, use <see cref="DownloadProjectFilesByNameAsync"/>.

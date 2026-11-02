@@ -946,6 +946,65 @@ public class PrideArchiveDownloadTests
         }
     }
 
+    [TestCase(false, TestName = "DownloadProjectFilesAsync_AChecksumListItCannotRead_FailsBeforeAnyDownload")]
+    [TestCase(true, TestName = "DownloadProjectFilesAsync_AChecksumListRequestThatFails_FailsBeforeAnyDownload")]
+    public void DownloadProjectFilesAsync_NoReadableChecksumList_FailsBeforeAnyDownload(bool requestFails)
+    {
+        // No fallback to unchecked downloads: a broken list taken as empty would read as "nothing to check".
+        string manifest = "[" + FileJson("one.raw", "RAW", "PRIDE:0000404") + "]";
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files/checksum/"))
+                return requestFails
+                    ? Json("", HttpStatusCode.ServiceUnavailable)
+                    : Text("File-Name\tMD5\tSize\none.raw\t0\t1\n"); // a header ParseChecksums refuses
+            if (uri.Contains("/files")) return Json(manifest);
+            return Bytes(Served("one.raw"));
+        });
+        using (var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 })
+        {
+            if (requestFails)
+                Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadProjectFilesAsync("PXD012345", _tempDir));
+            else
+                Assert.ThrowsAsync<MzLibException>(async () => await client.DownloadProjectFilesAsync("PXD012345", _tempDir));
+        }
+        Assert.That(Downloads(handler), Is.EqualTo(0));
+        Assert.That(File.Exists(Path.Combine(_tempDir, "one.raw")), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadProjectFilesAsync_AListedFileQuotingAStorageError_IsRefusedOnlyWithoutTheMd5(bool verifyMd5)
+    {
+        // Without the MD5 the scan is the only check, so any <Error><Code> is EBI's error text; with it, the file's
+        // true MD5 decides. The file after it shows that a refusal ends the call.
+        byte[] quoting = Encoding.UTF8.GetBytes("2026-10-08 fetch failed: <Error><Code>NoSuchKey</Code></Error>");
+        static string Row(string name, byte[] bytes) =>
+            $"{name}\t{Convert.ToHexString(MD5.HashData(bytes)).ToLowerInvariant()}\t{bytes.Length}\n";
+        string checksums = PrideArchiveClient.ChecksumHeader + "\n" + Row("log.txt", quoting) + Row("after.raw", Served("after.raw"));
+        var (client, handler) = Project(new[] { "log.txt", "after.raw" }, checksums,
+            name => name == "log.txt" ? quoting : Served(name));
+        using (client)
+        {
+            if (verifyMd5)
+            {
+                var paths = await client.DownloadProjectFilesAsync("PXD012345", _tempDir, null, overwrite: true, verifyMd5: true);
+                Assert.That(paths.Select(Path.GetFileName), Is.EqualTo(new[] { "log.txt", "after.raw" }));
+                Assert.That(File.ReadAllBytes(paths[0]), Is.EqualTo(quoting));
+            }
+            else
+            {
+                var e = Assert.ThrowsAsync<MzLibException>(async () =>
+                    await client.DownloadProjectFilesAsync("PXD012345", _tempDir, null, overwrite: true, verifyMd5: false));
+                Assert.That(e!.Message, Does.Contain("log.txt").And.Contain("<Error><Code>"));
+                Assert.That(File.Exists(Path.Combine(_tempDir, "log.txt")), Is.False);
+                Assert.That(File.Exists(Path.Combine(_tempDir, "after.raw")), Is.False);
+                Assert.That(Downloads(handler), Is.EqualTo(1));
+            }
+        }
+    }
+
     // ---- DownloadProjectFilesByNameAsync -----------------------------------------------------
 
     [Test]
