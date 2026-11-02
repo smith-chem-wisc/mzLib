@@ -18,8 +18,9 @@ using Omics.Modifications.IO;
 
 namespace UsefulProteomicsDatabases
 {
+    // Append new members after Unknown so existing numeric values do not shift.
     public enum FastaHeaderType
-    { UniProt, Ensembl, Gencode, Unknown }
+    { UniProt, Ensembl, Gencode, Unknown, Ncbi }
 
     public static class ProteinDbLoader
     {
@@ -95,12 +96,23 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex GencodeFullNameRegex = new FastaHeaderFieldRegex("fullName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
         public static readonly FastaHeaderFieldRegex GencodeGeneNameRegex = new FastaHeaderFieldRegex("geneName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
 
+        // NCBI protein deflines: ">NP_414542.1 desc [organism]", ">ref|NP_414542.1| desc [organism]" and the
+        // pre-2016 ">gi|16127995|ref|NP_414542.1| desc [organism]".
+        public static readonly FastaHeaderFieldRegex NcbiAccessionRegex = new FastaHeaderFieldRegex("accession", @"^>(?:gi\|\d+\|)?(?:[a-z]{2,3}\|)?([^\s|]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex NcbiFullNameRegex = new FastaHeaderFieldRegex("fullName", @"^>\S+\s+(.*?)(?:\s*\[[^\[\]]*\])?\s*$", 0, 1);
+        public static readonly FastaHeaderFieldRegex NcbiOrganismRegex = new FastaHeaderFieldRegex("organism", @"\[([^\[\]]+)\]\s*$", 0, 1);
+
+        // RefSeq (NP_414542.1) or GenBank (AAA24672.1, MBA1234567.1) protein accession, versioned.
+        private static readonly Regex NcbiHeaderDetectionRegex = new Regex(@"^>(?:[a-z]{3}\|)?(?:[A-Z]{2}_\d+|[A-Z]{3}\d{5}(?:\d{2})?)\.\d+(?:\||\s|$)");
+
         public static readonly FastaHeaderFieldRegexBundle UniprotFieldRegexes = new FastaHeaderFieldRegexBundle(
             UniprotAccessionRegex, UniprotFullNameRegex, UniprotNameRegex, UniprotGeneNameRegex, UniprotOrganismRegex, UniprotOrganismIdRegex);
         public static readonly FastaHeaderFieldRegexBundle EnsemblFieldRegexes = new FastaHeaderFieldRegexBundle(
             EnsemblAccessionRegex, EnsemblFullNameRegex, null, EnsemblGeneNameRegex, null, null);
         public static readonly FastaHeaderFieldRegexBundle GencodeFieldRegexes = new FastaHeaderFieldRegexBundle(
             GencodeAccessionRegex, GencodeFullNameRegex, null, GencodeGeneNameRegex, null, null);
+        public static readonly FastaHeaderFieldRegexBundle NcbiFieldRegexes = new FastaHeaderFieldRegexBundle(
+            NcbiAccessionRegex, NcbiFullNameRegex, null, null, NcbiOrganismRegex, null);
 
         /// <summary>
         /// The regexes <see cref="LoadProteinFasta"/> applies when it detects <paramref name="headerType"/>.
@@ -111,6 +123,7 @@ namespace UsefulProteomicsDatabases
             FastaHeaderType.UniProt => UniprotFieldRegexes,
             FastaHeaderType.Ensembl => EnsemblFieldRegexes,
             FastaHeaderType.Gencode => GencodeFieldRegexes,
+            FastaHeaderType.Ncbi => NcbiFieldRegexes,
             _ => throw new ArgumentOutOfRangeException(nameof(headerType), headerType, "No field regexes for this FASTA header type."),
         };
 
@@ -626,6 +639,12 @@ namespace UsefulProteomicsDatabases
             if (line.Count(p => p == '|') == 7)
             {
                 return FastaHeaderType.Gencode;
+            }
+
+            // Tried last, so a header an earlier check claims keeps its format (">gi|" and ">gb|" are UniProt above).
+            if (NcbiHeaderDetectionRegex.IsMatch(line))
+            {
+                return FastaHeaderType.Ncbi;
             }
 
             return FastaHeaderType.Unknown;

@@ -15,6 +15,41 @@ namespace Test.DatabaseTests
     [ExcludeFromCodeCoverage]
     public class TestFastaHeaderPresets
     {
+        // Deflines from NCBI efetch and rest.uniprot.org (2026-11-01). The gi| and ref| forms are the legacy layout
+        // built from each record's gi number (esummary) and title. Each constant here is the thrL leader peptide.
+        private const string ThrL = "MKRISTTITTTITITTGNGAG";
+        private const string RefSeqDefline = ">NP_414542.1 thr operon leader peptide [Escherichia coli str. K-12 substr. MG1655]";
+        private const string RefSeqPipedDefline = ">ref|NP_414542.1| thr operon leader peptide [Escherichia coli str. K-12 substr. MG1655]";
+        private const string RefSeqGiDefline = ">gi|16127995|ref|NP_414542.1| thr operon leader peptide [Escherichia coli str. K-12 substr. MG1655]";
+        private const string GenBankDefline = ">AAA24672.1 thrL [Escherichia coli]";
+        private const string GenBankGiDefline = ">gi|290477|gb|AAA24672.1| thrL [Escherichia coli]";
+        private const string GenBankSevenDigitDefline = ">CAN8157071.1 thr operon leader peptide [Escherichia coli]";
+        private const string MultispeciesDefline = ">WP_001386572.1 MULTISPECIES: thr operon leader peptide [Bacteria]";
+        private const string UniProtDefline = ">sp|P0AD86|LPT_ECOLI thr operon leader peptide OS=Escherichia coli (strain K12) OX=83333 GN=thrL PE=3 SV=1";
+
+        private string _tempDir;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _tempDir = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestFastaHeaderPresets_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_tempDir);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (Directory.Exists(_tempDir))
+                Directory.Delete(_tempDir, true);
+        }
+
+        private string WriteFasta(params string[] deflines)
+        {
+            string path = Path.Combine(_tempDir, Guid.NewGuid().ToString("N") + ".fasta");
+            File.WriteAllLines(path, deflines.SelectMany(d => new[] { d, ThrL }));
+            return path;
+        }
+
         #region Public presets
 
         [Test]
@@ -24,6 +59,7 @@ namespace Test.DatabaseTests
             Assert.That((int)FastaHeaderType.Ensembl, Is.EqualTo(1));
             Assert.That((int)FastaHeaderType.Gencode, Is.EqualTo(2));
             Assert.That((int)FastaHeaderType.Unknown, Is.EqualTo(3));
+            Assert.That((int)FastaHeaderType.Ncbi, Is.EqualTo(4));
         }
 
         [Test]
@@ -47,6 +83,11 @@ namespace Test.DatabaseTests
             Assert.That(gencode, Is.SameAs(ProteinDbLoader.GencodeFieldRegexes));
             Assert.That(gencode, Is.EqualTo(new FastaHeaderFieldRegexBundle(ProteinDbLoader.GencodeAccessionRegex,
                 ProteinDbLoader.GencodeFullNameRegex, null, ProteinDbLoader.GencodeGeneNameRegex, null, null)));
+
+            var ncbi = ProteinDbLoader.GetFieldRegexes(FastaHeaderType.Ncbi);
+            Assert.That(ncbi, Is.SameAs(ProteinDbLoader.NcbiFieldRegexes));
+            Assert.That(ncbi, Is.EqualTo(new FastaHeaderFieldRegexBundle(ProteinDbLoader.NcbiAccessionRegex,
+                ProteinDbLoader.NcbiFullNameRegex, null, null, ProteinDbLoader.NcbiOrganismRegex, null)));
         }
 
         [TestCase(FastaHeaderType.Unknown)]
@@ -118,7 +159,7 @@ namespace Test.DatabaseTests
             return headers;
         }
 
-        // Verbatim copy of DetectFastaHeaderFormat at 564e7286.
+        // Verbatim copy of DetectFastaHeaderFormat before Ncbi was added (564e7286).
         private static FastaHeaderType LegacyDetectFastaHeaderFormat(string line)
         {
             if (!line.StartsWith(">"))
@@ -221,6 +262,141 @@ namespace Test.DatabaseTests
 
             Assert.That(actual.Select(Describe), Is.EqualTo(expected.Select(Describe)));
             Assert.That(actualErrors, Is.EqualTo(expectedErrors));
+        }
+
+        [TestCaseSource(nameof(FastaFixtures))]
+        public void NcbiDetectionTakesNoFixtureHeaderFromAnotherFormat(string fixture)
+        {
+            foreach (string header in HeaderLines(FixturePath(fixture)))
+            {
+                FastaHeaderType before = LegacyDetectFastaHeaderFormat(header);
+                FastaHeaderType after = ProteinDbLoader.DetectFastaHeaderFormat(header);
+                if (before == FastaHeaderType.Unknown && after == FastaHeaderType.Ncbi)
+                    continue;
+                Assert.That(after, Is.EqualTo(before), header);
+            }
+        }
+
+        [Test]
+        public void TheOnlyFixtureHeaderNowDetectedAsNcbiIsTheRefOnlyLine()
+        {
+            var ncbi = FastaFixtures.SelectMany(f => HeaderLines(FixturePath(f)))
+                .Where(h => ProteinDbLoader.DetectFastaHeaderFormat(h) == FastaHeaderType.Ncbi);
+            Assert.That(ncbi, Is.EqualTo(new[] { ">ref|NP_414557.1| homoserine kinase [Escherichia coli str. K-12 substr. MG1655]" }));
+        }
+
+        #endregion
+
+        #region NCBI
+
+        [TestCase(RefSeqDefline)]
+        [TestCase(RefSeqPipedDefline)]
+        [TestCase(GenBankDefline)]
+        [TestCase(GenBankSevenDigitDefline)]
+        [TestCase(MultispeciesDefline)]
+        [TestCase(">XP_011541469.1 protein Shroom1 isoform X1 [Homo sapiens]")]
+        [TestCase(">CAA23472.1 unnamed protein product (chloroplast) [Nicotiana tabacum]")]
+        [TestCase(">NP_414542.1")]
+        public void NcbiDeflinesAreDetected(string defline)
+        {
+            Assert.That(ProteinDbLoader.DetectFastaHeaderFormat(defline), Is.EqualTo(FastaHeaderType.Ncbi));
+        }
+
+        // gi| and gb| begin with two lowercase letters and a pipe, which the UniProt check claims first.
+        [TestCase(RefSeqGiDefline, FastaHeaderType.UniProt)]
+        [TestCase(GenBankGiDefline, FastaHeaderType.UniProt)]
+        [TestCase(UniProtDefline, FastaHeaderType.UniProt)]
+        [TestCase(">NP_414542 thr operon leader peptide [Escherichia coli str. K-12 substr. MG1655]", FastaHeaderType.Unknown)]
+        [TestCase(">lcl|U00096.3_prot_AAC73112.1_1 [gene=thrL] [locus_tag=b0001] [db_xref=UniProtKB/Swiss-Prot:P0AD86] [protein=thr operon leader peptide] [protein_id=AAC73112.1] [location=190..255] [gbkey=CDS]", FastaHeaderType.Unknown)]
+        [TestCase(">tdbR00000016", FastaHeaderType.Unknown)]
+        public void OtherDeflinesAreNotDetectedAsNcbi(string defline, FastaHeaderType expected)
+        {
+            Assert.That(ProteinDbLoader.DetectFastaHeaderFormat(defline), Is.EqualTo(expected));
+        }
+
+        // Synthetic: an NCBI accession followed by Ensembl keys, or in the first of eight Gencode fields, keeps the earlier format.
+        [TestCase(">NP_414542.1 pep:known gene:thrL", FastaHeaderType.Ensembl)]
+        [TestCase(">NP_414542.1|t|g|-|-|thrL-201|thrL|21", FastaHeaderType.Gencode)]
+        public void NcbiDetectionIsTriedAfterTheExistingFormats(string defline, FastaHeaderType expected)
+        {
+            Assert.That(ProteinDbLoader.DetectFastaHeaderFormat(defline), Is.EqualTo(expected));
+        }
+
+        [TestCase(RefSeqDefline, "NP_414542.1", "thr operon leader peptide", "Escherichia coli str. K-12 substr. MG1655")]
+        [TestCase(RefSeqPipedDefline, "NP_414542.1", "thr operon leader peptide", "Escherichia coli str. K-12 substr. MG1655")]
+        [TestCase(RefSeqGiDefline, "NP_414542.1", "thr operon leader peptide", "Escherichia coli str. K-12 substr. MG1655")]
+        [TestCase(GenBankDefline, "AAA24672.1", "thrL", "Escherichia coli")]
+        [TestCase(GenBankGiDefline, "AAA24672.1", "thrL", "Escherichia coli")]
+        [TestCase(GenBankSevenDigitDefline, "CAN8157071.1", "thr operon leader peptide", "Escherichia coli")]
+        [TestCase(MultispeciesDefline, "WP_001386572.1", "MULTISPECIES: thr operon leader peptide", "Bacteria")]
+        [TestCase(">CAA23472.1 unnamed protein product (chloroplast) [Nicotiana tabacum]", "CAA23472.1", "unnamed protein product (chloroplast)", "Nicotiana tabacum")]
+        [TestCase(">NP_414542.1", "NP_414542.1", null, null)]
+        public void NcbiPresetParsesEachDeflineShape(string defline, string accession, string fullName, string organism)
+        {
+            var ncbi = ProteinDbLoader.NcbiFieldRegexes;
+            Assert.That(ncbi.Accession.ApplyRegex(defline), Is.EqualTo(accession));
+            Assert.That(ncbi.FullName.ApplyRegex(defline), Is.EqualTo(fullName));
+            Assert.That(ncbi.Organism.ApplyRegex(defline), Is.EqualTo(organism));
+        }
+
+        [Test]
+        public void AnNcbiFastaThatUsedToThrowNowLoadsByAutoDetection()
+        {
+            string path = WriteFasta(RefSeqDefline, GenBankDefline, GenBankSevenDigitDefline, MultispeciesDefline);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out var errors);
+
+            Assert.That(proteins.Select(p => p.Accession),
+                Is.EqualTo(new[] { "NP_414542.1", "AAA24672.1", "CAN8157071.1", "WP_001386572.1" }));
+            Assert.That(proteins.Select(p => p.FullName),
+                Is.EqualTo(new[] { "thr operon leader peptide", "thrL", "thr operon leader peptide", "MULTISPECIES: thr operon leader peptide" }));
+            Assert.That(proteins.Select(p => p.Organism),
+                Is.EqualTo(new[] { "Escherichia coli str. K-12 substr. MG1655", "Escherichia coli", "Escherichia coli", "Bacteria" }));
+            Assert.That(proteins.Select(p => p.Name), Is.All.Null);
+            Assert.That(proteins.SelectMany(p => p.GeneNames), Is.Empty);
+            Assert.That(proteins.Select(p => p.BaseSequence), Is.All.EqualTo(ThrL));
+            Assert.That(errors, Is.Empty);
+        }
+
+        [Test]
+        public void ARefPipedFirstHeaderAutoDetectsAsNcbi()
+        {
+            string path = WriteFasta(RefSeqPipedDefline);
+
+            var protein = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out var errors).Single();
+
+            Assert.That(protein.Accession, Is.EqualTo("NP_414542.1"));
+            Assert.That(protein.FullName, Is.EqualTo("thr operon leader peptide"));
+            Assert.That(protein.Organism, Is.EqualTo("Escherichia coli str. K-12 substr. MG1655"));
+            Assert.That(errors, Is.Empty);
+        }
+
+        [Test]
+        public void TheNcbiPresetKeepsTheCallersRegexesForFieldsItDoesNotParse()
+        {
+            string path = WriteFasta(RefSeqDefline);
+
+            var protein = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out _,
+                nameRegex: CallerName, geneNameRegex: CallerGeneName, organismIdRegex: CallerOrganismId).Single();
+
+            Assert.That(protein.Name, Is.EqualTo("NP_4"));
+            Assert.That(protein.GeneNames.Single().Item2, Is.EqualTo("NP_"));
+            Assert.That(protein.DatabaseReferences.Single().Id, Is.EqualTo("414"));
+        }
+
+        [Test]
+        public void TheNcbiPresetParsesLegacyGiDeflinesWhenChosenExplicitly()
+        {
+            string path = WriteFasta(RefSeqGiDefline, GenBankGiDefline);
+            var ncbi = ProteinDbLoader.NcbiFieldRegexes;
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out var errors,
+                ncbi.Accession, ncbi.FullName, ncbi.Name, ncbi.GeneName, ncbi.Organism, organismIdRegex: ncbi.OrganismId);
+
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(new[] { "NP_414542.1", "AAA24672.1" }));
+            Assert.That(proteins.Select(p => p.FullName), Is.EqualTo(new[] { "thr operon leader peptide", "thrL" }));
+            Assert.That(proteins.Select(p => p.Organism), Is.EqualTo(new[] { "Escherichia coli str. K-12 substr. MG1655", "Escherichia coli" }));
+            Assert.That(errors, Is.Empty);
         }
 
         #endregion
