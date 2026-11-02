@@ -184,10 +184,10 @@ public sealed record SetHypothesisPart
 /// </para>
 /// <para>
 /// <b>Refusals</b> (<see cref="FormatException"/>, naming the line): a missing required column or a header named twice; a
-/// row with a different number of cells; an empty required cell other than <c>contexts</c> and <c>mrna_log2</c>; an
-/// unknown <c>prediction</c>; <c>post_hoc</c> or <c>primary</c> other than <c>yes</c> or <c>no</c>; a number that does not
-/// parse; a malformed <c>contexts</c> cell; rows of one part with different kinds; rows of one dataset contrast with
-/// different <c>primary</c> marks.
+/// row with a different number of cells; an empty required cell other than <c>contexts</c> and <c>mrna_log2</c>; a
+/// <c>member</c> that begins or ends with white space; an unknown <c>prediction</c>; <c>post_hoc</c> or <c>primary</c>
+/// other than <c>yes</c> or <c>no</c>; a number that does not parse; a malformed <c>contexts</c> cell; rows of one part
+/// with different kinds; rows of one dataset contrast with different <c>primary</c> marks.
 /// </para>
 /// </remarks>
 public sealed class SetTestFreeze
@@ -340,6 +340,11 @@ public sealed class SetTestFreeze
             throw new FormatException(
                 $"Line {line}: prediction '{predictionText}' is not one of {string.Join(", ", Predictions.Keys)}.");
 
+        // Gene names in the databases are matched trimmed, so a stray space would read as unmapped: refuse it instead.
+        string member = Required("member");
+        if (member.Trim().Length != member.Length)
+            throw new FormatException($"Line {line}: 'member' is '{member}', which begins or ends with white space.");
+
         string independence = Required("independence");
         string contexts = Cell("contexts")!;
         return new SetTestRow
@@ -348,7 +353,7 @@ public sealed class SetTestFreeze
             HypothesisId = Required("hypothesis_id"),
             Kind = Required("kind"),
             Prediction = prediction,
-            Member = Required("member"),
+            Member = member,
             Species = Required("species"),
             Dataset = Required("dataset"),
             Factor = Required("factor"),

@@ -263,6 +263,8 @@ public class SetTestFreezeTests
     [TestCase("post_hoc", "maybe", "write yes or no")]
     [TestCase("mrna_log2", "-1,5", "not a number")]
     [TestCase("member", "", "'member' is empty")]
+    [TestCase("member", "Stat1 ", "begins or ends with white space")]
+    [TestCase("member", " Stat1", "begins or ends with white space")]
     public void ABadCell_IsRefusedWithItsLine(string column, string value, string reason)
     {
         var cells = Row().Split('\t');
