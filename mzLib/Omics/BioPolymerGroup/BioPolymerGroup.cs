@@ -191,6 +191,26 @@ namespace Omics.BioPolymerGroup
         }
 
         /// <summary>
+        /// Per biopolymer accession, the (position, modification) pairs whose protein-level occupancy is reported in
+        /// every sample group that covers the position: as 0/N where that group's PSMs cover it but none carries the
+        /// modification. Null (the default) reports only the pairs a sample group itself observes modified, so a
+        /// site covered without being modified is omitted, exactly as an uncovered one is.
+        /// Usually set by <see cref="ReportSitesSeenModifiedInAnySampleGroup"/>; a per-file subset group built by
+        /// <see cref="ConstructSubsetBioPolymerGroup"/> inherits it. Setting it invalidates
+        /// <see cref="SampleGroupResults"/>. Applies to <see cref="BioPolymerGroupType.Parent"/> groups only.
+        /// </summary>
+        private Dictionary<string, HashSet<(int Position, string ModificationIdWithMotif)>>? _occupancySitesToReport;
+        public Dictionary<string, HashSet<(int Position, string ModificationIdWithMotif)>>? OccupancySitesToReport
+        {
+            get => _occupancySitesToReport;
+            set
+            {
+                _occupancySitesToReport = value;
+                SampleGroupResults = null;
+            }
+        }
+
+        /// <summary>
         /// The q-value for this biopolymer group, representing the minimum FDR at which 
         /// this group would be accepted. Lower values indicate higher confidence (0.01 = 1% FDR).
         /// </summary>
@@ -350,6 +370,22 @@ namespace Omics.BioPolymerGroup
         }
 
         /// <summary>
+        /// Sets <see cref="OccupancySitesToReport"/> to the (position, modification) pairs that
+        /// <see cref="AllPsmsBelowOnePercentFDR"/> observe modified on each member biopolymer, i.e. in any sample
+        /// group of this group. Each sample group then reports such a site as 0/N wherever it covers the site
+        /// without seeing it modified, and a site seen modified in none stays unreported. A snapshot: call it again
+        /// after <see cref="AllPsmsBelowOnePercentFDR"/> changes, e.g. after <see cref="MergeWith"/>.
+        /// </summary>
+        public void ReportSitesSeenModifiedInAnySampleGroup()
+        {
+            // Keyed as PopulateOccupancy keys ParentOccupancy, by indexer, so a repeated accession cannot throw.
+            var sites = new Dictionary<string, HashSet<(int Position, string ModificationIdWithMotif)>>();
+            foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
+                sites[bioPolymer.Accession] = ModificationOccupancyCalculator.GetSitesSeenModified(bioPolymer, AllPsmsBelowOnePercentFDR);
+            OccupancySitesToReport = sites;
+        }
+
+        /// <summary>
         /// Populates protein-level and peptide-level modification occupancy on a <see cref="SampleGroupResult"/>
         /// using the specified PSMs. PSM grouping, form filtering, TotalCount derivation, and intensity
         /// lookup are all handled internally by <see cref="ModificationOccupancyCalculator"/>.
@@ -360,8 +396,11 @@ namespace Omics.BioPolymerGroup
             {
                 foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
                 {
+                    HashSet<(int, string)>? sitesToReport = null;
+                    OccupancySitesToReport?.TryGetValue(bioPolymer.Accession, out sitesToReport);
+
                     var occupancy = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
-                        bioPolymer, psms);
+                        bioPolymer, psms, sitesToReport);
 
                     if (occupancy.Count > 0)
                         result.ParentOccupancy[bioPolymer.Accession] = occupancy;
@@ -464,7 +503,10 @@ namespace Omics.BioPolymerGroup
                 GroupType)
             {
                 AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
-                DisplayModsOnPeptides = DisplayModsOnPeptides
+                DisplayModsOnPeptides = DisplayModsOnPeptides,
+                // The sites seen modified anywhere, not only in this file, so a file that covered one without
+                // modifying it reports 0/N.
+                OccupancySitesToReport = OccupancySitesToReport
             };
 
             if (SamplesForQuantification != null)

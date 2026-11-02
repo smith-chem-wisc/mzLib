@@ -1,0 +1,4 @@
+contrast	intercept	groupB	groupC	age_decade
+C_vs_B	0	-1	1	0
+age	0	0	0	1
+BC_vs_A	0	0.5	0.5	0
