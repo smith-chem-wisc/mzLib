@@ -11,14 +11,14 @@ namespace Quantification;
 /// 1) Creates one SpectralMatchMatrix per file
 ///     1a) Normalize the SpectralMatch Matrix for each file
 /// 2) Roll up to peptides for each file
-///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
-///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
+///     2a) Map the PSMs to peptides, creating a Dictionary of IBioPolymerWithSetMods to List of int, mapping peptides to the indices of their PSMs in the QuantMatrix
+///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the map, and output a Peptide QuantMatrix
 ///     2c) Combine the per-file peptide matrices into a single matrix spanning all files, with missing values filled in as 0s
 /// 3) Normalize the peptide matrix
 /// 4) Collapse the peptide matrix, combining fractions and technical replicates
 /// * Writes peptide information (if enabled)
 /// 5) Roll up to proteins
-///     5a) Map the peptides to proteins, creating a Dictionary<IBioPolymerGroup, List<int>> Map mapping proteins to the indices of their peptides in the QuantMatrix
+///     5a) Map the peptides to proteins, creating a Dictionary of IBioPolymerGroup to List of int, mapping proteins to the indices of their peptides in the QuantMatrix
 ///     5b) Roll-up. The roll-up strategy will take in a QuantMatrix of peptides and the map, and output a Protein QuantMatrix
 /// 6) Normalize the protein matrix
 /// * Writes protein information (if enabled)
@@ -30,19 +30,48 @@ public class QuantificationEngine
     internal List<ISpectralMatch> SpectralMatches { get; init; }
     internal List<IBioPolymerWithSetMods> ModifiedBioPolymers { get; init; }
     internal List<IBioPolymerGroup> BioPolymerGroups { get; init; }
-    
+
+    /// <summary>
+    /// Groups that are not quantified but still decide whether a peptide is unique; null when uniqueness is judged
+    /// among <see cref="BioPolymerGroups"/> alone.
+    /// </summary>
+    internal List<IBioPolymerGroup> AllBioPolymerGroups { get; init; }
+
     public QuantificationEngine(
         QuantificationParameters parameters,
         IExperimentalDesign experimentalDesign,
         List<ISpectralMatch> spectralMatches,
         List<IBioPolymerWithSetMods> modifiedBioPolymers,
         List<IBioPolymerGroup> bioPolymerGroups)
+        : this(parameters, experimentalDesign, spectralMatches, modifiedBioPolymers, bioPolymerGroups, allBioPolymerGroups: null)
+    {
+    }
+
+    /// <param name="parameters">The strategies and switches of the run.</param>
+    /// <param name="experimentalDesign">Maps each file to its samples.</param>
+    /// <param name="spectralMatches">The matches to quantify.</param>
+    /// <param name="modifiedBioPolymers">The peptides to quantify.</param>
+    /// <param name="bioPolymerGroups">The groups to quantify.</param>
+    /// <param name="allBioPolymerGroups">
+    /// Every group of the analysis, including any the caller does not quantify -- for instance groups it does not write
+    /// out. With shared peptides off, a peptide counts toward a quantified group only when no other group, here or in
+    /// <paramref name="bioPolymerGroups"/>, lists its full sequence, so leaving a group out of the output does not make
+    /// a peptide it shares unique. Null: uniqueness is judged among <paramref name="bioPolymerGroups"/> alone.
+    /// </param>
+    public QuantificationEngine(
+        QuantificationParameters parameters,
+        IExperimentalDesign experimentalDesign,
+        List<ISpectralMatch> spectralMatches,
+        List<IBioPolymerWithSetMods> modifiedBioPolymers,
+        List<IBioPolymerGroup> bioPolymerGroups,
+        List<IBioPolymerGroup> allBioPolymerGroups)
     {
         Parameters = parameters;
         ExperimentalDesign = experimentalDesign;
         SpectralMatches = spectralMatches;
         ModifiedBioPolymers = modifiedBioPolymers;
         BioPolymerGroups = bioPolymerGroups;
+        AllBioPolymerGroups = allBioPolymerGroups;
     }
 
     /// <summary>
@@ -103,10 +132,20 @@ public class QuantificationEngine
         OverwriteSampleIntensities(peptideMatrix);
         OverwriteSampleIntensities(proteinMatrix);
 
+        // Report the matches the peptide map had to drop, so an unexpectedly small result set has a
+        // stated cause rather than being silently smaller than the search.
+        // Same predicate the peptide map applies, so the count cannot drift from what was dropped.
+        int ambiguousExcluded = SpectralMatches
+            .Count(sm => sm.Intensities != null && SingleIdentifiedFullSequenceOrNull(sm) == null);
+
         return new QuantificationResults
         {
-            Summary = "Quantification completed successfully.",
+            Summary = ambiguousExcluded == 0
+                ? "Quantification completed successfully."
+                : $"Quantification completed successfully. {ambiguousExcluded} spectral match(es) were " +
+                  "excluded because they did not identify exactly one full sequence.",
             Success = true,
+            AmbiguousSpectralMatchesExcluded = ambiguousExcluded,
             Samples = proteinMatrix.ColumnKeys.ToList(),
             PeptideIntensities = BuildIntensityTable(peptideMatrix),
             ProteinIntensities = BuildIntensityTable(proteinMatrix),
@@ -188,6 +227,33 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// The strategies every run needs, in the order the engine applies them, each paired with the name
+    /// to report when it is missing. <see cref="QuantificationParameters.CollapseAggregationStrategy"/>
+    /// is deliberately absent: it is needed only when the collapse strategy reads it, which is
+    /// <see cref="ValidateEngine"/>'s separate check.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="QuantificationParameters"/> leaves all of these null, and none has a defensible
+    /// default -- summing and taking a median are different answers, not different spellings of one.
+    /// So the only thing validation can do is say which are missing, and it is worth doing early: the
+    /// first dereference is in <see cref="RunPeptideQuant"/>, which <see cref="Run"/> reaches after it
+    /// has already started writing the raw matrix. Without this check the run leaves that file behind
+    /// and then throws a NullReferenceException naming nothing.
+    ///
+    /// Spelled out rather than reflected over, so that a strategy added to the parameters is a
+    /// deliberate addition here too, and the reported name comes from <c>nameof</c> either way.
+    /// </remarks>
+    private static readonly (string Name, Func<QuantificationParameters, object> Get)[] RequiredStrategies =
+    {
+        (nameof(QuantificationParameters.SpectralMatchNormalizationStrategy), p => p.SpectralMatchNormalizationStrategy),
+        (nameof(QuantificationParameters.SpectralMatchToPeptideRollUpStrategy), p => p.SpectralMatchToPeptideRollUpStrategy),
+        (nameof(QuantificationParameters.PeptideNormalizationStrategy), p => p.PeptideNormalizationStrategy),
+        (nameof(QuantificationParameters.CollapseStrategy), p => p.CollapseStrategy),
+        (nameof(QuantificationParameters.PeptideToProteinRollUpStrategy), p => p.PeptideToProteinRollUpStrategy),
+        (nameof(QuantificationParameters.ProteinNormalizationStrategy), p => p.ProteinNormalizationStrategy),
+    };
+
+    /// <summary>
     /// Checks Engine state for validity before running quantification.
     /// </summary>
     /// <param name="badResults"> Return quant results with descriptive Summary if problem was encountered; null otherwise</param>
@@ -195,9 +261,55 @@ public class QuantificationEngine
     internal bool ValidateEngine(out QuantificationResults badResults)
     {
         badResults = null;
+        if (Parameters == null)
+        {
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: Parameters are null.");
+            return false;
+        }
+        // Every strategy has to be present before anything runs, and they are reported together rather
+        // than one per run: a caller who reached here with one unset most likely reached here with
+        // several, and finding that out a run at a time is the slower way to learn it.
+        var missingStrategies = RequiredStrategies
+            .Where(strategy => strategy.Get(Parameters) == null)
+            .Select(strategy => strategy.Name)
+            .ToList();
+        // The aggregation strategy is required only when the collapse strategy reads it, so that a run
+        // that collapses nothing need not name a behaviour that never happens. Left unrequired, a
+        // collapsing run would still fail -- CollapseStrategyBase throws ArgumentNullException -- but
+        // from inside the run, after the raw matrix has been written.
+        if (Parameters.CollapseStrategy?.RequiresAggregation == true
+            && Parameters.CollapseAggregationStrategy == null)
+        {
+            missingStrategies.Add(nameof(QuantificationParameters.CollapseAggregationStrategy));
+        }
+        if (missingStrategies.Count > 0)
+        {
+            badResults = QuantificationResults.Failure(
+                $"QuantificationEngine Error: Required quantification strateg{(missingStrategies.Count == 1 ? "y is" : "ies are")} " +
+                $"not set: {string.Join(", ", missingStrategies)}. Every strategy on QuantificationParameters " +
+                "defaults to null, so each one has to be assigned before the engine runs.");
+            return false;
+        }
         if (ExperimentalDesign == null)
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: Experimental design is null.");
+            return false;
+        }
+        // A design that lists one sample twice would lose a column silently: the matrices index columns by
+        // sample, so the second entry takes the first one's place. SampleExperimentalDesign refuses this
+        // within a file as it is built, but any IExperimentalDesign can arrive here. The rule is asked of
+        // the whole design at once, not one file key at a time, because CombinePeptideMatrices merges every
+        // file's columns into one matrix: two keys that both hold a channel of the same file collide there
+        // just as surely as one key that lists it twice.
+        var allSamples = (ExperimentalDesign.FileNameSampleInfoDictionary?.Values ?? Enumerable.Empty<ISampleInfo[]>())
+            .Where(samples => samples != null)
+            .SelectMany(samples => samples);
+        string? repeated = SampleExperimentalDesign.DescribeRepeatedSample(allSamples);
+        if (repeated != null)
+        {
+            badResults = QuantificationResults.Failure(
+                $"QuantificationEngine Error: The experimental design repeats a sample: {repeated}. " +
+                "Quantification indexes columns by sample, so the repeats would merge into one column.");
             return false;
         }
         if(SpectralMatches.IsNullOrEmpty())
@@ -339,11 +451,13 @@ public class QuantificationEngine
                 .NormalizeIntensities(kvp.Value);
         }
 
-        // 3) Per-file roll-up to peptides
+        // 3) Per-file roll-up to peptides. The row keys are chosen once, so every file keys a sequence by the same
+        //    copy and CombinePeptideMatrices merges them into one row.
+        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers);
         var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
         foreach (var kvp in perFileNormalized)
         {
-            var peptideMap = GetPsmToPeptideMap(kvp.Value, ModifiedBioPolymers);
+            var peptideMap = GetPsmToPeptideMap(kvp.Value, rowKeys);
             perFilePeptideMatrices[kvp.Key] = Parameters.SpectralMatchToPeptideRollUpStrategy
                 .RollUp(kvp.Value, peptideMap);
         }
@@ -354,18 +468,31 @@ public class QuantificationEngine
         // 5) Normalize combined peptide matrix
         peptideMatrixNorm = Parameters.PeptideNormalizationStrategy
             .NormalizeIntensities(combinedPeptideMatrix);
+
+        // 6) Collapse samples (fractions, technical replicates).
+        //
+        // This belongs here rather than in RunProteinQuant, where it used to sit. Run hands the peptide
+        // matrix on BY VALUE, so collapsing there reassigned a parameter the caller never saw again: the
+        // protein matrix came out collapsed while the caller's peptide matrix stayed uncollapsed, and the
+        // two were then reported side by side keyed differently. Doing it at the end of the peptide stage
+        // is also the order this class's summary already describes -- collapse, then write peptides, then
+        // roll up to proteins -- so the written peptide file now matches its own documentation.
+        peptideMatrixNorm = Parameters.CollapseStrategy
+            .CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
     }
 
+    /// <summary>
+    /// Rolls the peptide matrix up to protein groups and normalizes the result. The matrix arrives
+    /// already collapsed -- <see cref="RunPeptideQuant"/> does that, so the peptide results the caller
+    /// keeps and the protein results derived from them are keyed by the same samples.
+    /// </summary>
     internal void RunProteinQuant(QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm,
         out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
     {
-        // 6) Collapse samples (technical replicates, fractions)
-        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
-
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
-            ? GetAllPeptideToProteinMap(peptideMatrixNorm)
-            : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
+            ? GetAllPeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups)
+            : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups, AllBioPolymerGroups);
 
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
             .RollUp(peptideMatrixNorm, proteinMap);
@@ -488,28 +615,140 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// The single full sequence a spectral match identifies, or null when it identifies none or several.
+    /// This is the unambiguous filter, in one place, so that the quantified set and the count reported
+    /// as <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> cannot disagree.
+    /// </summary>
+    /// <remarks>
+    /// Judged on full sequence, not on the candidate objects. A sequence found in several proteins, or twice
+    /// in one, gives one candidate per place it occurs, and those are unequal objects: the equality of
+    /// PeptideWithSetModifications includes the parent accession and the start residue. They are one measured
+    /// peptide, and comparing them as objects dropped the match as ambiguous (mzLib #1280). Only candidates
+    /// with different full sequences make a match ambiguous. Nulls are ignored.
+    /// Take(2) still short-circuits, so a long ambiguity list is not enumerated.
+    /// </remarks>
+    internal static string SingleIdentifiedFullSequenceOrNull(ISpectralMatch spectralMatch)
+    {
+        var identified = spectralMatch.GetIdentifiedBioPolymersWithSetMods();
+        if (identified == null)
+        {
+            return null;
+        }
+
+        var distinct = identified
+            .Where(bp => bp != null)
+            .Select(bp => bp.FullSequence)
+            .Distinct(StringComparer.Ordinal)
+            .Take(2)
+            .ToList();
+
+        return distinct.Count == 1 ? distinct[0] : null;
+    }
+
+    /// <summary>
+    /// The caller's biopolymers, one per full sequence. Of several copies of a sequence -- one per protein it
+    /// occurs in, or per place in one protein -- the copy kept is a target's before a decoy's, a non-contaminant's
+    /// before a contaminant's, then the one with the lowest parent accession (ordinal), then the lowest start residue.
+    /// So the choice does not depend on the order the caller listed them, and a sequence a contaminant shares with
+    /// another protein is not keyed by the contaminant's copy (CONTAMINANT_ sorts before most accessions).
+    /// </summary>
+    internal static List<IBioPolymerWithSetMods> OnePerFullSequence(IEnumerable<IBioPolymerWithSetMods> bioPolymers) =>
+        bioPolymers
+            .GroupBy(bp => bp.FullSequence, StringComparer.Ordinal)
+            .Select(copies => copies
+                .OrderBy(bp => bp.Parent?.IsDecoy ?? false)
+                .ThenBy(bp => bp.Parent?.IsContaminant ?? false)
+                .ThenBy(bp => bp.Parent?.Accession, StringComparer.Ordinal)
+                .ThenBy(bp => bp.OneBasedStartResidue)
+                .First())
+            .ToList();
+
+    /// <summary>
+    /// The row keys of the peptide maps, computed once per run so that every file's map uses the same objects:
+    /// <see cref="CombinePeptideMatrices"/> merges the per-file rows by peptide object.
+    /// </summary>
+    internal sealed class PeptideRowKeys
+    {
+        public PeptideRowKeys(IEnumerable<IBioPolymerWithSetMods> bioPolymers)
+        {
+            Keys = OnePerFullSequence(bioPolymers);
+            BySequence = Keys.ToDictionary(bp => bp.FullSequence, StringComparer.Ordinal);
+        }
+
+        /// <summary>One per full sequence, in the order of first appearance in the caller's list.</summary>
+        public List<IBioPolymerWithSetMods> Keys { get; }
+
+        public Dictionary<string, IBioPolymerWithSetMods> BySequence { get; }
+    }
+
+    /// <summary>
+    /// For each full sequence, the groups whose <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> list it,
+    /// each group once, in the caller's order. A group listing a sequence through several copies lists it once.
+    /// </summary>
+    private static Dictionary<string, List<IBioPolymerGroup>> GroupsListingEachSequence(List<IBioPolymerGroup> bioPolymerGroups)
+    {
+        var groupsBySequence = new Dictionary<string, List<IBioPolymerGroup>>(StringComparer.Ordinal);
+        foreach (var group in bioPolymerGroups)
+        {
+            foreach (var bioPolymer in group.AllBioPolymersWithSetMods)
+            {
+                if (!groupsBySequence.TryGetValue(bioPolymer.FullSequence, out var groups))
+                {
+                    groups = new List<IBioPolymerGroup>();
+                    groupsBySequence[bioPolymer.FullSequence] = groups;
+                }
+                if (!groups.Contains(group))
+                {
+                    groups.Add(group);
+                }
+            }
+        }
+        return groupsBySequence;
+    }
+
+    /// <summary>
     /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
     /// spectral matches in the smMatrix
     /// </summary>
-    /// <remarks>The mapping assumes that each PM in the matrix is associated with a single, unambiguous
-    /// modified biopolymer. Biopolymers not present in the input list are ignored.</remarks>
+    /// <remarks>A spectral match is quantified only when every biopolymer it identifies has the same full sequence.
+    /// An ambiguous match -- one that identifies several sequences -- is excluded rather than attributed to whichever
+    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
+    /// throwing. Sequences not present in the input list are ignored.
+    /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.
+    /// The map has one key per full sequence (see <see cref="OnePerFullSequence"/>), so a sequence found in several
+    /// proteins is one peptide row, not one row per protein.</remarks>
     /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
     /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
     /// Only SMs corresponding to these bioPolymers are included in the result.</param>
-    /// <returns>A dictionary mapping each modified bioPolymer in the input list to a list of indices of PSMs in the matrix that
-    /// are associated with it. If a bioPolymer has no corresponding PSMs, its list will be empty.</returns>
-    public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers)
+    /// <returns>A dictionary mapping one modified bioPolymer per full sequence in the input list to a list of indices of
+    /// PSMs in the matrix that are associated with it. If a sequence has no corresponding PSMs, its list will be empty.</returns>
+    public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers) =>
+        GetPsmToPeptideMap(smMatrix, new PeptideRowKeys(modifiedBioPolymers));
+
+    /// <summary>
+    /// <see cref="GetPsmToPeptideMap(QuantMatrix{ISpectralMatch}, List{IBioPolymerWithSetMods})"/> with the row keys
+    /// already chosen, so a run over several files chooses them once.
+    /// </summary>
+    internal static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, PeptideRowKeys rowKeys)
     {
-        var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>();
-        foreach (var bp in modifiedBioPolymers)
+        var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>(rowKeys.Keys.Count);
+        foreach (var bp in rowKeys.Keys)
         {
             peptideToPsmMap[bp] = new List<int>();
         }
+        var peptideBySequence = rowKeys.BySequence;
         for (int i = 0; i < smMatrix.RowKeys.Count; i++)
         {
             var sm = smMatrix.RowKeys[i];
-            var peptide = sm.GetIdentifiedBioPolymersWithSetMods().First(); // Assumes unambiguous mapping
-            if (!peptideToPsmMap.ContainsKey(peptide))
+
+            // Only unambiguous matches are quantified.
+            var sequence = SingleIdentifiedFullSequenceOrNull(sm);
+            if (sequence == null)
+            {
+                continue;
+            }
+
+            if (!peptideBySequence.TryGetValue(sequence, out var peptide))
             {
                 continue;
             }
@@ -522,53 +761,102 @@ public class QuantificationEngine
     /// Creates a mapping from each protein group to the list of row indices in the peptide matrix that correspond to
     /// peptides uniquely assigned to that group.
     /// </summary>
-    /// <remarks>Each peptide is assigned to exactly one protein group, even if it is shared among multiple
-    /// proteins within that group. The returned mapping can be used to efficiently retrieve all peptides associated
-    /// with a given protein group from the peptide matrix.</remarks>
+    /// <remarks>A peptide is unique to a group when that group is the only one, of those passed, whose
+    /// <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> lists its full sequence -- the meaning
+    /// <see cref="IBioPolymerGroup.UniqueBioPolymersWithSetMods"/> documents. So a sequence shared by several proteins
+    /// within one group is unique to that group, and each peptide is assigned to at most one group.
+    /// The caller's <see cref="IBioPolymerGroup.UniqueBioPolymersWithSetMods"/> is not read: MetaMorpheus fills it
+    /// before parsimony, one protein at a time, so it is empty for every group of indistinguishable proteins and
+    /// leaves out a peptide whose other protein parsimony discarded (mzLib #1280). Uniqueness is judged among the
+    /// groups passed, so a sequence also listed by a group the caller left out counts as unique; the overload taking
+    /// every group of the analysis judges among those as well.</remarks>
     /// <param name="peptideMatrix">A matrix containing peptides as row keys, where each peptide is associated with a protein group.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map.</param>
     /// <returns>A dictionary that maps each protein group to a list of integer indices. Each list contains the row indices in
     /// the peptide matrix for peptides uniquely assigned to the corresponding protein group. If a protein group has no
     /// assigned peptides, its list will be empty.</returns>
-    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
+    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups) =>
+        GetUniquePeptideToProteinMap(peptideMatrix, bioPolymerGroups, allBioPolymerGroups: null);
+
+    /// <summary>
+    /// <see cref="GetUniquePeptideToProteinMap(QuantMatrix{IBioPolymerWithSetMods}, List{IBioPolymerGroup})"/>, with
+    /// uniqueness judged among <paramref name="allBioPolymerGroups"/> as well: a peptide that one of those also lists
+    /// is shared, though only <paramref name="bioPolymerGroups"/> are mapped.
+    /// </summary>
+    /// <param name="peptideMatrix">A matrix containing peptides as row keys.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map.</param>
+    /// <param name="allBioPolymerGroups">Every group of the analysis, quantified or not; null for none beyond
+    /// <paramref name="bioPolymerGroups"/>.</param>
+    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix,
+        List<IBioPolymerGroup> bioPolymerGroups, IEnumerable<IBioPolymerGroup> allBioPolymerGroups)
     {
         var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
-        
+
         // Initialize empty lists for each protein group
         foreach (var protein in bioPolymerGroups)
         {
             proteinToPeptideMap[protein] = new List<int>();
         }
 
-        // Create a dictionary that maps each unique peptide to its corresponding protein group
-        // Each peptide belongs to exactly one protein group (though it may be shared across proteins within that group)
-        var peptideToProteinMap = new Dictionary<IBioPolymerWithSetMods, IBioPolymerGroup>();
-        foreach (var proteinGroup in bioPolymerGroups)
-        {
-            foreach (var peptide in proteinGroup.UniqueBioPolymersWithSetMods)
-            {
-                peptideToProteinMap[peptide] = proteinGroup;
-            }
-        }
+        var judgedAmong = allBioPolymerGroups == null
+            ? bioPolymerGroups
+            : bioPolymerGroups.Concat(allBioPolymerGroups.Where(g => g != null)).Distinct().ToList();
+        var groupsBySequence = GroupsListingEachSequence(judgedAmong);
 
-        // Iterate through the peptide matrix row keys and add each row index to its corresponding protein's list
+        // Iterate through the peptide matrix row keys and add each row index to the one group that lists it, when that
+        // group is one being mapped
         for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
         {
-            var peptide = peptideMatrix.RowKeys[i];
-            
-            // Find which protein group this peptide belongs to
-            if (peptideToProteinMap.TryGetValue(peptide, out var proteinGroup))
+            if (groupsBySequence.TryGetValue(peptideMatrix.RowKeys[i].FullSequence, out var groups) && groups.Count == 1
+                && proteinToPeptideMap.TryGetValue(groups[0], out var rows))
             {
-                proteinToPeptideMap[proteinGroup].Add(i);
+                rows.Add(i);
             }
         }
 
         return proteinToPeptideMap;
     }
 
-    // TODO: Implement this method to that include all peptides (shared and unique) in the mapping
-    public Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
-        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix)
+    /// <summary>
+    /// Creates a mapping from each protein group to the list of row indices in the peptide matrix that correspond to
+    /// every peptide assigned to that group -- shared as well as unique.
+    /// </summary>
+    /// <remarks>A shared peptide belongs to more than one protein group, so its row index appears in more than one
+    /// list. That is the difference from <see cref="GetUniquePeptideToProteinMap"/>, where each index appears once:
+    /// a shared peptide's intensity contributes to every group it was assigned to. A group lists a row when its
+    /// <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> holds the row's full sequence, and lists it once
+    /// however many copies of that sequence it holds (one per protein in the group), so no row counts twice
+    /// toward one group. Indices are in row order, so roll-up does not depend on the enumeration order of that
+    /// HashSet.</remarks>
+    /// <param name="peptideMatrix">A matrix containing peptides as row keys.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map. Groups with no peptide in the matrix get an empty list.</param>
+    /// <returns>A dictionary that maps each protein group to the sorted row indices of all of its peptides.</returns>
+    public static Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
+        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
     {
-        throw new NotImplementedException();
+        var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
+
+        // Initialize empty lists for each protein group
+        foreach (var protein in bioPolymerGroups)
+        {
+            proteinToPeptideMap[protein] = new List<int>();
+        }
+
+        var groupsBySequence = GroupsListingEachSequence(bioPolymerGroups);
+
+        // Rows in order, so each group's list comes out sorted. A peptide the caller did not pass to the engine has
+        // no row to contribute.
+        for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
+        {
+            if (groupsBySequence.TryGetValue(peptideMatrix.RowKeys[i].FullSequence, out var groups))
+            {
+                foreach (var group in groups)
+                {
+                    proteinToPeptideMap[group].Add(i);
+                }
+            }
+        }
+
+        return proteinToPeptideMap;
     }
 }

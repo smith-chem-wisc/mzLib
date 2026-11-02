@@ -44,7 +44,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the prediction results for a single peptide, containing fragment annotations,
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
-    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
+    /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
     /// <param name="ValidatedFullSequence">Validated and cleaned peptide sequence that was actually used for prediction (Unimod format). This may also differ from the original FullSequence if modifications were removed or if the sequence was deemed invalid for the model. This is the sequence that reflects the actual input to the model.</param>
     /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
@@ -67,7 +67,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Each model will look for specific parameters within this record and may ignore others, but this provides 
     /// a standardized way to pass all relevant information to the models.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in UNIMOD format (used in every model)</param>
+    /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another (used in every model)</param>
     /// <param name="PrecursorCharge">ChargeState state of the precursor ion (used in every model)</param>
     /// <param name="CollisionEnergy">Collision energy used for fragmentation (not used by some models)</param>
     /// <param name="InstrumentType">Type of mass spectrometer instrument (not used by some models)</param>
@@ -80,6 +80,10 @@ namespace PredictionClients.Koina.AbstractClasses
         string? FragmentationType
     )
     {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
@@ -300,7 +304,7 @@ namespace PredictionClients.Koina.AbstractClasses
             var validInputs = new List<FragmentIntensityPredictionInput>();
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning); // mod handling happens here
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning); // mod handling happens here
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
                 if (cleanedSequence != null && apiSequence != null && validModelParams)
                 {
@@ -322,17 +326,11 @@ namespace PredictionClients.Koina.AbstractClasses
                 #region Request Batching, Throttling Setup
                 var batchedRequests = ToBatchedRequests(validInputs);
                 var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                // We calculate a dynamic timeout based on the number of batches at (BenchmarkedTimeForOneMaxBatchSizeInMilliseconds x 2)ms/batch
-                // for buffer to ensure we don't hit timeouts during processing plus throttling time.
-                // Note: the time per batch is benchmarked for the entire Predict() method, so it includes some overhead beyond just the API call. Large peptide
-                // requests will not necessarily scale linearly, so this is a rough estimate to provide a reasonable timeout and is an aggressive 
-                // upper bound to avoid timeouts.
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4); // 60000ms/min
                 #endregion
 
                 #region Throttled API Requests and Response Processing
                 var responses = new List<string>();
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes)); // Bound the whole session
+                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count)); // Bound the whole session
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];

@@ -15,7 +15,7 @@ namespace Quantification
     /// knowledge of this class.
     ///
     /// Peptide-level values are carried here rather than written onto the peptide objects.
-    /// <see cref="Proteomics.ProteolyticDigestion.PeptideWithSetModifications"/> is
+    /// <c>Proteomics.ProteolyticDigestion.PeptideWithSetModifications</c> is
     /// <c>[Serializable]</c> and is serialized in bulk during indexing, so adding stored
     /// quantification state to it would enlarge every indexed peptide. A side table costs nothing
     /// when quantification is not run.
@@ -39,6 +39,12 @@ namespace Quantification
         /// The samples that form the columns of <see cref="PeptideIntensities"/> and
         /// <see cref="ProteinIntensities"/>, in output order. Empty on failure.
         /// </summary>
+        /// <remarks>
+        /// One list covers both tables because the protein matrix is rolled up from the peptide matrix
+        /// after it has been collapsed, so the two carry the same columns by construction rather than by
+        /// agreement. That is worth stating: when the collapse ran on the protein side only, this list
+        /// described the protein table and silently did not match the peptide one.
+        /// </remarks>
         public IReadOnlyList<ISampleInfo> Samples { get; internal set; } = new List<ISampleInfo>();
 
         /// <summary>
@@ -46,6 +52,14 @@ namespace Quantification
         /// measured value for a peptide are absent from the inner dictionary rather than present
         /// with a zero, so callers can distinguish "not observed" from "observed at zero".
         /// </summary>
+        /// <remarks>
+        /// One key per full sequence. A sequence found in several proteins, or twice in one, is one peptide, and the
+        /// key is one of the copies the caller passed: a target's before a decoy's, a non-contaminant's before a
+        /// contaminant's, then the lowest parent accession (ordinal), then the lowest start residue. Equality of
+        /// <c>PeptideWithSetModifications</c> includes the parent accession and the start residue, so a caller holding
+        /// another copy finds its row by <see cref="IBioPolymerWithSetMods.FullSequence"/>, not by looking up its own
+        /// object.
+        /// </remarks>
         public IReadOnlyDictionary<IBioPolymerWithSetMods, Dictionary<ISampleInfo, double>> PeptideIntensities { get; internal set; }
             = new Dictionary<IBioPolymerWithSetMods, Dictionary<ISampleInfo, double>>();
 
@@ -68,6 +82,16 @@ namespace Quantification
         /// caller who relied on the default can find out where output went. Null when the run wrote nothing.
         /// </summary>
         public string OutputDirectory { get; internal set; }
+
+        /// <summary>
+        /// How many spectral matches were left out of quantification because they did not identify
+        /// exactly one full sequence -- an ambiguous match, or one carrying no identification at all.
+        /// One sequence found in several proteins is one identification, not an ambiguous one.
+        /// Such a match cannot be attributed to a peptide without guessing, so it is dropped; this
+        /// count is here so that dropping it is visible rather than silent. It is also echoed in
+        /// <see cref="Summary"/> when it is not zero.
+        /// </summary>
+        public int AmbiguousSpectralMatchesExcluded { get; internal set; }
 
         internal static QuantificationResults Failure(string summary) =>
             new QuantificationResults { Summary = summary, Success = false };

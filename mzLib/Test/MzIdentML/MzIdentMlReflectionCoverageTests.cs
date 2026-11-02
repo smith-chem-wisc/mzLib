@@ -7,13 +7,18 @@ using NUnit.Framework;
 namespace Test.MzIdentML
 {
     /// <summary>
-    /// The mzIdentML reader ships three structurally-identical, XSD-generated DTO trees
-    /// (namespaces mzIdentML110/111/120.Generated). Hand-writing per-property set/get tests
+    /// The mzIdentML reader ships four structurally-identical, XSD-generated DTO trees
+    /// (namespaces mzIdentML110/111/120/130.Generated). Hand-writing per-property set/get tests
     /// for every version is what historically tanked coverage on these files. Instead, a single
     /// reflection-driven test walks every concrete generated type in a namespace and exercises
     /// each property's getter and setter. Concrete subclasses inherit the abstract base accessors
     /// (AbstractContactType, IdentifiableType, AbstractParamType, ...), so those are covered too.
-    /// One parameterized test therefore covers all three versions.
+    /// One parameterized test therefore covers all four versions.
+    ///
+    /// The namespace list is opt-in rather than a sweep over the whole assembly, so a newly added
+    /// version tree is silently excluded until its row is added here. That also makes this the only
+    /// test covering MzIdentMLType130.cvParam, the one hand-written property in an otherwise
+    /// mechanically-derived file.
     /// </summary>
     [TestFixture]
     public class MzIdentMlReflectionCoverageTests
@@ -22,6 +27,7 @@ namespace Test.MzIdentML
         [TestCase("mzIdentML110.Generated")]
         [TestCase("mzIdentML111.Generated")]
         [TestCase("mzIdentML120.Generated")]
+        [TestCase("mzIdentML130.Generated")]
         public void EveryGeneratedType_PropertyGetSet_RoundTrips(string generatedNamespace)
         {
             Assembly assembly = typeof(MzIdentMLType111).Assembly;

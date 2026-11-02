@@ -47,13 +47,13 @@ public interface IHasSequenceVariants
     /// </summary>
     List<TruncationProduct> TruncationProducts { get; }
 
-    
     /// <summary>
     /// Used to construct a new variant of the same type as the original and is called in <see cref="VariantApplication"/>
     /// </summary>
     /// <remarks>The generic structure enables proteins to produce proteins and RNA to produce RNA</remarks>
     /// <returns></returns>
     TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-        IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+        IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
         where TBioPolymerType : IHasSequenceVariants;
 }

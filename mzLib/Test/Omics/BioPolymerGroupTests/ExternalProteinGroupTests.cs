@@ -43,7 +43,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // Full coverage should show 1.0 (or 100%)
             Assert.That(output, Does.Contain("1"));
         }
@@ -68,7 +68,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             Assert.That(output, Does.Contain("MEDEEK"));  // Covered = uppercase
             Assert.That(output, Does.Contain("peptide")); // Uncovered = lowercase
         }
@@ -133,8 +133,8 @@ namespace Test.Omics.BioPolymerGroupTests
             group.SamplesForQuantification = new List<ISampleInfo> { sample };
             group.IntensitiesBySample = new Dictionary<ISampleInfo, double> { { sample, 12345.67 } };
 
-            var header = group.GetTabSeparatedHeader();
-            var output = group.ToString();
+            var header = GroupTsv.Header(group);
+            var output = GroupTsv.Row(group);
 
             Assert.Multiple(() =>
             {
@@ -161,18 +161,18 @@ namespace Test.Omics.BioPolymerGroupTests
                 new HashSet<IBioPolymerWithSetMods>(),
                 new HashSet<IBioPolymerWithSetMods>());
 
-            var originalMaxLength = BioPolymerGroup.MaxStringLength;
+            var originalMaxLength = BioPolymerGroupTsvSchema.MaxStringLength;
             try
             {
-                BioPolymerGroup.MaxStringLength = 100;
-                var output = group.ToString();
+                BioPolymerGroupTsvSchema.MaxStringLength = 100;
+                var output = GroupTsv.Row(group);
 
                 // Output should not contain the full 50,000 character sequence
                 Assert.That(output.Length, Is.LessThan(longSequence.Length));
             }
             finally
             {
-                BioPolymerGroup.MaxStringLength = originalMaxLength;
+                BioPolymerGroupTsvSchema.MaxStringLength = originalMaxLength;
             }
         }
 
@@ -189,15 +189,15 @@ namespace Test.Omics.BioPolymerGroupTests
                 new HashSet<IBioPolymerWithSetMods>(),
                 new HashSet<IBioPolymerWithSetMods>());
 
-            var originalMaxLength = BioPolymerGroup.MaxStringLength;
+            var originalMaxLength = BioPolymerGroupTsvSchema.MaxStringLength;
             try
             {
-                BioPolymerGroup.MaxStringLength = 0;
-                Assert.DoesNotThrow(() => group.ToString());
+                BioPolymerGroupTsvSchema.MaxStringLength = 0;
+                Assert.DoesNotThrow(() => GroupTsv.Row(group));
             }
             finally
             {
-                BioPolymerGroup.MaxStringLength = originalMaxLength;
+                BioPolymerGroupTsvSchema.MaxStringLength = originalMaxLength;
             }
         }
 

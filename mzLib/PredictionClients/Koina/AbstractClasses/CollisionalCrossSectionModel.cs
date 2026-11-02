@@ -27,6 +27,10 @@ namespace PredictionClients.Koina.AbstractClasses
         int PrecursorCharge
     )
     {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
@@ -70,7 +74,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var parameterWarning);
                 if (cleanedSequence != null && apiSequence != null && validModelParams)
                 {
@@ -90,11 +94,9 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 var batchedRequests = ToBatchedRequests(validInputs);
                 var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4);
-                sessionTimeoutInMinutes = Math.Max(sessionTimeoutInMinutes, 1);
 
                 var responses = new List<string>();
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
+                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count));
 
                 for (int i = 0; i < batchChunks.Count; i++)
                 {

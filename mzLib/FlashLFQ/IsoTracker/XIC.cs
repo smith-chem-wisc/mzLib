@@ -117,7 +117,7 @@ namespace FlashLFQ.IsoTracker
         /// <summary>
         /// calculate the retention time shift among the reference. Then store the value in the RtShift property.
         /// </summary>
-        /// <param name="xicToAlign"> The reference XIC</param>
+        /// <param name="referenceXIC"> The reference XIC</param>
         /// <param name="resolution"> The number of the timePoint for X-correlation </param>
         /// <returns> The retention to shift to align to the reference </returns>
         public double AlignXICs(XIC referenceXIC, int resolution = 1000)
@@ -171,7 +171,7 @@ namespace FlashLFQ.IsoTracker
         /// Try to smooth the XIC by averaging the intensity of the points (weight averaging then sum averaging).
         /// Using the smoothedXIC to generate the cubic spline date for Extremum finding.
         /// </summary>
-        /// <param name="pointsToAverage"> Should be odds number. The number of points to average for smoothing the XIC </param>
+        /// <param name="smoothDegree"> Should be odds number. The number of points to average for smoothing the XIC </param>
         /// <exception cref="ArgumentException"></exception>
         public void BuildSmoothedCubicSpline(int smoothDegree)
         {

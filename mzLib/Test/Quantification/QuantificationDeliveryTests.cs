@@ -1,4 +1,4 @@
-﻿using MassSpectrometry;
+using MassSpectrometry;
 using NUnit.Framework;
 using Omics;
 using Omics.BioPolymerGroup;
@@ -14,6 +14,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using Test.Omics;
+using Test.Omics.BioPolymerGroupTests;
 
 namespace Test.Quantification;
 
@@ -464,6 +465,137 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
+    /// A design that lists one channel of a file twice is refused by the engine, whatever type the
+    /// design is.
+    ///
+    /// SampleExperimentalDesign already refuses this as it is built, but IExperimentalDesign is the
+    /// seam outside code implements -- MetaMorpheus has its own -- so the engine is the only place
+    /// every design passes. Without the check the second entry silently takes the first one's column.
+    /// </summary>
+    [Test]
+    public void Run_WithADesignThatRepeatsAChannel_ReturnsFailureNamingIt()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        var samples = design.FileNameSampleInfoDictionary[File1];
+        samples[1] = new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, false);
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain($"channel {Channels[0]} of '{File1}' is listed 2 times"));
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// The same channel listed under two different file keys is refused as well.
+    ///
+    /// The engine combines every file's columns into one matrix keyed by sample, so a channel of one
+    /// file appearing under two keys collides there exactly as a channel listed twice under one key
+    /// does -- the run would succeed with one key's values overwritten and shown under the other's
+    /// name. Asking the rule one key at a time cannot see it.
+    /// </summary>
+    [Test]
+    public void Run_WithTwoDesignKeysHoldingOneChannel_ReturnsFailureNamingIt()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary[File1][0] =
+            new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, true) { SampleName = "Pt1" };
+        design.FileNameSampleInfoDictionary[File2][1] =
+            new IsobaricQuantSampleInfo(File1, "Cond1", 1, 1, 0, 0, Channels[0], 126.0, false) { SampleName = "Pt3" };
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain($"channel {Channels[0]} of '{File1}' is listed 2 times, as 'Pt1' and 'Pt3'"));
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// The repeat check tolerates the nulls an outside <see cref="IExperimentalDesign"/> can hand it --
+    /// a null dictionary, a null sample array, null entries -- rather than throwing, and does not count
+    /// two nulls as one sample listed twice. Whether such a design can run is for the later stages to
+    /// say; the files here are ones no spectral match names.
+    /// </summary>
+    [Test]
+    public void ValidateEngine_WithNullsInTheDesign_ReportsNoRepeat()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary["absent.raw"] = null;
+        design.FileNameSampleInfoDictionary["holes.raw"] = new ISampleInfo[] { null, null };
+
+        var withNulls = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups);
+        var withNoDictionary = new QuantificationEngine(SimpleParameters(),
+            new TestExperimentalDesign { FileNameSampleInfoDictionary = null }, spectralMatches, peptides, proteinGroups);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withNulls.ValidateEngine(out var bad), Is.True, bad?.Summary);
+            Assert.DoesNotThrow(() => withNoDictionary.ValidateEngine(out _));
+        });
+    }
+
+    /// <summary>
+    /// A design that names its samples reaches both kinds of output under the same column names: the
+    /// quantification matrices written by <see cref="QuantificationWriter"/> and the grouped protein
+    /// table rendered from the entities the engine wrote back. One channel is named and the rest are
+    /// not, so both label forms travel the whole path.
+    ///
+    /// The unit test on <see cref="QuantificationWriter.SampleColumnLabel"/> shows the two writers ask
+    /// one function; this shows the name actually survives the design, the engine and both writers.
+    /// </summary>
+    [Test]
+    public void Run_WithANamedDesign_NamesChannelsAlikeInTheMatricesAndTheGroupedTable()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary[File1][0] =
+            new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, true) { SampleName = "Patient7" };
+
+        string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantNamedDesign_" + TestContext.CurrentContext.Test.ID);
+        try
+        {
+            var parameters = SimpleParameters(outputDirectory);
+            parameters.WritePeptideInformation = true;
+            parameters.WriteProteinInformation = true;
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+            Assert.That(results.Success, Is.True, results.Summary);
+
+            string[] MatrixSampleColumns(string fileName) =>
+                File.ReadLines(Path.Combine(outputDirectory, fileName)).First().Split('\t').Skip(1).ToArray();
+
+            var groupedIntensityColumns = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToArray())
+                .Split('\t')
+                .Where(column => column.StartsWith("Intensity_", StringComparison.Ordinal))
+                .Select(column => column.Substring("Intensity_".Length))
+                .ToArray();
+
+            string[] expected =
+            {
+                "Patient7_file1_126", "file1_127N", "file1_127C",
+                "file2_126", "file2_127N", "file2_127C"
+            };
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(MatrixSampleColumns(QuantificationWriter.ProteinGroupFileName), Is.EquivalentTo(expected));
+                Assert.That(MatrixSampleColumns(QuantificationWriter.PeptideFileName), Is.EquivalentTo(expected));
+                Assert.That(groupedIntensityColumns, Is.EquivalentTo(expected));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// With all three write flags on, the engine writes three files, reports their paths, and the
     /// protein file's contents match the matrix it was built from.
     /// </summary>
@@ -561,6 +693,30 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
+    /// The quantification matrices and the grouped protein table name an isobaric channel the same
+    /// way, because both ask <see cref="SampleGroupLabels.ForSample"/>.
+    ///
+    /// They are two writers of one fact. Before, the matrix header came from
+    /// IsobaricQuantSampleInfo.ToString() and the protein table built its own string, so they agreed
+    /// only because both happened to spell <c>{file}_{channel}</c>. Point either back at its own
+    /// spelling and this goes red on the named channel, where the sample name is the part only one
+    /// of them knows.
+    /// </summary>
+    [Test]
+    public void SampleColumnLabel_Isobaric_NamesTheChannelAsTheProteinTableDoes()
+    {
+        var named = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "Control", 1, 1, 0, 0, "126", 126.0, false) { SampleName = "Patient7" };
+        var unnamed = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "Control", 2, 1, 0, 0, "127N", 127.0, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(QuantificationWriter.SampleColumnLabel(named), Is.EqualTo("Patient7_plex1_126"));
+            Assert.That(QuantificationWriter.SampleColumnLabel(named), Is.EqualTo(SampleGroupLabels.ForSample(named)));
+            Assert.That(QuantificationWriter.SampleColumnLabel(unnamed), Is.EqualTo(SampleGroupLabels.ForSample(unnamed)));
+        });
+    }
+
+    /// <summary>
     /// A label-free design gives one column per file, and the writer labels it by file name.
     /// </summary>
     [Test]
@@ -582,5 +738,210 @@ public class QuantificationDeliveryTests
         };
         Assert.That(QuantificationWriter.WriteRawData(unquantified, string.Empty), Is.Null);
         Assert.That(QuantificationWriter.WriteRawData(new List<ISpectralMatch>(), string.Empty), Is.Null);
+    }
+
+    /// <summary>
+    /// The rendered table must be rectangular. Every row of a protein table is written by
+    /// <see cref="BioPolymerGroup.ToString"/> while the header is written once, from the first group
+    /// in the list -- so if two groups disagree about which columns exist, every value after the
+    /// disagreement lands under the wrong header and the file is silently wrong rather than obviously
+    /// broken.
+    ///
+    /// They disagreed because <c>HasIntensityData</c> gated the two intensity columns per sample
+    /// group, and it is false for a group whose samples were all unobserved. P002 here is seen only in
+    /// file1, so its three file2 groups carry no intensity: it emitted two columns per group where
+    /// P001 emitted four.
+    ///
+    /// The gate is now whether the entity was quantified at all, not whether a particular group has a
+    /// value, so an unobserved sample yields an empty cell rather than a missing column. That keeps
+    /// absent distinguishable from zero -- see
+    /// <see cref="Run_OmitsUnobservedSamplesRatherThanStoringZero"/>, which pins the same distinction
+    /// on the data model.
+    /// </summary>
+    [Test]
+    public void RenderedTable_IsRectangular_WhenAGroupHasUnobservedSamples()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+
+        // P002 is observed in file1 only, so its three file2 samples have no intensity.
+        string p002Peptide = peptides.Single(p => ((Protein)p.Parent).Accession == "P002").BaseSequence;
+        spectralMatches = spectralMatches
+            .Where(sm => !(sm.FullFilePath == File2 && sm.BaseSequence == p002Peptide))
+            .ToList();
+
+        new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        // Render the table the way a writer does: one header, taken from the first group, then a row
+        // per group from its own ToString().
+        string header = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToList().ToArray());
+        var rows = proteinGroups.Cast<BioPolymerGroup>().ToList().Select(g => GroupTsv.RowInDataset(g, proteinGroups.Cast<BioPolymerGroup>().ToList())).ToList();
+
+        int headerFields = header.Split('\t').Length;
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                Assert.That(rows[i].Split('\t'), Has.Length.EqualTo(headerFields),
+                    $"row {i} ({proteinGroups[i].BioPolymerGroupName}) does not line up with the header; "
+                    + "every value after the first missing column is written under the wrong name");
+            }
+        });
+    }
+
+    /// <summary>
+    /// The same invariant for a group the engine quantified but found nothing for -- a decoy, or a
+    /// group whose peptides all fell below threshold. It is a matrix row like any other
+    /// (<see cref="QuantificationEngine.GetUniquePeptideToProteinMap"/> gives every group an entry,
+    /// empty or not), so it gets a full row of zeros, no intensities, and previously no intensity
+    /// columns at all -- while its neighbours emitted them. That is the whole-file version of the
+    /// same defect, because the header may be taken from either kind of group.
+    /// </summary>
+    [Test]
+    public void RenderedTable_IsRectangular_WhenAGroupWasQuantifiedButHasNoValues()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+
+        // A third group with no peptide in the matrix: quantified, but nothing to show for it.
+        var orphan = new Protein("ORPHANK", "P003");
+        var orphanPeptide = orphan
+            .Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 5), new List<Modification>(), new List<Modification>())
+            .First();
+        proteinGroups.Add(new BioPolymerGroup(
+            new HashSet<IBioPolymer> { orphan },
+            new HashSet<IBioPolymerWithSetMods> { orphanPeptide },
+            new HashSet<IBioPolymerWithSetMods> { orphanPeptide }));
+
+        new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        var p003 = proteinGroups.Single(g => g.BioPolymerGroupName.Contains("P003"));
+        Assert.That(p003.SamplesForQuantification, Is.Not.Null,
+            "every protein group is a matrix row, so the engine should have written the sample list");
+        Assert.That(p003.IntensitiesBySample, Is.Empty,
+            "nothing was observed for it, so no sample carries a value");
+
+        string header = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToList().ToArray());
+        int headerFields = header.Split('\t').Length;
+
+        Assert.Multiple(() =>
+        {
+            foreach (var group in proteinGroups)
+                Assert.That(GroupTsv.RowInDataset((BioPolymerGroup)group, proteinGroups.Cast<BioPolymerGroup>().ToList()).Split('\t'), Has.Length.EqualTo(headerFields),
+                    $"{group.BioPolymerGroupName} does not line up with the header");
+        });
+
+        // And the header must be the same whichever group happens to be first -- the writer takes it
+        // from proteinGroups.First(), which is not necessarily a quantified one.
+        Assert.That(GroupTsv.Header((BioPolymerGroup)p003), Is.EqualTo(header),
+            "an unquantified group must describe the same columns as a quantified one");
+    }
+
+    /// <summary>
+    /// An entity the engine never touched keeps the spectral-count-only shape. This is what
+    /// distinguishes "quantification did not run" from "it ran and found nothing". The gate is both
+    /// <see cref="IHasSampleIntensities.SamplesForQuantification"/> being non-empty AND
+    /// <see cref="IHasSampleIntensities.IntensitiesBySample"/> being non-null, rather than a
+    /// per-group flag: a run either quantified its groups or it did not, and every group of one
+    /// quantified entity agrees. Both fields are needed because ConstructSubsetBioPolymerGroup can
+    /// leave an empty sample list beside a non-null dictionary.
+    /// </summary>
+    [Test]
+    public void RenderedTable_OmitsIntensityColumnsEntirely_WhenNothingWasQuantified()
+    {
+        BuildFixture(out _, out _, out _, out var proteinGroups);
+
+        var unquantified = proteinGroups.First();
+        Assert.That(unquantified.SamplesForQuantification, Is.Null, "fixture starts unquantified");
+
+        string header = GroupTsv.Header((BioPolymerGroup)unquantified);
+        Assert.Multiple(() =>
+        {
+            Assert.That(header, Does.Not.Contain("Intensity_"),
+                "no quantification ran, so there is nothing for an intensity column to hold");
+            Assert.That(header, Does.Not.Contain("IntensityOccupancy_"));
+            Assert.That(GroupTsv.Row((BioPolymerGroup)unquantified).Split('\t'), Has.Length.EqualTo(header.Split('\t').Length));
+        });
+    }
+
+    /// <summary>
+    /// The rectangular table must not have been bought by inventing zeros. An unobserved sample gets
+    /// an empty cell; a sample observed at zero would get "0". Rectangularity is a field-count
+    /// property and this is a field-content one, so the tests above cannot see the difference -- a
+    /// change that wrote 0 into the absent cells would keep them all passing while claiming a
+    /// measurement that was never made.
+    /// </summary>
+    [Test]
+    public void RenderedRow_LeavesAnUnobservedSampleEmpty_RatherThanWritingZero()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+
+        string p002Peptide = peptides.Single(p => ((Protein)p.Parent).Accession == "P002").BaseSequence;
+        spectralMatches = spectralMatches
+            .Where(sm => !(sm.FullFilePath == File2 && sm.BaseSequence == p002Peptide))
+            .ToList();
+
+        new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        var p002 = proteinGroups.Single(g => g.BioPolymerGroupName.Contains("P002"));
+        var header = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToList().ToArray()).Split('	');
+        var row = GroupTsv.RowInDataset((BioPolymerGroup)p002, proteinGroups.Cast<BioPolymerGroup>().ToList()).Split('	');
+
+        // The three file2 channels are unobserved for P002; the three file1 channels are not.
+        var absent = header
+            .Select((name, i) => (name, i))
+            .Where(x => x.name.StartsWith("Intensity_") && x.name.Contains(File2.Replace(".raw", "")))
+            .ToList();
+        var present = header
+            .Select((name, i) => (name, i))
+            .Where(x => x.name.StartsWith("Intensity_") && x.name.Contains(File1.Replace(".raw", "")))
+            .ToList();
+
+        Assert.That(absent, Is.Not.Empty, "the unobserved channels should still have columns");
+        Assert.That(present, Is.Not.Empty, "the observed channels should too");
+
+        Assert.Multiple(() =>
+        {
+            foreach (var (name, i) in absent)
+                Assert.That(row[i], Is.Empty,
+                    $"{name} was never observed, so its cell must be empty rather than a fabricated zero");
+            foreach (var (name, i) in present)
+                Assert.That(row[i], Is.Not.Empty, $"{name} was observed and must carry its value");
+        });
+    }
+
+    /// <summary>
+    /// A subset group built for a file that none of the parent's samples match gets an empty sample
+    /// list beside an empty-but-non-null intensity dictionary
+    /// (<see cref="BioPolymerGroup.ConstructSubsetBioPolymerGroup"/>). Gating the columns on the
+    /// dictionary alone would then advertise intensity columns that
+    /// <see cref="BioPolymerGroup.PopulateSampleGroupResults"/> can never fill, because with no
+    /// samples it falls back to grouping by spectral-match file path.
+    ///
+    /// So the gate requires a non-empty sample list as well. This pins that: the subset describes no
+    /// intensity columns rather than permanently empty ones.
+    /// </summary>
+    [Test]
+    public void SubsetGroupForAnUnmatchedFile_DoesNotAdvertiseIntensityColumnsItCannotFill()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        var parent = proteinGroups.First();
+        Assert.That(parent.SamplesForQuantification, Is.Not.Null.And.Not.Empty, "parent was quantified");
+
+        // The fixture's samples carry bare file names, so an absolute path matches none of them --
+        // the path/bare-name mismatch this repo's own fixtures produce.
+        var subset = parent.ConstructSubsetBioPolymerGroup(@"C:\somewhereile1.raw");
+
+        Assert.That(subset.SamplesForQuantification, Is.Empty, "no sample matched that path");
+        Assert.That(subset.IntensitiesBySample, Is.Not.Null.And.Empty,
+            "the subset still gets a dictionary, which is why the dictionary alone cannot be the gate");
+
+        string header = GroupTsv.Header((BioPolymerGroup)subset);
+        Assert.Multiple(() =>
+        {
+            Assert.That(header, Does.Not.Contain("Intensity_"),
+                "nothing can fill these, so they must not be advertised");
+            Assert.That(GroupTsv.Row((BioPolymerGroup)subset).Split('	'), Has.Length.EqualTo(header.Split('	').Length));
+        });
     }
 }

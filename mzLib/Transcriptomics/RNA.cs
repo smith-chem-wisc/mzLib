@@ -15,8 +15,9 @@ namespace Transcriptomics
         /// </summary>
         public RNA(string sequence,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
-            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
-            : base(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
+            : base(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm, oneBasedFixedModifications)
         {
         }
 
@@ -34,11 +35,12 @@ namespace Transcriptomics
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null,
-            bool isEntrapment = false)
+            bool isEntrapment = false,
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : base(sequence, accession, oneBasedPossibleModifications, fivePrimeTerminus, threePrimeTerminus,
                 name, organism, databaseFilePath, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
                 truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName,
-                isEntrapment)
+                isEntrapment, oneBasedFixedModifications)
         {
         }
         
@@ -46,7 +48,8 @@ namespace Transcriptomics
         /// For creating a variant of an existing nucleic acid. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
         public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation>? appliedSequenceVariants,
-            IEnumerable<TruncationProduct>? applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct>? applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            string sampleNameForVariants, IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), 
                   oneBasedModifications,
                   original.FivePrimeTerminus, original.ThreePrimeTerminus,
@@ -54,9 +57,10 @@ namespace Transcriptomics
                   original.Organism, original.DatabaseFilePath, original.IsContaminant, 
                   original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
                   [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
-                  [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, 
-                  VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants),
-                  original.IsEntrapment)
+                   [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants,
+                   VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants),
+                    original.IsEntrapment,
+                     oneBasedFixedModifications ?? original.OneBasedFixedModifications)
         {
             ConsensusVariant = original.ConsensusVariant;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -72,13 +76,14 @@ namespace Transcriptomics
         }
 
         public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
         {
             if (original is not RNA rna)
                 throw new ArgumentException("The original nucleic acid must be RNA to create an RNA variant.");
 
             var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants, 
-                applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
+                applicableTruncationProducts, oneBasedModifications, sampleNameForVariants, oneBasedFixedModifications);
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
         }
 

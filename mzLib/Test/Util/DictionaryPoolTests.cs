@@ -37,4 +37,22 @@ public class DictionaryPoolTests
         var dictionaryPool = new DictionaryPool<string, int>();
         Assert.Throws<ArgumentNullException>(() => dictionaryPool.Return(null));
     }
+
+    /// <summary>
+    /// Nothing asserted that the pool actually pools. The policy's Return can refuse an instance, in
+    /// which case Get quietly allocates a fresh one -- observationally identical unless the test looks
+    /// at instance identity.
+    /// </summary>
+    [Test]
+    public void DictionaryPool_Return_MakesTheSameInstanceAvailableAgain()
+    {
+        var dictionaryPool = new DictionaryPool<int, int>();
+        var dictionary = dictionaryPool.Get();
+        dictionary[1] = 1;
+
+        dictionaryPool.Return(dictionary);
+
+        Assert.That(dictionaryPool.Get(), Is.SameAs(dictionary));
+    }
+
 }

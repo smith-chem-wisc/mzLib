@@ -68,6 +68,14 @@ namespace Readers.ProForma
             {
                 term = ProFormaReader.Read(input);
             }
+            catch (ProFormaUnsupportedException ex)
+            {
+                // Valid ProForma that a term cannot hold (several modifications on one terminus): the same kind of refusal
+                // as two modifications on one residue, not "not valid ProForma".
+                warnings.AddIncompatibleItem(ex.IncompatibleItem);
+                return SequenceConversionHelpers.HandleParserError(warnings, mode,
+                    ConversionFailureReason.IncompatibleModifications, ex.Message);
+            }
             catch (Tdp.ProFormaParseException ex)
             {
                 return SequenceConversionHelpers.HandleParserError(warnings, mode,

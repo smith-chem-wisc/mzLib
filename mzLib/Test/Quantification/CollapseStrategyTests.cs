@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 
 namespace Test.Quantification;
 
@@ -37,7 +38,60 @@ public class CollapseStrategyTests
 
     private static double[] SingleRow<T>(QuantMatrix<T> matrix) where T : IEquatable<T> => matrix.GetRow(0);
 
+    /// <summary>Every concrete collapse strategy shipped in the Quantification assembly.</summary>
+    private static IEnumerable<ICollapseStrategy> EveryCollapseStrategy() =>
+        typeof(NoCollapse).Assembly.GetTypes()
+            .Where(t => typeof(ICollapseStrategy).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface)
+            .Where(t => t.GetConstructor(Type.EmptyTypes) != null)
+            .Select(t => (ICollapseStrategy)Activator.CreateInstance(t));
+
     #endregion
+
+    /// <summary>
+    /// <see cref="ICollapseStrategy.RequiresAggregation"/> is a second representation of a fact the
+    /// method body already carries -- whether <see cref="ICollapseStrategy.CollapseSamples{T}"/> reads
+    /// the aggregator it is handed. QuantificationEngine.ValidateEngine trusts it: a strategy that
+    /// answers false is allowed to run with a null aggregation strategy. If the two ever disagree, the
+    /// NullReferenceException that validation exists to prevent comes straight back, from a strategy
+    /// that declared it could not happen.
+    ///
+    /// So the declaration is checked against the behaviour for every strategy in the assembly, in both
+    /// directions, rather than trusting each implementer to keep them in step. This is the plan's
+    /// standing rule -- a milestone that introduces a second representation ships the cross-check with
+    /// it -- applied to the representation mzLib #1242 introduced.
+    /// </summary>
+    [Test]
+    public void RequiresAggregationMatchesWhetherTheStrategyActuallyReadsIt()
+    {
+        var columns = new List<ISampleInfo>
+        {
+            Lfq("cond", biorep: 1, techrep: 1, fraction: 1),
+            Lfq("cond", biorep: 1, techrep: 1, fraction: 2),
+        };
+
+        var strategies = EveryCollapseStrategy().ToList();
+        Assert.That(strategies, Is.Not.Empty, "premise: the reflection finds the strategies at all");
+
+        foreach (var strategy in strategies)
+        {
+            // A fresh matrix per strategy: a collapsing one consumes the columns it is given.
+            var matrix = Matrix(columns, 1.0, 2.0);
+
+            if (strategy.RequiresAggregation)
+            {
+                Assert.That(() => strategy.CollapseSamples(matrix, null),
+                    Throws.TypeOf<ArgumentNullException>(),
+                    $"{strategy.GetType().Name} declares it needs an aggregator, so it must reject a null "
+                    + "one rather than dereference it");
+            }
+            else
+            {
+                Assert.That(() => strategy.CollapseSamples(matrix, null), Throws.Nothing,
+                    $"{strategy.GetType().Name} declares it needs no aggregator, and the engine lets a run "
+                    + "with none through on the strength of that -- so it must genuinely not read one");
+            }
+        }
+    }
 
     /// <summary>
     /// Collapsing fractions must leave technical replicates standing. This is the distinction the
@@ -165,8 +219,8 @@ public class CollapseStrategyTests
     {
         var columns = new List<ISampleInfo>
         {
-            new IsobaricQuantSampleInfo("f1.raw", "Reference", 1, 1, 1, 3, "126", 126.127, true),
-            new IsobaricQuantSampleInfo("f2.raw", "Reference", 1, 2, 1, 3, "126", 126.127, true)
+            new IsobaricQuantSampleInfo("f1.raw", "Reference", 1, 1, 1, 3, "126", 126.127, true) { SampleName = "Pool" },
+            new IsobaricQuantSampleInfo("f2.raw", "Reference", 1, 2, 1, 3, "126", 126.127, true) { SampleName = "Pool" }
         };
 
         var collapsed = new CollapseTechnicalReplicates()
@@ -182,10 +236,46 @@ public class CollapseStrategyTests
             Assert.That(isobaric.ReporterIonMz, Is.EqualTo(126.127).Within(1e-9));
             Assert.That(isobaric.PlexId, Is.EqualTo(3));
             Assert.That(isobaric.IsReferenceChannel, Is.True);
+            Assert.That(isobaric.SampleName, Is.EqualTo("Pool"), "the column is still named by its sample after collapse");
             Assert.That(isobaric.TechnicalReplicate, Is.EqualTo(0), "the collapsed dimension is zeroed");
             Assert.That(isobaric.Fraction, Is.EqualTo(1), "other dimensions survive");
         });
         Assert.That(SingleRow(collapsed)[0], Is.EqualTo(400.0).Within(1e-9));
+    }
+
+    /// <summary>
+    /// A collapsed column keeps a sample name only when every column merged into it carries that
+    /// same name.
+    ///
+    /// Collapse groups on condition and the replicate dimensions it keeps, never on file, channel or
+    /// sample, so one group can hold different samples -- collapsing biological replicates merges
+    /// different biological samples by definition. The sample name labels the column, so taking it
+    /// from the first member, as every other field is taken, would present two patients' summed values
+    /// under one patient's name. Revert SharedSampleName to the first member's name and the first
+    /// assertion goes red.
+    /// </summary>
+    [Test]
+    public void CollapsingSamplesThatDoNotShareAName_LeavesTheCollapsedColumnUnnamed()
+    {
+        IsobaricQuantSampleInfo Channel(int biorep, string label, string sampleName) =>
+            new("f1.raw", "Treated", biorep, 1, 1, 3, label, 126.127, false) { SampleName = sampleName };
+
+        var differentSamples = new CollapseBiologicalReplicates().CollapseSamples(
+            Matrix(new List<ISampleInfo> { Channel(1, "126", "Patient7"), Channel(2, "127N", "Patient8") }, 100, 300),
+            new SumAggregation());
+
+        var oneNamedOneNot = new CollapseBiologicalReplicates().CollapseSamples(
+            Matrix(new List<ISampleInfo> { Channel(1, "126", "Patient7"), Channel(2, "127N", null) }, 100, 300),
+            new SumAggregation());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(differentSamples.ColumnCount, Is.EqualTo(1), "the two biological replicates merge into one column");
+            Assert.That(((IsobaricQuantSampleInfo)differentSamples.ColumnKeys[0]).SampleName, Is.Null,
+                "a column holding two patients must not be named after one of them");
+            Assert.That(((IsobaricQuantSampleInfo)oneNamedOneNot.ColumnKeys[0]).SampleName, Is.Null,
+                "an unnamed member is a disagreement too, not a vote for the named one");
+        });
     }
 
     [Test]

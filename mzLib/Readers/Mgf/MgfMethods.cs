@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
 
@@ -26,6 +27,24 @@ namespace Readers
     /// because the reader cannot load one.
     /// </para>
     /// <para>
+    /// MS1 scans are written by default, which is what lets a precursor be re-deconvoluted after a round
+    /// trip. They cost portability: the Matrix Science specification requires a PEPMASS in every block and
+    /// an MS1 has none, so such a file is out of spec. ProteoWizard and OpenMS read it anyway, but
+    /// MSToolkit -- and therefore Comet -- calls exit(-12) on the first block without one. Pass
+    /// includeMs1Scans: false to emit an MS2-only file that every reader accepts.
+    /// </para>
+    /// <para>
+    /// Why these are top-level keys and not TITLE tokens. mzLib's usual answer to "the format has
+    /// nowhere to put this" is the format's own free-text slot -- MSP packs extras into Comment, and
+    /// BuildTitle below already smuggles File and NativeID into TITLE, which is the ProteoWizard
+    /// convention. TITLE tokens are right for anything a third-party tool should merely preserve. These
+    /// five are different: TIC, PRECURSORSCAN, ISOLATIONMZ, ISOLATIONWIDTH and ACTIVATIONMETHOD are
+    /// consumed on read to reconstruct an MsDataScan, so they need a parse that does not depend on how
+    /// another tool rewrote a free-text field. MSLEVEL is the precedent for a new top-level key, and it
+    /// is defensible because SIRIUS, pyteomics and MsBackendMgf already emit it. The honest note is that
+    /// these five are mzLib-only, so an mgf we write round-trips with full fidelity only through us.
+    /// </para>
+    /// <para>
     /// Polarity does not survive a round trip for any scan without a charge state guess. MGF has no
     /// polarity field, so CHARGE is the only carrier of the sign, and CHARGE is written only where a
     /// guess exists. Such scans read back as positive. This applies to MS1 scans and equally to an MS2
@@ -34,7 +53,12 @@ namespace Readers
     /// </remarks>
     public static class MgfMethods
     {
-        public static void WriteMgf(MsDataFile myMsDataFile, string outputFile)
+        /// <param name="includeMs1Scans">
+        /// True to write MS1 scans as their own blocks, preserving the precursor spectra a later search
+        /// needs. False to write only MS2 and above, which keeps every block PEPMASS-bearing and therefore
+        /// readable by tools that enforce the specification.
+        /// </param>
+        public static void WriteMgf(MsDataFile myMsDataFile, string outputFile, bool includeMs1Scans = true)
         {
             if (myMsDataFile == null)
             {
@@ -53,7 +77,8 @@ namespace Readers
             List<MsDataScan> scansToWrite = new List<MsDataScan>();
             foreach (MsDataScan scan in myMsDataFile.GetAllScansList())
             {
-                if (scan?.MassSpectrum != null && scan.MassSpectrum.Size > 0)
+                if (scan?.MassSpectrum != null && scan.MassSpectrum.Size > 0
+                    && (includeMs1Scans || scan.MsnOrder > 1))
                 {
                     scansToWrite.Add(scan);
                 }
@@ -64,18 +89,26 @@ namespace Readers
             if (scansToWrite.Count == 0)
             {
                 throw new MzLibException(
-                    "Cannot write an mgf with no spectra: every scan was empty, and mgf requires at least "
-                    + "one fragment peak per block.");
+                    "Cannot write an mgf with no spectra: every scan was empty or filtered out, and mgf "
+                    + "requires at least one fragment peak per block.");
             }
+
+            // PRECURSORSCAN may only name a block this file actually contains. scansToWrite has already
+            // been filtered twice -- empty spectra, and includeMs1Scans -- and a header pointing at a
+            // dropped scan is not merely stale: read back, it populates OneBasedPrecursorScanNumber where
+            // master left null, and MsDataFile.GetOneBasedScan is a raw Scans[n - 1], so the missing slot
+            // returns null rather than throwing. MzmlMethods then dereferences it unguarded and the failure
+            // surfaces as a NullReferenceException at mzML export, a long way from the mgf that caused it.
+            HashSet<int> writtenScanNumbers = new HashSet<int>(scansToWrite.Select(scan => scan.OneBasedScanNumber));
 
             using StreamWriter output = new StreamWriter(outputFile);
             foreach (MsDataScan scan in scansToWrite)
             {
-                WriteScan(output, scan, sourceName);
+                WriteScan(output, scan, sourceName, writtenScanNumbers);
             }
         }
 
-        private static void WriteScan(StreamWriter output, MsDataScan scan, string sourceName)
+        private static void WriteScan(StreamWriter output, MsDataScan scan, string sourceName, HashSet<int> writtenScanNumbers)
         {
             output.WriteLine("BEGIN IONS");
             output.WriteLine($"TITLE={BuildTitle(scan, sourceName)}");
@@ -106,6 +139,53 @@ namespace Readers
             {
                 double rtInSeconds = scan.RetentionTime * 60.0;
                 output.WriteLine($"RTINSECONDS={rtInSeconds.ToString(CultureInfo.InvariantCulture)}");
+            }
+
+            // Four fields a search needs that the Matrix Science local parameters have no home for.
+            // Extension keys rather than dropped data: the spec does not say what a reader must do with
+            // an unknown key, but ProteoWizard (SpectrumList_MGF, "else { continue; // ignored
+            // attribute }"), OpenMS (MascotGenericFile) and MSToolkit (MSReader) all skip them silently.
+            // Without these a Calibrate then Search chain through mgf loses roughly a quarter of its
+            // identifications.
+            //
+            // Written only when the source actually had the value -- an empty header would be worse than
+            // an absent one, since a reader cannot tell "unknown" from "zero".
+
+            // TIC belongs to every scan, not just the fragmented ones. It is not the sum of the peaks
+            // written below: the recorded value predates centroiding and thresholding. MetaMorpheus
+            // scores a match partly as a fraction of it, so recomputing it moves scores.
+            if (!double.IsNaN(scan.TotalIonCurrent) && !double.IsInfinity(scan.TotalIonCurrent))
+            {
+                output.WriteLine($"TIC={scan.TotalIonCurrent.ToString(CultureInfo.InvariantCulture)}");
+            }
+
+            // The rest describe a precursor, so MS2 and above only.
+            if (scan.MsnOrder > 1)
+            {
+                if (scan.DissociationType.HasValue && scan.DissociationType.Value != DissociationType.Unknown)
+                {
+                    output.WriteLine($"ACTIVATIONMETHOD={scan.DissociationType.Value}");
+                }
+
+                // Only when the precursor block is in this file. Absent beats wrong, the same rule the
+                // comment above argues for: a number that resolves to nothing is worse than no header, not
+                // better. This is not confined to includeMs1Scans -- the empty-spectrum skip above drops
+                // scans just as thoroughly, so a peakless MS1 dangles the pointer at the default setting.
+                if (scan.OneBasedPrecursorScanNumber.HasValue
+                    && writtenScanNumbers.Contains(scan.OneBasedPrecursorScanNumber.Value))
+                {
+                    output.WriteLine($"PRECURSORSCAN={scan.OneBasedPrecursorScanNumber.Value.ToString(CultureInfo.InvariantCulture)}");
+                }
+
+                if (scan.IsolationWidth.HasValue)
+                {
+                    output.WriteLine($"ISOLATIONWIDTH={scan.IsolationWidth.Value.ToString(CultureInfo.InvariantCulture)}");
+                }
+
+                if (scan.IsolationMz.HasValue)
+                {
+                    output.WriteLine($"ISOLATIONMZ={scan.IsolationMz.Value.ToString(CultureInfo.InvariantCulture)}");
+                }
             }
 
             double[] mzs = scan.MassSpectrum.XArray;

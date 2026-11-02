@@ -36,21 +36,117 @@ public class PrideArchiveDownloadTests
         }
     }
 
+    /// <summary>A handler that never answers, honouring only cancellation: HttpClient.Timeout is what ends it.</summary>
+    private sealed class SilentHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
     /// <summary>A read-only stream that yields a few bytes and then throws, to simulate a mid-transfer failure.</summary>
     private sealed class ThrowingStream : Stream
     {
         private int _bytesBeforeThrow;
-        public ThrowingStream(int bytesBeforeThrow) => _bytesBeforeThrow = bytesBeforeThrow;
+        private readonly Func<Exception> _failure;
+        public ThrowingStream(int bytesBeforeThrow, Func<Exception> failure = null)
+        {
+            _bytesBeforeThrow = bytesBeforeThrow;
+            _failure = failure ?? (() => new IOException("simulated mid-stream failure"));
+        }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (_bytesBeforeThrow <= 0)
-                throw new IOException("simulated mid-stream failure");
+                throw _failure();
             int n = Math.Min(count, _bytesBeforeThrow);
             for (int i = 0; i < n; i++) buffer[offset + i] = 0x41;
             _bytesBeforeThrow -= n;
             return n;
         }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// A stream that delivers <paramref name="bytesBeforeStall"/> bytes and then goes permanently silent,
+    /// honouring only cancellation. This is what a stalled HTTP body looks like: the connection is alive
+    /// and the read never completes, which is precisely the case no timeout covered before BodyStallTimeout.
+    /// </summary>
+    private sealed class StallingStream : Stream
+    {
+        private int _bytesBeforeStall;
+        public StallingStream(int bytesBeforeStall) => _bytesBeforeStall = bytesBeforeStall;
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_bytesBeforeStall > 0)
+            {
+                int n = Math.Min(buffer.Length, _bytesBeforeStall);
+                buffer.Span.Slice(0, n).Fill(0x41);
+                _bytesBeforeStall -= n;
+                return n;
+            }
+
+            // Never completes on its own — only the stall window (or the caller) can end this. The await
+            // must PROPAGATE the cancellation: a ContinueWith here would swallow it and return 0, which the
+            // copy loop reads as a clean end-of-stream and the download then "succeeds" on a truncated file.
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            return 0; // unreachable
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// A stream that is SLOW but never silent: it delivers one byte per read, pausing
+    /// <paramref name="pausePerRead"/> between them, for <paramref name="totalBytes"/> bytes. Used to prove
+    /// the deadline bounds inactivity and not duration — the total run exceeds BodyStallTimeout while no
+    /// single gap does.
+    /// </summary>
+    private sealed class SlowStream : Stream
+    {
+        private readonly TimeSpan _pausePerRead;
+        private int _remaining;
+        public SlowStream(int totalBytes, TimeSpan pausePerRead)
+        {
+            _remaining = totalBytes;
+            _pausePerRead = pausePerRead;
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_remaining <= 0)
+                return 0;
+            await Task.Delay(_pausePerRead, cancellationToken).ConfigureAwait(false);
+            buffer.Span[0] = 0x41;
+            _remaining--;
+            return 1;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
 
         public override bool CanRead => true;
         public override bool CanSeek => false;
@@ -444,19 +540,264 @@ public class PrideArchiveDownloadTests
     }
 
     [Test]
-    public void DownloadFileAsync_MidStreamFailure_LeavesNoPartial()
+    public void DownloadFileAsync_MidStreamFailure_ThrowsHttpRequestException_LeavesNoPartial()
     {
-        // the ".partial"-then-move design must clean up the sibling when the transfer faults mid-stream
+        // A dropped connection is an outage, not a local fault, so it must reach the caller as the contract's
+        // transport type. Before this it escaped as a bare IOException, which neither the documented contract
+        // nor ExternalServiceTestHelper covers -- an EBI reset reddened a live test instead of skipping it.
+        // The ".partial"-then-move design must still clean up the sibling.
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4))
         });
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
-        Assert.That(async () => await client.DownloadFileAsync(file, _tempDir), Throws.InstanceOf<IOException>());
-        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
-        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.InnerException, Is.InstanceOf<IOException>());
+            Assert.That(exception.Message, Does.Contain("ended before the download completed"));
+            Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+        });
+    }
+
+    [Test]
+    public void DownloadFileAsync_ResponseEndedPrematurely_ThrowsHttpRequestException()
+    {
+        // Seen live on a PXD015239 download: on .NET 10 a connection EBI drops mid-body surfaces as
+        // HttpIOException(ResponseEnded) -- an IOException, not an HttpRequestException.
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4,
+                () => new HttpIOException(HttpRequestError.ResponseEnded, "The response ended prematurely.")))
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.That(exception.InnerException, Is.InstanceOf<HttpIOException>());
+    }
+
+    // ---- BodyStallTimeout: the response body gets an inactivity deadline ---
+
+    [Test]
+    public void DownloadFileAsync_BodyStalls_ThrowsHttpRequestExceptionAndLeavesNoPartial()
+    {
+        // Before BodyStallTimeout existed this hung until the socket gave up: the read is issued after
+        // HttpClient.Timeout has already been spent on the headers (ResponseHeadersRead), so nothing
+        // bounded it. Verified RED against the pre-fix CopyToAsync, where this test never returns.
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new StallingStream(bytesBeforeStall: 4))
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler))
+        {
+            BodyStallTimeout = TimeSpan.FromMilliseconds(250),
+            MaxRetries = 0
+        };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(
+            async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.Multiple(() =>
+        {
+            // HttpRequestException specifically, not MzLibException: silence from EBI is an outage, and
+            // ExternalServiceTestHelper must be able to skip a live test on it rather than fail it.
+            Assert.That(exception.Message, Does.Contain("delivered nothing"));
+            Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+        });
+    }
+
+    [Test]
+    public void DownloadFileAsync_CallerCancelsDuringBody_StaysOperationCanceled()
+    {
+        // The stall window is LINKED to the caller's token, so both cancel the same read. They must still
+        // be told apart: converting a deliberate cancellation into HttpRequestException would make a live
+        // test skip (ExternalServiceTestHelper) when the test itself did the cancelling.
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new StallingStream(bytesBeforeStall: 4))
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler))
+        {
+            BodyStallTimeout = TimeSpan.FromSeconds(30) // long: the CALLER must be what ends this, not the stall
+        };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
+
+        var exception = Assert.CatchAsync(async () => await client.DownloadFileAsync(file, _tempDir, cancellationToken: cts.Token));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            // Asserted explicitly, not left implied by the type above: this is the discrimination the
+            // catch filter exists for, and it is what keeps a cancelled test from reading as an outage.
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
+    }
+
+    [Test]
+    public async Task DownloadFileAsync_SlowButProgressingBody_Succeeds()
+    {
+        // The load-bearing one: this is an INACTIVITY deadline, not a total-duration cap. The transfer below
+        // runs ~600ms against a 150ms deadline and must succeed, because no single gap reaches it. A total
+        // cap would abort exactly the large healthy downloads PRIDE is full of.
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new SlowStream(totalBytes: 12, pausePerRead: TimeSpan.FromMilliseconds(50)))
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler))
+        {
+            BodyStallTimeout = TimeSpan.FromMilliseconds(150)
+        };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        string path = await client.DownloadFileAsync(file, _tempDir);
+
+        Assert.That(new FileInfo(path).Length, Is.EqualTo(12));
+    }
+
+    [Test]
+    public void BodyStallTimeout_DefaultsToTwoMinutes()
+    {
+        // Pins the shipped default. Two minutes is ProteinDbRetriever's measured value (#1189), not a fresh
+        // guess, and this is the whole guard against a future edit quietly making it generous again.
+        using var client = new PrideArchiveClient(new HttpClient(new StubHandler(_ => Bytes(new byte[] { 1 }))));
+
+        Assert.That(client.BodyStallTimeout, Is.EqualTo(TimeSpan.FromMinutes(2)));
+    }
+
+    // ---- Error contract: status codes, header timeout, no URL in a message --
+
+    [Test]
+    public void DownloadFileAsync_NonSuccess_CarriesStatusCode()
+    {
+        // No PRIDE throw used to set StatusCode, so a caller could only tell a 403 from a 503 by parsing the
+        // message. Retrying, and a caller deciding whether to, both need the status as data.
+        var handler = new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("forbidden"), HttpStatusCode.Forbidden));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.That(exception.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public void GetProjectFilesAsync_NonSuccess_CarriesStatusCode()
+    {
+        // The REST path shares the rule: every status throw in the client carries the status.
+        var handler = new StubHandler(_ => Json("{}", HttpStatusCode.ServiceUnavailable));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetProjectFilesAsync("PXD000001"));
+
+        Assert.That(exception.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+    }
+
+    [Test]
+    public void DownloadFileAsync_ServerNeverAnswers_ThrowsHttpRequestException()
+    {
+        // HttpClient.Timeout expiring throws TaskCanceledException, indistinguishable by type from a caller's
+        // cancellation, so it used to escape the contract as an OperationCanceledException.
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) }) { MaxRetries = 0 };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.That(exception.Message, Does.Contain("did not respond"));
+    }
+
+    [Test]
+    public void GetProjectAsync_ServerNeverAnswers_ThrowsHttpRequestException()
+    {
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) }) { MaxRetries = 0 };
+
+        Assert.That(async () => await client.GetProjectAsync("PXD000001"), Throws.InstanceOf<HttpRequestException>());
+    }
+
+    [Test]
+    public void DownloadFileAsync_CallerCancelsWhileWaitingForHeaders_StaysOperationCanceled()
+    {
+        // The other half of the header-timeout filter: a caller's own cancellation is never converted.
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromSeconds(30) });
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+        var exception = Assert.CatchAsync(async () => await client.DownloadFileAsync(file, _tempDir, cancellationToken: cts.Token));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
+    }
+
+    [Test]
+    public void DownloadFileAsync_InjectedClientCancelsPendingRequests_StaysOperationCanceled()
+    {
+        // A cancellation the caller asks for through the HttpClient they injected, not through the token, is
+        // still not a timeout: only HttpClient.Timeout expiring is reported as PRIDE not responding.
+        var httpClient = new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromSeconds(30) };
+        using var client = new PrideArchiveClient(httpClient);
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var download = client.DownloadFileAsync(file, _tempDir);
+        Thread.Sleep(200);
+        httpClient.CancelPendingRequests();
+        var exception = Assert.CatchAsync(async () => await download);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
+    }
+
+    /// <summary>Every way a download can fail, each run against a URL whose query string is a credential.</summary>
+    private static IEnumerable<TestCaseData> DownloadFailureModes()
+    {
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() =>
+            new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("no"), HttpStatusCode.Forbidden))), 30_000)
+            .SetArgDisplayNames("status");
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() =>
+            new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new ThrowingStream(4)) })), 30_000)
+            .SetArgDisplayNames("dropped");
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() =>
+            new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StallingStream(4)) })), 30_000)
+            .SetArgDisplayNames("stall");
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() => new SilentHandler()), 200)
+            .SetArgDisplayNames("timeout");
+    }
+
+    [TestCaseSource(nameof(DownloadFailureModes))]
+    public void DownloadFileAsync_Failure_NeverPutsUrlInMessage(Func<HttpMessageHandler> handler, int timeoutMs)
+    {
+        // PRIDE's reviewer-token route hands out download hrefs whose query string IS the token. An exception
+        // message reaches logs, CI output and pasted issues, so no failure path
+        // may carry the URL. Checked over ToString(), which includes every inner exception.
+        const string secret = "S3CR3T-REVIEWER-TOKEN";
+        using var client = new PrideArchiveClient(new HttpClient(handler()) { Timeout = TimeSpan.FromMilliseconds(timeoutMs) })
+        {
+            BodyStallTimeout = TimeSpan.FromMilliseconds(200),
+            RetryDelay = (_, _) => Task.CompletedTask // retried for real, so the retry path is held to the rule too
+        };
+        var file = MakeFile("run1.raw", "RAW", ("PRIDE:0000000", $"https://private.example.org/files/run1.raw?token={secret}"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ToString(), Does.Not.Contain(secret));
+            // Still useful: the message names what failed and where.
+            Assert.That(exception.Message, Does.Contain("'run1.raw' from private.example.org"));
+        });
     }
 
     // ---- DownloadProjectFilesAsync: null filter and empty selection --------
@@ -535,7 +876,8 @@ public class PrideArchiveDownloadLiveTests
     public Task DownloadFileAsync_LiveSmallestFile_WritesRealBytes() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var files = await client.GetProjectFilesAsync("PXD012345");
             var smallest = files.OrderBy(f => f.FileSizeBytes).First(f => f.TryGetHttpsDownloadUrl(out _));
 

@@ -85,8 +85,10 @@ namespace Test.ProteomicsTests
 
             // If a protein has a modification at a specific residue and that residue is a potential variant, we need to include a variant protein bearing the same
             // modification in the variant database. IsSequenceVariantModifiation is used in MetaMorpheus to facilitate that process.
-            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(protein1.SequenceVariations.First(), mpModLocationInCanonicalProtein));
+            // P4 -> PV keeps P4 unchanged and inserts V after it, so the mod on P4 is not on an edited residue.
+            Assert.IsFalse(VariantApplication.IsSequenceVariantModification(protein1.SequenceVariations.First(), mpModLocationInCanonicalProtein));
             Assert.IsFalse(VariantApplication.IsSequenceVariantModification(protein1.SequenceVariations.First(), mtModLocationInCanonicalProtein));
+            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(new SequenceVariation(4, 4, "P", "V", ""), mpModLocationInCanonicalProtein));
             
             int mtModLocationInVariant = 7;
             Protein protein2 = new Protein("MPEPTIDE", "protein2",
@@ -101,6 +103,36 @@ namespace Test.ProteomicsTests
             // Here, the variant is MPEPPPT[Modification on T: mt]IDE, with the mt mod at position 7
             // and the canonical is MPEPT[[Modification on T: mt]IDE, with the mt mod at position 5
             Assert.AreEqual(VariantApplication.RestoreModificationIndex(protein2, mtModLocationInVariant), mtModLocationInCanonicalProtein);
+        }
+
+        [Test]
+        public void TestProteinVariantModMethods_KeptAnchorsOfAnchoredIndels()
+        {
+            // Applied-frame spans: T4 -> TAG covers [4,6] and keeps T4; P3 -> AGP covers [3,5] and keeps P (now at 5).
+            var leftAnchored = new SequenceVariation(4, 6, "T", "TAG", "");
+            Assert.IsFalse(VariantApplication.IsSequenceVariantModification(leftAnchored, 4));
+            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(leftAnchored, 5));
+            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(leftAnchored, 6));
+            Assert.IsFalse(VariantApplication.IsSequenceVariantModification(leftAnchored, 7));
+
+            var rightAnchored = new SequenceVariation(3, 5, "P", "AGP", "");
+            Assert.IsFalse(VariantApplication.IsSequenceVariantModification(rightAnchored, 2));
+            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(rightAnchored, 3));
+            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(rightAnchored, 4));
+            Assert.IsFalse(VariantApplication.IsSequenceVariantModification(rightAnchored, 5));
+
+            // MPEPTIDE with P3 -> AGP applied is MPEAGPTIDE; the kept P sits at 5 and is P3 in the consensus.
+            Protein rightAnchoredProtein = new Protein("MPEAGPTIDE", "rightAnchored",
+                appliedSequenceVariations: new List<SequenceVariation> { rightAnchored });
+            Assert.AreEqual(3, VariantApplication.RestoreModificationIndex(rightAnchoredProtein, 5));
+            Assert.AreEqual(5, VariantApplication.RestoreModificationIndex(rightAnchoredProtein, 7)); // T7 -> T5
+            Assert.AreEqual(2, VariantApplication.RestoreModificationIndex(rightAnchoredProtein, 2)); // P2, before the edit
+
+            // MPEPTAGIDE with T5 -> TAG applied; the kept T5 is T5 in the consensus, and I8 is I6.
+            Protein leftAnchoredProtein = new Protein("MPEPTAGIDE", "leftAnchored",
+                appliedSequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 7, "T", "TAG", "") });
+            Assert.AreEqual(5, VariantApplication.RestoreModificationIndex(leftAnchoredProtein, 5));
+            Assert.AreEqual(6, VariantApplication.RestoreModificationIndex(leftAnchoredProtein, 8));
         }
 
         [Test]

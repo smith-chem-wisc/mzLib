@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +11,13 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+
+// Two separate reasons, both deliberate. Several tests here are the coverage for the obsolete
+// LoadProteaseDictionary overloads themselves; LoadAndMergeCustomProteases has its own test
+// below. And ResetToDefaults is used as fixture reset, for which the obsolete message offers no
+// equivalent: removing the names in CustomDigestionAgentLoadResult.Added is not the same as
+// wanting a clean global dictionary between tests.
+#pragma warning disable CS0618
 
 namespace Test.ProteomicsTests.ProteolyticDigestion
 {

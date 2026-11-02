@@ -20,7 +20,6 @@ namespace Transcriptomics
         /// </summary>
         IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
 
-
         IHasChemicalFormula FivePrimeTerminus { get; set; }
 
         IHasChemicalFormula ThreePrimeTerminus { get; set; }

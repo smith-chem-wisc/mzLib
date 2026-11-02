@@ -87,7 +87,7 @@ namespace Readers
             MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, 
                 FileType == TimsTofFileType.TDF ? ConversionFunctions.IndexToMz : ConversionFunctions.IndexToMzTsf);
 
-            if (FileType == TimsTofFileType.TSF) /// No scans or 1/K0 values in TSF files
+            if (FileType == TimsTofFileType.TSF) // No scans or 1/K0 values in TSF files
                 return;
 
             // Populate the 1/K0 lookup array

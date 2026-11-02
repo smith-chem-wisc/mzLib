@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
 
@@ -14,6 +15,13 @@ public sealed class OxyriboAveragine : AverageResidue
     public static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
     public static readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
     public static readonly double[] DiffToMonoisotopic = new double[NumAveraginesToGenerate];
+
+    /// <summary>
+    /// The average number of each element in a single ribonucleotide averagine unit
+    /// (e.g. {'C', 9.5}), determined by averaging the four canonical ribonucleotide monophosphates.
+    /// </summary>
+    private static readonly Dictionary<char, double> AverageComposition = BuildAverageComposition();
+
     public override int GetMostIntenseMassIndex(double testMass) => MostIntenseMasses.GetClosestIndex(testMass);
 
     public override double[] GetAllTheoreticalMasses(int index) => AllMasses[index];
@@ -21,12 +29,21 @@ public sealed class OxyriboAveragine : AverageResidue
     public override double[] GetAllTheoreticalIntensities(int index) => AllIntensities[index];
 
     public override double GetDiffToMonoisotopic(int index) => DiffToMonoisotopic[index];
-    static OxyriboAveragine()
-    {
-        // Magic numbers determined by counting atoms in the main 4 canonical RNA bases. 
-        // This is not the best approach and future work should refine these numbers. 
-        // One possible approach is to also incorporate the residue frequency in RNA sequences. 
 
+    /// <summary>
+    /// Returns the average elemental composition of a single ribonucleotide averagine unit as a map
+    /// from element symbol to average atom count (e.g. {'C', 9.5}). Callers can scale this by a mass
+    /// to derive an approximate chemical formula for an arbitrary species.
+    /// </summary>
+    public Dictionary<char, double> GetAverageChemicalFormula() => new(AverageComposition);
+
+    /// <summary>
+    /// Builds the average ribonucleotide composition by counting atoms in the four canonical RNA
+    /// bases. This is not the best approach and future work should refine these numbers. One possible
+    /// approach is to also incorporate the residue frequency in RNA sequences.
+    /// </summary>
+    private static Dictionary<char, double> BuildAverageComposition()
+    {
         var water = ChemicalFormula.ParseFormula("H2O");
         var phosphate = ChemicalFormula.ParseFormula("H3PO4");
         var ribose = ChemicalFormula.ParseFormula("C5H10O5");
@@ -42,21 +59,26 @@ public sealed class OxyriboAveragine : AverageResidue
 
         var combined = amp + cmp + gmp + ump;
 
-        var averageC = combined.CountWithIsotopes(PeriodicTable.GetElement("C")) / 4.0;
-        var averageH = combined.CountWithIsotopes(PeriodicTable.GetElement("H")) / 4.0;
-        var averageO = combined.CountWithIsotopes(PeriodicTable.GetElement("O")) / 4.0;
-        var averageN = combined.CountWithIsotopes(PeriodicTable.GetElement("N")) / 4.0;
-        var averageP = combined.CountWithIsotopes(PeriodicTable.GetElement("P")) / 4.0;
+        return new Dictionary<char, double>
+        {
+            { 'C', combined.CountWithIsotopes(PeriodicTable.GetElement("C")) / 4.0 },
+            { 'H', combined.CountWithIsotopes(PeriodicTable.GetElement("H")) / 4.0 },
+            { 'O', combined.CountWithIsotopes(PeriodicTable.GetElement("O")) / 4.0 },
+            { 'N', combined.CountWithIsotopes(PeriodicTable.GetElement("N")) / 4.0 },
+            { 'P', combined.CountWithIsotopes(PeriodicTable.GetElement("P")) / 4.0 },
+        };
+    }
 
+    static OxyriboAveragine()
+    {
         for (int i = 0; i < NumAveraginesToGenerate; i++)
         {
             double averagineMultiplier = (i + 1) / 4.0;
             ChemicalFormula chemicalFormula = new ChemicalFormula();
-            chemicalFormula.Add("C", Convert.ToInt32(averageC * averagineMultiplier));
-            chemicalFormula.Add("H", Convert.ToInt32(averageH * averagineMultiplier));
-            chemicalFormula.Add("O", Convert.ToInt32(averageO * averagineMultiplier));
-            chemicalFormula.Add("N", Convert.ToInt32(averageN * averagineMultiplier));
-            chemicalFormula.Add("P", Convert.ToInt32(averageP * averagineMultiplier));
+            foreach (var (element, count) in AverageComposition)
+            {
+                chemicalFormula.Add(element.ToString(), Convert.ToInt32(count * averagineMultiplier));
+            }
 
             {
                 var chemicalFormulaReg = chemicalFormula;

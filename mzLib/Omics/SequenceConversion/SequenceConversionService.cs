@@ -58,6 +58,10 @@ public class SequenceConversionService : ISequenceConversionService
         service.RegisterSerializer(EssentialSequenceSerializer.Instance);
         service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, EssentialSequenceSerializer.Instance));
 
+        // Register MODOMICS
+        service.RegisterParser(ModomicsSequenceParser.Instance);
+        service.RegisterConverter(new SequenceConverter(ModomicsSequenceParser.Instance, new MzLibSequenceSerializer(ModomicsModificationLookup.Instance)));
+
         return service;
     }
 

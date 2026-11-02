@@ -1,0 +1,15 @@
+The data analysis was performed using MetaMorpheus version Not a release version. DEBUG., available at https://github.com/smith-chem-wisc/MetaMorpheus.
+
+The following search settings were used: RNase = RNase T1; search for truncated transcript and proteolysis products = False; maximum missed cleavages = 10; minimum oligo length = 3; maximum oligo length = unspecified; fixed modifications = ; variable modifications = Cyclic Phosphate on X; max mods per oligo = 2; max modification isoforms = 1024; precursor mass tolerance = ±20.0000 PPM; product mass tolerance = ±30.0000 PPM; report OSM ambiguity = True. The combined search database contained 3 non-decoy transcript entries including 0 contaminant sequences. Data files were processed on a computer running Microsoft Windows 10.0.26200 with a 64-bit Intel(R) Xeon(R) Silver 4214R CPU @ 2.40GHz processor with 24 threads and 256GB installed RAM. 
+
+The total time to perform the Search task on 4 spectra file(s) was 1.58 minutes.
+
+Published works using MetaMorpheus software are encouraged to cite the appropriate publications listed in the reference guide, found here: https://github.com/smith-chem-wisc/MetaMorpheus/blob/master/README.md.
+
+Spectra files: 
+	B:\Users\Naviya\RNA\2026_09_16_RNA_MALAT_FLuc_Ratios_20mer\2026_09_16_1MALAT_550ng_1FLuc_550ng_20mer-2_50ng_147mingrad-1_20260916224537.raw
+	B:\Users\Naviya\RNA\2026_09_16_RNA_MALAT_FLuc_Ratios_20mer\2026_09_16_1MALAT_550ng_1FLuc_550ng_20mer-2_50ng_147mingrad-1.raw
+	B:\Users\Naviya\RNA\2026_09_16_2MALAT_550ng_1FLuc_225ng_20mer-2_50ng_147mingrad-1_20260917061221.raw
+	B:\Users\Naviya\RNA\2026_09_16_2MALAT_550ng_1FLuc_225ng_20mer-2_50ng_147mingrad-1.raw
+Databases:
+	B:\Users\Nic\RNA\Databases\20mer1.fasta Downloaded on: 11/15/2023 13:48:44	B:\Users\Nic\RNA\Databases\FLuc_new.fasta Downloaded on: 06/20/2025 14:33:04	B:\Users\Nic\RNA\Databases\MALAT from plasmid.fasta Downloaded on: 06/23/2025 12:01:21

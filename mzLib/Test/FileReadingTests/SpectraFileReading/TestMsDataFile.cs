@@ -148,7 +148,11 @@ namespace Test.FileReadingTests.SpectraFileReading
         public void TestFunctionsOfMsDataScan()
         {
             MsDataScan theSpectrum = new MsDataScan(_mzSpectrumA, 1, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, null, "scan=1");
+            // GetIsolatedMassesAndCharges is [Obsolete] with no message and no replacement named, and
+            // this is its coverage, so the call stays until the method goes.
+#pragma warning disable CS0612
             List<IsotopicEnvelope> isolatedMassesAndCharges = theSpectrum.GetIsolatedMassesAndCharges(_mzSpectrumA, 1, 10, 10, 1).ToList();
+#pragma warning restore CS0612
             Assert.AreEqual(0, isolatedMassesAndCharges.Count); //Isolation range is null, so we get an empty set
 
             NUnit.Framework.Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 

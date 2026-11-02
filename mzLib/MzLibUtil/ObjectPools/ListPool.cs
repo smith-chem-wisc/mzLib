@@ -53,7 +53,7 @@ public class ListPool<T>
     public void Return(List<T> list)
     {
         if (list == null) throw new ArgumentNullException(nameof(list));
-        list.Clear(); // Ensure the HashSet is clean before returning it to the pool
+        // the pooling policy clears it on the way in; see the Return override below
         _pool.Return(list);
     }
 
