@@ -30,14 +30,26 @@ namespace Test.FileReadingTests
             return t;
         }
 
-        private static Modification Mod(string id, string motif, string unimod)
+        private static Modification Mod(string id, string motif, string unimod, string locationRestriction = "Anywhere.")
         {
             ModificationMotif.TryGetMotif(motif, out var target);
             return new Modification(
                 _originalId: id, _modificationType: "Common", _target: target,
-                _locationRestriction: "Anywhere.",
+                _locationRestriction: locationRestriction,
                 _databaseReference: new Dictionary<string, IList<string>> { { "Unimod", new List<string> { unimod } } });
         }
+
+        /// <summary>The one modification cell a build writes for <paramref name="mod"/>, as a fixed modification.</summary>
+        private static string FixedModificationCell(Modification mod) =>
+            SdrfBuilder.Build(new[]
+                {
+                    new SdrfRowInput(Sample(), Assay() with
+                    {
+                        FixedModifications = new[] { mod },
+                        VariableModifications = Array.Empty<Modification>()
+                    })
+                })
+                .Results[0]["comment[modification parameters]"];
 
         private static SdrfSample Sample(string name = "Sample 1") => new()
         {
@@ -253,6 +265,41 @@ namespace Test.FileReadingTests
 
             Assert.That(cell, Is.EqualTo("NT=Oxidation;AC=UNIMOD:35;TA=M;MT=Variable"));
             Assert.That(cell, Does.Not.Contain(" on "), "the motif belongs to TA=, not to NT=");
+        }
+
+        /// <summary>
+        /// NT= is the name Unimod gives the accession, not the search engine's own id for it. MetaMorpheus calls
+        /// UNIMOD:737 "TMT10" and UNIMOD:21 "Phosphorylation"; the 28 curated SDRFs carrying UNIMOD:737 name it
+        /// TMT6plex in 31,179 cells, never TMT10 (PXReprise's PXD034564 search, MetaMorpheus 1.1.13, wrote TMT10).
+        /// An accession the embedded Unimod does not hold keeps the modification's own name.
+        /// </summary>
+        [Test]
+        [TestCase("TMT10", "K", "737", "NT=TMT6plex;AC=UNIMOD:737;TA=K;MT=Fixed")]
+        [TestCase("Phosphorylation", "S", "21", "NT=Phospho;AC=UNIMOD:21;TA=S;MT=Fixed")]
+        [TestCase("Carbamidomethyl", "C", "4", "NT=Carbamidomethyl;AC=UNIMOD:4;TA=C;MT=Fixed")]
+        [TestCase("Custom", "K", "99999999", "NT=Custom;AC=UNIMOD:99999999;TA=K;MT=Fixed")]
+        public void AModificationIsNamedAsUnimodNamesItsAccession(string id, string motif, string unimod, string expected)
+        {
+            Assert.That(FixedModificationCell(Mod(id, motif, unimod)), Is.EqualTo(expected));
+        }
+
+        /// <summary>
+        /// A terminal modification says which terminus in PP=, and names a residue in TA= only when it has one.
+        /// mzLib's "N-terminal." is the intact protein N-terminus and "Peptide N-terminal." any peptide's
+        /// (ModificationLocalization.ModFits). The curated corpus writes TMT's N-terminal label as
+        /// "NT=TMT6plex;AC=UNIMOD:737;PP=Any N-term;MT=Fixed" and never writes TA=X; MetaMorpheus 1.1.13 wrote
+        /// "NT=TMT10;AC=UNIMOD:737;TA=X;MT=Fixed", which says neither where the label sits nor anything true in TA=.
+        /// </summary>
+        [Test]
+        [TestCase("TMT10", "X", "737", "Peptide N-terminal.", "NT=TMT6plex;AC=UNIMOD:737;PP=Any N-term;MT=Fixed")]
+        [TestCase("Acetylation", "X", "1", "N-terminal.", "NT=Acetyl;AC=UNIMOD:1;PP=Protein N-term;MT=Fixed")]
+        [TestCase("Amidation", "X", "2", "Peptide C-terminal.", "NT=Amidated;AC=UNIMOD:2;PP=Any C-term;MT=Fixed")]
+        [TestCase("Amidation", "X", "2", "C-terminal.", "NT=Amidated;AC=UNIMOD:2;PP=Protein C-term;MT=Fixed")]
+        [TestCase("Gln->pyro-Glu", "Q", "28", "Peptide N-terminal.", "NT=Gln->pyro-Glu;AC=UNIMOD:28;TA=Q;PP=Any N-term;MT=Fixed")]
+        public void ATerminalModificationSaysWhichTerminusAndNamesNoResidueItDoesNotHave(string id, string motif,
+            string unimod, string location, string expected)
+        {
+            Assert.That(FixedModificationCell(Mod(id, motif, unimod, location)), Is.EqualTo(expected));
         }
 
         [Test]
