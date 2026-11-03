@@ -259,6 +259,13 @@ public sealed record SetEstimate
     /// </summary>
     public bool? Robust { get; init; }
     /// <summary>
+    /// Whether the set model's robust reweighting did not settle and fell back to msqrob2's default of one round (GR-22
+    /// amended 2026-11-03; <see cref="NestedMixedModelFit.RobustFellBack"/>). Such a set is fitted on the first round's
+    /// weights and tested like any other; this flag is how a report counts it. False when the reweighting settled; null
+    /// without robust weighting, and for a single, whose STAT1 row does not carry the flag yet (STAT1 M5b).
+    /// </summary>
+    public bool? RobustFellBack { get; init; }
+    /// <summary>
     /// Each value that entered the set model, with the weight it carried in the final fit, in the model's order (groups as
     /// given, then peptides and samples in ordinal order): 1 without robust weighting. Empty for a single.
     /// </summary>
@@ -269,7 +276,10 @@ public sealed record SetEstimate
 /// <param name="ProteinGroup">The member term the value belongs to.</param>
 /// <param name="Peptide">The peptide's full sequence.</param>
 /// <param name="Sample">The sample.</param>
-/// <param name="Weight">1 without robust weighting; with it, the converged Huber weight, in (0, 1].</param>
+/// <param name="Weight">
+/// 1 without robust weighting; with it, the final Huber weight, in (0, 1]: the converged one, or the first round's when the
+/// reweighting fell back (<see cref="SetEstimate.RobustFellBack"/>).
+/// </param>
 public sealed record SetValueWeight(string ProteinGroup, string Peptide, string Sample, double Weight);
 
 /// <summary>
@@ -292,9 +302,11 @@ public static class SetModel
     /// share through the all-members exception enters once.
     /// </summary>
     /// <remarks>
-    /// A fit that fails gives no estimate and <paramref name="notRun"/> <c>not_converged</c>. Under robust weighting that
-    /// includes reweighting that cannot finish (its round limit, a reweighted refit that fails, or residuals whose MAD is
-    /// zero): the set is not run rather than refitted without weights, so every set of a family is fitted one way.
+    /// A fit that fails gives no estimate and <paramref name="notRun"/> <c>not_converged</c>. Under robust weighting,
+    /// reweighting that does not settle (its round limit, or a later round that cannot be formed) is not a failure: it falls
+    /// back to msqrob2's default of one round (GR-22 amended 2026-11-03), and the set is fitted and tested on the first
+    /// round's weights, flagged by <see cref="SetEstimate.RobustFellBack"/>. A first round that cannot be formed fails the
+    /// fit. A set is never refitted without weights, so every set of a family is weighted.
     /// </remarks>
     /// <param name="setup">The contrast's setup; must be run.</param>
     /// <param name="groups">The protein groups in the estimate, each once, in order.</param>
@@ -303,7 +315,7 @@ public static class SetModel
     /// <param name="robust">
     /// STAT1's robust setting for the stratum (<see cref="DifferentialSettings.Robust"/>, GR-8), on by default as STAT1's:
     /// down-weight outlying values with <see cref="NestedMixedModel"/>'s robust option (msqrob2's Huber weights, iterated
-    /// to convergence, GR-22), then REML and Satterthwaite on the weighted fit.
+    /// to convergence, or one round when they never settle, GR-22), then REML and Satterthwaite on the weighted fit.
     /// </param>
     public static SetEstimate? FitSet(SetContrastSetup setup, IReadOnlyList<string> groups, ObservationTable normalized,
         out string? notRun, bool robust = true)
@@ -409,6 +421,7 @@ public static class SetModel
             SampleVariance = fit.IndividualVariance[0],
             SampleMemberVariance = structure == RandomStructure.IndividualAndSample ? fit.SampleVariance[0] : double.NaN,
             Robust = robust,
+            RobustFellBack = fit.RobustFellBack[0],
             Weights = Enumerable.Range(0, n).Select(i => new SetValueWeight(memberOf[i], peptideOf[i], sampleOf[i], fitted[i])).ToList(),
         };
     }
