@@ -162,6 +162,9 @@
     <None Update="DatabaseTests\humanGAPDH.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\isoformScope.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\IndelDecoy.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
