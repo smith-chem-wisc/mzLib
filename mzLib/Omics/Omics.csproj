@@ -24,6 +24,9 @@
     nothing here loads them, and embedding them would silently widen the default set that
     Mods.AllModsKnown exposes. Adding a file to Resources\ therefore does nothing until it is
     listed below, which is the intended behaviour.
+
+    From PSI-MOD, Mods.cs needs only the formal charges, so it embeds PsiModFormalCharges.tsv
+    (generated from PSI-MOD.obo; see the file's header) instead of the whole ontology.
   -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\Mods.txt">
@@ -35,13 +38,16 @@
     <EmbeddedResource Include="Resources\modomicsmods.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
-    <EmbeddedResource Include="Resources\PSI-MOD.obo.xml">
+    <EmbeddedResource Include="Resources\PsiModFormalCharges.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\ptmlist.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\RnaMods.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\UniprotUnimodCrossReferences.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\TMT.txt">

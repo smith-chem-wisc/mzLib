@@ -31,7 +31,7 @@
     <dependency id="libtorch-cpu" version="2.5.1" />
     <dependency id="Nett" version="0.15.0" />
     <dependency id="Newtonsoft.Json" version="13.0.4" />
-    <dependency id="TopDownProteomics" version="0.0.299" />
+    <dependency id="TopDownProteomics" version="0.0.301" />
     <dependency id="ZstdSharp.Port" version="0.8.8" />
   </group>
   <group targetFramework="net10.0-windows7.0">
@@ -54,7 +54,7 @@
     <dependency id="libtorch-cpu" version="2.5.1" />
     <dependency id="Nett" version="0.15.0" />
     <dependency id="Newtonsoft.Json" version="13.0.4" />
-    <dependency id="TopDownProteomics" version="0.0.299" />
+    <dependency id="TopDownProteomics" version="0.0.301" />
     <dependency id="ZstdSharp.Port" version="0.8.8" />
   </group>
 </dependencies>
@@ -75,7 +75,7 @@
     <file src="Omics\Resources\substitutions.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\surfactants.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\ptmlist.txt" target="modificationData\Data" />
-    <file src="Omics\Resources\PSI-MOD.obo.xml" target="modificationData\Data" />
+    <file src="Omics\Resources\PsiModFormalCharges.tsv" target="modificationData\Data" />
     <file src="Omics\Resources\unimod.xml" target="modificationData\Data" />
     <!--net10.0 target-->
     <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0" />
