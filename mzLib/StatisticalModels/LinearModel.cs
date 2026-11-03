@@ -20,8 +20,8 @@ namespace StatisticalModels
         /// </summary>
         RankDeficient,
         /// <summary>
-        /// Logistic regression only: the outcomes are (quasi-)completely separated by the design, so the
-        /// maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
+        /// Logistic regression and <see cref="LogitNormalMixedModel"/>: the outcomes (counts) are (quasi-)completely
+        /// separated by the design, so the maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
         /// </summary>
         Separated,
         /// <summary>An iterative fit did not converge within its iteration limit.</summary>
@@ -37,6 +37,13 @@ namespace StatisticalModels
         /// variance, e.g. near-identical replicates within each group.
         /// </summary>
         VarianceRatioAtLimit,
+        /// <summary>
+        /// <see cref="LogitNormalMixedModel"/> only: a tested coefficient's 95% likelihood interval does not close within
+        /// an implausible effect, or a variance ran to the top of its search, so the data say nothing about the size of an
+        /// effect (β and τ grow together along a ridge). Such coefficients carry NaN for β and its standard error, and keep
+        /// their likelihood-ratio p-value; see <see cref="LogitNormalMixedModelFit.IsUnbounded"/>.
+        /// </summary>
+        Unbounded,
     }
 
     /// <summary>

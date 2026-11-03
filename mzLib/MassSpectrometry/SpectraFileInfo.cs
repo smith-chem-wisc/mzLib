@@ -49,6 +49,12 @@ namespace MassSpectrometry
         public int TechnicalReplicate { get; }
 
         /// <summary>
+        /// The hash of every identity component, computed once: they are all read-only, and FlashLFQ looks a file up by
+        /// this key in its innermost peak-finding loops, where hashing the full file path each time was a measurable cost.
+        /// </summary>
+        private readonly int _hashCode;
+
+        /// <summary>
         /// Creates a new <see cref="SpectraFileInfo"/> instance with the specified parameters.
         /// </summary>
         /// <param name="fullFilePathWithExtension">The absolute path to the data file including extension.</param>
@@ -64,6 +70,12 @@ namespace MassSpectrometry
             BiologicalReplicate = biorep;
             TechnicalReplicate = techrep;
             Fraction = fraction;
+            _hashCode = HashCode.Combine(
+                StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension),
+                StringComparer.Ordinal.GetHashCode(Condition),
+                BiologicalReplicate,
+                Fraction,
+                TechnicalReplicate);
         }
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are equal.
@@ -151,15 +163,7 @@ namespace MassSpectrometry
         /// and <see cref="TechnicalReplicate"/>.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(
-                StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension ?? string.Empty),
-                StringComparer.Ordinal.GetHashCode(Condition ?? string.Empty),
-                BiologicalReplicate,
-                Fraction,
-                TechnicalReplicate);
-        }
+        public override int GetHashCode() => _hashCode;
 
         /// <summary>
         /// Returns the file name (with extension) extracted from <see cref="FullFilePathWithExtension"/>.

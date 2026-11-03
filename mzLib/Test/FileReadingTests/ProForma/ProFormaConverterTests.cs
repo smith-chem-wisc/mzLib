@@ -108,6 +108,27 @@ namespace Test.FileReadingTests.ProForma
                 Throws.TypeOf<MzLibException>().With.Message.Contains("Multiple modifications target residue index 1"));
         }
 
+        /// <summary>
+        /// A term holds several modifications per terminus (ProForma 2.1, section 6.3; TopDownProteomics 0.0.301), but
+        /// mzLib stores one per position. Every modification here resolves, so only the terminus rule stops the second
+        /// from being dropped.
+        /// </summary>
+        [TestCase("[Acetyl][Carbamyl]-QPEPTIDE", "2 N-terminal modifications")]
+        [TestCase("[Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "2 N-terminal modifications")]
+        [TestCase("QPEPTIDE-[Amidated][Methyl]", "2 C-terminal modifications")]
+        public void Layer2_TwoModificationsOnOneTerminus_Throws(string proForma, string expected)
+        {
+            var mods = new[]
+            {
+                MakeTerminalMod("Acetyl", "N-terminal.", 42.01057), MakeTerminalMod("Carbamyl", "N-terminal.", 43.00581),
+                MakeTerminalMod("Amidated", "C-terminal.", -0.98402), MakeTerminalMod("Methyl", "C-terminal.", 14.01565),
+            };
+            var allModsKnown = mods.ToDictionary(m => m.IdWithMotif);
+
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(ProFormaReader.Read(proForma), allModsKnown),
+                Throws.TypeOf<MzLibException>().With.Message.Contains(expected));
+        }
+
         [Test]
         public void Layer2_ResolvesNameAgainstAContextBearingMotif()
         {
@@ -212,20 +233,20 @@ namespace Test.FileReadingTests.ProForma
         [Test]
         public void Layer2_LoadedPsiModAccession_IsWrittenWithOnePrefixAndReadsBack()
         {
-            // The ptmlist loader stores a PSI-MOD reference already prefixed ("MOD:01956"), unlike the bare
-            // Unimod and RESID ids, so prefixing it again wrote "MOD:MOD:01956".
+            // The ptmlist loader stores a PSI-MOD reference already prefixed ("MOD:01694"), unlike the bare
+            // Unimod and RESID ids, so prefixing it again wrote "MOD:MOD:01694".
             var known = Mods.AllModsKnownDictionary;
-            var mod = known["(3R)-3-hydroxyarginine on R"];
-            Assert.That(mod.DatabaseReference["PSI-MOD"], Does.Contain("MOD:01956"));
+            var mod = known["S-(coelenterazin-3a-yl)cysteine on C"];
+            Assert.That(mod.DatabaseReference["PSI-MOD"], Does.Contain("MOD:01694"));
 
-            var term = ProFormaConverter.ToProFormaTerm("PERK", new Dictionary<int, Modification> { [4] = mod });
-            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("PER[MOD:01956]K"));
+            var term = ProFormaConverter.ToProFormaTerm("PECK", new Dictionary<int, Modification> { [4] = mod });
+            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("PEC[MOD:01694]K"));
 
-            var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:01956]K"), known);
+            var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PEC[MOD:01694]K"), known);
             Assert.That(back[4], Is.SameAs(mod));
 
             // mzLib 1.0.590-1.0.593 wrote the doubled prefix, and those files are still on disk.
-            var legacy = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:MOD:01956]K"), known);
+            var legacy = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PEC[MOD:MOD:01694]K"), known);
             Assert.That(legacy[4], Is.SameAs(mod));
         }
 
