@@ -1036,5 +1036,71 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     && p.AllModsOneIsNterminus.ContainsKey(9 - 6 + 2)), Is.EqualTo(maxMissedCleavages > 0),
                 "a blocked site is not a site, so the chain must be emitted as flag-off emits a chain spanning no site");
         }
+
+        /// <summary>
+        /// Carbamylation keeps forming after trypsin has cut, because the cyanate in urea carbamylates amines through
+        /// lysis and digestion, so a carbamylated lysine at a peptide C-terminus is a real peptide. It is therefore not
+        /// classified as blocking under any of the three names the shipped databases give it. They are read from the
+        /// loaded databases rather than built by hand, so this fails if a shipped name ever reaches a blocking rule.
+        /// </summary>
+        [Test]
+        [TestCase("Unimod", "Carbamyl on K")]
+        [TestCase("UniProt", "N6-carbamoyllysine on K")]
+        [TestCase("MetaMorpheus", "Carbamyl on K")]
+        public static void ShippedLysineCarbamylation_DoesNotBlockCleavage(string source, string idWithMotif)
+        {
+            List<Modification> shipped = source switch
+            {
+                "Unimod" => Mods.UnimodModifications,
+                "UniProt" => Mods.UniprotModifications,
+                _ => Mods.MetaMorpheusProteinModifications,
+            };
+            Modification carbamylation = shipped.Single(m => m.IdWithMotif == idWithMotif);
+
+            Assert.That(carbamylation.LocationRestriction, Is.EqualTo("Anywhere."),
+                "premise: the side-chain form, which the location gate lets through to the name test");
+            Assert.That(carbamylation.BlocksCleavage, Is.False);
+        }
+
+        /// <summary>
+        /// The same decision at digestion: with the correction on, a peptide ending in a carbamylated lysine at an
+        /// internal cut is generated, and the whole digest is the one the correction-off digestion produces.
+        /// </summary>
+        [Test]
+        public static void Digestion_PeptideEndingInCarbamylatedLysine_IsKeptWhenRespected()
+        {
+            var carbamyl = MakeKModification("Carbamyl", mass: 43.005814);
+
+            var withoutCorrection = Digest(respectBlockingMods: false, maxMissedCleavages: 2, carbamyl);
+            var withCorrection = Digest(respectBlockingMods: true, maxMissedCleavages: 2, carbamyl);
+
+            Assert.That(withCorrection.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
+                "a lysine carbamylated after the cut sits at a real C-terminus");
+            CollectionAssert.AreEquivalent(withoutCorrection.Select(p => p.FullSequence),
+                withCorrection.Select(p => p.FullSequence),
+                "a modification that blocks nothing must leave the digest exactly as the correction-off digest");
+        }
+
+        /// <summary>
+        /// The cost of that decision, pinned so that it stays a decision: an INTERNAL carbamylated lysine is an
+        /// ordinary missed cleavage again. A blocking modification's site is discounted from the count (see
+        /// <see cref="ReadThroughOfABlockedSite_ReportsZeroMissedCleavages_NotOne"/>); a carbamylated one is not, so
+        /// the read-through carrying it needs a missed cleavage, as it does with the correction off. Keeping the
+        /// discount would need a per-modification "also forms after digestion" exception, which is not modelled.
+        /// </summary>
+        [Test]
+        public static void ReadThroughOfACarbamylatedLysine_CountsAsAMissedCleavage()
+        {
+            var carbamyl = MakeKModification("Carbamyl", mass: 43.005814);
+
+            var atZero = Digest(respectBlockingMods: true, maxMissedCleavages: 0, carbamyl);
+            Assert.That(atZero.Any(p => p.BaseSequence == "PEPTIDEKAAAAAAAR"), Is.False,
+                "at zero missed cleavages nothing reads through K8, carbamylated or not");
+
+            PeptideWithSetModifications readThrough = Digest(respectBlockingMods: true, maxMissedCleavages: 1, carbamyl)
+                .Single(p => p.BaseSequence == "PEPTIDEKAAAAAAAR" && p.AllModsOneIsNterminus.ContainsKey(9));
+            Assert.That(readThrough.MissedCleavages, Is.EqualTo(1),
+                "the carbamylated K8 is a missed cleavage, not a blocked site");
+        }
     }
 }
