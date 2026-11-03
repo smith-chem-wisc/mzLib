@@ -56,13 +56,22 @@ namespace Omics.BioPolymerGroup
             BioPolymerGroupScore = 0;
             BestBioPolymerWithSetModsScore = 0;
             QValue = 0;
+            GroupType = groupType;
+            SetFlagsFromMembers();
+        }
+
+        /// <summary>
+        /// Sets <see cref="IsDecoy"/>, <see cref="IsContaminant"/> and <see cref="IsEntrapment"/> from
+        /// <see cref="BioPolymers"/>: each is true if any member is.
+        /// </summary>
+        private void SetFlagsFromMembers()
+        {
             IsDecoy = false;
             IsContaminant = false;
             IsEntrapment = false;
-            GroupType = groupType;
 
             // if any of the biopolymers in the group are decoys, the group is a decoy
-            foreach (var bioPolymer in bioPolymers)
+            foreach (var bioPolymer in BioPolymers)
             {
                 if (bioPolymer.IsDecoy)
                 {
@@ -92,17 +101,17 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// True if this group contains any decoy biopolymers, used for FDR estimation.
         /// </summary>
-        public bool IsDecoy { get; }
+        public bool IsDecoy { get; private set; }
 
         /// <summary>
         /// True if this group contains any biopolymers marked as contaminants.
         /// </summary>
-        public bool IsContaminant { get; }
+        public bool IsContaminant { get; private set; }
 
         /// <summary>
         /// True if this group contains any biopolymers marked as entrapment proteins.
         /// </summary>
-        public bool IsEntrapment { get; }
+        public bool IsEntrapment { get; private set; }
 
         /// <summary>
         /// List of samples that contribute quantification data for this group.
@@ -457,6 +466,7 @@ namespace Omics.BioPolymerGroup
         ///   <item><description><see cref="UniqueBioPolymersWithSetMods"/> contains the union of both groups' unique sequences</description></item>
         ///   <item><description><see cref="AllPsmsBelowOnePercentFDR"/> contains the union of both groups' PSMs</description></item>
         ///   <item><description><see cref="ListOfBioPolymersOrderedByAccession"/> and <see cref="BioPolymerGroupName"/> are recalculated</description></item>
+        ///   <item><description><see cref="IsDecoy"/>, <see cref="IsContaminant"/> and <see cref="IsEntrapment"/> are recalculated from the merged members</description></item>
         ///   <item><description>Cached coverage results are invalidated</description></item>
         /// </list>
         /// </remarks>
@@ -470,6 +480,7 @@ namespace Omics.BioPolymerGroup
 
             ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
             BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
+            SetFlagsFromMembers();
 
             // Invalidate cached coverage since PSMs changed
             _coverageResult = null;
