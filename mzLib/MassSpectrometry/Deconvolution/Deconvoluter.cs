@@ -141,6 +141,7 @@ namespace MassSpectrometry
                 DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
                 DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
+                DeconvolutionType.RealFLASHDeconvolution => new RealFLASHDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.FromFile => throw new MzLibException(
                     "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
                     "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),
