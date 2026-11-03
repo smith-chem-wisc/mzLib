@@ -120,9 +120,11 @@ public static class SpectraFileAveraging
         
         // add all scans that did not get averaged
         // this includes the MS1 scans from start and end of file and all MS2+ scans
-        foreach (var unaveragedScan in scans.Where(original =>
-                     !averagedScans.Select(avg => avg.OneBasedScanNumber).Contains(original.OneBasedScanNumber)))
-            averagedScans.Add(unaveragedScan);
+        // (a scan is skipped when its number is already in the list, which includes the scans added here)
+        var scanNumbersInList = new HashSet<int>(averagedScans.Select(avg => avg.OneBasedScanNumber));
+        foreach (var original in scans)
+            if (scanNumbersInList.Add(original.OneBasedScanNumber))
+                averagedScans.Add(original);
         
         return averagedScans.OrderBy(p => p.OneBasedScanNumber).ToArray();
     }
