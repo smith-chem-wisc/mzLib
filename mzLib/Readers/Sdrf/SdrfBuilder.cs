@@ -28,6 +28,11 @@ namespace Readers
     /// written. Tolerating other people's free text is the pooling layer's job
     /// (<see cref="SdrfDriftLint"/>), not the writer's.
     ///
+    /// **One deliberate exception: <see cref="SdrfSample.CopiedFrom"/>.** A search that re-analyses a
+    /// curated SDRF carries that SDRF's sample columns cell for cell, never parsed. They are somebody
+    /// else's statements about their samples, which this search does not make, so resolving them would
+    /// be rewriting them. The assay half is still built here.
+    ///
     /// What it will NOT do is invent a sample fact. If a caller cannot supply organism part or
     /// disease, the build fails rather than writing "not available" — see
     /// <see cref="SdrfBuilderOptions.RequireSampleMetadata"/>.
@@ -53,9 +58,19 @@ namespace Readers
         private const string FractionIdentifier = "comment[fraction identifier]";
         private const string TechnicalReplicate = "comment[technical replicate]";
         private const string DataFile = "comment[data file]";
+        private const string SearchedDataFile = "comment[searched data file]";
         private const string PxAccession = "comment[proteomexchange accession number]";
         private const string SoftwareColumn = "comment[software]";
         private const string SdrfVersionColumn = "comment[sdrf version]";
+
+        // The comment columns the builder writes itself; an extension comment may not reuse one, and
+        // SdrfSampleCopy never copies one (the search writes its own).
+        internal static readonly IReadOnlySet<string> BuiltInCommentColumns = new HashSet<string>(StringComparer.Ordinal)
+        {
+            AcquisitionMethod, Label, Instrument, CleavageAgent, ModificationParameters, PrecursorTolerance,
+            FragmentTolerance, DissociationMethod, FractionIdentifier, TechnicalReplicate, DataFile,
+            SearchedDataFile, PxAccession, SoftwareColumn, SdrfVersionColumn
+        };
 
         /// <summary>The one value SDRF defines for this column in an MS experiment.</summary>
         private const string TechnologyTypeValue = "proteomic profiling by mass spectrometry";
@@ -79,7 +94,22 @@ namespace Readers
         /// </summary>
         private static readonly string[] RequiredCharacteristics = { OrganismPart };
 
-        public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions options = null)
+        /// <summary>
+        /// Characteristics columns the builder writes from a dedicated <see cref="SdrfSample"/>
+        /// property, and which therefore may not arrive through either dictionary as well.
+        ///
+        /// <see cref="BuildHeader"/> emits both unconditionally, so a key naming one would add a
+        /// SECOND column of the same name, and <see cref="SdrfValidator"/> does not look for
+        /// duplicate columns. They are exactly the columns <see cref="SdrfSampleBlock.CharacteristicColumns"/>
+        /// harvests from a deposited SDRF, so copying a block in whole would hit this.
+        /// </summary>
+        private static readonly Dictionary<string, string> BuiltInCharacteristics = new(StringComparer.Ordinal)
+        {
+            [Organism] = nameof(SdrfSample.Organism),
+            [BiologicalReplicate] = nameof(SdrfSample.BiologicalReplicate)
+        };
+
+        public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions? options = null)
         {
             if (rows is null) throw new ArgumentNullException(nameof(rows));
             options ??= new SdrfBuilderOptions();
@@ -95,35 +125,66 @@ namespace Readers
             // established ArgumentException as the contract for a malformed input.
             for (int i = 0; i < inputs.Count; i++)
                 RequireComplete(inputs[i], i);
+            RequireOneKindPerColumn(inputs);
+            bool copied = RequireOneSampleSource(inputs);
 
             // Multi-cardinality columns are as wide as the widest row needs, and every row pads to
             // that width. Sizing per row would produce a ragged document.
             int modificationSlots = Math.Max(1, inputs.Max(r =>
                 r.Assay.FixedModifications.Count + r.Assay.VariableModifications.Count));
 
+            // Written only when some row was searched from a file other than the one acquired, so a
+            // caller that never sets it gets byte-for-byte the document it got before.
+            bool searchedColumn = inputs.Any(r => !string.IsNullOrWhiteSpace(r.Assay.SearchedDataFileName));
+
+            if (copied)
+            {
+                // Every copy has the same column sequence (RequireOneSampleSource), so the first row's is the header's.
+                var copyColumns = inputs[0].Sample.CopiedFrom!.Cells.Select(c => c.Key).ToList();
+                var copyHeader = new SdrfHeader(BuildCopiedHeader(copyColumns, modificationSlots, searchedColumn, options));
+                var copyRows = inputs
+                    .Select(input => new SdrfRow(copyHeader, BuildCopiedCells(input, modificationSlots, searchedColumn, options)))
+                    .ToList();
+                return new SdrfDocument(copyHeader, copyRows);
+            }
+
             // Union with the required set, so a caller who supplied no characteristics at all still
             // gets a spec-conformant header. See RequiredCharacteristics for why absent is worse
             // than empty.
+            // BOTH dictionaries join one union. If the free-text keys did not, a row would carry a
+            // cell the header never declared and the table would go ragged -- the defect class this
+            // builder has already been fixed for twice.
             var characteristicColumns = inputs
-                .SelectMany(r => r.Sample.Characteristics.Keys)
+                .SelectMany(r => r.Sample.Characteristics.Keys.Concat(r.Sample.RawCharacteristics.Keys))
                 .Concat(RequiredCharacteristics)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
 
+            // Sorted ordinally rather than left in insertion order, so two rows that name their
+            // columns in different orders still produce one deterministic header.
             var factorColumns = inputs
-                .Select(r => r.Sample.FactorValueColumn)
+                .SelectMany(r => r.Sample.FactorValues.Keys.Append(r.Sample.FactorValueColumn))
                 .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c!)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+
+            // Extension comments: one union, sorted, like every other multi-row column set. Empty for a
+            // caller that sets none, so its document is unchanged.
+            var commentColumns = inputs
+                .SelectMany(r => r.Sample.Comments.Keys)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
 
             var header = new SdrfHeader(BuildHeader(
-                characteristicColumns, factorColumns, modificationSlots, options));
+                characteristicColumns, factorColumns, modificationSlots, searchedColumn, commentColumns, options));
 
             var built = inputs
                 .Select(input => new SdrfRow(header,
-                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, options)))
+                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, searchedColumn, commentColumns, options)))
                 .ToList();
 
             return new SdrfDocument(header, built);
@@ -154,16 +215,218 @@ namespace Readers
                 throw new ArgumentException(
                     $"Row {index} has a null {nameof(SdrfAssay.VariableModifications)}; pass an " +
                     "empty list for a search with none.", nameof(input));
+            if (input.Sample.RawCharacteristics is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.RawCharacteristics)}; pass an empty " +
+                    "dictionary for a sample with no free-text characteristics.", nameof(input));
+            if (input.Sample.FactorValues is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.FactorValues)}; pass an empty " +
+                    "dictionary for a sample with no factor values.", nameof(input));
+            if (input.Sample.Comments is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.Comments)}; pass an empty " +
+                    "dictionary for a sample with no extension comments.", nameof(input));
+            foreach (var key in input.Sample.Comments.Keys)
+            {
+                if (string.IsNullOrWhiteSpace(key)
+                    || !key.StartsWith("comment[", StringComparison.Ordinal) || !key.EndsWith(']'))
+                    throw new ArgumentException(
+                        $"Row {index} has an extension comment keyed '{key}'; {nameof(SdrfSample.Comments)} " +
+                        "takes comment[...] columns only. Characteristics go in Characteristics or " +
+                        "RawCharacteristics, factors in FactorValues.", nameof(input));
+                if (BuiltInCommentColumns.Contains(key))
+                    throw new ArgumentException(
+                        $"Row {index} has an extension comment '{key}', which the builder already writes " +
+                        "from the assay; set it there instead, so one column is never written twice.", nameof(input));
+            }
+
+            // A blank key would become a column with no name. The factor union already drops one,
+            // which loses its value silently; refusing all three alike tells the caller instead.
+            if (input.Sample.Characteristics.Keys
+                    .Concat(input.Sample.RawCharacteristics.Keys)
+                    .Concat(input.Sample.FactorValues.Keys)
+                    .Any(string.IsNullOrWhiteSpace))
+                throw new ArgumentException(
+                    $"Row {index} has a characteristic or factor value keyed by a blank column name.",
+                    nameof(input));
+
+            // Refused rather than skipped: skipping would drop the caller's value without a word,
+            // and the value belongs in the property the builder writes the column from.
+            var builtIn = input.Sample.Characteristics.Keys
+                .Concat(input.Sample.RawCharacteristics.Keys)
+                .Where(BuiltInCharacteristics.ContainsKey)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (builtIn.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} has a characteristic '{builtIn[0]}', which the builder already writes " +
+                    $"from {nameof(SdrfSample)}.{BuiltInCharacteristics[builtIn[0]]}; set it there " +
+                    "instead, so one column is never written twice.", nameof(input));
+
+            // One column space, two dictionaries. Preferring either one silently is how a column
+            // comes to mean a term on some rows and free text on others.
+            var both = input.Sample.Characteristics.Keys
+                .Intersect(input.Sample.RawCharacteristics.Keys, StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (both.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} puts {string.Join(", ", both)} in both " +
+                    $"{nameof(SdrfSample.Characteristics)} and {nameof(SdrfSample.RawCharacteristics)}. " +
+                    "A column may be a term or free text, not both; decide in the caller.", nameof(input));
+
+            // Same rule, one level up: FactorValue/FactorValueColumn is shorthand for a one-entry
+            // FactorValues, and two statements of one row's factors that disagree is a caller error.
+            if (input.Sample.FactorValues.Count > 0
+                && !string.IsNullOrWhiteSpace(input.Sample.FactorValueColumn))
+                throw new ArgumentException(
+                    $"Row {index} sets both {nameof(SdrfSample.FactorValues)} and " +
+                    $"{nameof(SdrfSample.FactorValueColumn)}. The pair is the one-factor shorthand " +
+                    "for the dictionary; use one or the other.", nameof(input));
+
+            if (input.Sample.CopiedFrom is not null)
+                RequireCopyAlone(input.Sample, index);
+        }
+
+        /// <summary>
+        /// A row carrying <see cref="SdrfSample.CopiedFrom"/> takes its sample columns from the copy and nowhere else:
+        /// one source of truth per row. Each copied value must be writable as it stands.
+        /// </summary>
+        private static void RequireCopyAlone(SdrfSample sample, int index)
+        {
+            var copy = sample.CopiedFrom!;
+            if (!string.Equals(sample.SourceName, copy.SourceName, StringComparison.Ordinal))
+                throw new ArgumentException(
+                    $"Row {index} sets {nameof(SdrfSample.SourceName)} '{sample.SourceName}' but copies source name " +
+                    $"'{copy.SourceName}'. With {nameof(SdrfSample.CopiedFrom)}, set it to the copied source name.", "input");
+
+            var alsoSet = new List<string>();
+            if (sample.Organism is not null) alsoSet.Add(nameof(SdrfSample.Organism));
+            if (sample.Characteristics.Count > 0) alsoSet.Add(nameof(SdrfSample.Characteristics));
+            if (sample.RawCharacteristics.Count > 0) alsoSet.Add(nameof(SdrfSample.RawCharacteristics));
+            // 1 is the property's default, so it cannot be told from "unset"; anything else, null included, was set.
+            if (sample.BiologicalReplicate != 1) alsoSet.Add(nameof(SdrfSample.BiologicalReplicate));
+            // A copied replicate cell already says `pooled` where the input did.
+            if (sample.Pooled) alsoSet.Add(nameof(SdrfSample.Pooled));
+            if (sample.FactorValue is not null) alsoSet.Add(nameof(SdrfSample.FactorValue));
+            if (sample.FactorValueColumn is not null) alsoSet.Add(nameof(SdrfSample.FactorValueColumn));
+            if (sample.FactorValues.Count > 0) alsoSet.Add(nameof(SdrfSample.FactorValues));
+            if (sample.Comments.Count > 0) alsoSet.Add(nameof(SdrfSample.Comments));
+            if (alsoSet.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} ('{copy.SourceName}') sets {nameof(SdrfSample.CopiedFrom)} and also " +
+                    $"{string.Join(", ", alsoSet)}. The copy is the row's only source of sample columns; leave the others unset.",
+                    "input");
+
+            foreach (var cell in copy.Cells)
+            {
+                // A blank comment[...] is carried as it stands: it describes the file or the record, not the sample
+                // (of the 357 curated SDRFs with a blank copied cell, 322 have blanks only in comment[file uri]),
+                // SdrfDocument writes an empty cell unchanged, and SdrfValidator only warns (EmptyCell).
+                if (string.IsNullOrWhiteSpace(cell.Value) && !IsComment(cell.Key))
+                    throw new ArgumentException(
+                        $"Row {index} ('{copy.SourceName}') copies a blank '{cell.Key}'. A blank sample fact is not a " +
+                        "statement anybody made, and the copy does not invent one; fix the input SDRF.", "input");
+                if (cell.Value.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
+                    throw new ArgumentException(
+                        $"Row {index} ('{copy.SourceName}') copies a '{cell.Key}' containing a tab or newline, which an " +
+                        "SDRF cell cannot hold; the format defines no escape mechanism.", "input");
+            }
+        }
+
+        /// <summary>
+        /// Every row carries <see cref="SdrfSample.CopiedFrom"/> or none does, and every copy has the same columns in
+        /// the same order: one input document gives one header, and anything else is a caller error. True when
+        /// every row is a copy.
+        /// </summary>
+        private static bool RequireOneSampleSource(IReadOnlyList<SdrfRowInput> inputs)
+        {
+            int copies = inputs.Count(r => r.Sample.CopiedFrom is not null);
+            if (copies == 0) return false;
+            if (copies != inputs.Count)
+                throw new ArgumentException(
+                    $"{copies} of {inputs.Count} rows set {nameof(SdrfSample.CopiedFrom)}. Copy every row's sample " +
+                    "columns from the input SDRF, or none.", nameof(inputs));
+
+            var first = inputs[0].Sample.CopiedFrom!.Cells.Select(c => c.Key).ToList();
+            for (int i = 1; i < inputs.Count; i++)
+            {
+                var columns = inputs[i].Sample.CopiedFrom!.Cells.Select(c => c.Key);
+                if (!columns.SequenceEqual(first, StringComparer.Ordinal))
+                    throw new ArgumentException(
+                        $"Row {i} copies different sample columns from row 0. Every copy must come from one input " +
+                        "SDRF, so that the document has one header.", nameof(inputs));
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// The same rule <see cref="RequireComplete"/> applies within a row, applied across rows: the
+        /// header union merges every row's keys into ONE column, so a column that is a term on one row
+        /// and free text on another would mean two different things in one document just as surely as
+        /// a key in both dictionaries of a single row would.
+        /// </summary>
+        private static void RequireOneKindPerColumn(IReadOnlyList<SdrfRowInput> inputs)
+        {
+            var termColumns = inputs
+                .SelectMany(r => r.Sample.Characteristics.Keys)
+                .ToHashSet(StringComparer.Ordinal);
+            var mixed = inputs
+                .SelectMany(r => r.Sample.RawCharacteristics.Keys)
+                .Where(termColumns.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (mixed.Count > 0)
+                throw new ArgumentException(
+                    $"{string.Join(", ", mixed)} is a term on some rows and free text on others. " +
+                    "One column holds one kind of value in a document; decide in the caller.",
+                    nameof(inputs));
         }
 
         private static List<string> BuildHeader(
             IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, IReadOnlyList<string> comments, SdrfBuilderOptions options)
         {
             var names = new List<string> { SourceName, Organism };
             names.AddRange(characteristics);
             names.Add(BiologicalReplicate);
 
+            AddAssayColumns(names, modificationSlots, searchedColumn, options);
+
+            names.AddRange(comments);
+            names.AddRange(factors);
+            return names;
+        }
+
+        /// <summary>
+        /// The header when every row carries <see cref="SdrfSample.CopiedFrom"/>: <c>source name</c> first, the copied
+        /// characteristics where characteristics go, then <c>material type</c> (the MAGE-TAB sample column that closes
+        /// the sample section), the builder's assay block, the copied comments where extension comments go, and the
+        /// copied factor values last. Within each group, the input's order, repeats kept.
+        /// </summary>
+        private static List<string> BuildCopiedHeader(
+            IReadOnlyList<string> copied, int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+        {
+            var names = new List<string> { SourceName };
+            names.AddRange(copied.Where(IsCharacteristic));
+            names.AddRange(copied.Where(IsMaterialType));
+            AddAssayColumns(names, modificationSlots, searchedColumn, options);
+            names.AddRange(copied.Where(IsComment));
+            names.AddRange(copied.Where(IsFactor));
+            return names;
+        }
+
+        private static bool IsCharacteristic(string column) => column.StartsWith("characteristics[", StringComparison.Ordinal);
+        private static bool IsMaterialType(string column) => string.Equals(column, SdrfSampleCopy.MaterialTypeColumn, StringComparison.Ordinal);
+        private static bool IsComment(string column) => column.StartsWith("comment[", StringComparison.Ordinal);
+        private static bool IsFactor(string column) => column.StartsWith("factor value[", StringComparison.Ordinal);
+
+        /// <summary>The assay and document columns, from <c>assay name</c> to <c>comment[sdrf version]</c>.</summary>
+        private static void AddAssayColumns(List<string> names, int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+        {
             names.Add(AssayName);
             names.Add(TechnologyType);
             names.Add(AcquisitionMethod);
@@ -177,21 +440,18 @@ namespace Readers
             names.Add(FractionIdentifier);
             names.Add(TechnicalReplicate);
             names.Add(DataFile);
+            if (searchedColumn) names.Add(SearchedDataFile);
 
             if (!string.IsNullOrWhiteSpace(options.ProteomeXchangeAccession)) names.Add(PxAccession);
             if (options.Software is not null) names.Add(SoftwareColumn);
             if (!string.IsNullOrWhiteSpace(options.SdrfVersion)) names.Add(SdrfVersionColumn);
-
-            names.AddRange(factors);
-            return names;
         }
 
         private static List<string> BuildCells(
             SdrfRowInput input, IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, IReadOnlyList<string> comments, SdrfBuilderOptions options)
         {
             var sample = input.Sample;
-            var assay = input.Assay;
             var cells = new List<string>
             {
                 Required(sample.SourceName, SourceName, options),
@@ -199,16 +459,82 @@ namespace Readers
             };
 
             foreach (var column in characteristics)
-                cells.Add(sample.Characteristics.TryGetValue(column, out var value)
-                    ? Term(value, column, options)
-                    : Missing(column, options));
+            {
+                if (sample.Characteristics.TryGetValue(column, out var term))
+                    cells.Add(Term(term, column, options));
+                else if (sample.RawCharacteristics.TryGetValue(column, out var free))
+                    // Verbatim, reserved words included: this cell is somebody else's statement and
+                    // the builder is carrying it, not making it. Blank is the one case it will not
+                    // pass on -- Required turns that into the same reserved word an absent cell
+                    // gets, because a blank cell and a missing one make the same claim.
+                    cells.Add(Required(free, column, options));
+                else if (RequiredCharacteristics.Contains(column, StringComparer.Ordinal))
+                    // D17 governs the columns the SPECIFICATION requires: opting in and then leaving
+                    // one blank is what fills the corpus with reserved words, so it refuses.
+                    cells.Add(Missing(column, options));
+                else
+                    // But a column that exists only because ANOTHER row carried it is a different
+                    // case. One described sample must not fail the whole document, and "this sample
+                    // has no age" is exactly what the reserved word is for -- the column is here
+                    // because somewhere a real value was supplied, and this cell marks who lacks it.
+                    cells.Add(SdrfReserved.NotAvailable);
+            }
 
-            cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate));
+            cells.Add(BiologicalReplicateCell(sample, options));
 
+            AddAssayCells(cells, input, modificationSlots, searchedColumn, options);
+
+            foreach (var column in comments)
+                // A row without this key: for a provenance override column that means "no override,
+                // the row default holds", which is not-applicable rather than not-available.
+                cells.Add(sample.Comments.TryGetValue(column, out var comment) && !string.IsNullOrWhiteSpace(comment)
+                    ? comment
+                    : SdrfReserved.NotApplicable);
+
+            foreach (var column in factors)
+            {
+                if (sample.FactorValues.TryGetValue(column, out var factor)
+                    && !string.IsNullOrWhiteSpace(factor))
+                    cells.Add(factor);
+                else if (string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
+                         && !string.IsNullOrWhiteSpace(sample.FactorValue))
+                    cells.Add(sample.FactorValue);
+                else
+                    // A sample that has no value for a factor another row declares is not applicable
+                    // to it -- which is a different claim from "not available", and the right one.
+                    cells.Add(SdrfReserved.NotApplicable);
+            }
+
+            return cells;
+        }
+
+        /// <summary>
+        /// The cells of a row carrying <see cref="SdrfSample.CopiedFrom"/>, in <see cref="BuildCopiedHeader"/>'s order.
+        /// The copied values are written exactly as given; only the assay block is built.
+        /// </summary>
+        private static List<string> BuildCopiedCells(
+            SdrfRowInput input, int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+        {
+            var copied = input.Sample.CopiedFrom!.Cells;
+            var cells = new List<string> { input.Sample.CopiedFrom.SourceName };
+            cells.AddRange(copied.Where(c => IsCharacteristic(c.Key)).Select(c => c.Value));
+            cells.AddRange(copied.Where(c => IsMaterialType(c.Key)).Select(c => c.Value));
+            AddAssayCells(cells, input, modificationSlots, searchedColumn, options);
+            cells.AddRange(copied.Where(c => IsComment(c.Key)).Select(c => c.Value));
+            cells.AddRange(copied.Where(c => IsFactor(c.Key)).Select(c => c.Value));
+            return cells;
+        }
+
+        /// <summary>The cells under <see cref="AddAssayColumns"/>' columns, which every row builds the same way.</summary>
+        private static void AddAssayCells(
+            List<string> cells, SdrfRowInput input, int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+        {
+            var sample = input.Sample;
+            var assay = input.Assay;
             cells.Add(Required(assay.AssayName, AssayName, options));
             cells.Add(TechnologyTypeValue);
             cells.Add(Term(assay.AcquisitionMethod, AcquisitionMethod, options));
-            cells.Add(Term(sample.Label, Label, options));
+            cells.Add(LabelCell(sample.Label, options));
             cells.Add(InstrumentCell(assay.Instrument, options));
             cells.Add(CleavageAgentCell(assay.CleavageAgent, options));
 
@@ -219,9 +545,21 @@ namespace Readers
             cells.Add(ToleranceCell(assay.PrecursorMassTolerance, PrecursorTolerance, options));
             cells.Add(ToleranceCell(assay.ProductMassTolerance, FragmentTolerance, options));
             cells.Add(DissociationCell(assay.DissociationType, options));
-            cells.Add(Positive(assay.Fraction, FractionIdentifier));
-            cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate));
+            cells.Add(Positive(assay.Fraction, FractionIdentifier, options));
+            cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate, options));
             cells.Add(Required(assay.DataFileName, DataFile, options));
+            if (searchedColumn)
+                // A row whose search read the acquired file itself names that file again, so the
+                // column says "no transformation" rather than leaving the reader to guess.
+                // Through Required, like the comment[data file] cell one line above. Writing the
+                // fallback raw meant that a row with a blank DataFileName produced "not available"
+                // in one column and an EMPTY cell in the other -- two cells disagreeing about the
+                // same absence, plus an EmptyCell warning from the lint.
+                cells.Add(Required(
+                    string.IsNullOrWhiteSpace(assay.SearchedDataFileName)
+                        ? assay.DataFileName
+                        : assay.SearchedDataFileName,
+                    SearchedDataFile, options));
 
             if (!string.IsNullOrWhiteSpace(options.ProteomeXchangeAccession))
                 cells.Add(options.ProteomeXchangeAccession);
@@ -233,14 +571,6 @@ namespace Readers
                 // column, so the malformed value would have gone out silently. The specification
                 // asks for vMAJOR.MINOR.PATCH.
                 cells.Add("v" + options.SdrfVersion.TrimStart('v', 'V'));
-
-            foreach (var column in factors)
-                cells.Add(string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
-                          && !string.IsNullOrWhiteSpace(sample.FactorValue)
-                    ? sample.FactorValue
-                    : SdrfReserved.NotApplicable);
-
-            return cells;
         }
 
         /// <summary>
@@ -248,7 +578,7 @@ namespace Readers
         /// an empty accession, which is resolved here against PSI-MS — the one place a name-to-
         /// accession lookup genuinely belongs, since the raw reader must not carry an ontology.
         /// </summary>
-        private static string InstrumentCell(CvParam instrument, SdrfBuilderOptions options)
+        private static string InstrumentCell(CvParam? instrument, SdrfBuilderOptions options)
         {
             if (instrument is null) return Missing(Instrument, options);
 
@@ -272,7 +602,7 @@ namespace Readers
                 : SdrfCell.ToCell(instrument);
         }
 
-        private static string CleavageAgentCell(Omics.Digestion.DigestionAgent agent, SdrfBuilderOptions options)
+        private static string CleavageAgentCell(Omics.Digestion.DigestionAgent? agent, SdrfBuilderOptions options)
         {
             if (agent is null) return Missing(CleavageAgent, options);
 
@@ -353,7 +683,7 @@ namespace Readers
         /// Their ToString is not reused here only because it renders "±10.0000 PPM", which is not
         /// the grammar SDRF asks for.
         /// </summary>
-        private static string ToleranceCell(Tolerance tolerance, string column, SdrfBuilderOptions options)
+        private static string ToleranceCell(Tolerance? tolerance, string column, SdrfBuilderOptions options)
         {
             if (tolerance is null) return Missing(column, options);
             string value = tolerance.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -373,29 +703,69 @@ namespace Readers
 
         private static string SoftwareCell(SdrfBuilderOptions options)
         {
-            var software = options.Software;
+            // Only reached when the header added the column, which happens only when Software is
+            // set -- BuildHeader and BuildCells test the same option.
+            CvParam software = options.Software!;
             return string.IsNullOrWhiteSpace(options.SoftwareVersion)
                 ? SdrfCell.ToCell(software)
                 : SdrfCell.ToCell(software, ("VV", options.SoftwareVersion));
         }
 
-        private static string Term(CvParam term, string column, SdrfBuilderOptions options) =>
+        private static string Term(CvParam? term, string column, SdrfBuilderOptions options) =>
             term is null ? Missing(column, options) : SdrfCell.ToCell(term);
 
-        private static string Required(string value, string column, SdrfBuilderOptions options) =>
+        /// <summary>
+        /// <c>comment[label]</c>, in the form <see cref="SdrfBuilderOptions.LabelForm"/> asks for. A
+        /// missing label, or one with no name to write bare, goes through <see cref="Term"/> exactly
+        /// as any other term does.
+        /// </summary>
+        private static string LabelCell(CvParam? label, SdrfBuilderOptions options)
+        {
+            if (options.LabelForm != SdrfLabelForm.Bare || string.IsNullOrWhiteSpace(label?.Name))
+                return Term(label, Label, options);
+
+            // The same refusal SdrfCell.ToCell makes: the format has no escape for a separator.
+            if (label!.Name.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
+                throw new ArgumentException(
+                    "An SDRF cell cannot contain a tab or newline; the format defines no escape " +
+                    $"mechanism. Offending label: '{label.Name}'.", nameof(label));
+
+            return label.Name;
+        }
+
+        private static string Required(string? value, string column, SdrfBuilderOptions options) =>
             string.IsNullOrWhiteSpace(value) ? Missing(column, options) : value;
 
         /// <summary>
-        /// 1-based, and validated. SDRF replicate and fraction identifiers start at 1; mzLib's
-        /// SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
+        /// A replicate or fraction number: 1-based, and validated. SDRF replicate and fraction identifiers start
+        /// at 1; mzLib's SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
         /// a 0 that every consumer reads as an error.
+        ///
+        /// <c>null</c> is a number nobody established -- a search with no experimental design does not know it --
+        /// and is treated like any missing value (<see cref="Missing"/>): written <c>not available</c>, or refused
+        /// under RequireSampleMetadata. Writing 1 instead would state that every run is its own unfractionated
+        /// sample, a filled cell no coverage report can flag.
         /// </summary>
-        private static string Positive(int value, string column) =>
-            value >= 1
-                ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        private static string Positive(int? value, string column, SdrfBuilderOptions options) =>
+            value is null ? Missing(column, options)
+            : value >= 1
+                ? value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : throw new MzLibException(
                     $"'{column}' must be 1-based and at least 1, but was {value}. mzLib's " +
                     "SpectraFileInfo stores replicates and fractions 0-based; add 1 before passing them.");
+
+        /// <summary>
+        /// A pool is written <c>pooled</c>, the specification's reserved word ("For pooled samples, use pooled for
+        /// biological replicate"), and QuantProject reads it as a reference role. It is a statement, so it is never
+        /// refused as missing. A pool has no replicate number, so a number other than the default beside it throws.
+        /// </summary>
+        private static string BiologicalReplicateCell(SdrfSample sample, SdrfBuilderOptions options) =>
+            !sample.Pooled ? Positive(sample.BiologicalReplicate, BiologicalReplicate, options)
+            : sample.BiologicalReplicate is null or 1 ? SdrfReserved.Pooled
+            : throw new MzLibException(
+                $"Sample '{sample.SourceName}' is {SdrfReserved.Pooled}, so '{BiologicalReplicate}' is written " +
+                $"'{SdrfReserved.Pooled}', but {nameof(SdrfSample.BiologicalReplicate)} is {sample.BiologicalReplicate}. " +
+                $"A pool has no replicate number; leave it at its default or null.");
 
         /// <summary>
         /// What to do when a value is not available.

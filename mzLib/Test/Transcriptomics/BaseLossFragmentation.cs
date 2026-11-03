@@ -129,7 +129,8 @@ public static class BaseLossFragmentation
                     }
                     else if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[type] == FragmentationTerminus.ThreePrime)
                     {
-                        if (mod.ResiduePosition >= modifiedResidue)
+                        // A 3' fragment's position is its first included residue; equality includes the modification.
+                        if (mod.ResiduePosition > modifiedResidue)
                             Assert.That(deltaMass, Is.EqualTo(0).Within(1E-6));
                         else
                             Assert.That(deltaMass, Is.EqualTo(modMass).Within(1E-6));

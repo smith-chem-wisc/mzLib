@@ -105,7 +105,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, out var apiAlpha, out var alphaWarning);
+                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out var apiAlpha, out var alphaWarning);
 
                 string? cleanedBeta = null;
                 string? apiBeta = null;
@@ -113,7 +113,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 bool betaOk = true;
                 if (RequiresBetaSequence && ModelInputs[i].BetaSequence != null)
                 {
-                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, out apiBeta, out betaWarning);
+                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out apiBeta, out betaWarning);
                     betaOk = cleanedBeta != null && apiBeta != null;
                 }
 
@@ -225,8 +225,10 @@ namespace PredictionClients.Koina.AbstractClasses
         ///   2. Requires every bracketed annotation to be in UNIMOD:N notation.
         ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>.
         /// </summary>
+        // sourceParser is unused: crosslink sequences are inspected directly, never parsed.
         protected override string? TryCleanSequence(
             string sequence,
+            ISequenceParser? sourceParser,
             out string? apiSequence,
             out WarningException? warning)
         {

@@ -128,7 +128,7 @@ namespace Omics
                             //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot") if present
                             string modString = fullSequence.Substring(currentModStart, r - currentModStart);
                             int splitIndex = modString.IndexOf(':');
-                            modId = splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString;
+                            modId = (splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString).Trim();
                         }
                         catch (Exception e)
                         {

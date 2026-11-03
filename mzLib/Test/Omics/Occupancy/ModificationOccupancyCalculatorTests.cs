@@ -149,6 +149,110 @@ public class ModificationOccupancyCalculatorTests
         Assert.That(result, Is.Empty);
     }
 
+    // The protein N-terminus is wherever the mature protein starts. When residue 1 is an initiator Met,
+    // digestion also yields forms starting at residue 2 (Protease.cs: cleaveMethionine requires
+    // protein[0] == 'M'), and ModificationLocalization places an "N-terminal." mod on them. Those forms
+    // are observations of the protein N-terminus, acetylated or not, and must count on both sides of the
+    // ratio. Before this was fixed they counted on neither, so the site was reported from Met-retained
+    // forms alone -- or not at all.
+
+    [Test]
+    public void ProteinLevelCountsNTerminalModOnFormsAfterInitiatorMetRemoval()
+    {
+        var protein = new MockBioPolymer("MASTEPEPTIDEK", "P00001");
+        var nTermAcetyl = ProteinNTerminalAcetylation();
+
+        var acetylCleavedA = new MockBioPolymerWithSetMods("ASTEPEPTIDEK", "[Acetylation]ASTEPEPTIDEK", protein, 2, 13,
+            new Dictionary<int, Modification> { { 1, nTermAcetyl } });
+        var unmodifiedCleaved = new MockBioPolymerWithSetMods("ASTEPEPTIDEK", "ASTEPEPTIDEK", protein, 2, 13);
+        var acetylRetained = new MockBioPolymerWithSetMods("MASTEPEPTIDEK", "[Acetylation]MASTEPEPTIDEK", protein, 1, 13,
+            new Dictionary<int, Modification> { { 1, nTermAcetyl } });
+
+        var psms = new List<ISpectralMatch>
+        {
+            new MockSpectralMatch("test.raw", "[Acetylation]ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 1, [acetylCleavedA]) { Intensities = [3_000_000.0] },
+            new MockSpectralMatch("test.raw", "[Acetylation]ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 2, [acetylCleavedA]) { Intensities = [3_000_000.0] },
+            new MockSpectralMatch("test.raw", "ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 3, [unmodifiedCleaved]) { Intensities = [2_000_000.0] },
+            new MockSpectralMatch("test.raw", "[Acetylation]MASTEPEPTIDEK", "MASTEPEPTIDEK", 1.0, 4, [acetylRetained]) { Intensities = [2_000_000.0] },
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, psms);
+
+        Assert.That(result.ContainsKey(1), Is.True, "the protein N-terminus is reported");
+        var site = result[1].Single();
+        Assert.That(site.ModifiedCount, Is.EqualTo(3), "both Met-removed acetylated forms count, not only the Met-retained one");
+        Assert.That(site.TotalCount, Is.EqualTo(4), "every form starting at the protein N-terminus is in the denominator");
+        Assert.That(site.CountBasedOccupancy, Is.EqualTo(0.75));
+        Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(8_000_000.0 / 10_000_000.0).Within(1e-12));
+        Assert.That(site.ToModInfoString(), Does.StartWith("pos0["), "still written at position zero");
+    }
+
+    [Test]
+    public void ProteinLevelReportsNTerminusObservedOnlyAfterInitiatorMetRemoval()
+    {
+        var protein = new MockBioPolymer("MASTEPEPTIDEK", "P00001");
+        var nTermAcetyl = ProteinNTerminalAcetylation();
+
+        var acetylated = new MockBioPolymerWithSetMods("ASTEPEPTIDEK", "[Acetylation]ASTEPEPTIDEK", protein, 2, 13,
+            new Dictionary<int, Modification> { { 1, nTermAcetyl } });
+        var unmodified = new MockBioPolymerWithSetMods("ASTEPEPTIDEK", "ASTEPEPTIDEK", protein, 2, 13);
+
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein,
+        [
+            new MockSpectralMatch("test.raw", "[Acetylation]ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 1, [acetylated]),
+            new MockSpectralMatch("test.raw", "ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 2, [unmodified]),
+        ]);
+
+        Assert.That(result.ContainsKey(1), Is.True, "identified at the N-terminus, so it must not vanish from occupancy");
+        Assert.That(result[1].Single().ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[1].Single().TotalCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ProteinLevelFormAfterInitiatorMetRemovalDoesNotCoverTheMetResidue()
+    {
+        // Guard: counting a Met-removed form toward the N-terminus must not also count it toward residue 1,
+        // which it does not contain.
+        var protein = new MockBioPolymer("MASTEPEPTIDEK", "P00001");
+        ModificationMotif.TryGetMotif("M", out var mMotif);
+        var metMod = new Modification("Sulfoxide", null, "Biological", null, mMotif, "Anywhere.", null, 15.995);
+
+        var modifiedRetained = new MockBioPolymerWithSetMods("MASTEPEPTIDEK", "M[Sulfoxide]ASTEPEPTIDEK", protein, 1, 13,
+            new Dictionary<int, Modification> { { 2, metMod } });
+        var cleaved = new MockBioPolymerWithSetMods("ASTEPEPTIDEK", "ASTEPEPTIDEK", protein, 2, 13);
+
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein,
+        [
+            new MockSpectralMatch("test.raw", "M[Sulfoxide]ASTEPEPTIDEK", "MASTEPEPTIDEK", 1.0, 1, [modifiedRetained]),
+            new MockSpectralMatch("test.raw", "ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 2, [cleaved]),
+        ]);
+
+        Assert.That(result[2].Single().TotalCount, Is.EqualTo(1), "only the Met-retained form covers residue 1");
+    }
+
+    [Test]
+    public void ProteinLevelFormStartingAtResidueTwoWithoutInitiatorMetIsNotTheNTerminus()
+    {
+        // Guard: a form can start at residue 2 for other reasons (here trypsin after K1). Only a Met at
+        // residue 1 makes residue 2 the mature N-terminus, matching Protease's own rule.
+        var protein = new MockBioPolymer("KASTEPEPTIDEK", "P00001");
+        var nTermAcetyl = ProteinNTerminalAcetylation();
+
+        var form = new MockBioPolymerWithSetMods("ASTEPEPTIDEK", "[Acetylation]ASTEPEPTIDEK", protein, 2, 13,
+            new Dictionary<int, Modification> { { 1, nTermAcetyl } });
+
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein,
+            [new MockSpectralMatch("test.raw", "[Acetylation]ASTEPEPTIDEK", "ASTEPEPTIDEK", 1.0, 1, [form])]);
+
+        Assert.That(result, Is.Empty);
+    }
+
+    private static Modification ProteinNTerminalAcetylation()
+    {
+        ModificationMotif.TryGetMotif("X", out var anyResidue);
+        return new Modification("Acetylation", null, "Biological", null, anyResidue, "N-terminal.", null, 42.011);
+    }
+
     [Test]
     public void ProteinLevelWithIntensities()
     {

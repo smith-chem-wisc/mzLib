@@ -1,7 +1,10 @@
+using MassSpectrometry;
+
 namespace Omics.BioPolymerGroup;
 
 /// <summary>
-/// Turns sample group labels into column names that are unique within one output file.
+/// Builds the label a sample's quantification columns are named by, and turns those labels into
+/// column names that are unique within one output file.
 ///
 /// A label is only a display name and is not unique — <see cref="SampleGroupBuilder"/> names a
 /// sample group after its file whenever there is no experimental design to name it by, so
@@ -11,6 +14,57 @@ namespace Omics.BioPolymerGroup;
 /// </summary>
 public static class SampleGroupLabels
 {
+    /// <summary>
+    /// The label for one sample's columns. The grouped protein table and the quantification matrices
+    /// both start from it, so a channel whose label is unique within its output is named the same way
+    /// in both.
+    ///
+    /// Labels that collide are still made unique by each writer separately, and not alike: the grouped
+    /// table widens them with <see cref="Disambiguate"/> (directory, then ordinals), while
+    /// <c>QuantificationWriter.UniqueColumnLabels</c> only appends ordinals. A collided channel can
+    /// therefore carry a different header in each file.
+    ///
+    /// An isobaric channel is labelled <c>{sample}_{file}_{channel}</c> when the design names the
+    /// sample in it, and <c>{file}_{channel}</c> otherwise. The file stays in both forms: the fractions
+    /// of one plex share their sample and differ only by file, so a label without it would name six
+    /// fractions alike and leave <see cref="Disambiguate"/> nothing to separate them by but ordinals.
+    ///
+    /// A label-free sample is labelled by its file name when <paramref name="labelFreeByFileName"/>
+    /// is set and <c>{condition}_{biorep + 1}</c> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// An unnamed channel keeps exactly the label it had before sample names existed, rather than
+    /// falling back to its condition and replicate. That is what makes adding the name additive: a
+    /// caller that does not yet supply <see cref="IsobaricQuantSampleInfo.SampleName"/> sees no
+    /// column change at all, so it can adopt this release first and opt into the new labels when it
+    /// starts passing names.
+    ///
+    /// The parts are joined with <c>_</c>, which a sample name or file stem may itself contain, so
+    /// different channels can share a label: <c>S_1</c> in <c>run.raw</c> and <c>S</c> in
+    /// <c>1_run.raw</c> both give <c>S_1_run_126</c>, and a channel named <c>plex1</c> in <c>x.raw</c>
+    /// takes the label of the same, unnamed channel of <c>plex1_x.raw</c>. Such labels collide and are
+    /// made unique as above. Values stay on their own channels, because columns are keyed on the
+    /// sample, never on its label.
+    /// </remarks>
+    /// <param name="sample">The sample to label.</param>
+    /// <param name="labelFreeByFileName">For a label-free sample, whether to label it by file name
+    /// rather than by condition and replicate. Ignored for an isobaric sample.</param>
+    public static string ForSample(ISampleInfo sample, bool labelFreeByFileName = false)
+    {
+        if (sample is IsobaricQuantSampleInfo isobaric)
+        {
+            string fileAndChannel = $"{Path.GetFileNameWithoutExtension(isobaric.FullFilePathWithExtension)}_{isobaric.ChannelLabel}";
+
+            return string.IsNullOrWhiteSpace(isobaric.SampleName)
+                ? fileAndChannel
+                : $"{isobaric.SampleName}_{fileAndChannel}";
+        }
+
+        return labelFreeByFileName
+            ? sample.FilenameWithoutExtension
+            : $"{sample.Condition}_{sample.BiologicalReplicate + 1}";
+    }
+
     /// <summary>
     /// Maps each sample group identity to a column name unique across <paramref name="identities"/>.
     /// Labels that do not collide are returned unchanged, so output is unaffected for the datasets

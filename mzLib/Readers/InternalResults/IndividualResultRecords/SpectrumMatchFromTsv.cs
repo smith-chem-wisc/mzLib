@@ -1,4 +1,5 @@
 ﻿using Easy.Common.Extensions;
+using Omics.BioPolymer;
 using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -7,6 +8,8 @@ using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using MzLibUtil;
 using System.Numerics;
+using Omics.SequenceConversion;
+using Readers.ProForma;
 
 namespace Readers
 {
@@ -17,7 +20,35 @@ namespace Readers
         protected static readonly Regex IonParser = new Regex(@"([a-zA-Z]+)(\d+)");
 
         public string FullSequence { get; protected set; }
-        public string ProForma { get; protected set; }
+
+        private string? _proForma;
+        private bool _proFormaFromFile;
+        private bool _proFormaComputed;
+
+        /// <summary>
+        /// The match as a ProForma 2.0 string. Taken verbatim from the "ProForma" column when the file
+        /// has one; otherwise computed on first access from <see cref="FullSequence"/>, because
+        /// MetaMorpheus releases before that column (1.1.11 and earlier) never wrote it. Null when it
+        /// cannot be computed, e.g. an ambiguous ("|"-joined) full sequence.
+        /// </summary>
+        public string ProForma
+        {
+            get
+            {
+                if (!_proFormaFromFile && !_proFormaComputed)
+                {
+                    _proForma = ProFormaFromFullSequence(FullSequence);
+                    _proFormaComputed = true;
+                }
+                return _proForma;
+            }
+            protected set
+            {
+                _proForma = value;
+                _proFormaFromFile = true;
+            }
+        }
+
         public int Ms2ScanNumber { get; protected set; }
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
@@ -84,8 +115,10 @@ namespace Readers
         public int OneBasedScanNumber => Ms2ScanNumber;
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
-        public bool IsDecoy => DecoyContamTarget.Contains('D');
-        public bool IsEntrapment => DecoyContamTarget.Contains('E');
+        public bool IsDecoy => DecoyContaminantTargetLabel.IsDecoy(DecoyContamTarget);
+        public bool IsEntrapment => DecoyContaminantTargetLabel.IsEntrapment(DecoyContamTarget);
+        /// <summary>The share of this PSM that is an entrapment discovery; see <see cref="DecoyContaminantTargetLabel.EntrapmentFraction"/>.</summary>
+        public double EntrapmentFraction => DecoyContaminantTargetLabel.EntrapmentFraction(DecoyContamTarget, FullSequence);
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
@@ -98,9 +131,11 @@ namespace Readers
         }
         protected List<(string proteinAccessions, string geneName, string organism)> ConstructProteinGroupInfo()
         {
-            string[] accessions = Accession.Split('|');
-            string[] genes = GeneName.Split('|');
-            string[] organisms = OrganismName.Split('|');
+            // These columns are optional and come back null for empty cells (e.g. a PSM with no gene annotation),
+            // so guard against null before splitting rather than throwing a NullReferenceException.
+            string[] accessions = (Accession ?? "").Split('|');
+            string[] genes = (GeneName ?? "").Split('|');
+            string[] organisms = (OrganismName ?? "").Split('|');
             List<(string proteinAccessions, string geneName, string organism)> proteinGroupInfoList = new();
             for (int i = 0; i < accessions.Length; i++)
             {
@@ -178,7 +213,11 @@ namespace Readers
             DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
             Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
             EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
-            ProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl); // optional: absent in pre-ProForma files
+            // optional: absent in pre-ProForma files, and may be blank on a row, where the getter computes it
+            // from FullSequence instead, so a blank cell and a missing column give the same answer
+            string? fileProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl);
+            if (!string.IsNullOrWhiteSpace(fileProForma))
+                ProForma = fileProForma;
             MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
             MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
             MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
@@ -220,7 +259,8 @@ namespace Readers
             if (!psm.FullSequence.Contains("|"))
             {
                 FullSequence = fullSequence;
-                ProForma = psm.ProForma;
+                if (psm._proFormaFromFile)
+                    ProForma = psm._proForma;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
@@ -236,8 +276,11 @@ namespace Readers
             else
             {
                 FullSequence = fullSequence;
-                // ProForma uses '|' as an internal descriptor separator, so it cannot be split per candidate; carry the parent value.
-                ProForma = psm.ProForma;
+                // ProForma uses '|' as an internal descriptor separator, so a file's value cannot be split per
+                // candidate; carry the parent value. Without the column, this candidate's own (unambiguous)
+                // full sequence is converted on first access.
+                if (psm._proFormaFromFile)
+                    ProForma = psm._proForma;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
@@ -453,6 +496,24 @@ namespace Readers
             return fullSeq.ParseModifications();
         }
 
+        /// <summary>
+        /// Converts an mzLib/MetaMorpheus full sequence to ProForma 2.0 with the shared
+        /// <see cref="SequenceConversionService"/>, so each modification is written as its UNIMOD
+        /// accession when it has one and by name otherwise.
+        /// </summary>
+        /// <returns>The ProForma string, or null for an empty or ambiguous ("|"-joined) full sequence,
+        /// or one the converter cannot parse.</returns>
+        internal static string? ProFormaFromFullSequence(string? fullSequence)
+        {
+            if (string.IsNullOrWhiteSpace(fullSequence) || fullSequence.Contains('|'))
+                return null;
+
+            ProFormaSequenceConversion.RegisterWithDefault();
+            return SequenceConversionService.Default.Convert(fullSequence,
+                MzLibSequenceFormatSchema.Instance.FormatName, ProFormaSequenceFormatSchema.ProFormaFormatName,
+                mode: SequenceConversionHandlingMode.ReturnNull);
+        }
+
         protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, SpectrumMatchParsingParameters parsingParams, string? matchedMassErrorDaString = null, bool isProtein = true)
         {
             List<MatchedFragmentIon> matchedIons = new List<MatchedFragmentIon>();
@@ -571,7 +632,7 @@ namespace Readers
 
                         //get amino acid position
                         aminoAcidPosition = terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime ?
-                            peptideBaseSequence.Split('|')[0].Length - fragmentNumber :
+                            peptideBaseSequence.Split('|')[0].Length - fragmentNumber + 1 :
                             fragmentNumber;
 
                         //get mass error in Daltons
@@ -690,7 +751,8 @@ namespace Readers
 
         public virtual LibrarySpectrum ToLibrarySpectrum()
         {
-            bool isDecoy = this.DecoyContamTarget == "D";
+            // Not == "D": that reads an entrapment decoy ("ED") as a target spectrum.
+            bool isDecoy = IsDecoy;
 
             List<MatchedFragmentIon> fragments = new List<MatchedFragmentIon>();
 

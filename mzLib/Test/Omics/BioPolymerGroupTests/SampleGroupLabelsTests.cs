@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using MassSpectrometry;
 using NUnit.Framework;
 using Omics.BioPolymerGroup;
 
@@ -192,6 +193,57 @@ namespace Test.Omics.BioPolymerGroupTests
             {
                 Assert.That(result.Values, Is.EquivalentTo(new[] { "sample", "sample_2" }));
                 Assert.That(result.Values, Has.None.StartsWith("_"), "no empty path segment is prefixed");
+            });
+        }
+
+        private static IsobaricQuantSampleInfo Channel(string condition, int biologicalReplicate, string? sampleName) =>
+            new(@"C:\data\plex1.raw", condition, biologicalReplicate, 1, 0, 1, "126", 126.127, false) { SampleName = sampleName };
+
+        /// <summary>
+        /// A channel the design names is labelled by that name, then its file, then its channel.
+        /// </summary>
+        [Test]
+        public void ForSample_IsobaricChannelTheDesignNames_IsSampleFileAndChannel()
+        {
+            Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, "Patient7")), Is.EqualTo("Patient7_plex1_126"));
+        }
+
+        /// <summary>
+        /// A channel with no sample name keeps the file-and-channel label it had before sample names
+        /// existed — even when the design gives it a condition and replicate.
+        ///
+        /// This is what keeps the change additive. A caller that does not yet pass SampleName, which
+        /// is every caller today, must see no column change at all, or it cannot adopt the release
+        /// that adds the name without rewriting its own expectations in the same step. Falling back
+        /// to {condition}_{biorep}_{file}_{channel} instead would rename every channel of every
+        /// isobaric run the moment it upgraded. A whitespace-only name counts as no name.
+        /// </summary>
+        [Test]
+        public void ForSample_IsobaricChannelWithNoSampleName_KeepsItsFileAndChannelLabel()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, null)), Is.EqualTo("plex1_126"));
+                Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, "  ")), Is.EqualTo("plex1_126"));
+                Assert.That(SampleGroupLabels.ForSample(Channel(string.Empty, 0, null)), Is.EqualTo("plex1_126"));
+                Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, null)), Is.EqualTo(Channel("Control", 1, null).ToString()),
+                    "an unnamed channel is labelled exactly as the matrix writer labelled it before");
+            });
+        }
+
+        /// <summary>
+        /// Label-free samples keep the two labels they had: the file name when the caller asks for
+        /// it, and one-based condition and replicate otherwise.
+        /// </summary>
+        [Test]
+        public void ForSample_LabelFree_IsFileNameOrOneBasedConditionAndReplicate()
+        {
+            var file = new SpectraFileInfo(@"C:\data\run7.raw", "Control", 0, 0, 0);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(SampleGroupLabels.ForSample(file, labelFreeByFileName: true), Is.EqualTo("run7"));
+                Assert.That(SampleGroupLabels.ForSample(file), Is.EqualTo("Control_1"));
             });
         }
     }

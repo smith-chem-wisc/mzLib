@@ -23,6 +23,40 @@ namespace Test.Transcriptomics
         public static string ModomicsUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
 
+        [TestCase("guacigccuc", "GUACIGCCUC", true)]
+        [TestCase("GUACIGCCUC", "GUACIGCCUC", true)]
+        [TestCase("GUACUGRCCU", "", false)]
+        [TestCase("GUACUGXAUC", "", false)]
+        public void ModomicsDetectionPreservesCanonicalAndRejectsAmbiguousSequences(
+            string inputSequence, string expectedSequence, bool shouldLoad)
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "modomics-detection-probe.fasta");
+            File.WriteAllText(path,
+                ">id:probe|Name:probe|SOterm:probe|Type:tRNA|Subtype:test|Feature:test|Species:standard\n"
+                + inputSequence + "\n");
+
+            try
+            {
+                var rnas = RnaDbLoader.LoadRnaFasta(path, true, DecoyType.None, false, out var errors);
+                if (shouldLoad)
+                {
+                    Assert.That(errors, Is.Empty);
+                    Assert.That(rnas, Has.Count.EqualTo(1));
+                    Assert.That(rnas[0].BaseSequence, Is.EqualTo(expectedSequence));
+                }
+                else
+                {
+                    Assert.That(rnas, Is.Empty);
+                    Assert.That(errors.Any(error => error.Contains("probe")), Is.True);
+                }
+            }
+            finally
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
         public static string TRNAdbUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             "Transcriptomics/TestData/TRNAdbUnmodifiedTrimmed.fasta");
 
@@ -572,9 +606,9 @@ namespace Test.Transcriptomics
 
                 // 'i' is the inosine residue added alongside this normalization, and the only ASCII
                 // letter whose uppercase mapping depends on the current culture.
-                Assert.That(RnaDbLoader.SanitizeAndTransform("guacigccucuagugaagca", transforms),
+                Assert.That(RnaDbLoader.SanitizeAndTransform("guacigccucuagugaagca", transforms, out _),
                     Is.EqualTo("GUACIGCCUCUAGUGAAGCA"));
-                Assert.That(RnaDbLoader.SanitizeAndTransform("i", transforms), Is.EqualTo("I"));
+                Assert.That(RnaDbLoader.SanitizeAndTransform("i", transforms, out _), Is.EqualTo("I"));
             }
             finally
             {
@@ -751,6 +785,22 @@ namespace Test.Transcriptomics
             Assert.That(rnas[0].Accession.Contains("Random_"), Is.True);
 
             File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_MarksExactlyWhatIsEntrapmentAccessionSays()
+        {
+            string[] ids = { "Random_RNA1", "random_rna2", "RNA3_RANDOM", "RNA4" };
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_rule.fasta");
+            File.WriteAllText(fastapath, string.Concat(ids.Select(i => $">id:{i}|Name:{i}|SOterm:{i}|Type:gene|Species:Homo sapiens\nGUUCUG\n")));
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors);
+            File.Delete(fastapath);
+
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Select(r => r.Accession), Is.EqualTo(ids));
+            Assert.That(rnas.Select(r => r.IsEntrapment), Is.EqualTo(ids.Select(i => ProteinDbLoader.IsEntrapmentAccession(i))));
+            Assert.That(rnas.Count(r => r.IsEntrapment), Is.EqualTo(3));
         }
 
         [Test]

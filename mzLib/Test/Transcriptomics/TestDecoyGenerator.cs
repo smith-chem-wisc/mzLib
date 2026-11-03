@@ -108,6 +108,23 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public void TestReverseDecoy_DigestedOligoWithFixedModification_DoesNotUseParentCoordinates()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var fixedModification = new Modification("Fixed test", "", "", "", motif, "Anywhere.", ChemicalFormula.ParseFormula("CH2"));
+            var rna = new RNA("GACU", "rna1", oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 2, fixedModification } });
+            var oligo = rna.Digest(new RnaDigestionParams("RNase T1", minLength: 1), null, null)
+                .Single(product => product.BaseSequence == "ACU");
+
+            var decoy = RnaDecoyGenerator.GenerateDecoys(
+                new List<OligoWithSetMods> { oligo }, DecoyType.Reverse, 1).Single();
+
+            Assert.That(decoy.BaseSequence, Is.EqualTo("UCA"));
+            Assert.That(decoy.AllModsOneIsNterminus.Values, Does.Contain(fixedModification));
+        }
+
+        [Test]
         public void TestReverseDecoy_FromDatabase()
         {
             int numSequences = 5;

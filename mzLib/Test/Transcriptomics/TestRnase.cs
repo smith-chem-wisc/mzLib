@@ -1,4 +1,7 @@
 using NUnit.Framework;
+using MzLibUtil;
+using Omics.Modifications;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -25,6 +28,142 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public void TestRnaseDictionary_LoadsCleavageModificationModes()
+        {
+            var fixedRnase = RnaseDictionary.Dictionary["RNase PhyM (>= 7M urea)"];
+            var variableRnase = RnaseDictionary.Dictionary["RNase 4"];
+
+            Assert.That(fixedRnase.CleavageMod, Is.TypeOf<CleavageModification>());
+            Assert.That(((CleavageModification)fixedRnase.CleavageMod).IsFixedMod, Is.True);
+            Assert.That(((CleavageModification)fixedRnase.CleavageMod).IsVariableMod, Is.False);
+            Assert.That(fixedRnase.CleavageMod.OriginalId, Is.EqualTo("Cyclic Phosphate"));
+
+            Assert.That(variableRnase.CleavageMod, Is.TypeOf<CleavageModification>());
+            Assert.That(((CleavageModification)variableRnase.CleavageMod).IsFixedMod, Is.False);
+            Assert.That(((CleavageModification)variableRnase.CleavageMod).IsVariableMod, Is.True);
+        }
+
+        [Test]
+        public void TestRnaseDictionary_UnknownCleavageModification_Throws()
+        {
+            string tempPath = Path.Combine(Path.GetTempPath(), "unknown_cleavage_mod_rnase.tsv");
+            try
+            {
+                File.WriteAllText(tempPath,
+                    "Name\tMotif\tSpecificity\tCleavageModification\tCleavageModificationType\n" +
+                    "UnknownModificationRnase\tG|\tfull\tMissing Modification on X\tfixed\n");
+
+                var exception = Assert.Throws<MzLibException>(() =>
+                    RnaseDictionary.LoadAndMergeCustomRnases(tempPath));
+
+                Assert.That(exception!.Message, Does.Contain("Missing Modification on X"));
+                Assert.That(exception.Message, Does.Contain("UnknownModificationRnase"));
+            }
+            finally
+            {
+                if (RnaseDictionary.Dictionary.ContainsKey("UnknownModificationRnase"))
+                    RnaseDictionary.Dictionary.Remove("UnknownModificationRnase");
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
+        [Test]
+        public void TestRnaseDictionary_InvalidCleavageModificationType_Throws()
+        {
+            string tempPath = Path.Combine(Path.GetTempPath(), "invalid_cleavage_mod_type_rnase.tsv");
+            try
+            {
+                File.WriteAllText(tempPath,
+                    "Name\tMotif\tSpecificity\tCleavageModification\tCleavageModificationType\n" +
+                    "InvalidModificationTypeRnase\tG|\tfull\tCyclic Phosphate on X\toptional\n");
+
+                var exception = Assert.Throws<MzLibException>(() =>
+                    RnaseDictionary.LoadAndMergeCustomRnases(tempPath));
+
+                Assert.That(exception!.Message, Does.Contain("fixed"));
+                Assert.That(exception.Message, Does.Contain("variable"));
+            }
+            finally
+            {
+                if (RnaseDictionary.Dictionary.ContainsKey("InvalidModificationTypeRnase"))
+                    RnaseDictionary.Dictionary.Remove("InvalidModificationTypeRnase");
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
+        [Test]
+        public void TestFixedFivePrimeCleavageModification_IsAppliedAtFivePrimeTerminus()
+        {
+            string tempPath = Path.Combine(Path.GetTempPath(), "five_prime_cleavage_rnase.tsv");
+            try
+            {
+                File.WriteAllText(tempPath,
+                    "Name\tMotif\tSpecificity\tCleavageModification\tCleavageModificationType\n" +
+                    "FivePrimeModificationRnase\tG|\tfull\tTerminal Phosphorylation on X\tfixed\n");
+                RnaseDictionary.LoadAndMergeCustomRnases(tempPath);
+
+                var rna = new RNA("GAG");
+                var digestionParams = new RnaDigestionParams("FivePrimeModificationRnase", minLength: 1);
+                var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                    .Cast<OligoWithSetMods>()
+                    .ToList();
+                var modifiedOligo = oligos.Single(oligo => oligo.BaseSequence == "AG");
+
+                Assert.That(modifiedOligo.AllModsOneIsNterminus, Does.ContainKey(1));
+                Assert.That(modifiedOligo.AllModsOneIsNterminus[1], Is.TypeOf<CleavageModification>());
+                Assert.That(modifiedOligo.AllModsOneIsNterminus[1].OriginalId,
+                    Is.EqualTo("Terminal Phosphorylation"));
+            }
+            finally
+            {
+                if (RnaseDictionary.Dictionary.ContainsKey("FivePrimeModificationRnase"))
+                    RnaseDictionary.Dictionary.Remove("FivePrimeModificationRnase");
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
+        [Test]
+        public void TestVariableCleavageModification_IsStoredInFullSequence()
+        {
+            var rna = new RNA("AUGCUGA");
+            var digestionParams = new RnaDigestionParams("RNase 4", minLength: 1);
+            var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Cast<OligoWithSetMods>()
+                .ToList();
+
+            var cyclicOligo = oligos.First(o => o.AllModsOneIsNterminus.Values
+                .Any(modification => modification.OriginalId == "Cyclic Phosphate"));
+            var roundTripped = new OligoWithSetMods(cyclicOligo.FullSequence, Mods.AllKnownRnaModsDictionary);
+
+            Assert.That(cyclicOligo.OneBasedEndResidue, Is.Not.EqualTo(rna.Length));
+            Assert.That(roundTripped.FullSequence, Is.EqualTo(cyclicOligo.FullSequence));
+            Assert.That(roundTripped.AllModsOneIsNterminus.Keys,
+                Is.EquivalentTo(cyclicOligo.AllModsOneIsNterminus.Keys));
+        }
+
+        [Test]
+        public void TestFixedCleavageModification_IsStoredInFullSequence()
+        {
+            var rna = new RNA("CAUGCU");
+            var digestionParams = new RnaDigestionParams("RNase PhyM (>= 7M urea)", minLength: 1);
+            var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Cast<OligoWithSetMods>()
+                .ToList();
+
+            var cyclicOligo = oligos.First(o => o.OneBasedEndResidue != rna.Length);
+            var roundTripped = new OligoWithSetMods(cyclicOligo.FullSequence, Mods.AllKnownRnaModsDictionary);
+
+            Assert.That(cyclicOligo.AllModsOneIsNterminus.Keys,
+                Does.Contain(cyclicOligo.Length + 2));
+            Assert.That(roundTripped.FullSequence, Is.EqualTo(cyclicOligo.FullSequence));
+            Assert.That(roundTripped.AllModsOneIsNterminus.Keys,
+                Is.EquivalentTo(cyclicOligo.AllModsOneIsNterminus.Keys));
+        }
+
+        [Test]
         public void TestRnase4_CleavesAfterUridineOnlyBeforePurines()
         {
             var rnase4 = RnaseDictionary.Dictionary["RNase 4"];
@@ -35,12 +174,6 @@ namespace Test.Transcriptomics
             var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "AU", "GCU", "GA" }));
 
-            var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
-            foreach (var group in grouped)
-            {
-                var distinctBaseSeqs = group.Value.Distinct().ToArray();
-                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has duplicate terminus combinations: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
-            }
         }
 
         [Test]
@@ -54,12 +187,6 @@ namespace Test.Transcriptomics
             var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "AUUCU", "GA" }));
 
-            var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
-            foreach (var group in grouped)
-            {
-                var distinctBaseSeqs = group.Value.Distinct().ToArray();
-                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has duplicate terminus combinations: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
-            }
         }
 
         /// <summary>
@@ -94,6 +221,22 @@ namespace Test.Transcriptomics
             var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinctBaseSequences, Does.Not.Contain("GC"),
                 "Cusativin should not produce a GC fragment");
+        }
+
+        /// <summary>
+        /// C[C]| is a cut-after motif whose preventing C is read after the recognition C. At a 5'-terminal CC
+        /// the bounds check used to test the backward index too (-1), abandon the rule and cut C|C.
+        /// </summary>
+        [Test]
+        public void TestCusativin_DoesNotCleave5PrimeTerminalCC()
+        {
+            var cusativin = RnaseDictionary.Dictionary["Cusativin"];
+
+            var products = cusativin.GetUnmodifiedOligos(new RNA("CCAAA"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Does.Not.Contain("C"),
+                "the first C is followed by C, so Cusativin must not cut between them");
         }
 
         #region RNase U2 (G|, A| — cleaves after purines)
@@ -193,18 +336,17 @@ namespace Test.Transcriptomics
 
         #endregion
 
-        #region RNase_MC1 ([G]|U — cleaves before U, except at GU)
+        #region RNase_MC1 ([G]|U and [G]|Y motifs)
 
         /// <summary>
-        /// RNase_MC1 motif [G]|U: cleaves before U only when NOT preceded by G.
+        /// The [G]|Y motif applies to literal Y residues and does not add cleavage sites to a U-only sequence.
         /// </summary>
         [Test]
         public void TestRnaseMC1_CleaveBeforeUridine()
         {
             var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
 
-            // "AAGUAU": U at pos 4 is preceded by G (prevented)
-            //           U at pos 6 is preceded by A (cleaves)
+            // The Y motif does not match this U-only sequence; the existing U motif still skips GU.
             var products = mc1.GetUnmodifiedOligos(new RNA("AAGUAU"), 0, 1, int.MaxValue).ToArray();
 
             var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
@@ -212,25 +354,31 @@ namespace Test.Transcriptomics
                 "MC1 should skip GU positions");
         }
 
+        /// <summary>
+        /// The preventing rule must hold at the 3' end too. [G]|U is a cut-BEFORE motif, so its preventing
+        /// residue is read before the U; the bounds check used to test the forward index as well, which is
+        /// out of range at the last residue, and the 3'-terminal GpU was cut anyway.
+        /// </summary>
         [Test]
-        public void TestRnaseMC1_MultipleTerminiPerFragment()
+        public void TestRnaseMC1_DoesNotCleaveTerminalGU()
         {
             var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
 
-            // MC1 has two 3' terminus options (H2O4P and O3P); verify each base sequence
-            // gets a unique set of (ThreePrime, FivePrime) combinations — no duplicates.
-            var products = mc1.GetUnmodifiedOligos(new RNA("AAUGAU"), 0, 1, int.MaxValue).ToArray();
+            var products = mc1.GetUnmodifiedOligos(new RNA("AAAGU"), 0, 1, int.MaxValue).ToArray();
 
-            var grouped = products
-                .GroupBy(p => p.BaseSequence)
-                .ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "AAAGU" }),
+                "the final U is preceded by G, so MC1 must not cut before it");
+        }
 
-            foreach (var group in grouped)
-            {
-                var distinctCombos = group.Value.Distinct().ToArray();
-                Assert.That(distinctCombos.Length, Is.EqualTo(group.Value.Count()),
-                    $"Base sequence {group.Key} has duplicate terminus combinations");
-            }
+        [Test]
+        public void TestRnaseMC1_CleaveBeforeYExceptAfterG()
+        {
+            var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
+            var products = mc1.GetUnmodifiedOligos(new RNA("AAGYAY"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "AAGYA", "Y" }));
         }
 
         #endregion

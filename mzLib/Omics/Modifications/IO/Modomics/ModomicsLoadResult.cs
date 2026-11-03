@@ -9,6 +9,12 @@ public class ModomicsLoadResult
     /// <summary>All loaded MODOMICS modifications (includes terminal caps).</summary>
     public List<Modification> LoadedModifications { get; init; } = [];
 
+    /// <summary>
+    /// Loaded modifications indexed by their MODOMICS one-letter abbreviation.
+    /// A code can have multiple entries when its target moiety differs.
+    /// </summary>
+    public Dictionary<string, List<Modification>> ModificationsByAbbreviation { get; init; } = new(StringComparer.Ordinal);
+
     /// <summary>Loaded modifications restricted to the 5' terminus.</summary>
     public List<Modification> TerminalModifications { get; init; } = [];
 

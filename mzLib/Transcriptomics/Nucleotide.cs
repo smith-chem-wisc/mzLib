@@ -36,6 +36,7 @@ namespace Transcriptomics
         /// A dictionary of all known residues, can be searched via one letter, three letter, or the name of the residue
         /// </summary>
         internal static readonly Dictionary<string, Nucleotide> AllKnownResidues;
+        public static readonly Dictionary<char, Nucleotide> AllKnownRnaResidues;
 
         internal static readonly Nucleotide[] ResiduesByLetter;
 
@@ -46,18 +47,25 @@ namespace Transcriptomics
         {
 
             AllKnownResidues = new Dictionary<string, Nucleotide>(66);
+            AllKnownRnaResidues = new Dictionary<char, Nucleotide>(66);
             ResiduesByLetter = new Nucleotide['z' + 1]; //Make it big enough for all the Upper and Lower characters
 
             // actual base chemical formula after bonding with the sugar
             // the sugar and phosphate has a chemical formula of C5H8O6P1
             // bonded base formulas come from Chemistry.Formulas, the shared ground truth for residue chemistry
             AdenineBase = AddResidue("Adenine", 'A', "Ade", Formulas.AdenineBaseChemicalFormula);
+            AllKnownRnaResidues.Add('A', AdenineBase);
             CytosineBase = AddResidue("Cytosine", 'C', "Cyt", Formulas.CytosineBaseChemicalFormula);
+            AllKnownRnaResidues.Add('C', CytosineBase);
             GuanineBase = AddResidue("Guanine", 'G', "Gua", Formulas.GuanineBaseChemicalFormula);
+            AllKnownRnaResidues.Add('G', GuanineBase);
             UracilBase = AddResidue("Uracil", 'U', "Ura", Formulas.UracilBaseChemicalFormula);
+            AllKnownRnaResidues.Add('U', UracilBase);
             InosineBase = AddResidue("Inosine", 'I', "Ino", Formulas.InosineBaseChemicalFormula);
+            AllKnownRnaResidues.Add('I', InosineBase);
             PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", Formulas.UracilBaseChemicalFormula); // Y was choosen for pseudouridine due to it commonly being represented by Psi
             TryAddAlternativeRepresentation(PseudoUracilBase, '\u03A8'); // uppercase Psi is accepted as an alternate one-letter representation
+            AllKnownRnaResidues.Add('Y', PseudoUracilBase);
 
             // DNA bases which have the same mass as the ones above
             // however, naming to deoxy- to distinguish DNA nucleotide mass calculation from RNA

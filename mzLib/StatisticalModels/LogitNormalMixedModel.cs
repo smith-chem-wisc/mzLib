@@ -1,0 +1,1608 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.Optimization;
+
+namespace StatisticalModels
+{
+    /// <summary>A count cell: of <see cref="Trials"/> chances, <see cref="Successes"/> succeeded.</summary>
+    public readonly record struct BinomialCount(int Successes, int Trials);
+
+    /// <summary>
+    /// How the latent value of a <see cref="LogitNormalMixedModel"/> sets the chance g that one trial of a count cell
+    /// succeeds: logit g = <see cref="Intercept"/> + <see cref="Slope"/> × latent + <see cref="DepthSlope"/> × depth,
+    /// on natural log-odds. Trials within one cell are correlated by <see cref="Overdispersion"/> ρ (a beta-binomial
+    /// with mean g and intra-cell correlation ρ); ρ = 0 is the binomial.
+    /// </summary>
+    /// <remarks>
+    /// The identity link (0, 1) makes g the latent's own inverse logit: a count cell then samples the same
+    /// probability a measured cell reads. A slope below 1 says the chance of a success rises more slowly than the
+    /// latent, e.g. when detecting a form depends on how much of it there is rather than on its share.
+    /// </remarks>
+    public sealed record DetectionLink(double Intercept, double Slope, double DepthSlope = 0, double Overdispersion = 0)
+    {
+        /// <summary>g = the latent's inverse logit, binomial trials.</summary>
+        public static DetectionLink Identity { get; } = new(0, 1);
+    }
+
+    /// <summary>
+    /// One cell for <see cref="LogitNormalMixedModel.FitLink"/>: its count, and the latent value it is taken to sit at,
+    /// as a normal with mean <see cref="LatentMean"/> and standard deviation <see cref="LatentSd"/> (e.g. the mean and
+    /// SD of the feature's measured cells).
+    /// </summary>
+    public readonly record struct LinkCell(double LatentMean, double LatentSd, int Successes, int Trials, double Depth = 0);
+
+    /// <summary>
+    /// Per-feature fits of <see cref="LogitNormalMixedModel"/>. A feature with nothing counted is a linear mixed model,
+    /// and its fixed-effect tests are Wald t with nlme's containment degrees of freedom (see <see cref="MixedModel"/>). A
+    /// feature with counted samples is tested by likelihood ratio, read against F(1, containment df) (see
+    /// <see cref="PValue"/>). A value that could not be computed is NaN, and the reason is in <see cref="Status"/>.
+    /// </summary>
+    public sealed class LogitNormalMixedModelFit
+    {
+        internal LogitNormalMixedModelFit(int features, IReadOnlyList<string> coefficientNames, VarianceEstimator estimator, DetectionLink link)
+        {
+            CoefficientNames = coefficientNames;
+            Estimator = estimator;
+            Link = link;
+            int p = coefficientNames.Count;
+            CoefficientMatrix = Filled(features, p);
+            StandardErrorMatrix = Filled(features, p);
+            DfMatrix = Filled(features, p);
+            LikelihoodRatioMatrix = Filled(features, p);
+            UnboundedMatrix = new bool[features, p];
+            ResidualVarianceValues = Enumerable.Repeat(double.NaN, features).ToArray();
+            GroupVarianceValues = Enumerable.Repeat(double.NaN, features).ToArray();
+            LogLikelihoodValues = Enumerable.Repeat(double.NaN, features).ToArray();
+            MeasuredValues = new int[features];
+            CountedValues = new int[features];
+            GroupValues = new int[features];
+            ResidualVarianceGivenValues = new bool[features];
+            StatusValues = new FeatureFitStatus[features];
+        }
+
+        internal double[,] CoefficientMatrix { get; }
+        internal double[,] StandardErrorMatrix { get; }
+        internal double[,] DfMatrix { get; }
+        internal double[,] LikelihoodRatioMatrix { get; }
+        internal bool[,] UnboundedMatrix { get; }
+        internal double[] ResidualVarianceValues { get; }
+        internal double[] GroupVarianceValues { get; }
+        internal double[] LogLikelihoodValues { get; }
+        internal int[] MeasuredValues { get; }
+        internal int[] CountedValues { get; }
+        internal int[] GroupValues { get; }
+        internal bool[] ResidualVarianceGivenValues { get; }
+        internal FeatureFitStatus[] StatusValues { get; }
+
+        /// <summary>Names of the design columns, in order.</summary>
+        public IReadOnlyList<string> CoefficientNames { get; }
+
+        /// <summary>The variance-component estimator every feature was fitted with.</summary>
+        public VarianceEstimator Estimator { get; }
+
+        /// <summary>The link every count cell was read through.</summary>
+        public DetectionLink Link { get; }
+
+        /// <summary>Number of features (rows of the response matrix).</summary>
+        public int FeatureCount => ResidualVarianceValues.Length;
+
+        /// <summary>Fixed-effect coefficient on the latent scale, at the estimated variances.</summary>
+        public double Coefficient(int feature, int coefficient) => CoefficientMatrix[feature, coefficient];
+
+        /// <summary>
+        /// Standard error: √ of the diagonal of the inverse of −∂²ℓ/∂β² at the estimate, ℓ the log-likelihood with the
+        /// random effects integrated out. With no count cells this is (XᵀV⁻¹X)⁻¹, as <see cref="MixedModel"/> reports
+        /// under REML.
+        /// </summary>
+        public double StandardError(int feature, int coefficient) => StandardErrorMatrix[feature, coefficient];
+
+        /// <summary>Denominator degrees of freedom of the coefficient's t test (containment rule). NaN when not positive.</summary>
+        public double DegreesOfFreedom(int feature, int coefficient) => DfMatrix[feature, coefficient];
+
+        /// <summary>Wald statistic, coefficient / standard error.</summary>
+        public double TValue(int feature, int coefficient) => CoefficientMatrix[feature, coefficient] / StandardErrorMatrix[feature, coefficient];
+
+        /// <summary>
+        /// Two-sided p-value against a coefficient of zero. With nothing counted, the t test of <see cref="TValue"/>.
+        /// With counted samples, the likelihood-ratio test (<see cref="LikelihoodRatio"/>) read against F(1, df), df the
+        /// containment degrees of freedom, as t² would be: χ² with 1 df rejects up to twice too often with 6 to 12 groups,
+        /// and the Wald test fails outright where β and τ grow together along a ridge (mzLib #1511). NaN for a coefficient
+        /// not tested (see <see cref="LogitNormalMixedModel.Fit"/>'s testedCoefficients), or when df is NaN. An <see cref="IsUnbounded"/>
+        /// coefficient keeps its p-value: the test of zero holds on a ridge, though no size of effect does.
+        /// </summary>
+        public double PValue(int feature, int coefficient)
+        {
+            double df = DfMatrix[feature, coefficient];
+            if (CountedValues[feature] > 0)
+            {
+                double lr = LikelihoodRatioMatrix[feature, coefficient];
+                if (double.IsNaN(lr) || double.IsNaN(df)) return double.NaN;
+                double root = Math.Sqrt(lr);
+                return 2 * StudentT.CDF(0, 1, df, -root);
+            }
+            double t = TValue(feature, coefficient);
+            return double.IsNaN(t) || double.IsNaN(df) ? double.NaN : 2 * StudentT.CDF(0, 1, df, -Math.Abs(t));
+        }
+
+        /// <summary>
+        /// Features with counted samples: 2(ℓ̂ − ℓ̂₀), ℓ̂ the maximized ML log-likelihood and ℓ̂₀ the same with the coefficient
+        /// held at 0, whatever the estimator. NaN when not tested, when the design has one column, or when the held fit
+        /// failed; always NaN with nothing counted.
+        /// </summary>
+        public double LikelihoodRatio(int feature, int coefficient) => LikelihoodRatioMatrix[feature, coefficient];
+
+        /// <summary>
+        /// Whether the coefficient's 95% likelihood interval reaches an effect of ±<see cref="LogitNormalMixedModel.UnboundedEffect"/>
+        /// logits across its column's observed range, or a variance ran to the top of its search: the data bound its sign
+        /// at most, not its size, so its coefficient and standard error are NaN (and the feature's status is
+        /// <see cref="FeatureFitStatus.Unbounded"/>). Tested coefficients of features with counted samples only.
+        /// </summary>
+        public bool IsUnbounded(int feature, int coefficient) => UnboundedMatrix[feature, coefficient];
+
+        /// <summary>Residual (run-to-run) variance σ² of the latent, per feature: estimated, or the value given.</summary>
+        public IReadOnlyList<double> ResidualVariance => ResidualVarianceValues;
+
+        /// <summary>Whether σ² was given by the caller rather than estimated, per feature.</summary>
+        public IReadOnlyList<bool> ResidualVarianceGiven => ResidualVarianceGivenValues;
+
+        /// <summary>Between-group (random-intercept) variance τ², per feature.</summary>
+        public IReadOnlyList<double> GroupVariance => GroupVarianceValues;
+
+        /// <summary>
+        /// Maximized log-likelihood, per feature: under REML the Laplace-approximated restricted likelihood (the fixed
+        /// effects integrated out), exactly the restricted likelihood when there are no count cells.
+        /// </summary>
+        public IReadOnlyList<double> LogLikelihood => LogLikelihoodValues;
+
+        /// <summary>Number of samples with a measured (Gaussian) response, per feature.</summary>
+        public IReadOnlyList<int> Measured => MeasuredValues;
+
+        /// <summary>Number of samples with a count, per feature.</summary>
+        public IReadOnlyList<int> Counted => CountedValues;
+
+        /// <summary>Number of distinct groups among the samples with a response of either kind, per feature.</summary>
+        public IReadOnlyList<int> Groups => GroupValues;
+
+        /// <summary>Whether each feature was fitted, and if not, why.</summary>
+        public IReadOnlyList<FeatureFitStatus> Status => StatusValues;
+
+        /// <summary>Index of a coefficient by name, or an exception naming the ones that exist.</summary>
+        public int IndexOf(string coefficientName)
+        {
+            for (int i = 0; i < CoefficientNames.Count; i++)
+                if (CoefficientNames[i] == coefficientName) return i;
+            throw new ArgumentException(
+                $"No coefficient named '{coefficientName}'. The design has: {string.Join(", ", CoefficientNames)}.",
+                nameof(coefficientName));
+        }
+
+        private static double[,] Filled(int rows, int cols)
+        {
+            var a = new double[rows, cols];
+            for (int i = 0; i < rows; i++)
+                for (int j = 0; j < cols; j++)
+                    a[i, j] = double.NaN;
+            return a;
+        }
+    }
+
+    /// <summary>
+    /// A random-intercept mixed model on a latent scale (e.g. log-odds of a site's occupancy) where each sample is
+    /// either a measurement of the latent or a count governed by it, fitted separately for every feature.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For sample s in group g: the latent is η_s = x_sᵀβ + u_g + e_s, with u_g ~ N(0, τ²) and e_s ~ N(0, σ²). A measured
+    /// sample reads y_s = η_s. A counted sample has k_s of n_s trials succeed, each with chance g_s, where
+    /// logit g_s = a + b η_s + c d_s (<see cref="DetectionLink"/>; d_s the sample's depth), binomially or, with
+    /// overdispersion ρ, beta-binomially. A sample with neither is missing. With no counted samples the model is
+    /// <see cref="MixedModel"/>'s.
+    /// </para>
+    /// <para>
+    /// Likelihood: per group, the measured samples are integrated against u exactly (they are Gaussian), which leaves
+    /// u normal with the measured samples' posterior mean and variance. The counted samples are then integrated over
+    /// that normal, by 40-node adaptive Gauss-Hermite quadrature (as glmer's nAGQ) where that is accurate, each one's e_s
+    /// by 12 nodes. The u rule sits at the mode of the group's integrand over (u, e) and the curvature of u's Laplace
+    /// marginal there; each e rule, per u node, at the mode and curvature of that count's integrand. A rule centred on the
+    /// prior instead fails when a group's counts say much more about u than τ does, or a count says more about its e than
+    /// σ does.
+    /// </para>
+    /// <para>
+    /// The Gauss-Hermite u rule fails where the integrand is not near normal on its own scale. A group whose counts are
+    /// one-sided (every count 0, or every count full) has, at a large τ, an integrand that is the prior times a smoothed
+    /// step a few units wide (a logistic's poles sit π/b off the real axis), with the step far from the prior's mean in
+    /// units of the rule's node spacing; the rule then misses the step, by up to ±0.6 in ℓ (mzLib #1511), and ℓ shows
+    /// bumps an optimizer climbs. So the u rule switches to graded 8-point Gauss-Legendre panels when either check fails:
+    /// the integrand has fallen by less than 24 (log units) at ±8 of the rule's scales, or a count's step (where its
+    /// logit crosses 0) lies within ±8 scales while the scale exceeds half of π/b. The panels cover where the log
+    /// integrand is within 36 of its value at the mode; they are narrowest at the mode and at each step, and widen away
+    /// from them, at most 1 local scale (1/√ of the Laplace marginal's curvature) and at most (5 + drop)/slope wide.
+    /// </para>
+    /// <para>
+    /// A count's integrand over e is log-concave, and near normal when σ is small against the count's information; then
+    /// 12 Gauss-Hermite nodes suffice. It is not near normal for a one-sided count at a large σ (the prior times a smoothed
+    /// step, again), nor for a count of many trials near one end (its log integrand has one linear tail; 34 of 36 at
+    /// σ = e was missed by 3.8e-5). The e rule takes the same two checks, with the step check at a quarter of π/b
+    /// for its wider node spacing, and the same panels when either fails.
+    /// </para>
+    /// <para>
+    /// Either way the rules are held fixed while β is optimized, so ℓ's derivatives are exact for them, then re-centred
+    /// at the optimum until they stop moving. Against lme4's likelihood the fits agree to about 1e-6, and against exact
+    /// integrals on one-sided groups and counts to about 1e-9 (ReferenceComparisonLogitNormalTests).
+    /// </para>
+    /// <para>
+    /// Estimation: for given variances, β maximizes the log-likelihood ℓ (Newton, with ℓ's gradient and Hessian exact
+    /// for the quadrature). REML (default) maximizes over the variances
+    /// ℓ(β̂) − ½ log|H| + (p/2) log 2π, H = −∂²ℓ/∂β² at β̂: the fixed effects integrated out by a Laplace approximation,
+    /// as glmmTMB's REML does. It is exact when no sample is counted, so it is REML then. ML maximizes ℓ(β̂). The
+    /// variances are searched on log τ and log σ by Nelder-Mead, or on log τ alone by Brent's method when σ² is given.
+    /// Standard errors are √diag H⁻¹ at the estimate. A coefficient beyond ±<see cref="SeparationLimit"/>, or an H that
+    /// is not positive definite, is <see cref="FeatureFitStatus.Separated"/>: the counts are (quasi-)completely
+    /// separated by the design and the estimate runs to infinity. So is a feature with nothing measured whose every group
+    /// is one-sided (every count 0, or every count full), checked before fitting: its likelihood rises towards the
+    /// group-level Bernoulli likelihood as τ and β grow together, and has no maximum.
+    /// </para>
+    /// <para>
+    /// Tests, for a feature with counted samples (mzLib #1511). Near such layouts, with one run of one group mixed, a
+    /// maximum exists but sits on a ridge: β and τ grow together and ℓ barely falls. There a standard error at fixed
+    /// variances is several times too small (a Wald p of 7e-17 where the likelihood-ratio p is 0.06), and REML can have
+    /// no maximum at all. So each tested coefficient is tested by likelihood ratio, from ML fits whatever the estimator:
+    /// the full design against the coefficient held at 0, LR = 2(ℓ̂ − ℓ̂₀), read against F(1, df) with df the containment
+    /// degrees of freedom (χ² with 1 df is anticonservative with so few groups: 7-12% at 5% in lme4 fits of 6 to 12
+    /// groups. With F, this model's own fits of 500 null features in each of ten count-only designs, 6 to 12 groups of 2
+    /// to 4 runs, 1 or 2 trials, mean logit 0 to 3, τ 1 to 3, rejected 0-4.5% at 5%, bounded and unbounded features
+    /// alike within simulation error). Then a ridge check: the coefficient is held at an effect of
+    /// ±<see cref="UnboundedEffect"/> logits across its column's observed range (on the side of its estimate), and if
+    /// that fit is still inside the 95% likelihood region (its LR below F's critical value), or the estimate is already
+    /// beyond it, or a variance ran to the top of its search, the coefficient is unbounded: the data bound its sign at
+    /// most. Its β and standard error are then NaN, its p-value stands, and the feature's status is
+    /// <see cref="FeatureFitStatus.Unbounded"/>. Each tested coefficient costs two more ML fits, and REML one more for
+    /// the feature. A design of one column has no test. Features with nothing counted keep the t test.
+    /// </para>
+    /// Output does not depend on the thread count.
+    /// </remarks>
+    public static class LogitNormalMixedModel
+    {
+        /// <summary>A coefficient beyond this on the latent scale is taken as running to infinity (separation).</summary>
+        public const double SeparationLimit = 30;
+
+        /// <summary>
+        /// The effect, in logits per trial across a column's observed range, that a coefficient's 95% likelihood interval
+        /// must stop short of to be bounded (10 logits: an odds ratio of 22,000). See
+        /// <see cref="LogitNormalMixedModelFit.IsUnbounded"/>.
+        /// </summary>
+        public const double UnboundedEffect = 10;
+
+        private const int UNodes = 40, ENodes = 12;
+        private const double LogSdMin = -8, LogSdMax = 5;
+        private static readonly (double[] X, double[] W) UQuadrature = GaussHermite(UNodes);
+        private static readonly (double[] X, double[] W) EQuadrature = GaussHermite(ENodes);
+
+        /// <summary>log w + x², the log weights of a rule for ∫ f(x) dx rather than ∫ f(x) e^(−x²) dx.</summary>
+        private static readonly double[] ULogWeights = UQuadrature.X.Select((x, i) => Math.Log(UQuadrature.W[i]) + x * x).ToArray();
+        private static readonly double[] ELogWeights = EQuadrature.X.Select((x, i) => Math.Log(EQuadrature.W[i]) + x * x).ToArray();
+
+        // The u rule's switch to panels (Centre): the drop in log integrand the Gauss-Hermite rule's reach (±8 scales) must
+        // show, and the node scale, in units of π/|b|, above which a count's step is too sharp for it.
+        private const double ReachDrop = 24, StepRatio = 0.5;
+        // The e rule's switch to panels (CellRule): as the u rule's, with the 12-node rule's wider node spacing.
+        private const double EStepRatio = 0.25;
+        // The panels: they cover where the log integrand is within PanelDrop of its mode's value; each is at most
+        // cap local scales wide (UPanelCap for u, EPanelCap for e), and widths grow by about PanelKappa feature scales per
+        // panel away from a feature.
+        private const double PanelDrop = 36, UPanelCap = 1.0, EPanelCap = 1.5, PanelKappa = 1;
+        private static readonly (double[] X, double[] W) PanelQuadrature = GaussLegendre(8);
+
+        /// <summary>The longest Newton step in β; a nearly singular H otherwise gives one no step halving brings back.</summary>
+        private const double MaxNewtonStep = 10;
+
+        /// <summary>Fits one design, grouping and link against every feature (row).</summary>
+        /// <param name="responses">[feature, sample] measured latent values; any non-finite value is not measured.</param>
+        /// <param name="counts">[feature, sample] counts, or null where not counted. A sample is measured or counted, not both.</param>
+        /// <param name="design">[sample, coefficient]. Must be finite and of full column rank.</param>
+        /// <param name="groups">One group label per sample. Must be non-empty strings.</param>
+        /// <param name="link">How the latent sets the chance per trial.</param>
+        /// <param name="depth">One value per sample for the link's depth term. Needed when <see cref="DetectionLink.DepthSlope"/> is not 0.</param>
+        /// <param name="residualVariance">
+        /// Per feature, a σ² to use instead of estimating it (e.g. borrowed when a feature has too few measured samples),
+        /// or NaN to estimate. Null (default): estimate every one.
+        /// </param>
+        /// <param name="coefficientNames">One name per design column; defaults to "c0", "c1", ….</param>
+        /// <param name="estimator">
+        /// REML (default) or ML, for the estimates. Features with counted samples are tested by ML fits either way.
+        /// </param>
+        /// <param name="maxThreads">-1 (default) uses all cores but one; below 1 means one. Results are identical for every value.</param>
+        /// <param name="testedCoefficients">
+        /// Coefficient names to test by likelihood ratio in features with counted samples: two more ML fits each (held at
+        /// 0, and at the effect bound). Null (default) tests every coefficient. Features with nothing counted test every
+        /// coefficient by t either way.
+        /// </param>
+        public static LogitNormalMixedModelFit Fit(double[,] responses, BinomialCount?[,] counts, double[,] design,
+            IReadOnlyList<string> groups, DetectionLink link, IReadOnlyList<double>? depth = null,
+            IReadOnlyList<double>? residualVariance = null, IReadOnlyList<string>? coefficientNames = null,
+            VarianceEstimator estimator = VarianceEstimator.Reml, int maxThreads = -1, IReadOnlyList<string>? testedCoefficients = null)
+        {
+            ArgumentNullException.ThrowIfNull(responses);
+            ArgumentNullException.ThrowIfNull(counts);
+            ArgumentNullException.ThrowIfNull(design);
+            ArgumentNullException.ThrowIfNull(groups);
+            ArgumentNullException.ThrowIfNull(link);
+            int features = responses.GetLength(0), samples = responses.GetLength(1);
+            int n = design.GetLength(0), p = design.GetLength(1);
+            if (counts.GetLength(0) != features || counts.GetLength(1) != samples)
+                throw new ArgumentException($"The counts are {counts.GetLength(0)} × {counts.GetLength(1)}; the responses are {features} × {samples}.", nameof(counts));
+            if (n != samples)
+                throw new ArgumentException($"The design has {n} rows but the response matrix has {samples} samples.", nameof(design));
+            if (groups.Count != samples)
+                throw new ArgumentException($"{groups.Count} group labels for {samples} samples.", nameof(groups));
+            for (int s = 0; s < samples; s++)
+                if (string.IsNullOrEmpty(groups[s]))
+                    throw new ArgumentException($"Sample {s} has no group label.", nameof(groups));
+            if (p == 0)
+                throw new ArgumentException("The design has no columns.", nameof(design));
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < p; j++)
+                    if (!double.IsFinite(design[i, j]))
+                        throw new ArgumentException($"The design is not finite at sample {i}, column {j}.", nameof(design));
+            if (!double.IsFinite(link.Intercept) || !double.IsFinite(link.Slope) || link.Slope == 0 || !double.IsFinite(link.DepthSlope)
+                || !(link.Overdispersion >= 0 && link.Overdispersion < 1))
+                throw new ArgumentException("The link needs a finite intercept and depth slope, a finite non-zero slope, and overdispersion in [0, 1).", nameof(link));
+            if (link.DepthSlope != 0 && depth == null)
+                throw new ArgumentException("The link has a depth term; supply one depth per sample.", nameof(depth));
+            if (depth != null && (depth.Count != samples || depth.Any(d => !double.IsFinite(d))))
+                throw new ArgumentException($"Supply one finite depth per sample ({samples}).", nameof(depth));
+            if (residualVariance != null && (residualVariance.Count != features || residualVariance.Any(v => !double.IsNaN(v) && !(v > 0 && double.IsFinite(v)))))
+                throw new ArgumentException($"Supply one σ² per feature ({features}), positive and finite, or NaN to estimate it.", nameof(residualVariance));
+            for (int f = 0; f < features; f++)
+                for (int s = 0; s < samples; s++)
+                {
+                    if (counts[f, s] is not BinomialCount c) continue;
+                    if (double.IsFinite(responses[f, s]))
+                        throw new ArgumentException($"Feature {f}, sample {s} is both measured and counted.", nameof(counts));
+                    if (c.Trials < 1 || c.Successes < 0 || c.Successes > c.Trials)
+                        throw new ArgumentException($"Feature {f}, sample {s}: {c.Successes} of {c.Trials} is not a count.", nameof(counts));
+                }
+            coefficientNames ??= Enumerable.Range(0, p).Select(j => $"c{j}").ToList();
+            if (coefficientNames.Count != p)
+                throw new ArgumentException($"{coefficientNames.Count} coefficient names for {p} design columns.", nameof(coefficientNames));
+            if (!LinearModel.IsFullRank(Matrix<double>.Build.DenseOfArray(design)))
+                throw new ArgumentException("The design is not of full column rank over all samples; a column is redundant.", nameof(design));
+            var tested = new bool[p];
+            if (testedCoefficients == null) Array.Fill(tested, true);
+            else
+                foreach (string name in testedCoefficients)
+                {
+                    int j = coefficientNames.ToList().IndexOf(name);
+                    if (j < 0)
+                        throw new ArgumentException($"No coefficient named '{name}' to test. The design has: {string.Join(", ", coefficientNames)}.", nameof(testedCoefficients));
+                    tested[j] = true;
+                }
+
+            var index = new Dictionary<string, int>(StringComparer.Ordinal);
+            var groupOf = new int[samples];
+            for (int s = 0; s < samples; s++)
+            {
+                if (!index.TryGetValue(groups[s], out int g)) { g = index.Count; index[groups[s]] = g; }
+                groupOf[s] = g;
+            }
+
+            var fit = new LogitNormalMixedModelFit(features, coefficientNames, estimator, link);
+            var options = new ParallelOptions { MaxDegreeOfParallelism = LinearModel.ResolveThreads(maxThreads) };
+            Parallel.ForEach(Partitioner.Create(0, Math.Max(features, 1)), options, range =>
+            {
+                for (int f = range.Item1; f < Math.Min(range.Item2, features); f++)
+                    FitOne(responses, counts, design, groupOf, index.Count, link, depth, residualVariance?[f] ?? double.NaN, f, fit, estimator, tested);
+            });
+            return fit;
+        }
+
+        /// <summary>
+        /// Fits a <see cref="DetectionLink"/> by maximum likelihood over <paramref name="cells"/>, each cell's probability
+        /// integrated over its latent normal (12-node adaptive Gauss-Hermite), summed over cells.
+        /// </summary>
+        /// <param name="cells">Covered cells with their latent mean and SD. Each needs Trials ≥ 1, finite values, SD ≥ 0.</param>
+        /// <param name="withDepth">Fit the depth slope (else 0).</param>
+        /// <param name="withOverdispersion">Fit the beta-binomial ρ (else 0, binomial).</param>
+        /// <param name="detectionOnly">
+        /// True (default): fit on whether any trial succeeded, P(k = 0) against P(k ≥ 1), the event that makes a
+        /// covered-zero. False: fit on the full count, P(k of n). On PTM data the two differ (results/g46_trials_v1 in
+        /// the ptmQtl project): among cells where the modified form was seen, how many of the covering peptidoforms carry
+        /// it follows occupancy more weakly than whether it was seen at all, and a link fitted on the full counts
+        /// predicts covered-zeros worse.
+        /// </param>
+        /// <returns>The link, or null when the search did not converge.</returns>
+        public static DetectionLink? FitLink(IReadOnlyList<LinkCell> cells, bool withDepth = false, bool withOverdispersion = false,
+            bool detectionOnly = true)
+        {
+            ArgumentNullException.ThrowIfNull(cells);
+            if (cells.Count == 0) throw new ArgumentException("No cells.", nameof(cells));
+            foreach (var c in cells)
+                if (!double.IsFinite(c.LatentMean) || !(c.LatentSd >= 0) || !double.IsFinite(c.LatentSd) || !double.IsFinite(c.Depth)
+                    || c.Trials < 1 || c.Successes < 0 || c.Successes > c.Trials)
+                    throw new ArgumentException("Every cell needs a finite latent mean, SD ≥ 0, finite depth, and 0 ≤ successes ≤ trials ≥ 1.", nameof(cells));
+
+            DetectionLink LinkOf(Vector<double> v)
+            {
+                int i = 2;
+                double c = withDepth ? v[i++] : 0;
+                double rho = withOverdispersion ? 1 / (1 + Math.Exp(-v[i])) : 0;
+                return new DetectionLink(v[0], v[1], c, rho);
+            }
+            double Objective(Vector<double> v)
+            {
+                var link = LinkOf(v);
+                double sum = 0;
+                foreach (var c in cells)
+                {
+                    // With detectionOnly, the probability of no success; its complement is used when there was one.
+                    int k = detectionOnly ? 0 : c.Successes;
+                    double logChoose = LogChoose(c.Trials, k);
+                    double offset = link.Intercept + link.Slope * c.LatentMean + link.DepthSlope * c.Depth;
+                    double lse;
+                    if (c.LatentSd == 0)
+                        lse = LogCountProbability(k, c.Trials, offset, link.Overdispersion);
+                    else
+                    {
+                        var rule = CellRule(k, c.Trials, logChoose, offset, link.Slope, link.Overdispersion, c.LatentSd, 0);
+                        lse = LogCellIntegral(k, c.Trials, logChoose, offset, link.Slope, link.Overdispersion, c.LatentSd, rule);
+                    }
+                    if (detectionOnly && c.Successes > 0) lse = Math.Log(-double.ExpM1(lse));
+                    sum += lse;
+                }
+                return double.IsFinite(sum) ? -sum : double.MaxValue;
+            }
+            int dims = 2 + (withDepth ? 1 : 0) + (withOverdispersion ? 1 : 0);
+            var start = Vector<double>.Build.Dense(dims);
+            start[1] = 1;
+            if (withOverdispersion) start[dims - 1] = -2;
+            var step = Vector<double>.Build.Dense(dims, 0.3);
+            try
+            {
+                var result = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(Objective), start, step, 1e-10, 20000);
+                return LinkOf(result.MinimizingPoint);
+            }
+            catch (MaximumIterationsException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gauss-Hermite nodes and weights for ∫ f(x) e^(−x²) dx, by Golub-Welsch: the nodes are the eigenvalues of the
+        /// Jacobi matrix with off-diagonal √(k/2), the weights √π times the squared first eigenvector components.
+        /// </summary>
+        internal static (double[] X, double[] W) GaussHermite(int n)
+        {
+            var j = Matrix<double>.Build.Dense(n, n);
+            for (int k = 1; k < n; k++) j[k, k - 1] = j[k - 1, k] = Math.Sqrt(k / 2.0);
+            var evd = j.Evd(Symmetricity.Symmetric);
+            var x = new double[n];
+            var w = new double[n];
+            var order = Enumerable.Range(0, n).OrderBy(i => evd.EigenValues[i].Real).ToArray();
+            for (int i = 0; i < n; i++)
+            {
+                int o = order[i];
+                x[i] = evd.EigenValues[o].Real;
+                double v0 = evd.EigenVectors[0, o];
+                w[i] = Math.Sqrt(Math.PI) * v0 * v0;
+            }
+            // Symmetrize: the rule is exactly symmetric, and averaging removes the eigensolver's last-digit asymmetry.
+            for (int i = 0; i < n / 2; i++)
+            {
+                double xs = 0.5 * (x[n - 1 - i] - x[i]), ws = 0.5 * (w[i] + w[n - 1 - i]);
+                x[i] = -xs; x[n - 1 - i] = xs; w[i] = w[n - 1 - i] = ws;
+            }
+            if (n % 2 == 1) x[n / 2] = 0;
+            return (x, w);
+        }
+
+        /// <summary>One feature's samples, in the order of the observed rows.</summary>
+        private sealed class Data
+        {
+            public required Matrix<double> X;          // [rows, p]
+            public required double[][] Rows;           // X's rows
+            public required double[] LogChoose;        // log C(N, K) per counted row
+            public required int[] Group;               // dense, 0..G-1
+            public required int G;
+            public required bool[] IsMeasured;
+            public required double[] Y;                // measured value, or NaN
+            public required int[] K, N;                // count, or 0/0
+            public required double[] Depth;
+            public required double[] Offset;           // added to xᵀβ: a coefficient held fixed, else 0
+            public required DetectionLink Link;
+            public required List<int>[] MeasuredRows, CountedRows;   // per group
+        }
+
+        /// <summary>Feature <paramref name="f"/>'s observed <paramref name="rows"/> (samples), with their dense groups and design rows.</summary>
+        private static Data MakeData(double[,] responses, BinomialCount?[,] counts, int f, List<int> rows, Matrix<double> x, int[] rowGroup,
+            int G, bool[] measured, DetectionLink link, IReadOnlyList<double>? depth)
+        {
+            int m = rows.Count;
+            var data = new Data
+            {
+                X = x, Group = rowGroup, G = G, IsMeasured = measured, Link = link,
+                Rows = Enumerable.Range(0, m).Select(i => x.Row(i).ToArray()).ToArray(),
+                LogChoose = rows.Select(s => counts[f, s] is BinomialCount c ? LogChoose(c.Trials, c.Successes) : 0).ToArray(),
+                Y = rows.Select(s => responses[f, s]).ToArray(),
+                K = rows.Select(s => counts[f, s]?.Successes ?? 0).ToArray(),
+                N = rows.Select(s => counts[f, s]?.Trials ?? 0).ToArray(),
+                Depth = rows.Select(s => depth?[s] ?? 0).ToArray(),
+                Offset = new double[m],
+                MeasuredRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
+                CountedRows = Enumerable.Range(0, G).Select(_ => new List<int>()).ToArray(),
+            };
+            for (int i = 0; i < m; i++) (measured[i] ? data.MeasuredRows : data.CountedRows)[rowGroup[i]].Add(i);
+            return data;
+        }
+
+        /// <summary>
+        /// One feature's log-likelihood at given β and variances (τ² = 0 allowed), by the quadrature rules a fit centres
+        /// there, and optionally ℓ's β-gradient and H = −∂²ℓ/∂β² for those rules. For tests: a fit's reported ℓ must be this
+        /// at its reported estimate.
+        /// </summary>
+        internal static double LogLikelihoodAt(double[] responses, BinomialCount?[] counts, double[,] design, IReadOnlyList<string> groups,
+            DetectionLink link, double[] beta, double groupVariance, double residualVariance, IReadOnlyList<double>? depth = null,
+            double[]? gradient = null, double[,]? negativeHessian = null)
+        {
+            int samples = responses.Length, p = design.GetLength(1);
+            var rows = Enumerable.Range(0, samples).Where(s => double.IsFinite(responses[s]) || counts[s] is not null).ToList();
+            var index = new Dictionary<string, int>(StringComparer.Ordinal);
+            var rowGroup = rows.Select(s => index.TryGetValue(groups[s], out int g) ? g : index[groups[s]] = index.Count).ToArray();
+            var x = Matrix<double>.Build.Dense(rows.Count, p, (i, j) => design[rows[i], j]);
+            var y = new double[1, samples];
+            var c = new BinomialCount?[1, samples];
+            for (int s = 0; s < samples; s++) (y[0, s], c[0, s]) = (responses[s], counts[s]);
+            var data = MakeData(y, c, 0, rows, x, rowGroup, index.Count, rows.Select(s => double.IsFinite(responses[s])).ToArray(), link, depth);
+            double logTau = groupVariance > 0 ? 0.5 * Math.Log(groupVariance) : LogSdMin, logSigma = 0.5 * Math.Log(residualVariance);
+            if (gradient == null) return Evaluate(data, beta, logTau, logSigma, Centre(data, beta, logTau, logSigma), null, null);
+            var h = negativeHessian ?? new double[p, p];
+            return Evaluate(data, beta, logTau, logSigma, Centre(data, beta, logTau, logSigma), gradient, h);
+        }
+
+        private static void FitOne(double[,] responses, BinomialCount?[,] counts, double[,] design, int[] groupOf, int groupCount,
+            DetectionLink link, IReadOnlyList<double>? depth, double givenSigma2, int f, LogitNormalMixedModelFit fit, VarianceEstimator estimator,
+            bool[] tested)
+        {
+            int samples = responses.GetLength(1), p = design.GetLength(1);
+            var rows = new List<int>(samples);
+            for (int s = 0; s < samples; s++)
+                if (double.IsFinite(responses[f, s]) || counts[f, s] is not null) rows.Add(s);
+            int m = rows.Count;
+            var local = new int[groupCount];
+            Array.Fill(local, -1);
+            var rowGroup = new int[m];
+            int G = 0;
+            for (int i = 0; i < m; i++)
+            {
+                int g = groupOf[rows[i]];
+                if (local[g] < 0) local[g] = G++;
+                rowGroup[i] = local[g];
+            }
+            var measured = rows.Select(s => double.IsFinite(responses[f, s])).ToArray();
+            fit.MeasuredValues[f] = measured.Count(b => b);
+            fit.CountedValues[f] = m - fit.MeasuredValues[f];
+            fit.GroupValues[f] = G;
+            bool sigmaGiven = !double.IsNaN(givenSigma2);
+            fit.ResidualVarianceGivenValues[f] = sigmaGiven;
+            if (m <= p)
+            {
+                fit.StatusValues[f] = FeatureFitStatus.TooFewObservations;
+                return;
+            }
+            var x = Matrix<double>.Build.Dense(m, p, (i, j) => design[rows[i], j]);
+            if (!LinearModel.IsFullRank(x))
+            {
+                fit.StatusValues[f] = FeatureFitStatus.RankDeficient;
+                return;
+            }
+            var sizes = new int[G];
+            foreach (int g in rowGroup) sizes[g]++;
+            if (G < 2 || sizes.Max() < 2)
+            {
+                fit.StatusValues[f] = FeatureFitStatus.TooFewGroups;
+                return;
+            }
+            // Nothing measured and every group one-sided (every count 0, or every count full): ℓ rises without bound
+            // towards the group-level Bernoulli likelihood as τ grows with β, so no estimate exists. A fit would stop
+            // wherever the u rule loses the ridge, Separated or a spurious Fitted.
+            if (fit.MeasuredValues[f] == 0)
+            {
+                var anySuccess = new bool[G];
+                var anyFailure = new bool[G];
+                for (int i = 0; i < m; i++)
+                {
+                    var c = counts[f, rows[i]]!.Value;
+                    anySuccess[rowGroup[i]] |= c.Successes > 0;
+                    anyFailure[rowGroup[i]] |= c.Successes < c.Trials;
+                }
+                if (Enumerable.Range(0, G).All(g => !(anySuccess[g] && anyFailure[g])))
+                {
+                    fit.StatusValues[f] = FeatureFitStatus.Separated;
+                    return;
+                }
+            }
+
+            var data = MakeData(responses, counts, f, rows, x, rowGroup, G, measured, link, depth);
+            double logSigmaGiven = sigmaGiven ? 0.5 * Math.Log(givenSigma2) : double.NaN;
+            bool reml = estimator == VarianceEstimator.Reml, anyCounted = fit.CountedValues[f] > 0;
+            var (main, status) = EstimateOne(data, reml, logSigmaGiven, null);
+            var (dfWithin, dfBetween, isBetween) = MixedModel.ContainmentDf(x, rowGroup, G, m);
+            for (int j = 0; j < p; j++)
+            {
+                double df = isBetween[j] ? dfBetween : dfWithin;
+                fit.DfMatrix[f, j] = df > 0 ? df : double.NaN;
+            }
+            if (main != null)
+            {
+                fit.ResidualVarianceValues[f] = Math.Exp(2 * main.LogSigma);
+                fit.GroupVarianceValues[f] = main.LogTau <= LogSdMin ? 0 : Math.Exp(2 * main.LogTau);
+                fit.LogLikelihoodValues[f] = -main.Objective;
+                for (int j = 0; j < p; j++)
+                {
+                    fit.CoefficientMatrix[f, j] = main.Beta[j];
+                    fit.StandardErrorMatrix[f, j] = Math.Sqrt(main.Covariance[j, j]);
+                }
+                fit.StatusValues[f] = FeatureFitStatus.Fitted;
+            }
+            if (!anyCounted || (main == null && !reml))
+            {
+                if (main == null) Clear(fit, f, p, status);
+                return;
+            }
+
+            // Counted samples: the tests are ML's. Under REML that is one more fit, from REML's estimate. REML can have no
+            // maximum where ML has one (on #1511's layouts its criterion rises with τ until β passes SeparationLimit);
+            // then the ML fit carries the tests, and REML's ridge makes every coefficient unbounded.
+            Estimate? ml = main;
+            if (reml)
+            {
+                (ml, var mlStatus) = EstimateOne(data, false, logSigmaGiven, main == null ? null : (main.LogTau, main.LogSigma, main.Beta));
+                if (ml == null)
+                {
+                    Clear(fit, f, p, main == null ? status : mlStatus);
+                    return;
+                }
+            }
+            bool AtTop(Estimate e) => e.LogTau >= LogSdMax - 1e-3 || (!sigmaGiven && e.LogSigma >= LogSdMax - 1e-3);
+            TestByLikelihoodRatio(data, ml!, main == null || AtTop(main) || AtTop(ml!), logSigmaGiven, tested, f, fit);
+        }
+
+        /// <summary>
+        /// The likelihood-ratio tests of a feature with counted samples, and its ridge checks (see the class remarks). ML
+        /// fits throughout: the full design (the estimate itself under ML), each tested coefficient held at 0, and each
+        /// tested non-constant coefficient held at the effect bound.
+        /// </summary>
+        /// <param name="ml">The ML estimate at the full design.</param>
+        /// <param name="ridge">
+        /// Whether the estimator's criterion has no maximum: a variance at the top of its search (the criterion still
+        /// rises there), or REML failing where ML did not. Every coefficient is then unbounded.
+        /// </param>
+        private static void TestByLikelihoodRatio(Data data, Estimate ml, bool ridge, double logSigmaGiven, bool[] tested,
+            int f, LogitNormalMixedModelFit fit)
+        {
+            int p = data.X.ColumnCount, m = data.Rows.Length;
+            for (int j = 0; j < p; j++)
+            {
+                if (!tested[j] || p == 1) continue;
+                double df = fit.DfMatrix[f, j];
+                var start = (ml.LogTau, ml.LogSigma, Drop(ml.Beta, j));
+                var (atZero, _) = EstimateOne(Reduced(data, j, 0), false, logSigmaGiven, start);
+                if (atZero != null)
+                {
+                    double lr = 2 * (atZero.Objective - ml.Objective);
+                    // The null fit can come out slightly above the full one only by the optimizers' tolerance.
+                    if (lr > -1e-6) fit.LikelihoodRatioMatrix[f, j] = Math.Max(lr, 0);
+                }
+
+                double low = double.PositiveInfinity, high = double.NegativeInfinity;
+                for (int i = 0; i < m; i++) { low = Math.Min(low, data.X[i, j]); high = Math.Max(high, data.X[i, j]); }
+                if (!(high > low)) continue;
+                double bound = UnboundedEffect / (Math.Abs(data.Link.Slope) * (high - low));
+                bool unbounded = ridge || Math.Abs(ml.Beta[j]) >= bound;
+                if (!unbounded)
+                {
+                    var (atBound, _) = EstimateOne(Reduced(data, j, (ml.Beta[j] < 0 ? -1 : 1) * bound), false, logSigmaGiven, start);
+                    double critical = double.IsNaN(df) ? 3.841458820694124 : Math.Pow(StudentT.InvCDF(0, 1, df, 0.975), 2);
+                    unbounded = atBound == null || 2 * (atBound.Objective - ml.Objective) < critical;
+                }
+                if (!unbounded) continue;
+                fit.UnboundedMatrix[f, j] = true;
+                fit.CoefficientMatrix[f, j] = double.NaN;
+                fit.StandardErrorMatrix[f, j] = double.NaN;
+                fit.StatusValues[f] = FeatureFitStatus.Unbounded;
+            }
+            if (!ridge) return;
+            for (int j = 0; j < p; j++)
+            {
+                fit.UnboundedMatrix[f, j] = true;
+                fit.CoefficientMatrix[f, j] = double.NaN;
+                fit.StandardErrorMatrix[f, j] = double.NaN;
+            }
+            fit.StatusValues[f] = FeatureFitStatus.Unbounded;
+        }
+
+        /// <summary>A feature that could not be fitted: every value NaN, and the reason.</summary>
+        private static void Clear(LogitNormalMixedModelFit fit, int f, int p, FeatureFitStatus status)
+        {
+            for (int j = 0; j < p; j++)
+                fit.CoefficientMatrix[f, j] = fit.StandardErrorMatrix[f, j] = fit.DfMatrix[f, j] = double.NaN;
+            fit.ResidualVarianceValues[f] = fit.GroupVarianceValues[f] = fit.LogLikelihoodValues[f] = double.NaN;
+            fit.StatusValues[f] = status;
+        }
+
+        private static Vector<double> Drop(Vector<double> v, int j) =>
+            Vector<double>.Build.Dense(v.Count - 1, i => v[i < j ? i : i + 1]);
+
+        /// <summary>The feature's data with coefficient <paramref name="j"/> held at <paramref name="value"/>: its column moved into the offset.</summary>
+        private static Data Reduced(Data d, int j, double value)
+        {
+            int m = d.Rows.Length, p = d.X.ColumnCount;
+            var x = Matrix<double>.Build.Dense(m, p - 1, (i, c) => d.X[i, c < j ? c : c + 1]);
+            return new Data
+            {
+                X = x, Group = d.Group, G = d.G, IsMeasured = d.IsMeasured, Link = d.Link, LogChoose = d.LogChoose, Y = d.Y, K = d.K, N = d.N,
+                Depth = d.Depth, MeasuredRows = d.MeasuredRows, CountedRows = d.CountedRows,
+                Rows = Enumerable.Range(0, m).Select(i => x.Row(i).ToArray()).ToArray(),
+                Offset = Enumerable.Range(0, m).Select(i => d.Offset[i] + value * d.X[i, j]).ToArray(),
+            };
+        }
+
+        /// <summary>One estimate: β, H's inverse, the log SDs, and −(the maximized criterion).</summary>
+        private sealed record Estimate(Vector<double> Beta, Matrix<double> Covariance, double LogTau, double LogSigma, double Objective);
+
+        /// <summary>
+        /// Estimates one feature's variances by REML or ML (σ given when <paramref name="logSigmaGiven"/> is not NaN), and β
+        /// and H there. Null, with the reason, when the fit fails or β is separated.
+        /// </summary>
+        /// <param name="start">Starting log SDs; null starts from the measured samples' spread.</param>
+        private static (Estimate? Estimate, FeatureFitStatus Status) EstimateOne(Data data, bool reml, double logSigmaGiven,
+            (double LogTau, double LogSigma, Vector<double> Beta)? start)
+        {
+            int p = data.X.ColumnCount;
+            bool sigmaGiven = !double.IsNaN(logSigmaGiven);
+            var (logTau0, logSigma0) = start is { } s0 ? (s0.LogTau, s0.LogSigma) : StartingVariances(data);
+            var beta = start is { } s1 ? s1.Beta : StartingBeta(data);
+
+            // The outer objective: −(profiled) log-likelihood at the variances, β maximized inside (warm-started).
+            double Outer(double logTau, double logSigma)
+            {
+                if (!(logTau >= LogSdMin && logTau <= LogSdMax && logSigma >= LogSdMin && logSigma <= LogSdMax)) return double.MaxValue;
+                var inner = MaximizeBeta(data, beta, logTau, logSigma);
+                if (inner is not (Vector<double> b, double ll, Matrix<double> h)) return double.MaxValue;
+                beta = b;
+                double value = ll;
+                if (reml)
+                {
+                    double logDet;
+                    try { logDet = h.Cholesky().DeterminantLn; }
+                    catch (ArgumentException) { return double.MaxValue; }
+                    value += -0.5 * logDet + 0.5 * p * Math.Log(2 * Math.PI);
+                }
+                return double.IsFinite(value) ? -value : double.MaxValue;
+            }
+
+            // From a start (a held fit, beside the full one): a local search, which the held coefficient moves only a
+            // little; from the data's spread: a search over the whole range.
+            double logTauHat, logSigmaHat;
+            if (sigmaGiven)
+            {
+                logSigmaHat = logSigmaGiven;
+                logTauHat = start == null ? MinimizeOneDimension(u => Outer(u, logSigmaGiven), logTau0)
+                    : MinimizeNear(u => Outer(u, logSigmaGiven), logTau0);
+            }
+            else
+            {
+                try
+                {
+                    double size = start == null ? 0.5 : 0.1;
+                    var r = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(v => Outer(v[0], v[1])),
+                        Vector<double>.Build.DenseOfArray(new[] { logTau0, logSigma0 }), Vector<double>.Build.DenseOfArray(new[] { size, size }),
+                        1e-10, 4000);
+                    (logTauHat, logSigmaHat) = Polish(Outer, r.MinimizingPoint[0], r.MinimizingPoint[1]);
+                }
+                catch (MaximumIterationsException)
+                {
+                    return (null, FeatureFitStatus.NotConverged);
+                }
+            }
+
+            double objective = Outer(logTauHat, logSigmaHat);
+            var betaAtEstimate = beta;
+            // The boundary τ = 0, as MixedModel keeps θ = 0 when it is at least as good (here τ = e^LogSdMin, negligible).
+            // The probe moves the warm start, so the final β starts from the estimate's own when τ = 0 loses: from τ = 0's
+            // β it can climb a different local maximum, and report a β and SE that are not those of the reported ℓ.
+            double atZero = Outer(LogSdMin, logSigmaHat);
+            if (atZero <= objective) (logTauHat, objective) = (LogSdMin, atZero);
+            else beta = betaAtEstimate;
+            var final = MaximizeBeta(data, beta, logTauHat, logSigmaHat);
+            // Separation first: as β runs off, H tends to singular and REML's criterion fails everywhere, so a separated
+            // feature would otherwise read as not converged.
+            if (final is (Vector<double> runaway, double _, Matrix<double> _) && runaway.Any(v => Math.Abs(v) > SeparationLimit))
+                return (null, FeatureFitStatus.Separated);
+            if (!(objective < double.MaxValue) || final is not (Vector<double> betaHat, double _, Matrix<double> hessian))
+                return (null, FeatureFitStatus.NotConverged);
+            Matrix<double> covariance;
+            try { covariance = hessian.Cholesky().Solve(Matrix<double>.Build.DenseIdentity(p)); }
+            catch (ArgumentException) { return (null, FeatureFitStatus.Separated); }
+            return (new Estimate(betaHat, covariance, logTauHat, logSigmaHat, objective), FeatureFitStatus.Fitted);
+        }
+
+        /// <summary>Starting log SDs: from the measured samples (pooled within-group and between-group spread), else 0.</summary>
+        private static (double logTau, double logSigma) StartingVariances(Data d)
+        {
+            double within = 0;
+            int dfWithin = 0;
+            var means = new List<double>();
+            for (int g = 0; g < d.G; g++)
+            {
+                var ys = d.MeasuredRows[g].Select(i => d.Y[i]).ToList();
+                if (ys.Count == 0) continue;
+                double mean = ys.Average();
+                means.Add(mean);
+                within += ys.Sum(y => (y - mean) * (y - mean));
+                dfWithin += ys.Count - 1;
+            }
+            double sigma = dfWithin > 0 && within > 0 ? Math.Sqrt(within / dfWithin) : 1;
+            double between = means.Count > 1 ? means.Select(v => (v - means.Average()) * (v - means.Average())).Sum() / (means.Count - 1) : 0;
+            double tau = Math.Sqrt(Math.Max(between, 0.01 * sigma * sigma));
+            return (Math.Clamp(Math.Log(tau), LogSdMin + 1, LogSdMax - 1), Math.Clamp(Math.Log(sigma), LogSdMin + 1, LogSdMax - 1));
+        }
+
+        /// <summary>Starting β: least squares on the measured samples when they identify it, else 0.</summary>
+        private static Vector<double> StartingBeta(Data d)
+        {
+            int p = d.X.ColumnCount;
+            var measuredRows = Enumerable.Range(0, d.Y.Length).Where(i => d.IsMeasured[i]).ToArray();
+            if (measuredRows.Length > p)
+            {
+                var xm = Matrix<double>.Build.Dense(measuredRows.Length, p, (i, j) => d.X[measuredRows[i], j]);
+                if (LinearModel.IsFullRank(xm))
+                    return xm.QR().Solve(Vector<double>.Build.Dense(measuredRows.Length, i => d.Y[measuredRows[i]] - d.Offset[measuredRows[i]]));
+            }
+            return Vector<double>.Build.Dense(p);
+        }
+
+        /// <summary>
+        /// Newton steps on (log τ, log σ) from Nelder-Mead's point, with central-difference derivatives (step 1e-4); a
+        /// step is kept only if it lowers the objective. Nelder-Mead stops with the variances good to about 1e-5; this
+        /// takes them to the objective's own precision.
+        /// </summary>
+        private static (double, double) Polish(Func<double, double, double> objective, double u, double v)
+        {
+            const double h = 1e-4;
+            double f0 = objective(u, v);
+            for (int iter = 0; iter < 5; iter++)
+            {
+                if (u - 2 * h < LogSdMin || u + 2 * h > LogSdMax || v - 2 * h < LogSdMin || v + 2 * h > LogSdMax) break;
+                double fu1 = objective(u + h, v), fu0 = objective(u - h, v), fv1 = objective(u, v + h), fv0 = objective(u, v - h);
+                double fpp = objective(u + h, v + h), fpm = objective(u + h, v - h), fmp = objective(u - h, v + h), fmm = objective(u - h, v - h);
+                double gu = (fu1 - fu0) / (2 * h), gv = (fv1 - fv0) / (2 * h);
+                double huu = (fu1 - 2 * f0 + fu0) / (h * h), hvv = (fv1 - 2 * f0 + fv0) / (h * h), huv = (fpp - fpm - fmp + fmm) / (4 * h * h);
+                double det = huu * hvv - huv * huv;
+                if (!(huu > 0 && det > 0) || !double.IsFinite(det)) break;
+                double du = -(hvv * gu - huv * gv) / det, dv = -(huu * gv - huv * gu) / det;
+                double f1 = objective(u + du, v + dv);
+                if (!(f1 < f0)) break;
+                (u, v, f0) = (u + du, v + dv, f1);
+                if (Math.Max(Math.Abs(du), Math.Abs(dv)) < 1e-10) break;
+            }
+            return (u, v);
+        }
+
+        /// <summary>
+        /// Brent's method about <paramref name="start"/>: steps of 0.25 downhill, doubling, until the minimum is
+        /// bracketed or the range's end is reached.
+        /// </summary>
+        private static double MinimizeNear(Func<double, double> f, double start)
+        {
+            double a = Math.Clamp(start, LogSdMin, LogSdMax), fa = f(a), step = 0.25;
+            double b = Math.Min(a + step, LogSdMax), fb = f(b);
+            if (fb > fa) { (a, b, fa, fb) = (b, a, fb, fa); step = -step; }   // walk from a to b, downhill
+            double c = b, fc = fb;
+            for (int i = 0; i < 40; i++)
+            {
+                step *= 2;
+                c = Math.Clamp(b + step, LogSdMin, LogSdMax);
+                fc = f(c);
+                if (fc > fb || c == b) break;
+                (a, fa, b, fb) = (b, fb, c, fc);
+            }
+            return MixedModel.Brent(f, Math.Min(a, c), Math.Max(a, c), 1e-10);
+        }
+
+        /// <summary>Brent's method over [LogSdMin, LogSdMax], bracketed by a coarse grid around the start.</summary>
+        private static double MinimizeOneDimension(Func<double, double> f, double start)
+        {
+            const double step = 0.5;
+            double bestU = start, best = f(start);
+            for (double u = LogSdMin; u <= LogSdMax + 1e-12; u += step)
+            {
+                double o = f(u);
+                if (o < best) { best = o; bestU = u; }
+            }
+            return MixedModel.Brent(f, Math.Max(LogSdMin, bestU - step), Math.Min(LogSdMax, bestU + step), 1e-10);
+        }
+
+        /// <summary>
+        /// β maximizing ℓ at the given variances, by Newton with step halving, from <paramref name="start"/>; with ℓ and
+        /// H = −∂²ℓ/∂β² there. The quadrature rules are held fixed during the Newton steps and re-centred at the optimum,
+        /// until re-centring no longer moves them. Null when ℓ cannot be evaluated.
+        /// </summary>
+        private static (Vector<double> Beta, double LogLik, Matrix<double> H)? MaximizeBeta(Data d, Vector<double> start, double logTau, double logSigma)
+        {
+            int p = start.Count;
+            var beta = start.ToArray();
+            var grad = new double[p];
+            var h = new double[p, p];
+            var rules = Centre(d, beta, logTau, logSigma);
+            double ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+            if (!double.IsFinite(ll))
+            {
+                beta = new double[p];
+                rules = Centre(d, beta, logTau, logSigma);
+                ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+                if (!double.IsFinite(ll)) return null;
+            }
+            for (int round = 0; round < 10; round++)
+            {
+                for (int iter = 0; iter < 100; iter++)
+                {
+                    var hm = Matrix<double>.Build.DenseOfArray(h);
+                    var g = Vector<double>.Build.DenseOfArray(grad);
+                    Vector<double> step;
+                    try { step = hm.Cholesky().Solve(g); }
+                    catch (ArgumentException) { step = g / Math.Max(1, hm.Diagonal().AbsoluteMaximum()); }   // not concave here: a gradient step
+                    // A nearly singular H (a count far in its logistic tail) gives a huge Newton step that no halving
+                    // brings back inside the search box; cap its length so step halving can work.
+                    double longest = step.AbsoluteMaximum();
+                    if (longest > MaxNewtonStep) step *= MaxNewtonStep / longest;
+                    bool moved = false, small = false;
+                    double t = 1;
+                    for (int half = 0; half < 40; half++, t /= 2)
+                    {
+                        var candidate = beta.Select((b, j) => b + t * step[j]).ToArray();
+                        if (candidate.Any(v => Math.Abs(v) > 4 * SeparationLimit)) continue;
+                        double c = Evaluate(d, candidate, logTau, logSigma, rules, null, null);
+                        if (!(double.IsFinite(c) && c >= ll - 1e-12)) continue;
+                        small = t * step.AbsoluteMaximum() < 1e-10 * Math.Max(1, beta.Max(Math.Abs));
+                        moved = c > ll;
+                        beta = candidate;
+                        break;
+                    }
+                    ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+                    if (!moved || small) break;
+                }
+                if (d.CountedRows.All(r => r.Count == 0)) break;
+                var next = Centre(d, beta, logTau, logSigma);
+                bool settled = next.IsCloseTo(rules);
+                rules = next;
+                ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+                if (settled || !double.IsFinite(ll)) break;
+            }
+            if (!double.IsFinite(ll)) return null;
+            return (Vector<double>.Build.DenseOfArray(beta), ll, Matrix<double>.Build.DenseOfArray(h));
+        }
+
+        /// <summary>
+        /// One feature's quadrature rules at given β and variances, per group with counted samples: the u rule, and per u
+        /// node and counted sample (index node × counts + count), the e rule.
+        /// </summary>
+        private sealed class Rules
+        {
+            /// <summary>Per group with counts: the u nodes and the log weights of ∫ f(u) du ≈ Σ e^LogWeight f(node).</summary>
+            public required double[][] UNode, ULogWeight;
+            /// <summary>Per group with counts: the e rules.</summary>
+            public required ERule[][] E;
+            /// <summary>Per group: whether the u rule is the panel rule (else the 40-node adaptive Gauss-Hermite).</summary>
+            public required bool[] Paneled;
+
+            public int MaxNodes => UNode.Max(n => n?.Length ?? 0);
+
+            public int MaxENodes => E.Where(e => e != null).SelectMany(e => e).Select(r => r.Node.Length).DefaultIfEmpty(0).Max();
+
+            /// <summary>
+            /// Whether every node of every rule moved by less than 1e-8 of its gap to a neighbour and every log weight by
+            /// less than 1e-8, with the same number of nodes.
+            /// </summary>
+            public bool IsCloseTo(Rules other)
+            {
+                const double tolerance = 1e-8;
+                static bool Close(double[] a, double[] aw, double[] b, double[] bw)
+                {
+                    if (a.Length != b.Length) return false;
+                    for (int i = 0; i < a.Length; i++)
+                    {
+                        double gap = i + 1 < a.Length ? a[i + 1] - a[i] : a[i] - a[i - 1];
+                        if (Math.Abs(a[i] - b[i]) > tolerance * Math.Abs(gap)) return false;
+                        if (Math.Abs(aw[i] - bw[i]) > tolerance) return false;
+                    }
+                    return true;
+                }
+                for (int g = 0; g < UNode.Length; g++)
+                {
+                    if (E[g] == null) continue;
+                    if (Paneled[g] != other.Paneled[g] || !Close(UNode[g], ULogWeight[g], other.UNode[g], other.ULogWeight[g])) return false;
+                    if (E[g].Length != other.E[g].Length) return false;
+                    for (int i = 0; i < E[g].Length; i++)
+                        if (!Close(E[g][i].Node, E[g][i].LogWeight, other.E[g][i].Node, other.E[g][i].LogWeight)) return false;
+                }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// The adaptive rules at β (see the class remarks). The u rule: the joint mode of the group's integrand over
+        /// (u, e_1..e_m), found by Newton on its arrow-shaped Hessian, and 1/√ of u's marginal precision there,
+        /// 1/v + Σ w_c (1/σ²) / (1/σ² + w_c), w_c the count's curvature in its logit times b². Each e rule: the mode and
+        /// curvature of the count's integrand at that u node, from the mode's linear shift with u.
+        /// </summary>
+        private static Rules Centre(Data d, double[] beta, double logTau, double logSigma)
+        {
+            double s2 = Math.Exp(2 * logSigma), t2 = Math.Exp(2 * logTau), sigma = Math.Exp(logSigma);
+            var link = d.Link;
+            double b = link.Slope, rho = link.Overdispersion;
+            var rules = new Rules { UNode = new double[d.G][], ULogWeight = new double[d.G][], Paneled = new bool[d.G], E = new ERule[d.G][] };
+            for (int g = 0; g < d.G; g++)
+            {
+                var counted = d.CountedRows[g];
+                int nc = counted.Count;
+                if (nc == 0) continue;
+                int n = d.MeasuredRows[g].Count;
+                double sr = 0;
+                foreach (int i in d.MeasuredRows[g]) sr += d.Y[i] - d.Offset[i] - Dot(d.Rows[i], beta);
+                double mean = n > 0 ? t2 * sr / (s2 + n * t2) : 0, variance = n > 0 ? t2 * s2 / (s2 + n * t2) : t2;
+                var offset = new double[nc];
+                for (int ci = 0; ci < nc; ci++)
+                {
+                    int i = counted[ci];
+                    offset[ci] = link.Intercept + b * (Dot(d.Rows[i], beta) + d.Offset[i]) + link.DepthSlope * d.Depth[i];
+                }
+
+                double Joint(double u, double[] e)
+                {
+                    double v = -(u - mean) * (u - mean) / (2 * variance);
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        v += -e[ci] * e[ci] / (2 * s2) + LogCountProbability(d.K[i], d.N[i], offset[ci] + b * (u + e[ci]), rho, d.LogChoose[i], out _, out _);
+                    }
+                    return v;
+                }
+                // Curvatures at (u, e): w_c = b² × the count's curvature in its logit, floored at 0 so the system stays positive definite.
+                var w = new double[nc];
+                var ge = new double[nc];
+                double Gradient(double u, double[] e)
+                {
+                    double gu = -(u - mean) / variance;
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        LogCountProbability(d.K[i], d.N[i], offset[ci] + b * (u + e[ci]), rho, d.LogChoose[i], out double d1, out double d2);
+                        w[ci] = Math.Max(-b * b * d2, 0);
+                        gu += b * d1;
+                        ge[ci] = -e[ci] / s2 + b * d1;
+                    }
+                    return gu;
+                }
+
+                double uHat = mean;
+                var eHat = new double[nc];
+                double objective = Joint(uHat, eHat);
+                var de = new double[nc];
+                var candidate = new double[nc];
+                for (int iter = 0; iter < 100; iter++)
+                {
+                    double gu = Gradient(uHat, eHat);
+                    double schur = 1 / variance, rhs = gu;
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        double dc = 1 / s2 + w[ci];
+                        schur += w[ci] - w[ci] * w[ci] / dc;
+                        rhs -= w[ci] * ge[ci] / dc;
+                    }
+                    double du = rhs / schur, largest = Math.Abs(du);
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        de[ci] = (ge[ci] - w[ci] * du) / (1 / s2 + w[ci]);
+                        largest = Math.Max(largest, Math.Abs(de[ci]));
+                    }
+                    double t = 1;
+                    int half = 0;
+                    for (; half < 40; half++, t /= 2)
+                    {
+                        for (int ci = 0; ci < nc; ci++) candidate[ci] = eHat[ci] + t * de[ci];
+                        double c = Joint(uHat + t * du, candidate);
+                        if (c >= objective - 1e-12)
+                        {
+                            uHat += t * du;
+                            Array.Copy(candidate, eHat, nc);
+                            objective = c;
+                            break;
+                        }
+                    }
+                    if (half == 40 || t * largest < 1e-10) break;
+                }
+                Gradient(uHat, eHat);
+                double precision = 1 / variance;
+                for (int ci = 0; ci < nc; ci++) precision += w[ci] * (1 / s2) / (1 / s2 + w[ci]);
+                double uScale = 1 / Math.Sqrt(precision);
+                var wHat = (double[])w.Clone();
+                double logNormU = -0.5 * (LogTwoPi + Math.Log(variance));
+
+                double EStart(int ci, double u)
+                {
+                    double start = eHat[ci] - (u - uHat) * wHat[ci] / (1 / s2 + wHat[ci]);
+                    return double.IsFinite(start) ? start : 0;
+                }
+                // The e rules at every node of a u rule.
+                ERule[] ERules(double[] nodes)
+                {
+                    var e = new ERule[nodes.Length * nc];
+                    for (int a = 0; a < nodes.Length; a++)
+                        for (int ci = 0; ci < nc; ci++)
+                        {
+                            int i = counted[ci];
+                            e[a * nc + ci] = CellRule(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * nodes[a], b, rho, sigma, EStart(ci, nodes[a]));
+                        }
+                    return e;
+                }
+                // The 40-node adaptive Gauss-Hermite rule, unless the integrand has not fallen by ReachDrop at ±8 scales (mass
+                // beyond the rule's nodes), or a count's step (where its logit crosses 0) lies within ±8 scales while the
+                // scale exceeds StepRatio × π/|b| (a step narrower than the rule's node spacing). Then panels.
+                double top = Shape(uHat).Value;
+                bool reach = Shape(uHat - 8 * uScale).Value < top - ReachDrop && Shape(uHat + 8 * uScale).Value < top - ReachDrop;
+                bool sharpStep = uScale > StepRatio * Math.PI / Math.Abs(b) && offset.Any(o => Math.Abs(-o / b - uHat) < 8 * uScale);
+                bool paneled = !reach || sharpStep;
+                double[] uNodes, uLogW;
+                if (paneled) (uNodes, uLogW) = GradedPanels(Shape, uHat, uScale, offset.Select(o => -o / b), Math.PI / Math.Abs(b), UPanelCap);
+                else
+                {
+                    uNodes = new double[UNodes];
+                    uLogW = new double[UNodes];
+                    for (int a = 0; a < UNodes; a++)
+                    {
+                        uNodes[a] = uHat + Math.Sqrt(2) * uScale * UQuadrature.X[a];
+                        uLogW[a] = ULogWeights[a] + Math.Log(Math.Sqrt(2) * uScale);
+                    }
+                }
+                rules.UNode[g] = uNodes;
+                rules.ULogWeight[g] = uLogW;
+                rules.Paneled[g] = paneled;
+                rules.E[g] = ERules(uNodes);
+
+                // ℓ_g(u) = log N(u; mean, variance) + Σ log q_c(u) (q_c by its e rule at u), its slope, and the curvature of the
+                // Laplace marginal (as uScale's), for placing panels.
+                (double Value, double Slope, double Precision) Shape(double u)
+                {
+                    double du = u - mean, value = logNormU - du * du / (2 * variance), slope = -du / variance, prec = 1 / variance;
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        var rule = CellRule(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * u, b, rho, sigma, EStart(ci, u), panels: false);
+                        value += LogCellIntegral(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * u, b, rho, sigma, rule);
+                        LogCountProbability(d.K[i], d.N[i], offset[ci] + b * (u + rule.Mode), rho, d.LogChoose[i], out double d1, out double d2);
+                        slope += b * d1;
+                        double wc = Math.Max(-b * b * d2, 0);
+                        prec += wc * (1 / s2) / (1 / s2 + wc);
+                    }
+                    return (value, slope, prec);
+                }
+            }
+            return rules;
+        }
+
+        /// <summary>
+        /// Graded 8-point Gauss-Legendre panels for ∫ e^f(x) dx: the nodes and log weights. They cover where f is within
+        /// PanelDrop of f(mode). Feature points: the mode (scale <paramref name="modeScale"/>) and each step inside that
+        /// range (scale: 1/√ of the curvature there, at most <paramref name="stepScale"/>, the distance of a logistic's
+        /// poles from the real axis). Panels start at a feature's scale and widen away from it, capped at <paramref name="cap"/> local
+        /// scales (1/√ of the curvature) and at (5 + drop)/|slope|, so no panel spans more than a few e-folds of the
+        /// integrand where it matters.
+        /// </summary>
+        /// <param name="shape">f at x, its slope, and its curvature (positive), as precision.</param>
+        private static (double[] Nodes, double[] LogW) GradedPanels(Func<double, (double Value, double Slope, double Precision)> shape,
+            double mode, double modeScale, IEnumerable<double> steps, double stepScale, double cap)
+        {
+            double top = shape(mode).Value;
+            double Edge(int dir)
+            {
+                double dist = modeScale;
+                int it = 0;
+                while (shape(mode + dir * dist).Value > top - PanelDrop && it++ < 60) dist *= 2;
+                double lo = it == 0 ? 0 : dist / 2, hi = dist;
+                for (int k = 0; k < 8; k++)
+                {
+                    double mid = 0.5 * (lo + hi);
+                    if (shape(mode + dir * mid).Value > top - PanelDrop) lo = mid; else hi = mid;
+                }
+                return mode + dir * hi;
+            }
+            double xL = Edge(-1), xR = Edge(1);
+            var points = new List<(double X, double Scale)> { (mode, modeScale) };
+            foreach (double st in steps.Where(v => v > xL && v < xR).Distinct().OrderBy(v => v))
+            {
+                double scale = Math.Min(stepScale, 1 / Math.Sqrt(shape(st).Precision));
+                if (points.Any(p => Math.Abs(p.X - st) < 0.5 * Math.Max(scale, Math.Min(p.Scale, stepScale)))) continue;
+                points.Add((st, scale));
+            }
+            points.Sort((x, y) => x.X.CompareTo(y.X));
+
+            // The widest panel allowed starting at x (going right): graded from every feature (κλ + distance, so widths
+            // about double per panel away from it), at most cap local scales, and at most (5 + drop)/|slope|.
+            double Width(double x)
+            {
+                double wdt = double.PositiveInfinity;
+                foreach (var (fx, fl) in points)
+                {
+                    double dist = fx - x;
+                    wdt = Math.Min(wdt, dist >= 0 ? (PanelKappa * fl + dist) / 2 : PanelKappa * fl - dist);
+                }
+                var sh = shape(x);
+                wdt = Math.Min(wdt, cap / Math.Sqrt(sh.Precision));
+                wdt = Math.Min(wdt, (5 + Math.Max(0, top - sh.Value)) / Math.Max(Math.Abs(sh.Slope), 1e-300));
+                return wdt;
+            }
+            var stops = points.Select(p => p.X).Append(xR).ToList();
+            var breaks = new List<double> { xL };
+            double at = xL;
+            int nextStop = 0;
+            for (int guard = 0; guard < 400 && at < xR; guard++)
+            {
+                while (stops[nextStop] <= at) nextStop++;
+                double wdt = Width(at), stop = stops[nextStop];
+                at = stop - at <= 1.3 * wdt ? stop : at + wdt;
+                breaks.Add(at);
+            }
+            var (gx, gw) = PanelQuadrature;
+            int panels = breaks.Count - 1, q = gx.Length;
+            var nodes = new double[panels * q];
+            var logW = new double[panels * q];
+            for (int pi = 0; pi < panels; pi++)
+            {
+                double lo = breaks[pi], width = breaks[pi + 1] - lo;
+                for (int a = 0; a < q; a++)
+                {
+                    nodes[pi * q + a] = lo + 0.5 * width * (gx[a] + 1);
+                    logW[pi * q + a] = Math.Log(0.5 * width * gw[a]);
+                }
+            }
+            return (nodes, logW);
+        }
+
+        /// <summary>Gauss-Legendre nodes and weights on [−1, 1], by Golub-Welsch (off-diagonal k/√(4k² − 1), weights 2 v0²).</summary>
+        internal static (double[] X, double[] W) GaussLegendre(int n)
+        {
+            var j = Matrix<double>.Build.Dense(n, n);
+            for (int k = 1; k < n; k++) j[k, k - 1] = j[k - 1, k] = k / Math.Sqrt(4.0 * k * k - 1);
+            var evd = j.Evd(Symmetricity.Symmetric);
+            var order = Enumerable.Range(0, n).OrderBy(i => evd.EigenValues[i].Real).ToArray();
+            var x = new double[n];
+            var w = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                int o = order[i];
+                x[i] = evd.EigenValues[o].Real;
+                double v0 = evd.EigenVectors[0, o];
+                w[i] = 2 * v0 * v0;
+            }
+            for (int i = 0; i < n / 2; i++)
+            {
+                double xs = 0.5 * (x[n - 1 - i] - x[i]), ws = 0.5 * (w[i] + w[n - 1 - i]);
+                x[i] = -xs; x[n - 1 - i] = xs; w[i] = w[n - 1 - i] = ws;
+            }
+            if (n % 2 == 1) x[n / 2] = 0;
+            return (x, w);
+        }
+
+        /// <summary>A count's e rule: its integrand's mode, and the nodes and log weights of ∫ f(z) dz ≈ Σ e^LogWeight f(node).</summary>
+        private readonly record struct ERule(double Mode, double[] Node, double[] LogWeight);
+
+        /// <summary>
+        /// The rule for log ∫ N(z; 0, sd²) P(k of n | logit = offset + slope·z) dz: the integrand's mode, by Newton with
+        /// step halving from <paramref name="start"/>, and 1/√ of its curvature there. The rule is 12-node Gauss-Hermite
+        /// at that mode and scale, unless, as for the u rule, the integrand has not fallen by ReachDrop at ±8 scales, or
+        /// its step (where the logit crosses 0) lies within ±8 scales while the scale exceeds EStepRatio × π/|slope|: a
+        /// one-sided count (k = 0 or k = n) at a large sd, whose integrand is the prior times a smoothed step. Then panels.
+        /// </summary>
+        private static ERule CellRule(int k, int n, double logChoose, double offset, double slope, double rho, double sd, double start,
+            bool panels = true)
+        {
+            double precision0 = 1 / (sd * sd);
+            double Value(double z) => -0.5 * z * z * precision0 + LogCountProbability(k, n, offset + slope * z, rho, logChoose, out _, out _);
+            double zHat = start, value = Value(zHat);
+            for (int iter = 0; iter < 100; iter++)
+            {
+                LogCountProbability(k, n, offset + slope * zHat, rho, logChoose, out double d1, out double d2);
+                double curvature = precision0 + Math.Max(-slope * slope * d2, 0);
+                double step = (-zHat * precision0 + slope * d1) / curvature;
+                double t = 1;
+                int half = 0;
+                for (; half < 40; half++, t /= 2)
+                {
+                    double c = Value(zHat + t * step);
+                    if (c >= value - 1e-14)
+                    {
+                        zHat += t * step;
+                        value = c;
+                        break;
+                    }
+                }
+                if (half == 40 || Math.Abs(t * step) * Math.Sqrt(curvature) < 1e-10) break;
+            }
+            LogCountProbability(k, n, offset + slope * zHat, rho, logChoose, out _, out double d2Hat);
+            double scale = 1 / Math.Sqrt(precision0 + Math.Max(-slope * slope * d2Hat, 0));
+
+            double crossing = -offset / slope;
+            bool reach = Value(zHat - 8 * scale) < value - ReachDrop && Value(zHat + 8 * scale) < value - ReachDrop;
+            bool sharpStep = scale > EStepRatio * Math.PI / Math.Abs(slope) && Math.Abs(crossing - zHat) < 8 * scale;
+            if (!panels || (reach && !sharpStep))
+            {
+                var node = new double[ENodes];
+                var logWeight = new double[ENodes];
+                for (int j = 0; j < ENodes; j++)
+                {
+                    node[j] = zHat + Math.Sqrt(2) * scale * EQuadrature.X[j];
+                    logWeight[j] = ELogWeights[j] + Math.Log(Math.Sqrt(2) * scale);
+                }
+                return new ERule(zHat, node, logWeight);
+            }
+            (double Value, double Slope, double Precision) Shape(double z)
+            {
+                double v = -0.5 * z * z * precision0 + LogCountProbability(k, n, offset + slope * z, rho, logChoose, out double d1, out double d2);
+                return (v, -z * precision0 + slope * d1, precision0 + Math.Max(-slope * slope * d2, 0));
+            }
+            var (nodes, logW) = GradedPanels(Shape, zHat, scale, new[] { crossing }, Math.PI / Math.Abs(slope), EPanelCap);
+            return new ERule(zHat, nodes, logW);
+        }
+
+        /// <summary>log ∫ N(z; 0, sd²) P(k of n | logit = offset + slope·z) dz, by the rule a fit uses. For tests.</summary>
+        internal static double LogCountIntegral(int k, int n, double offset, double slope, double sd, double rho = 0)
+        {
+            double logChoose = LogChoose(n, k);
+            return LogCellIntegral(k, n, logChoose, offset, slope, rho, sd, CellRule(k, n, logChoose, offset, slope, rho, sd, 0));
+        }
+
+        /// <summary>log ∫ N(z; 0, sd²) P(k of n | logit = offset + slope·z) dz, by the e rule.</summary>
+        private static double LogCellIntegral(int k, int n, double logChoose, double offset, double slope, double rho, double sd, ERule rule)
+        {
+            double lse = double.NegativeInfinity, logNorm = -0.5 * (LogTwoPi + 2 * Math.Log(sd));
+            for (int j = 0; j < rule.Node.Length; j++)
+            {
+                double z = rule.Node[j];
+                lse = LogAdd(lse, rule.LogWeight[j] + logNorm - z * z / (2 * sd * sd)
+                    + LogCountProbability(k, n, offset + slope * z, rho, logChoose, out _, out _));
+            }
+            return lse;
+        }
+
+        private static readonly double LogTwoPi = Math.Log(2 * Math.PI);
+
+        /// <summary>
+        /// ℓ(β) at the given variances, by the given quadrature rules; with <paramref name="grad"/> and <paramref name="h"/>,
+        /// also its gradient and H = −∂²ℓ/∂β², exact for those rules.
+        /// </summary>
+        /// <remarks>
+        /// Per group: the measured samples give N(Xβ, σ²I + τ²J), and leave u normal with mean m = κ Σ r and variance
+        /// v = τ²σ² / (σ² + nτ²), κ = τ² / (σ² + nτ²), r the measured residuals. On node a of the u rule, F_a is the node's
+        /// weight times N(u_a; m, v) times Π_c q_c(u_a), q_c(u) a counted sample's probability integrated over e by its
+        /// rule; L = log Σ_a F_a. The nodes are fixed, so β enters through m (∂m/∂β = −κ Σ x, the measured rows' sum) and
+        /// each count's latent location xᵀβ + u_a:
+        /// ∂ log F_a = −κ Σx (u_a − m)/v + Σ_c b r₁ x_c, ∂² log F_a = −κ² Σx Σxᵀ / v + Σ_c b² (r₂ − r₁²) x_c x_cᵀ, where r₁ and
+        /// r₂ are the e-weighted means of ∂ log P/∂ℓ and (∂ log P/∂ℓ)² + ∂² log P/∂ℓ² (ℓ the per-trial logit, b the link's
+        /// slope); then ∂L = Σ π_a ∂ log F_a and ∂²L = Σ π_a (∂² log F_a + ∂ log F_a ∂ log F_aᵀ) − ∂L ∂Lᵀ, π_a = F_a / Σ F.
+        /// </remarks>
+        private static double Evaluate(Data d, double[] beta, double logTau, double logSigma, Rules rules, double[]? grad, double[,]? h)
+        {
+            int p = beta.Length;
+            bool deriv = grad != null;
+            if (deriv) { Array.Clear(grad!); Array.Clear(h!); }
+            double s2 = Math.Exp(2 * logSigma), t2 = Math.Exp(2 * logTau), total = 0;
+            double logNormE = -0.5 * (LogTwoPi + 2 * logSigma);
+            var link = d.Link;
+            double slope = link.Slope;
+            var sx = new double[p];
+            int maxNodes = rules.MaxNodes;
+            var logF = new double[maxNodes];
+            var gF = deriv ? new double[maxNodes, p] : null;
+            var hF = deriv ? new double[maxNodes, p, p] : null;
+            var gL = new double[p];
+            int maxENodes = rules.MaxENodes;
+            var lw = new double[maxENodes];
+            var s1 = new double[maxENodes];
+            var s2c = new double[maxENodes];
+            for (int g = 0; g < d.G; g++)
+            {
+                var measured = d.MeasuredRows[g];
+                int n = measured.Count;
+                Array.Clear(sx);
+                double sr = 0, sr2 = 0;
+                foreach (int i in measured)
+                {
+                    var xi = d.Rows[i];
+                    double r = d.Y[i] - d.Offset[i] - Dot(xi, beta);
+                    sr += r;
+                    sr2 += r * r;
+                    for (int j = 0; j < p; j++)
+                    {
+                        sx[j] += xi[j];
+                        if (!deriv) continue;
+                        grad![j] += xi[j] * r / s2;
+                        for (int k = 0; k < p; k++) h![j, k] += xi[j] * xi[k] / s2;
+                    }
+                }
+                double kappa = 0, mean = 0, variance = t2;
+                if (n > 0)
+                {
+                    double denom = s2 + n * t2;
+                    total += -0.5 * (n * LogTwoPi + (n - 1) * Math.Log(s2) + Math.Log(denom) + sr2 / s2 - t2 * sr * sr / (s2 * denom));
+                    if (deriv)
+                    {
+                        double c = t2 / (s2 * denom);
+                        for (int j = 0; j < p; j++)
+                        {
+                            grad![j] -= c * sx[j] * sr;
+                            for (int k = 0; k < p; k++) h![j, k] -= c * sx[j] * sx[k];
+                        }
+                    }
+                    kappa = t2 / denom;
+                    mean = kappa * sr;
+                    variance = t2 * s2 / denom;
+                }
+
+                var counted = d.CountedRows[g];
+                int nc = counted.Count;
+                if (nc == 0) continue;
+                var uNode = rules.UNode[g];
+                var uLogWeight = rules.ULogWeight[g];
+                int nodes = uNode.Length;
+                var eRules = rules.E[g];
+                double logNormU = -0.5 * (LogTwoPi + Math.Log(variance));
+                for (int a = 0; a < nodes; a++)
+                {
+                    double u = uNode[a];
+                    double du = u - mean;
+                    logF[a] = uLogWeight[a] + logNormU - du * du / (2 * variance);
+                    if (deriv)
+                        for (int j = 0; j < p; j++)
+                        {
+                            gF![a, j] = -kappa * sx[j] * du / variance;
+                            for (int k = 0; k < p; k++) hF![a, j, k] = -kappa * kappa * sx[j] * sx[k] / variance;
+                        }
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        var xi = d.Rows[i];
+                        double location = link.Intercept + slope * (Dot(xi, beta) + d.Offset[i] + u) + link.DepthSlope * d.Depth[i];
+                        var eRule = eRules[a * nc + ci];
+                        var eNode = eRule.Node;
+                        var eLogWeight = eRule.LogWeight;
+                        int eNodes = eNode.Length;
+                        double top = double.NegativeInfinity;
+                        for (int b = 0; b < eNodes; b++)
+                        {
+                            double e = eNode[b];
+                            lw[b] = eLogWeight[b] + logNormE - e * e / (2 * s2)
+                                + LogCountProbability(d.K[i], d.N[i], location + slope * e, link.Overdispersion, d.LogChoose[i], out s1[b], out s2c[b]);
+                            top = Math.Max(top, lw[b]);
+                        }
+                        // The node terms relative to the largest (one exponential each), then log q = top + log Σ.
+                        double sum = 0;
+                        for (int b = 0; b < eNodes; b++) sum += lw[b] = Math.Exp(lw[b] - top);
+                        double logq = top + Math.Log(sum);
+                        logF[a] += logq;
+                        if (!deriv) continue;
+                        double r1 = 0, r2 = 0;
+                        for (int b = 0; b < eNodes; b++)
+                        {
+                            double w = lw[b] / sum;
+                            r1 += w * s1[b];
+                            r2 += w * (s1[b] * s1[b] + s2c[b]);
+                        }
+                        double curvature = slope * slope * (r2 - r1 * r1);
+                        for (int j = 0; j < p; j++)
+                        {
+                            gF![a, j] += slope * r1 * xi[j];
+                            for (int k = 0; k < p; k++) hF![a, j, k] += curvature * xi[j] * xi[k];
+                        }
+                    }
+                }
+                double lse = double.NegativeInfinity;
+                for (int a = 0; a < nodes; a++) lse = LogAdd(lse, logF[a]);
+                total += lse;
+                if (!deriv) continue;
+                Array.Clear(gL);
+                for (int a = 0; a < nodes; a++)
+                {
+                    double pi = Math.Exp(logF[a] - lse);
+                    for (int j = 0; j < p; j++) gL[j] += pi * gF![a, j];
+                }
+                for (int a = 0; a < nodes; a++)
+                {
+                    double pi = Math.Exp(logF[a] - lse);
+                    if (pi == 0) continue;
+                    for (int j = 0; j < p; j++)
+                        for (int k = 0; k < p; k++)
+                            h![j, k] -= pi * (hF![a, j, k] + gF![a, j] * gF[a, k]);
+                }
+                for (int j = 0; j < p; j++)
+                {
+                    grad![j] += gL[j];
+                    for (int k = 0; k < p; k++) h![j, k] += gL[j] * gL[k];
+                }
+            }
+            return total;
+        }
+
+        private static double Dot(double[] x, double[] beta)
+        {
+            double s = 0;
+            for (int j = 0; j < x.Length; j++) s += x[j] * beta[j];
+            return s;
+        }
+
+        /// <summary>
+        /// log P(k of n) for a per-trial chance g = 1 / (1 + e^(−logit)): binomial when ρ = 0, else beta-binomial with
+        /// mean g and intra-cell correlation ρ, written as products so no gamma function is needed.
+        /// </summary>
+        internal static double LogCountProbability(int k, int n, double logit, double rho) =>
+            LogCountProbability(k, n, logit, rho, LogChoose(n, k), out _, out _);
+
+        /// <summary>
+        /// <see cref="LogCountProbability(int, int, double, double)"/> with log C(n, k) given, and its first and second
+        /// derivatives in the logit: binomial k − ng and −ng(1 − g); beta-binomial through g' = g(1 − g), g'' = g'(1 − 2g).
+        /// </summary>
+        internal static double LogCountProbability(int k, int n, double logit, double rho, double logChoose, out double d1, out double d2)
+        {
+            double logG = -Log1pExp(-logit), log1mG = -Log1pExp(logit);
+            double g = Math.Exp(logG), h = Math.Exp(log1mG);
+            if (rho == 0)
+            {
+                d1 = k - n * g;
+                d2 = -n * g * h;
+                return logChoose + k * logG + (n - k) * log1mG;
+            }
+            double s = (1 - rho) / rho, sum = logChoose, t1 = 0, t2 = 0;
+            for (int j = 0; j < k; j++)
+            {
+                double a = g * s + j;
+                sum += Math.Log(a);
+                t1 += s / a;
+                t2 -= s * s / (a * a);
+            }
+            for (int j = 0; j < n - k; j++)
+            {
+                double b = h * s + j;
+                sum += Math.Log(b);
+                t1 -= s / b;
+                t2 -= s * s / (b * b);
+            }
+            for (int j = 0; j < n; j++) sum -= Math.Log(s + j);
+            double g1 = g * h, g2 = g1 * (h - g);
+            d1 = t1 * g1;
+            d2 = t2 * g1 * g1 + t1 * g2;
+            return sum;
+        }
+
+        private static double LogChoose(int n, int k)
+        {
+            double sum = 0;
+            for (int j = 1; j <= Math.Min(k, n - k); j++) sum += Math.Log((double)(n - Math.Min(k, n - k) + j) / j);
+            return sum;
+        }
+
+        /// <summary>log(1 + e^x) without overflow.</summary>
+        private static double Log1pExp(double x) => x > 0 ? x + Math.Log(1 + Math.Exp(-x)) : Math.Log(1 + Math.Exp(x));
+
+        private static double LogAdd(double a, double b)
+        {
+            if (double.IsNegativeInfinity(a)) return b;
+            if (double.IsNegativeInfinity(b)) return a;
+            return Math.Max(a, b) + Math.Log(1 + Math.Exp(-Math.Abs(a - b)));
+        }
+    }
+}

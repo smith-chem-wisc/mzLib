@@ -44,8 +44,9 @@ namespace UsefulProteomicsDatabases
     /// — or a URL that has quietly started returning 404 — pass unnoticed.
     /// </description></item>
     /// <item><description>
-    /// <see cref="HttpRequestException"/> — UniProt was unreachable, timed out, rate-limited the caller, or
-    /// returned 5xx. <b>Nobody's mistake; try again later.</b>
+    /// <see cref="HttpRequestException"/> — UniProt was unreachable, timed out, rate-limited the caller,
+    /// returned 5xx, or answered 200 with its streaming-error message in place of data. <b>Nobody's mistake;
+    /// try again later.</b>
     /// </description></item>
     /// </list>
     /// <para>
@@ -169,7 +170,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentOutOfRangeException">The format is not fasta or xml, or the review status is not a defined <see cref="Reviewed"/> value.</exception>
         /// <exception cref="DirectoryNotFoundException">The storage directory does not exist.</exception>
         /// <exception cref="MzLibException">UniProt answered, but no protein matched — an unknown proteome ID, or none of the requested review status — or it rejected the request, or returned an empty body for a non-empty proteome.</exception>
-        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, or returned 5xx.</exception>
+        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, returned 5xx, or answered 200 with its streaming-error message instead of data.</exception>
         public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
             Reviewed reviewed, Compress compress, IncludeIsoforms include) =>
             RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include, SharedHttpClient);
@@ -180,7 +181,49 @@ namespace UsefulProteomicsDatabases
         /// without a live service.
         /// </summary>
         internal static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
-            Reviewed reviewed, Compress compress, IncludeIsoforms include, HttpClient httpClient)
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, HttpClient httpClient) =>
+            RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include,
+                GeneCentric.no, httpClient);
+
+        /// <summary>
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms)"/>,
+        /// optionally narrowed to the proteome's gene-centric set: one protein per gene, the set UniProt
+        /// distributes as a reference proteome's canonical FASTA/XML on its FTP site
+        /// (reference_proteomes/&lt;kingdom&gt;/&lt;UP id&gt;/&lt;UP id&gt;_&lt;taxon&gt;.fasta.gz).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The reviewed entries of a thinly curated organism are not a whole proteome. Rat (UP000002494) has
+        /// 8,228 reviewed entries but 21,471 genes; the gene-centric set holds one sequence for each of them —
+        /// the Swiss-Prot entry where there is one (8,213), a TrEMBL entry where there is not (13,258) — out of
+        /// the 52,824 entries in the complete proteome. A search against the reviewed entries alone cannot
+        /// identify the other 13,000 genes; a search against the complete proteome scatters each gene's
+        /// peptides across several near-identical entries.
+        /// </para>
+        /// <para>
+        /// <see cref="GeneCentric.yes"/> adds UniProt's <c>is_gene_centric:true</c> clause to the same query, so
+        /// it combines with <paramref name="reviewed"/>: with <see cref="Reviewed.all"/> it is the canonical
+        /// proteome (rat 21,471, human 20,652, mouse 21,860 in release 2026_03, each exactly the FTP file's
+        /// entries); with <see cref="Reviewed.yes"/> it is the Swiss-Prot part of that set. The file name gains
+        /// "_genecentric" so the set is never mistaken on disk for the reviewed or complete download.
+        /// </para>
+        /// </remarks>
+        /// <param name="geneCentric">Whether to keep only the gene-centric (one protein per gene) entries.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// As for the overload without <paramref name="geneCentric"/>, or <paramref name="geneCentric"/> is not a
+        /// defined <see cref="GeneCentric"/> value.
+        /// </exception>
+        public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, GeneCentric geneCentric) =>
+            RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include, geneCentric,
+                SharedHttpClient);
+
+        /// <summary>
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms, GeneCentric)"/>
+        /// over a caller-supplied <see cref="HttpClient"/>.
+        /// </summary>
+        internal static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, GeneCentric geneCentric, HttpClient httpClient)
         {
             if (string.IsNullOrWhiteSpace(proteomeID))
                 throw new ArgumentException("A UniProt proteome ID is required, e.g. \"UP000005640\".", nameof(proteomeID));
@@ -195,6 +238,9 @@ namespace UsefulProteomicsDatabases
             if (!Enum.IsDefined(typeof(Reviewed), reviewed))
                 throw new ArgumentOutOfRangeException(nameof(reviewed), reviewed,
                     $"Review status '{reviewed}' is not a defined {nameof(Reviewed)} value.");
+            if (!Enum.IsDefined(typeof(GeneCentric), geneCentric))
+                throw new ArgumentOutOfRangeException(nameof(geneCentric), geneCentric,
+                    $"'{geneCentric}' is not a defined {nameof(GeneCentric)} value.");
 
             // The proteome ID becomes part of a file name, so refuse anything that could escape the storage
             // directory or, on NTFS, be read as an alternate data stream (a ':' in the name).
@@ -221,6 +267,7 @@ namespace UsefulProteomicsDatabases
 
             string filename = proteomeID
                 + reviewedSuffix
+                + (geneCentric == GeneCentric.yes ? "_genecentric" : "")
                 + (isoformBool ? "_isoform" : "")
                 + "." + format
                 + (compressBool ? ".gz" : "");
@@ -234,6 +281,8 @@ namespace UsefulProteomicsDatabases
             string query = Uri.EscapeDataString(proteomeID);
             if (reviewed != Reviewed.all)
                 query += "+AND+reviewed:" + (reviewed == Reviewed.yes ? "true" : "false");
+            if (geneCentric == GeneCentric.yes)
+                query += "+AND+is_gene_centric:true";
 
             // The isoform fragment is kept verbatim, separator and all: UniProt's parameter is
             // "includeIsoform=", so "includeIsoforms:" has always been ignored. Spelling it correctly would
@@ -277,11 +326,12 @@ namespace UsefulProteomicsDatabases
                     $"UniProt rejected the proteome request for '{proteomeID}' with status " +
                     $"{(int)response.StatusCode} {response.ReasonPhrase} ('{url}').");
 
-            WriteResponseToFile(response, destinationPath);
+            WriteResponseToFile(response, destinationPath, url);
 
-            // A 200 can still carry nothing — UniProt is known to answer streaming requests with an error
-            // message in the body, and a proxy can truncate one. The count probe said there were entries, so
-            // an empty file here is a broken download, not an absence.
+            // A 200 can still carry nothing — a proxy can truncate one. The count probe said there were
+            // entries, so an empty file here is a broken download, not an absence. (UniProt's other way of
+            // failing behind a 200, an error message written into the body, is caught in WriteResponseToFile,
+            // before the file is moved into place.)
             if (new FileInfo(destinationPath).Length == 0)
             {
                 File.Delete(destinationPath);
@@ -341,7 +391,7 @@ namespace UsefulProteomicsDatabases
         /// well-formed but unknown one with 404, and a deleted one with 200 carrying no entry at all — all
         /// three mean the same thing to a caller and are reported the same way.
         /// </exception>
-        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, or returned 5xx.</exception>
+        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, returned 5xx, or answered 200 with its streaming-error message instead of data.</exception>
         public static string RetrieveEntry(string accession, string absolutePathToStorageDirectory,
             ProteomeFormat format = ProteomeFormat.xml) =>
             RetrieveEntry(accession, absolutePathToStorageDirectory, format, SharedHttpClient);
@@ -372,7 +422,9 @@ namespace UsefulProteomicsDatabases
         /// covers all three ways it says so — <b>400</b> for a malformed accession (it does NOT use 404
         /// here), 404 for a well-formed but unknown one, and 200 carrying a payload with no entry in it for
         /// one that has been deleted. Every other failure still throws, because collapsing an outage into
-        /// "no such entry" would send a caller hunting for a typo in a perfectly good accession.
+        /// "no such entry" would send a caller hunting for a typo in a perfectly good accession. That includes
+        /// a 200 whose body is UniProt's streaming-error message: it holds no entry either, but it is an
+        /// outage, and is thrown as one.
         /// </remarks>
         /// <param name="accession">A UniProtKB accession, e.g. "P02768", optionally with an isoform suffix.</param>
         /// <param name="absolutePathToStorageDirectory">An existing directory to write the file into.</param>
@@ -384,7 +436,7 @@ namespace UsefulProteomicsDatabases
         /// </returns>
         /// <exception cref="ArgumentException">The accession or storage directory is blank, the accession holds a character outside letters, digits and '-', or the format is not xml or fasta.</exception>
         /// <exception cref="DirectoryNotFoundException">The storage directory does not exist.</exception>
-        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, or returned 5xx.</exception>
+        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, returned 5xx, or answered 200 with its streaming-error message instead of data.</exception>
         public static (bool Found, string FilePath) TryRetrieveEntry(string accession, string absolutePathToStorageDirectory,
             ProteomeFormat format = ProteomeFormat.xml) =>
             TryRetrieveEntry(accession, absolutePathToStorageDirectory, format, SharedHttpClient);
@@ -446,6 +498,11 @@ namespace UsefulProteomicsDatabases
             // inspect it, so the file on disk is UniProt's own, byte for byte, whatever its encoding.
             byte[] body = ReadBody(response);
             string text = Encoding.UTF8.GetString(body);
+
+            // Checked BEFORE the entry test, because UniProt's streaming error also holds no entry: without
+            // this it reads as a deleted accession, which is an outage reported as "no such entry".
+            ThrowIfStreamingError(text, url);
+
             bool holdsEntry = format == ProteomeFormat.xml
                 ? text.Contains("<entry", StringComparison.Ordinal)
                 : text.TrimStart().StartsWith(">", StringComparison.Ordinal);
@@ -471,7 +528,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">The destination folder is blank.</exception>
         /// <exception cref="DirectoryNotFoundException">The destination folder does not exist.</exception>
         /// <exception cref="MzLibException">UniProt rejected the request or returned an empty catalogue.</exception>
-        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, or returned 5xx.</exception>
+        /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, returned 5xx, or answered 200 with its streaming-error message instead of data.</exception>
         public static string DownloadAvailableUniProtProteomes(string destinationFolder) =>
             DownloadAvailableUniProtProteomes(destinationFolder, SharedHttpClient);
 
@@ -501,7 +558,7 @@ namespace UsefulProteomicsDatabases
             if (TryGetTotalResults(response, out long totalResults) && totalResults == 0)
                 throw new MzLibException($"UniProt returned an empty list of available proteomes ('{url}').");
 
-            WriteResponseToFile(response, filepath);
+            WriteResponseToFile(response, filepath, url);
             return filepath;
         }
 
@@ -650,7 +707,8 @@ namespace UsefulProteomicsDatabases
         /// <remarks>
         /// Named to stay distinct from <c>Test.ExternalServiceTestHelper.ThrowIfUnavailable</c>, which makes
         /// the same 408/429/5xx judgement but throws its own marker type for NUnit. Both exist because the
-        /// test helper cannot reach into production code; keep the two in step if either changes.
+        /// test helper cannot reach into production code; keep the two in step if either changes. The
+        /// helper's other half, a 200 carrying UniProt's error message, is <see cref="ThrowIfStreamingError"/>.
         /// </remarks>
         internal static void ThrowIfServiceUnavailable(HttpResponseMessage response, string url)
         {
@@ -658,6 +716,61 @@ namespace UsefulProteomicsDatabases
             if (status is 408 or 429 || status >= 500)
                 throw new HttpRequestException(
                     $"UniProt is unavailable: HTTP {status} {response.ReasonPhrase} for '{url}'.");
+        }
+
+        /// <summary>
+        /// The text UniProt writes into the body of a 200 response when its streaming endpoint fails after
+        /// the status has been sent: "Error encountered when streaming data. Please try again".
+        /// </summary>
+        /// <remarks>
+        /// Kept to this one phrase, and matched case-insensitively as <c>Test.ExternalServiceTestHelper</c>
+        /// already matches it. A looser marker ("Error") would find words inside real entries.
+        /// </remarks>
+        internal const string StreamingErrorMarker = "Error encountered when streaming data";
+
+        /// <summary>How much of the end of a download <see cref="WriteResponseToFile"/> searches for <see cref="StreamingErrorMarker"/>.</summary>
+        private const int StreamingErrorTailBytes = 4096;
+
+        /// <summary>
+        /// Throws <see cref="HttpRequestException"/> if <paramref name="bodyText"/> holds UniProt's
+        /// streaming-error message: the service failed and said so, behind a 200.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The status cannot say so, because it was sent before the failure. On 2026-11-02 the entry endpoint
+        /// answered most accessions this way: a 309-byte body holding the XML prologue, the opening
+        /// <c>&lt;uniprot&gt;</c> tag and this message, and no entry. Read as data, that body is the worst
+        /// kind of wrong. <see cref="TryRetrieveEntry(string, string, ProteomeFormat)"/> took it for a deleted
+        /// accession, and <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms)"/>
+        /// saved it and returned its path as a success.
+        /// </para>
+        /// <para>
+        /// <see cref="HttpRequestException"/>, not <see cref="MzLibException"/>, because the message itself
+        /// says "Please try again": nothing about the request is wrong. The exception carries no status code,
+        /// as PrideArchiveClient's transport failures carry none, so a caller that reads the status cannot
+        /// mistake the 200 for an answer. This class does not retry; the caller decides.
+        /// </para>
+        /// </remarks>
+        internal static void ThrowIfStreamingError(string bodyText, string url)
+        {
+            if (bodyText != null && bodyText.Contains(StreamingErrorMarker, StringComparison.OrdinalIgnoreCase))
+                throw new HttpRequestException(
+                    $"UniProt answered '{url}' with 200 but sent an error message instead of the data " +
+                    $"(\"{StreamingErrorMarker}\"); try again later.");
+        }
+
+        /// <summary>
+        /// The last <see cref="StreamingErrorTailBytes"/> of the file at <paramref name="path"/>, decoded as UTF-8
+        /// for inspection only.
+        /// </summary>
+        private static string ReadTail(string path)
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            long start = Math.Max(0, stream.Length - StreamingErrorTailBytes);
+            stream.Seek(start, SeekOrigin.Begin);
+            byte[] tail = new byte[stream.Length - start];
+            stream.ReadExactly(tail);
+            return Encoding.UTF8.GetString(tail);
         }
 
         /// <summary>
@@ -682,9 +795,10 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Streams a response body to <paramref name="destinationPath"/> through a sibling ".partial" file
         /// that is moved into place only on success, so an interrupted transfer never leaves a truncated
-        /// file where a complete one is expected.
+        /// file where a complete one is expected. A body that ends in UniProt's streaming-error message is a
+        /// failure too (see <see cref="ThrowIfStreamingError"/>).
         /// </summary>
-        private static void WriteResponseToFile(HttpResponseMessage response, string destinationPath)
+        private static void WriteResponseToFile(HttpResponseMessage response, string destinationPath, string url)
         {
             // The scratch name carries a unique token rather than being derived from the destination alone.
             // Two concurrent retrievals of the same proteome — this is a static class, reachable from a
@@ -713,6 +827,13 @@ namespace UsefulProteomicsDatabases
                         $"The UniProt download failed while reading the response body into '{destinationPath}' " +
                         $"(no data for {BodyStallTimeout} counts as failed).", e);
                 }
+
+                // The streaming error arrives where the transfer stopped, so after any entries already sent:
+                // only the END of the file is searched, which keeps a proteome-sized download cheap to check.
+                // Checked on the .partial file, so a failed transfer never lands under the real name. A gzip
+                // download is covered when UniProt appends the message as plain text after the compressed
+                // bytes; a message compressed INSIDE the stream is not visible here.
+                ThrowIfStreamingError(ReadTail(partialPath), url);
 
                 File.Move(partialPath, destinationPath, overwrite: true);
             }
@@ -765,6 +886,20 @@ namespace UsefulProteomicsDatabases
             /// alternatives, and there was previously no way to ask for the whole thing at once.
             /// </summary>
             all
+        }
+
+        /// <summary>
+        /// Whether to keep only a proteome's gene-centric entries — one protein per gene, UniProt's
+        /// <c>is_gene_centric</c> — the canonical set of a reference proteome. A filter that combines with
+        /// <see cref="Reviewed"/>, not a fourth review status.
+        /// </summary>
+        public enum GeneCentric
+        {
+            /// <summary>Every entry the review status selects (the behaviour before this option existed).</summary>
+            no,
+
+            /// <summary>Only the gene-centric entries: one per gene.</summary>
+            yes
         }
 
         /// <summary>

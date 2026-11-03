@@ -1,7 +1,13 @@
+using System.Linq;
+using Chemistry;
+using MassSpectrometry;
+using Omics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.CCSModels;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
@@ -37,6 +43,31 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(1));
             Assert.That(predictions[0].FragmentAnnotations, Is.EquivalentTo(new[] { "b1+1", "y1+1" }));
             Assert.That(predictions[0].FragmentIntensities, Is.EquivalentTo(new[] { 0.5, 0.6 }));
+        }
+
+        /// <summary>
+        /// A modified peptide goes through prediction and into a library spectrum in the default mapping mode. The label
+        /// keeps its mzLib notation, and the precursor and the C-containing y3 carry the carbamidomethyl mass.
+        /// </summary>
+        [Test]
+        public void FragmentIntensity_ModifiedPeptide_BuildsALibrarySpectrum()
+        {
+            const string sequence = "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K";
+            var model = new FakeModifiedFragmentModel();
+            model.Predict(new List<FragmentIntensityPredictionInput> { new(sequence, 2, 30, null, null) });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 12.0 }, out _);
+
+            Assert.That(spectra.Count, Is.EqualTo(1));
+            var peptide = new PeptideWithSetModifications(sequence);
+            Assert.That(spectra[0].Sequence, Is.EqualTo(sequence));
+            Assert.That(spectra[0].PrecursorMz, Is.EqualTo(peptide.MonoisotopicMass.ToMz(2)).Within(1e-4));
+            var y3 = spectra[0].MatchedFragmentIons.Single(ion => ion.NeutralTheoreticalProduct.ProductType == ProductType.y
+                && ion.NeutralTheoreticalProduct.FragmentNumber == 3);
+            var products = new List<Product>();
+            new PeptideWithSetModifications("PEPTIDECK").Fragment(DissociationType.HCD, FragmentationTerminus.C, products);
+            double unmodifiedY3 = products.Single(p => p.ProductType == ProductType.y && p.FragmentNumber == 3).NeutralMass.ToMz(1);
+            Assert.That(y3.Mz - unmodifiedY3, Is.EqualTo(57.02146).Within(1e-3));
         }
 
         [Test]
@@ -79,12 +110,58 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].DetectabilityProbabilities!.Value.HighDetectability, Is.EqualTo(0.4));
         }
 
+        [Test]
+        public void EveryFamily_Predict_ParsesWithTheInputsOwnSequenceParser()
+        {
+            var fragmentParser = new CountingParser();
+            var rtParser = new CountingParser();
+            var ccsParser = new CountingParser();
+            var detectabilityParser = new CountingParser();
+
+            new FakeFragmentModel().Predict(new List<FragmentIntensityPredictionInput> { new("PEPTIDEK", 2, 30, null, null) { SequenceParser = fragmentParser } });
+            new FakeRtModel().Predict(new List<RetentionTimePredictionInput> { new("PEPTIDEK") { SequenceParser = rtParser } });
+            new FakeCcsModel().Predict(new List<CCSPredictionInput> { new("PEPTIDEK", 2) { SequenceParser = ccsParser } });
+            new FakeDetectabilityModel().Predict(new List<DetectabilityPredictionInput> { new("PEPTIDEK") { SequenceParser = detectabilityParser } });
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fragmentParser.Calls, Is.EqualTo(1), "fragment intensity");
+                Assert.That(rtParser.Calls, Is.EqualTo(1), "retention time");
+                Assert.That(ccsParser.Calls, Is.EqualTo(1), "CCS");
+                Assert.That(detectabilityParser.Calls, Is.EqualTo(1), "detectability");
+            });
+        }
+
+        private sealed class CountingParser : ISequenceParser
+        {
+            public int Calls { get; private set; }
+            public string FormatName => MzLibSequenceParser.Instance.FormatName;
+            public SequenceFormatSchema Schema => MzLibSequenceParser.Instance.Schema;
+            public bool CanParse(string input) => MzLibSequenceParser.Instance.CanParse(input);
+
+            public CanonicalSequence? Parse(string input, ConversionWarnings? warnings = null, SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+            {
+                Calls++;
+                return MzLibSequenceParser.Instance.Parse(input, warnings, mode);
+            }
+        }
+
         // ── canned-transport subclasses of real models ─────────────────────────────
 
         private sealed class FakeFragmentModel : Prosit2019Intensity
         {
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct)
                 => Task.FromResult(IntensityJson);
+        }
+
+        private sealed class FakeModifiedFragmentModel : Prosit2020IntensityHCD
+        {
+            protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct)
+                => Task.FromResult(
+                    "{\"outputs\":[" +
+                    "{\"name\":\"annotation\",\"datatype\":\"BYTES\",\"shape\":[2],\"data\":[\"b2+1\",\"y3+1\"]}," +
+                    "{\"name\":\"mz\",\"datatype\":\"FP32\",\"shape\":[2],\"data\":[227.1,450.2]}," +
+                    "{\"name\":\"intensities\",\"datatype\":\"FP32\",\"shape\":[2],\"data\":[0.5,1.0]}]}");
         }
 
         private sealed class FakeRtModel : Prosit2019iRT

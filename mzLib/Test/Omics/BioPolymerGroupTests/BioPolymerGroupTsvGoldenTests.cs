@@ -130,7 +130,8 @@ namespace Test.Omics.BioPolymerGroupTests
         private static BioPolymerGroup BuildIsobaricGroup()
         {
             var group = BuildGroup([FileA, FileA, FileA], [100.0, 300.0, 50.0]);
-            var channel126 = new IsobaricQuantSampleInfo(FileA, "Control", 1, 1, 0, 1, "126", 126.0, false);
+            // One channel the design names and one it does not, so the golden holds both label forms.
+            var channel126 = new IsobaricQuantSampleInfo(FileA, "Control", 1, 1, 0, 1, "126", 126.0, false) { SampleName = "Patient7" };
             var channel127 = new IsobaricQuantSampleInfo(FileA, "Control", 1, 1, 0, 2, "127N", 127.0, false);
 
             group.SamplesForQuantification = [channel126, channel127];
@@ -204,6 +205,11 @@ namespace Test.Omics.BioPolymerGroupTests
         /// same PSM list, so an n-plex row restated one count n times and one occupancy string n
         /// times. Here that is 8 quantification columns reduced to 6; on an 11-plex it is 44 reduced
         /// to 24.
+        ///
+        /// Channel columns are named by <see cref="SampleGroupLabels.ForSample"/>: 126 by the sample
+        /// the design names in it, then its file and channel; 127N, which the design leaves unnamed,
+        /// keeps the file-and-channel name it always had. The counting columns belong to the file and
+        /// are still named by it alone.
         /// </summary>
         [Test]
         public void Isobaric_CountsAreOncePerFileAndIntensitiesOncePerChannel()
@@ -211,9 +217,9 @@ namespace Test.Omics.BioPolymerGroupTests
             AssertTsv(BuildIsobaricGroup(),
                 Compose([
                     "SpectralCount_goldenA",
-                    "Intensity_goldenA_126", "Intensity_goldenA_127N",
+                    "Intensity_Patient7_goldenA_126", "Intensity_goldenA_127N",
                     "CountOccupancy_goldenA",
-                    "IntensityOccupancy_goldenA_126", "IntensityOccupancy_goldenA_127N"
+                    "IntensityOccupancy_Patient7_goldenA_126", "IntensityOccupancy_goldenA_127N"
                 ]),
                 ComposeRow([
                     "3",

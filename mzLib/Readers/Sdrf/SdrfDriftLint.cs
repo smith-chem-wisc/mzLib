@@ -111,6 +111,11 @@ namespace Readers
             "source name",
             "assay name",
             "comment[data file]",
+            // Unique per row BY CONSTRUCTION: it names the file one search read, so in a pooled
+            // corpus of documents written by different searches every value differs. Left out, the
+            // value-drift pass reports filenames as drifting values and buries the real findings --
+            // exactly the noise this set exists to prevent.
+            "comment[searched data file]",
             "comment[file uri]",
             SdrfCollection.SourceDocumentColumn
         };

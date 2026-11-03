@@ -27,7 +27,7 @@ namespace Readers
         /// One label per document, used as the provenance value in <see cref="Merge"/>. When null,
         /// each document's file name without extension is used.
         /// </param>
-        public SdrfCollection(IEnumerable<SdrfDocument> documents, IEnumerable<string> labels = null)
+        public SdrfCollection(IEnumerable<SdrfDocument> documents, IEnumerable<string>? labels = null)
         {
             _documents = documents?.ToList() ?? throw new ArgumentNullException(nameof(documents));
             _labels = labels?.ToList() ?? _documents.Select(DefaultLabel).ToList();

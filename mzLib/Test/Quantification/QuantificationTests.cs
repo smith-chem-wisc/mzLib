@@ -828,9 +828,11 @@ namespace Test.Quantification
                 new HashSet<IBioPolymerWithSetMods> { p2_peptide1 }, // 1 peptide
                 new HashSet<IBioPolymerWithSetMods> { p2_peptide1 });
 
+            // p4_peptide1 is listed here as well as in group 4, which is what makes it shared: the engine judges
+            // uniqueness by how many groups list a sequence, not by the groups' unique sets.
             var proteinGroup3 = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { protein3 },
-                new HashSet<IBioPolymerWithSetMods> { p3_peptide1, p3_peptide2 }, // 2 peptides
+                new HashSet<IBioPolymerWithSetMods> { p3_peptide1, p3_peptide2, p4_peptide1 }, // 2 peptides + 1 shared
                 new HashSet<IBioPolymerWithSetMods> { p3_peptide1, p3_peptide2 });
 
             var proteinGroup4 = new BioPolymerGroup(

@@ -1,6 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using ThermoFisher.CommonCore.Data.Business;
@@ -135,14 +136,9 @@ namespace Readers
 
         public override SourceFile GetSourceFile()
         {
-            string sendCheckSum;
-            using (FileStream stream = File.OpenRead(FilePath))
-            {
-                SHA1 sha = SHA1.Create();
-                byte[] checksum = sha.ComputeHash(stream);
-                sendCheckSum = BitConverter.ToString(checksum)
-                    .Replace("-", string.Empty);
-            }
+            string sendCheckSum = GetSha1Checksum(FilePath);
+
+            var (instrumentModel, serialNumber, acquisitionStartTime) = GetInstrumentMetadata();
 
             SourceFile sourceFile = new SourceFile(
                 @"Thermo nativeID format",
@@ -152,42 +148,111 @@ namespace Readers
                 FilePath,
                 Path.GetFileNameWithoutExtension(FilePath))
             {
-                InstrumentModel = GetInstrumentModel()
+                InstrumentModel = instrumentModel,
+                InstrumentSerialNumber = serialNumber,
+                AcquisitionStartTime = acquisitionStartTime
             };
 
             return sourceFile;
         }
 
         /// <summary>
-        /// The instrument model recorded in the RAW file, as a NAME-only CvParam
-        /// (e.g. NT=Orbitrap Fusion Lumos with an empty accession).
+        /// The file a checksum was computed for, as far as the file system can tell without reading it: a
+        /// file at the same full path, with the same length and the same last-write time, is taken to hold
+        /// the same bytes.
+        /// </summary>
+        internal readonly record struct RawFileIdentity(string FullPath, long Length, DateTime LastWriteTimeUtc);
+
+        /// <summary>
+        /// SHA-1 checksums already computed in this process. A raw file is loaded several times in one
+        /// MetaMorpheus run - by each task that reads it, a second time by calibration, again by FlashLFQ to
+        /// index its peaks - and every load used to hash all of it again: about 1.4 s a GB, and 1.9 GB
+        /// top-down files were hashed three times each. The hash is the same every time the bytes are, so it
+        /// is computed once per file. Lazy, so loads of one file that overlap hash it once between them.
+        /// </summary>
+        private static readonly ConcurrentDictionary<RawFileIdentity, Lazy<string>> Sha1ChecksumByFile = new();
+
+        /// <summary>
+        /// The SHA-1 of the whole file at <paramref name="filePath"/>, as upper-case hex, computed once per
+        /// file per process. A file whose length or last-write time has changed since is hashed again, under
+        /// a new key. A failed hash is not kept, so the next call tries again.
+        /// </summary>
+        internal static string GetSha1Checksum(string filePath)
+        {
+            var file = new FileInfo(filePath);
+            var key = new RawFileIdentity(file.FullName, file.Length, file.LastWriteTimeUtc);
+            Lazy<string> checksum = Sha1ChecksumByFile.GetOrAdd(key,
+                _ => new Lazy<string>(() => ComputeSha1Checksum(filePath), LazyThreadSafetyMode.ExecutionAndPublication));
+
+            try
+            {
+                return checksum.Value;
+            }
+            catch
+            {
+                Sha1ChecksumByFile.TryRemove(new KeyValuePair<RawFileIdentity, Lazy<string>>(key, checksum));
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// The SHA-1 of every byte of the file, as upper-case hex - the same string the reader always wrote
+        /// (BitConverter.ToString without the dashes). Read in 1 MB blocks rather than the 4 KB a default
+        /// FileStream uses, which made a 1.9 GB hash take 3.4-4.2 s instead of 2.7 s; the bytes hashed, and
+        /// so the digest, are the same.
+        /// </summary>
+        internal static string ComputeSha1Checksum(string filePath)
+        {
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                1 << 20, FileOptions.SequentialScan);
+            return Convert.ToHexString(SHA1.HashData(stream));
+        }
+
+        /// <summary>
+        /// The run-level metadata a RAW file records, read on one connection: the instrument model,
+        /// the instrument serial number, and the file's creation date, which is when acquisition
+        /// started.
         ///
-        /// Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS cvParam --
-        /// a RAW file records only free text, so no accession can be produced here without a
-        /// controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
+        /// The model comes back as a NAME-only CvParam (e.g. NT=Orbitrap Fusion Lumos with an empty
+        /// accession). Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS
+        /// cvParam -- a RAW file records only free text, so no accession can be produced here without
+        /// a controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
         /// file, and forcing it here would put an ontology dependency into the raw reader. Callers
         /// that need the accession resolve the name themselves; the empty Accession is the signal
         /// that they must, and is documented on <see cref="SourceFile.InstrumentModel"/>.
         ///
-        /// Returns null rather than throwing if the model cannot be read: the instrument name is
-        /// metadata, and failing to obtain it must not stop a file being opened.
+        /// Every value is null rather than an exception when it cannot be read: this is metadata,
+        /// and failing to obtain it must not stop a file being opened. The creation date is read
+        /// separately so that a file whose header cannot be read still reports its instrument.
         /// </summary>
-        private CvParam GetInstrumentModel()
+        private (CvParam? Model, string? SerialNumber, DateTime? AcquisitionStartTime) GetInstrumentMetadata()
         {
             try
             {
                 using var connection = RawFileReaderAdapter.FileFactory(FilePath);
                 if (connection == null || !connection.IsOpen || connection.IsError)
-                    return null;
+                    return (null, null, null);
+
+                DateTime? created = null;
+                try
+                {
+                    created = connection.FileHeader?.CreationDate;
+                }
+                catch (Exception)
+                {
+                    // The header is metadata too; losing it must not lose the instrument.
+                }
 
                 connection.SelectInstrument(Device.MS, 1);
                 var instrument = connection.GetInstrumentData();
 
-                return BuildInstrumentModel(instrument?.Model, instrument?.Name);
+                return (BuildInstrumentModel(instrument?.Model, instrument?.Name),
+                    BuildSerialNumber(instrument?.SerialNumber),
+                    BuildAcquisitionStartTime(created));
             }
             catch (Exception)
             {
-                return null;
+                return (null, null, null);
             }
         }
 
@@ -211,6 +276,30 @@ namespace Readers
             // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
             return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
         }
+
+        /// <summary>
+        /// The serial number a RAW file records, trimmed, or null when it records none. Internal and
+        /// string-typed for the same reason as <see cref="BuildInstrumentModel"/>.
+        /// </summary>
+        internal static string? BuildSerialNumber(string? serialNumber) =>
+            string.IsNullOrWhiteSpace(serialNumber) ? null : serialNumber.Trim();
+
+        /// <summary>
+        /// The acquisition start time from a RAW file's creation date, as a wall-clock time with
+        /// <see cref="DateTimeKind.Unspecified"/>, or null when the file records none.
+        ///
+        /// The Thermo library returns the value with Kind Utc, but it is the acquisition computer's
+        /// LOCAL time: for both committed .raw fixtures that have a ProteoWizard mzML beside them
+        /// (sliced_ethcd, sliced-raw), the value read here is exactly five hours earlier than the
+        /// mzML's startTimeStamp, which is US Central daylight time. ProteoWizard converts assuming
+        /// the converting machine's time zone. The RAW file does not record the offset, so the
+        /// instant is unknown and the Kind is cleared rather than trusted. Internal and primitive-
+        /// typed for the same reason as <see cref="BuildInstrumentModel"/>.
+        /// </summary>
+        internal static DateTime? BuildAcquisitionStartTime(DateTime? created) =>
+            created is { } value && value != default
+                ? DateTime.SpecifyKind(value, DateTimeKind.Unspecified)
+                : null;
 
         /// <summary>
         /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
