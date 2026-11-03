@@ -105,6 +105,9 @@ namespace Test.Omics.Modifications
             PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).First();
             PeptideWithSetModifications deserializedPeptide = null;
 
+            // a digested peptide builds its full sequence when first read, and binary serialization writes only what is stored
+            _ = peptide.FullSequence;
+
             string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromProtein");
             System.IO.Directory.CreateDirectory(dir);
             string path = System.IO.Path.Combine(dir, "myPeptideIndex.ind");
@@ -163,6 +166,9 @@ namespace Test.Omics.Modifications
 
             PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(v => v.AllModsOneIsNterminus.Count == 1).First();
             PeptideWithSetModifications deserializedPeptide = null;
+
+            // a digested peptide builds its full sequence when first read, and binary serialization writes only what is stored
+            _ = peptide.FullSequence;
 
             string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromProteinWithMod");
             System.IO.Directory.CreateDirectory(dir);
