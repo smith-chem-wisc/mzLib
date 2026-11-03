@@ -676,41 +676,75 @@ namespace Omics.Digestion
 
                 for (int r = 0; r < sequence.Length; r++)
                 {
-                    var cutSiteIndex = -1;
-                    bool cleavagePrevented = false;
-
-                    foreach (DigestionMotif motif in DigestionMotifs)
-                    {
-                        var motifResults = motif.Fits(sequence, r);
-                        bool motifFits = motifResults.Item1;
-                        bool motifPreventsCleavage = motifResults.Item2;
-
-                        if (motifFits && r + motif.CutIndex < sequence.Length)
-                        {
-                            cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
-                        }
-
-                        if (motifPreventsCleavage) // if any motif prevents cleave
-                        {
-                            cleavagePrevented = true;
-                        }
-                    }
-
-                    // if no motif prevents cleave
-                    if (!cleavagePrevented && cutSiteIndex != -1)
+                    int cutSiteIndex = CutSiteAt(sequence, r);
+                    if (cutSiteIndex != -1)
                     {
                         indices.Add(cutSiteIndex);
                     }
                 }
 
                 indices.Add(sequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
-                return indices.ToList(); // convert the hashset to a list for return. 
+                return indices.ToList(); // convert the hashset to a list for return.
             }
             finally
             {
                 // return hashset to pool. This clears it and gets it ready for the next time it is needed from the pool.
                 HashSetPool.Return(indices);
             }
+        }
+
+        /// <summary>
+        /// Whether this agent cleaves <paramref name="sequence"/> after the residue at
+        /// <paramref name="oneBasedIndexToCleaveAfter"/>: whether <see cref="GetDigestionSiteIndices"/> would return that
+        /// index, termini included, without scanning the whole sequence.
+        /// </summary>
+        public bool IsDigestionSite(string sequence, int oneBasedIndexToCleaveAfter)
+        {
+            if (oneBasedIndexToCleaveAfter == 0 || oneBasedIndexToCleaveAfter == sequence.Length)
+            {
+                return true;
+            }
+
+            // a motif cuts at r + CutIndex, so only a motif starting at index - CutIndex can cut here
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                int r = oneBasedIndexToCleaveAfter - motif.CutIndex;
+                if (r >= 0 && r < sequence.Length && CutSiteAt(sequence, r) == oneBasedIndexToCleaveAfter)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The cut the motifs make when read from <paramref name="r"/>, or -1 when none fits or any motif prevents it.
+        /// When several fit, the furthest cut wins.
+        /// </summary>
+        private int CutSiteAt(string sequence, int r)
+        {
+            var cutSiteIndex = -1;
+            bool cleavagePrevented = false;
+
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                var motifResults = motif.Fits(sequence, r);
+                bool motifFits = motifResults.Item1;
+                bool motifPreventsCleavage = motifResults.Item2;
+
+                if (motifFits && r + motif.CutIndex < sequence.Length)
+                {
+                    cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
+                }
+
+                if (motifPreventsCleavage) // if any motif prevents cleave
+                {
+                    cleavagePrevented = true;
+                }
+            }
+
+            // if no motif prevents cleave
+            return cleavagePrevented ? -1 : cutSiteIndex;
         }
 
         /// <summary>
