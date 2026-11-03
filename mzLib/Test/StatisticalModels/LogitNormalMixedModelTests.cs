@@ -163,8 +163,9 @@ public class LogitNormalMixedModelTests
             y[0, s] = double.NaN;
             for (int t = 0; t < trials[i]; t++) bernoulli.Add((covariate[i], t < successes[i] ? 1 : 0));
         }
+        // The estimates only: nothing here reads a test.
         var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { 1e-6 },
-            estimator: VarianceEstimator.MaximumLikelihood);
+            estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: Array.Empty<string>());
         Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
         Assert.That(fit.GroupVariance[0], Is.EqualTo(0), "no variation between groups");
         Assert.That(fit.ResidualVarianceGiven[0], Is.True);
@@ -217,11 +218,12 @@ public class LogitNormalMixedModelTests
         foreach (int seed in new[] { 1, 2, 3 })
         {
             var (y, counts, design, groups) = Simulated(seed);
-            // The test is three more ML fits (the ML estimate, and the trait held at 0 and at the effect bound), so one
-            // seed carries it; the others are the estimates only.
+            // Seed 1 estimates σ² and tests the trait (three more ML fits: the ML estimate, and the trait held at 0 and at
+            // the effect bound). The other seeds check recovery of β only, with σ² given at its simulated value: a search
+            // over τ alone, a third of the time of searching σ too.
             bool test = seed == 1;
-            var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, link, coefficientNames: new[] { "Intercept", "trait" },
-                testedCoefficients: test ? new[] { "trait" } : Array.Empty<string>());
+            var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: test ? null : new[] { 0.25 },
+                coefficientNames: new[] { "Intercept", "trait" }, testedCoefficients: test ? new[] { "trait" } : Array.Empty<string>());
             Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
             Assert.That(fit.Measured[0], Is.EqualTo(32));
             Assert.That(fit.Counted[0], Is.EqualTo(32));
@@ -262,40 +264,6 @@ public class LogitNormalMixedModelTests
     }
 
     [Test]
-    public void OnlyTheNamedCoefficientsAreTested()
-    {
-        // A bounded count-only layout (its trait estimate is 3.3, p ≈ 0.07). Untested coefficients of a feature with
-        // counts have no p-value: their Wald test is the one #1511 showed can mislead.
-        int G = 8, k = 3, n = G * k;
-        var pattern = new[] { new[] { 0, 0, 1 }, new[] { 0, 0, 0 }, new[] { 0, 0, 0 }, new[] { 1, 0, 0 },
-                              new[] { 2, 2, 1 }, new[] { 1, 1, 2 }, new[] { 2, 1, 2 }, new[] { 0, 0, 0 } };
-        var design = new double[n, 2];
-        var groups = new string[n];
-        var y = new double[1, n];
-        var counts = new BinomialCount?[1, n];
-        for (int s = 0; s < n; s++)
-        {
-            int g = s / k;
-            design[s, 0] = 1; design[s, 1] = g < 4 ? 0 : 1; groups[s] = $"a{g}";
-            y[0, s] = double.NaN;
-            counts[0, s] = new BinomialCount(pattern[g][s % k], 2);
-        }
-        // ML: the tests are ML fits under either estimator, and REML's estimate would be one fit more.
-        var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { 0.25 },
-            coefficientNames: new[] { "intercept", "trait" }, estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: new[] { "trait" });
-        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
-        Assert.That(fit.PValue(0, 1), Is.InRange(0.01, 0.2));
-        Assert.That(fit.IsUnbounded(0, 1), Is.False);
-        Assert.That(double.IsFinite(fit.Coefficient(0, 1)) && double.IsFinite(fit.StandardError(0, 1)), Is.True);
-        Assert.That(fit.LikelihoodRatio(0, 0), Is.NaN);
-        Assert.That(fit.PValue(0, 0), Is.NaN);
-        Assert.That(double.IsFinite(fit.Coefficient(0, 0)), Is.True, "an untested coefficient keeps its estimate");
-        Assert.That(() => LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity,
-            coefficientNames: new[] { "intercept", "trait" }, testedCoefficients: new[] { "age" }),
-            Throws.ArgumentException.With.Message.Contains("age"));
-    }
-
-    [Test]
     public void CountedFeatureWithNoDenominatorDfHasNoPValue()
     {
         // One group per arm: containment df is G − 2 = 0, so F(1, df) cannot be formed. This read χ² in its place (p 0.018).
@@ -313,7 +281,7 @@ public class LogitNormalMixedModelTests
             counts[0, s] = new BinomialCount(pattern[g][s % k], 4);
         }
         var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { 0.25 },
-            estimator: VarianceEstimator.MaximumLikelihood);
+            estimator: VarianceEstimator.MaximumLikelihood, testedCoefficients: new[] { "c1" });
         Assert.That(fit.DegreesOfFreedom(0, 1), Is.NaN);
         Assert.That(double.IsFinite(fit.LikelihoodRatio(0, 1)), Is.True);
         Assert.That(fit.PValue(0, 1), Is.NaN);
@@ -413,7 +381,8 @@ public class LogitNormalMixedModelTests
         Assert.That(full.Slope, Is.EqualTo(truth.Slope).Within(0.1));
         Assert.That(full.Overdispersion, Is.EqualTo(0.1).Within(0.05));
 
-        var plain = LogitNormalMixedModel.FitLink(cells)!;
+        // Neither term asked for: both stay 0 (a tenth of the cells is enough to show that).
+        var plain = LogitNormalMixedModel.FitLink(cells.Take(400).ToList())!;
         Assert.That(plain.DepthSlope, Is.EqualTo(0));
         Assert.That(plain.Overdispersion, Is.EqualTo(0));
         Assert.Throws<ArgumentException>(() => LogitNormalMixedModel.FitLink(new[] { new LinkCell(0, 1, 3, 2) }));
@@ -428,9 +397,12 @@ public class LogitNormalMixedModelTests
         var (y, counts, design, groups) = Simulated(9, features: features);
         var link = new DetectionLink(0.4, 0.6);
         // σ² given: a one-dimensional variance search, about a quarter of the time of estimating σ² too; the threads split the features the same way.
+        // ML: the tests are ML fits either way, and REML's estimate would be one fit more per feature.
         var given = Enumerable.Repeat(0.25, features).ToArray();
-        var one = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: given, maxThreads: 1, testedCoefficients: new[] { "c1" });
-        var many = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: given, maxThreads: features, testedCoefficients: new[] { "c1" });
+        var one = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: given, estimator: VarianceEstimator.MaximumLikelihood,
+            maxThreads: 1, testedCoefficients: new[] { "c1" });
+        var many = LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: given, estimator: VarianceEstimator.MaximumLikelihood,
+            maxThreads: features, testedCoefficients: new[] { "c1" });
         for (int f = 0; f < features; f++)
         {
             Assert.That(many.Coefficient(f, 1), Is.EqualTo(one.Coefficient(f, 1)));
@@ -458,5 +430,7 @@ public class LogitNormalMixedModelTests
         Assert.Throws<ArgumentException>(() => LogitNormalMixedModel.Fit(y, counts, design, groups, link, residualVariance: new[] { 1.0, 2.0 }));
         Assert.Throws<ArgumentException>(() => LogitNormalMixedModel.Fit(y, counts, design, groups, link, depth: new[] { 1.0 }));
         Assert.Throws<ArgumentException>(() => LogitNormalMixedModel.Fit(y, new BinomialCount?[1, 3], design, groups, link));
+        Assert.That(() => LogitNormalMixedModel.Fit(y, counts, design, groups, link, coefficientNames: new[] { "intercept", "trait" },
+            testedCoefficients: new[] { "age" }), Throws.ArgumentException.With.Message.Contains("age"));
     }
 }

@@ -50,20 +50,32 @@ public class ReferenceComparisonLogitNormalTests
     private static string[] Groups => ReadTsv("lnmm_groups.tsv").Rows.Select(r => r[0]).ToArray();
 
     /// <summary>
-    /// The fixture features the required run fits. Counted: the τ² = 0 boundary feature; the largest τ², where more than
-    /// half the groups take the panel rule (identity 4 and 5, link 10); and a feature that fails when the u rule is
-    /// centred on the prior instead of the joint mode (identity 4, link 1; of every feature, identity 1 and 4 and link 1
-    /// and 7 fail, so the subset catches that mutation in the same cases). Scatter: the one whose σ² is on its boundary, one with a
-    /// large σ², and one with a large τ² whose groups take the panel rule (12 and 19 are left out as the slowest, at four
-    /// to nine times the median feature). Every feature took about 15 of the
-    /// build job's 30 minutes (Debug, with coverage, on 4 cores), so the every-feature cases are explicit: run them
-    /// locally (dotnet test --filter TestCategory=EveryFeature) before a push that changes the model.
+    /// The fixture features the required run fits. Counted: a τ² = 0 boundary feature (identity 3, on the boundary under
+    /// ML and REML; link 0); the largest τ², where more than half the groups take the panel rule (identity 4, link 10);
+    /// and a feature that fails when the u rule is centred on the prior instead of the joint mode (identity 4, link 1; of
+    /// every feature, identity 1 and 4 and link 1 and 7 fail, so the subset catches that mutation in the same cases).
+    /// Scatter: the one whose σ² is on its boundary (4), one with a large σ² (16; 2 has about the same σ² at twice the
+    /// cost, and 12 and 19 are the slowest, at four to nine times the median feature), and one with a large τ² whose
+    /// groups take the panel rule (14). Features in one fit run in parallel, so the slowest sets the time: identity 0 and
+    /// 5 (the same roles as 3 and 4) were left out for that. Every feature took about 15 of the build job's minutes
+    /// (Debug, with coverage, on 4 cores), so the every-feature cases are explicit: run them locally
+    /// (dotnet test --filter TestCategory=EveryFeature) before a push that changes the model.
     /// </summary>
     private static readonly Dictionary<string, int[]> RequiredFeatures = new()
     {
-        ["counted_identity"] = new[] { 0, 4, 5 },
+        ["counted_identity"] = new[] { 3, 4 },
         ["counted_link"] = new[] { 0, 1, 10 },
-        ["scatter"] = new[] { 2, 4, 14 },
+        ["scatter"] = new[] { 4, 14, 16 },
+    };
+
+    /// <summary>
+    /// Where the REML case of <see cref="WithEverySampleCountedItMatchesGlmerQuadrature"/> fits fewer features than
+    /// <see cref="RequiredFeatures"/>: link 10 (the panel rule through the link) is the slowest there, at about twice the
+    /// others; the ML case keeps it, and identity 4 takes the panel rule under REML.
+    /// </summary>
+    private static readonly Dictionary<string, int[]> RequiredRemlFeatures = new()
+    {
+        ["counted_link"] = new[] { 0, 1 },
     };
 
     private const string EveryFeatureCategory = "EveryFeature";
@@ -196,7 +208,9 @@ public class ReferenceComparisonLogitNormalTests
         var link = new DetectionLink(l["a"], l["b"], l["c"]);
         var depthMatrix = Matrix("lnmm_counted_depth.tsv");
         var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
-        var (counts, unmeasured, features) = Counts($"counted_{linkName}", everyFeature);
+        string label = $"counted_{linkName}";
+        var (counts, unmeasured, features) = Counts(label, everyFeature,
+            estimator == VarianceEstimator.Reml && RequiredRemlFeatures.TryGetValue(label, out var remlSubset) ? remlSubset : null);
         var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
         // The estimates only; the likelihood-ratio tests are WithEverySampleCountedTheLikelihoodRatioMatchesGlmer's.
         var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given, estimator: estimator,
@@ -400,9 +414,11 @@ public class ReferenceComparisonLogitNormalTests
     /// has no maximum here (its criterion rises with τ until β passes SeparationLimit), and the ML fits carry the tests.
     /// Before, ML reported p = 0.013 (A) or Separated (B), and REML p = 0.037 and 0.025. REML takes the same path on
     /// both layouts (no maximum, so the ML fit carries the tests), so it is run on A only, and only the trait is tested
-    /// (the intercept's test would be another ML fit, which nothing here reads).
+    /// (the intercept's test would be another ML fit, which nothing here reads). A under REML makes the same ML fits as A
+    /// under ML (the estimate from the same start, and the trait held at 0), so A's statistic and p are checked there;
+    /// ML's own route to Unbounded (the estimate past the bound) is B's, and A's ML estimate is
+    /// <see cref="NearOneSidedLayoutsFitToTheExactMaximum"/>'s.
     /// </summary>
-    [TestCase("A", VarianceEstimator.MaximumLikelihood)]
     [TestCase("A", VarianceEstimator.Reml)]
     [TestCase("B", VarianceEstimator.MaximumLikelihood)]
     public void NearOneSidedLayoutsAreUnboundedWithALikelihoodRatioP(string which, VarianceEstimator estimator)
@@ -427,6 +443,8 @@ public class ReferenceComparisonLogitNormalTests
     /// The ridge check, against exact fits (make_lnmm_ridge_fixtures.R, lnmm_ridge_held.tsv), on two layouts like #1511's
     /// whose trait estimates (5.1 and 3.3) are under the effect bound of 10 logits: held at 10, D's likelihood is still
     /// inside the 95% region (LR below F(1, 6)'s 5.99), so D is unbounded; E's is not, so E is fitted, with its estimate.
+    /// Only the trait is tested, so these fits also show that an untested coefficient of a feature with counts has no
+    /// likelihood ratio and no p-value (its Wald test is the one #1511 showed can mislead), and keeps its estimate.
     /// </summary>
     [TestCase("D", true)]
     [TestCase("E", false)]
@@ -456,10 +474,15 @@ public class ReferenceComparisonLogitNormalTests
         Assert.That(fit.LikelihoodRatio(0, 1), Is.EqualTo(2 * (r["loglik"] - r["null_loglik"])).Within(2e-6));
         Assert.That(fit.IsUnbounded(0, 1), Is.EqualTo(unbounded));
         Assert.That(fit.Status[0], Is.EqualTo(unbounded ? FeatureFitStatus.Unbounded : FeatureFitStatus.Fitted));
+        Assert.That(fit.LikelihoodRatio(0, 0), Is.NaN, "the intercept is not tested");
+        Assert.That(fit.PValue(0, 0), Is.NaN, "the intercept is not tested");
+        Assert.That(double.IsFinite(fit.Coefficient(0, 0)), Is.True, "an untested coefficient keeps its estimate");
+        Assert.That(double.IsFinite(fit.PValue(0, 1)), Is.True);
         if (unbounded) Assert.That(fit.Coefficient(0, 1), Is.NaN);
         else
         {
             Assert.That(fit.Coefficient(0, 1), Is.EqualTo(r["b1"]).Within(1e-3 * Math.Abs(r["b1"])));
+            Assert.That(double.IsFinite(fit.StandardError(0, 1)), Is.True);
             Assert.That(fit.LogLikelihood[0], Is.EqualTo(r["loglik"]).Within(1e-6));
         }
     }
