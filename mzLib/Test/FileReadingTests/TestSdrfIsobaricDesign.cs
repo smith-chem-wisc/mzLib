@@ -376,6 +376,38 @@ namespace Test.FileReadingTests
                 "or reference channel marks as a reference."));
         }
 
+        /// <summary>
+        /// A role every channel of the whole design carries tells no channel apart (ruled 2026-11-03), so it is cleared and
+        /// every channel is a study sample: a sample type of <c>reference</c> or <c>pooled</c> on every channel, or a reference
+        /// channel cell that names every channel of its plex (a cell may list several). Judged over the whole design, as the
+        /// pooled mark is; <see cref="APlexOfOnlyReferencesBesideStudySamplesKeepsThem"/> is the control.
+        /// </summary>
+        [TestCase("sample type reference", "sample type 'reference'")]
+        [TestCase("sample type pooled", "sample type 'pooled'")]
+        [TestCase("reference channel", "reference channel 'TMT126,TMT131'")]
+        public void ARoleEveryChannelCarriesTellsNoChannelApart(string signal, string roles)
+        {
+            RoleRow Mark(RoleRow row) => signal switch
+            {
+                "sample type reference" => row with { SampleType = "NT=reference;AC=PRIDE:0000899" },
+                "sample type pooled" => row with { SampleType = "pooled" },
+                "reference channel" => row with { ReferenceChannel = "TMT126,TMT131" },
+                _ => throw new ArgumentException(signal),
+            };
+
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                Mark(new RoleRow("a.raw", "TMT126", "S1")), Mark(new RoleRow("a.raw", "TMT131N", "S2", Condition: "B")),
+                Mark(new RoleRow("b.raw", "TMT126", "S3", Plex: "P2")), Mark(new RoleRow("b.raw", "TMT131N", "S4", Plex: "P2", Condition: "B"))),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(new[] { ("a.raw", "126"), ("a.raw", "131N"), ("b.raw", "126"), ("b.raw", "131N") }
+                .Where(c => ChannelOf(design, c.Item1, c.Item2).IsReferenceChannel), Is.Empty, "no channel is a reference");
+            Assert.That(design.Notes, Has.Some.EqualTo($"Every sample in this design is marked a reference by {roles}, so the role " +
+                "tells no sample apart: all are read as study samples."));
+            Assert.That(WrittenTmtDesign(design)[0], Is.EqualTo(SdrfIsobaricDesign.TmtDesignHeader));
+        }
+
         [Test]
         public void AChannelThatIsAReferenceInOneFileOfAPlexOnlyIsRefused()
         {

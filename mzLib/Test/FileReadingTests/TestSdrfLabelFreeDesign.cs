@@ -860,6 +860,74 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// A role every sample carries tells no sample apart (ruled 2026-11-03), so, like a pooled mark on every sample, it is
+        /// cleared: when every sample's sample type is <c>reference</c> or <c>pooled</c>, all are study samples, and the notes
+        /// name the role.
+        /// </summary>
+        [TestCase("reference", "reference", "sample type 'reference'")]
+        [TestCase("pooled", "pooled", "sample type 'pooled'")]
+        [TestCase("NT=reference;AC=PRIDE:0000899", "pooled", "sample type 'reference' or sample type 'pooled'")]
+        public void ARoleEverySampleCarriesTellsNoSampleApart(string sampleTypeA, string sampleTypeB, string roles)
+        {
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a1.raw", "A", SampleType: sampleTypeA), new RoleRow("s2", "a2.raw", "A", Biorep: "2", SampleType: sampleTypeA),
+                new RoleRow("s3", "b1.raw", "B", SampleType: sampleTypeB)));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Where(f => f.IsReference), Is.Empty, "no file is a reference");
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "A_1", "A_2", "B_1" }));
+            Assert.That(design.Notes, Has.Some.EqualTo($"Every sample in this design is marked a reference by {roles}, so the role " +
+                "tells no sample apart: all are read as study samples."));
+            Assert.That(WrittenDesign(design)[0], Is.EqualTo(SdrfLabelFreeDesign.ExperimentalDesignHeader));
+        }
+
+        /// <summary>
+        /// A role on some samples still marks them references (review, 2026-11-02): one sample without a role is enough for
+        /// every role to stand, and nothing is cleared.
+        /// </summary>
+        [Test]
+        public void ARoleOnEverySampleButOneStillMarksAReference()
+        {
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a1.raw", "A"),
+                new RoleRow("QC pool", "qc1.raw", "A", Biorep: "2", SampleType: "reference", PooledSample: "not available"),
+                new RoleRow("QC pool", "qc2.raw", "A", Biorep: "2", SampleType: "reference", PooledSample: "not available", Techrep: "2"),
+                new RoleRow("blank pool", "blank.raw", "A", Biorep: "3", SampleType: "pooled", PooledSample: "not available")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Where(f => f.IsReference).Select(f => Path.GetFileName(f.FullFilePathWithExtension)),
+                Is.EqualTo(new[] { "qc1.raw", "qc2.raw", "blank.raw" }));
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(new[] { "A_1" }));
+            Assert.That(design.Notes, Has.None.Contains("Every sample in this design"));
+        }
+
+        /// <summary>
+        /// When a role on every sample is cleared, the pooled marks are judged over every sample, as in a design without the
+        /// role: a mark on some samples still marks those references (a pool read as a study sample is the worse error), and a
+        /// mark on every sample is cleared too.
+        /// </summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ARoleOnEverySampleIsClearedAndThePooledMarksAreJudgedWithoutIt(bool everySampleMarkedPooled)
+        {
+            string studyPooledSample = everySampleMarkedPooled ? "pooled" : "not pooled";
+            var design = SdrfLabelFreeDesign.Read(RoleSamples(
+                new RoleRow("s1", "a1.raw", "A", SampleType: "reference", PooledSample: studyPooledSample),
+                new RoleRow("s2", "b1.raw", "B", SampleType: "reference", PooledSample: studyPooledSample),
+                new RoleRow("QC pool", "qc.raw", "A", Biorep: "2", SampleType: "reference", PooledSample: "SN=s1;SN=s2")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single(f => Path.GetFileName(f.FullFilePathWithExtension) == "qc.raw").IsReference,
+                Is.EqualTo(!everySampleMarkedPooled));
+            Assert.That(AnalysisSampleIds(design), Is.EqualTo(everySampleMarkedPooled ? new[] { "A_1", "A_2", "B_1" } : new[] { "A_1", "B_1" }));
+            Assert.That(design.Notes, Has.Some.EqualTo("Every sample in this design is marked a reference by sample type 'reference', so " +
+                "the role tells no sample apart: all are read as study samples" +
+                (everySampleMarkedPooled ? "." : ", except those that pooled sample or a pooled replicate marks as a reference.")));
+            Assert.That(design.Notes.Count(n => n.StartsWith("Every sample in this design is marked by pooled sample")),
+                Is.EqualTo(everySampleMarkedPooled ? 1 : 0));
+        }
+
+        /// <summary>
         /// PXD011349 (deposited, label-free) writes characteristics[pooled sample] = pooled on all 56 rows, with integer
         /// replicates: each sample is itself a pool. They are the design's 56 study samples, as master reads them.
         /// </summary>

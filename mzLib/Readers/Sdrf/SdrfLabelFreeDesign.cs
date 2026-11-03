@@ -68,7 +68,9 @@ namespace Readers
     /// as written. <c>comment[reference channel]</c> names a channel, which a label-free file has none of. When every sample
     /// of the design is marked by <c>characteristics[pooled sample]</c> or a <c>pooled</c> replicate, the mark says how the
     /// samples were made, so it marks none of them, and a note says so (ruled 2026-10-26). A sample type of
-    /// <c>reference</c> or <c>pooled</c> still marks a reference, and a file it marks need not carry the other mark.</para>
+    /// <c>reference</c> or <c>pooled</c> still marks a reference, and a file it marks need not carry the other mark. When
+    /// every sample's sample type is <c>reference</c> or <c>pooled</c>, the role tells no sample apart, so it marks none of
+    /// them either, and a note says so (ruled 2026-11-03).</para>
     ///
     /// <para>The rules are the design ↔ SDRF mapping table's read rules: MAP-07 (condition), MAP-12
     /// (file key), MAP-21/22 (technical replicate, fraction), MAP-32..34.</para>
@@ -257,15 +259,14 @@ namespace Readers
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             var dropped = new List<(int Line, string FileName)>();
 
-            // GR-20: a preparation mark on every sample of the design says how the samples were made, not that they are
-            // references. A sample type that says reference still does.
-            bool everySampleMarked = SdrfDesignRules.EverySampleIsMarked(rows
+            // GR-20: a signal every sample of the design carries tells no sample apart. A preparation mark on every sample
+            // without a role says how the samples were made; a sample type of reference or pooled on every sample says
+            // nothing either.
+            var cleared = SdrfDesignRules.EverySampleIsMarked(rows
                 .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
                 .Select(r => SdrfDesignRules.ReadReferenceSignals(r, namesThisChannel: null))
                 .Select(s => ((IReadOnlyList<string>)s.Role, (IReadOnlyList<string>)s.Preparation))
-                .ToList(), out string? everySampleNote);
-            if (everySampleNote != null)
-                notes.Add(everySampleNote);
+                .ToList(), notes);
 
             for (int i = 0; i < rows.Count; i++)
             {
@@ -278,7 +279,7 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, everySampleMarked, refusals);
+                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, cleared, refusals);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
@@ -339,7 +340,7 @@ namespace Readers
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, List<string> conditionColumns,
-            bool conditionDeclared, bool everySampleMarked, List<string> refusals)
+            bool conditionDeclared, SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals)
         {
             int before = refusals.Count;
 
@@ -354,11 +355,10 @@ namespace Readers
             if (fileName.Length == 0)
                 refusals.Add($"Line {line}: '{keyColumn}' is empty.");
 
-            // GR-20: a label-free file has no channel, so comment[reference channel] is not read. When every sample of the
-            // design is marked, the preparation marks are cleared and only a sample type marks a reference
-            // (SdrfDesignRules.EverySampleIsMarked).
+            // GR-20: a label-free file has no channel, so comment[reference channel] is not read. A kind of signal every
+            // sample of the design carries is cleared (SdrfDesignRules.EverySampleIsMarked).
             var (roleSignals, preparationSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
-            var referenceSignals = everySampleMarked ? roleSignals : roleSignals.Concat(preparationSignals).ToList();
+            var referenceSignals = cleared.Kept(roleSignals, preparationSignals);
             var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
                 isReference: referenceSignals.Count > 0);
 

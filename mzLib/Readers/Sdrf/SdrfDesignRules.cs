@@ -39,7 +39,7 @@ namespace Readers
         /// <c>reference</c> or <c>pooled</c>, and, for an isobaric channel, <c>comment[reference channel]</c> naming it
         /// (<paramref name="namesThisChannel"/>; a label-free file has no channel). <c>Preparation</c> can also say only how
         /// the sample was made: <c>characteristics[pooled sample]</c> other than <c>not pooled</c>, and a biological replicate
-        /// of <c>pooled</c>. Only a preparation signal is cleared when it marks every sample (<see cref="EverySampleIsMarked"/>).
+        /// of <c>pooled</c>. A kind every sample carries tells no sample apart and is cleared (<see cref="EverySampleIsMarked"/>).
         /// Beside them, what the row says that reads as a study sample (a sample type naming something else,
         /// <c>not pooled</c>), so a disagreement can be reported. Empty cells and unknown words say neither. A role is never
         /// read from a name.
@@ -89,28 +89,54 @@ namespace Readers
             "its group towards the mean of all groups.";
 
         /// <summary>
-        /// GR-20, ruled 2026-10-26: when every sample of a whole design carries a pooled signal, the mark says how the samples
-        /// were made (each is itself a pool), not that they are references, so it is cleared and those samples are read as
-        /// study samples. Only a preparation signal (<c>pooled sample</c>, a <c>pooled</c> replicate) is cleared: a role
-        /// signal (sample type <c>reference</c> or <c>pooled</c>, a named reference channel) still marks its sample a
-        /// reference, so "every sample" means every sample without one. Judged over the whole design, never per plex: a plex
-        /// holding only reference channels beside plexes of study samples keeps its references. A design with a mark on only
-        /// some samples reads the marks as references.
+        /// Which kinds of a row's reference signals a whole design clears (<see cref="EverySampleIsMarked"/>).
+        /// </summary>
+        internal readonly record struct ClearedReferenceSignals(bool Role, bool Preparation)
+        {
+            /// <summary>The row's reference signals the design still reads, roles first; any one makes its sample a reference.</summary>
+            internal List<string> Kept(IEnumerable<string> role, IEnumerable<string> preparation) =>
+                (Role ? Enumerable.Empty<string>() : role).Concat(Preparation ? Enumerable.Empty<string>() : preparation).ToList();
+        }
+
+        /// <summary>
+        /// GR-20: a reference signal every sample of a whole design carries tells no sample apart, so it is cleared, and a note
+        /// says so. A role (sample type <c>reference</c> or <c>pooled</c>, a named reference channel) is cleared only when every
+        /// sample has one (ruled 2026-11-03). A preparation mark (<c>pooled sample</c>, a <c>pooled</c> replicate) says how the
+        /// samples were made, each itself a pool, not that they are references (ruled 2026-10-26). It is cleared when every
+        /// sample without a role that stands carries one, so a role on only some samples still marks them references.
+        /// Judged over the whole design, never per plex: a plex holding only reference channels beside plexes of study samples
+        /// keeps its references. A signal on only some samples marks them references.
         /// </summary>
         /// <param name="signalsByRow">The role and preparation signals of every row the design reads (dropped rows excluded).</param>
-        /// <param name="note">The one sentence for the design's notes, naming the signal(s), when it applies.</param>
-        internal static bool EverySampleIsMarked(IReadOnlyList<(IReadOnlyList<string> Role, IReadOnlyList<string> Preparation)> signalsByRow,
-            out string? note)
+        /// <param name="notes">The design's notes; one sentence is added for each kind cleared, naming the signal(s).</param>
+        internal static ClearedReferenceSignals EverySampleIsMarked(
+            IReadOnlyList<(IReadOnlyList<string> Role, IReadOnlyList<string> Preparation)> signalsByRow, List<string> notes)
         {
-            note = null;
-            var withoutRole = signalsByRow.Where(s => s.Role.Count == 0).ToList();
-            if (withoutRole.Count == 0 || withoutRole.Any(s => s.Preparation.Count == 0))
-                return false;
-            var signals = withoutRole.SelectMany(s => s.Preparation).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            note = $"Every sample in this design is marked by {string.Join(" or ", signals)}, so the mark says how the samples " +
-                   "were made, not that they are pooled references: all are read as study samples" +
-                   (withoutRole.Count == signalsByRow.Count ? "." : ", except those that sample type or reference channel marks as a reference.");
-            return true;
+            if (signalsByRow.Count == 0)
+                return default;
+
+            bool role = signalsByRow.All(s => s.Role.Count > 0);
+            var judged = role ? signalsByRow : signalsByRow.Where(s => s.Role.Count == 0).ToList();
+            bool preparation = judged.Count > 0 && judged.All(s => s.Preparation.Count > 0);
+
+            if (role)
+            {
+                var roles = signalsByRow.SelectMany(s => s.Role).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                bool preparationMarksSome = !preparation && judged.Any(s => s.Preparation.Count > 0);
+                notes.Add($"Every sample in this design is marked a reference by {string.Join(" or ", roles)}, so the role tells no " +
+                          "sample apart: all are read as study samples" +
+                          (preparationMarksSome ? ", except those that pooled sample or a pooled replicate marks as a reference." : "."));
+            }
+
+            if (preparation)
+            {
+                var signals = judged.SelectMany(s => s.Preparation).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                notes.Add($"Every sample in this design is marked by {string.Join(" or ", signals)}, so the mark says how the samples " +
+                          "were made, not that they are pooled references: all are read as study samples" +
+                          (judged.Count == signalsByRow.Count ? "." : ", except those that sample type or reference channel marks as a reference."));
+            }
+
+            return new ClearedReferenceSignals(role, preparation);
         }
 
         /// <summary>
