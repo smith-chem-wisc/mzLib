@@ -803,6 +803,15 @@ namespace UsefulProteomicsDatabases
         /// (<c>&lt;Error&gt;&lt;Code&gt;</c>, 2026-10-08), which a size check cannot see. A resumed transfer is read
         /// once more at the end, because its start arrived in an earlier attempt.
         /// <para>
+        /// An attempt that brings EBI's error text stops at the read that brought it, instead of downloading the
+        /// rest of a file that can only fail, and is downloaded again from its first byte. Without the MD5 that is
+        /// any <c>&lt;Error&gt;&lt;Code&gt;</c>. With it, only EBI's exact opening,
+        /// <c>&lt;Error&gt;&lt;Code&gt;ConnectionClosedException&lt;/Code&gt;</c>, which every one of the 62 error texts
+        /// recorded from 2026-10-08 to 2026-10-12 begins with: a file's own bytes could hold the short marker, and the
+        /// MD5 would pass them, but none has a reason to hold EBI's whole opening. Such a file would be refused as it
+        /// downloads.
+        /// </para>
+        /// <para>
         /// With <paramref name="overwrite"/> false, an existing destination file is kept only if it passes the size
         /// check, and the MD5 when <paramref name="verifyMd5"/> is true (reading it again, which takes seconds for a
         /// multi-gigabyte raw file). It is not scanned. One that fails (a truncated copy from an older tool, say) is
@@ -843,7 +852,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">As for the overload without a checksum, or <paramref name="expected"/> is for a different file name.</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only) and must be downloaded.</exception>
         /// <exception cref="HttpRequestException">As for the overload without a checksum.</exception>
-        /// <exception cref="MzLibException">On every attempt, the downloaded file's size differed from <paramref name="expected"/>, or its MD5 did when <paramref name="verifyMd5"/> is true, or (without the MD5) it held EBI's error text. The message, the last attempt's, names the file and host, never the URL.</exception>
+        /// <exception cref="MzLibException">On every attempt, the downloaded file's size differed from <paramref name="expected"/>, or its MD5 did when <paramref name="verifyMd5"/> is true, or it held EBI's error text (any <c>&lt;Error&gt;&lt;Code&gt;</c> without the MD5; EBI's exact opening with it). The message, the last attempt's, names the file and host, never the URL.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
         public Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
             PrideFileChecksum expected, bool overwrite = true, bool verifyMd5 = false,
@@ -927,7 +936,16 @@ namespace UsefulProteomicsDatabases
                 {
                     await WithRetryAsync(async () =>
                     {
-                        await DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken).ConfigureAwait(false);
+                        try
+                        {
+                            await DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (ContentMismatchException)
+                        {
+                            // Stopped at EBI's error text: the bytes on disk are what is wrong, so they are never resumed.
+                            Discard(partialPath, validatorPath, transfer);
+                            throw;
+                        }
                         if (expected == null)
                             return true;
 
@@ -1051,13 +1069,14 @@ namespace UsefulProteomicsDatabases
                     : $"has MD5 {md5} where PRIDE's checksum list records {expected.Md5}";
             }
 
-            return digest.ServerErrorAt >= 0
-                ? $"holds a server error response (\"<Error><Code>\") at byte {digest.ServerErrorAt}, written into the file in place of its own bytes"
-                : null;
+            return digest.ServerErrorAt >= 0 ? ServerErrorMismatch(digest.ServerErrorAt) : null;
         }
 
         private static string SizeMismatch(long length, PrideFileChecksum expected) =>
             $"came to {length} bytes where PRIDE's checksum list records {expected.SizeBytes}";
+
+        private static string ServerErrorMismatch(long offset) =>
+            $"holds a server error response (\"<Error><Code>\") at byte {offset}, written into the file in place of its own bytes";
 
         /// <summary>
         /// Deletes a partial whose bytes are wrong, with its validator, so the next attempt starts from zero instead
@@ -1107,29 +1126,48 @@ namespace UsefulProteomicsDatabases
         /// over HTTPS and Aspera alike, while every client reported success (PXReprise, 2026-10-07/08; 15 damaged
         /// copies kept). A size check cannot see it. The MD5 can, when the caller asks for it; the scan catches it
         /// without one. A raw file has no reason to hold that text.
+        /// <para>
+        /// With the MD5 the bytes are scanned too, but only for <see cref="EbiErrorOpening"/>, so that a damaged
+        /// attempt can be stopped as soon as the text arrives instead of at the end, when the MD5 fails.
+        /// </para>
         /// </remarks>
         internal sealed class DownloadDigest : IDisposable
         {
             /// <summary>The start of every error response EBI's storage wrote into served files.</summary>
             internal static readonly byte[] ServerErrorMarker = "<Error><Code>"u8.ToArray();
 
+            /// <summary>
+            /// EBI's exact opening: all 62 error texts recorded from 2026-10-08 to 2026-10-12 (PXReprise's 25 and the
+            /// Globus trial's 37) begin with it. Scanned for when the MD5 is taken, where the short marker alone could
+            /// be a file's own bytes that the MD5 would pass.
+            /// </summary>
+            internal static readonly byte[] EbiErrorOpening = "<Error><Code>ConnectionClosedException</Code>"u8.ToArray();
+
             private readonly bool _verifyMd5;
-            private readonly byte[] _tail = new byte[ServerErrorMarker.Length - 1];
+            private readonly byte[] _marker;
+            private readonly byte[] _tail;
             private IncrementalHash _md5;
             private int _tailLength;
             private long _length;
 
-            /// <param name="verifyMd5">Take the MD5; otherwise scan for <see cref="ServerErrorMarker"/>.</param>
+            /// <param name="verifyMd5">
+            /// Take the MD5 and scan for <see cref="EbiErrorOpening"/>; otherwise scan for <see cref="ServerErrorMarker"/>.
+            /// </param>
             internal DownloadDigest(bool verifyMd5)
             {
                 _verifyMd5 = verifyMd5;
+                _marker = verifyMd5 ? EbiErrorOpening : ServerErrorMarker;
+                _tail = new byte[_marker.Length - 1];
                 Reset();
             }
 
             /// <summary>Whether every byte of the file went through <see cref="Append"/> since the last <see cref="Reset"/>.</summary>
             internal bool SawWholeFile { get; private set; }
 
-            /// <summary>The offset of the first <see cref="ServerErrorMarker"/> seen, or -1.</summary>
+            /// <summary>
+            /// The offset in the file of the first marker seen (<see cref="EbiErrorOpening"/> with the MD5, else
+            /// <see cref="ServerErrorMarker"/>), or -1.
+            /// </summary>
             internal long ServerErrorAt { get; private set; }
 
             /// <summary>Starts over, for a file that is about to arrive from its first byte.</summary>
@@ -1146,12 +1184,28 @@ namespace UsefulProteomicsDatabases
             /// <summary>Marks the file as not seen whole (its start is already on disk), so it must be read again to be checked.</summary>
             internal void Invalidate() => SawWholeFile = false;
 
+            /// <summary>
+            /// Continues a resumed transfer whose bytes resume at <paramref name="offset"/> in the file. Its start is on
+            /// disk, not in this stream, so the file must be read again to be checked; a marker seen from here on is
+            /// still reported at its offset in the file. When this digest saw the start itself (an earlier attempt of
+            /// the same call), the bytes carried over from it still count, so a marker cut by the drop is found.
+            /// </summary>
+            internal void ContinueAt(long offset)
+            {
+                SawWholeFile = false;
+                if (offset != _length)
+                {
+                    // The start came from an earlier call and was never seen here: nothing carries over from it.
+                    _length = offset;
+                    _tailLength = 0;
+                }
+            }
+
             /// <summary>Takes in the next bytes of the file, in order.</summary>
             internal void Append(ReadOnlySpan<byte> data)
             {
-                if (_md5 != null)
-                    _md5.AppendData(data);
-                else if (ServerErrorAt < 0)
+                _md5?.AppendData(data);
+                if (ServerErrorAt < 0)
                     Scan(data);
                 _length += data.Length;
             }
@@ -1172,14 +1226,14 @@ namespace UsefulProteomicsDatabases
                 _tail.AsSpan(0, _tailLength).CopyTo(seam);
                 int head = Math.Min(carry, data.Length);
                 data[..head].CopyTo(seam[_tailLength..]);
-                int at = seam[..(_tailLength + head)].IndexOf(ServerErrorMarker);
+                int at = seam[..(_tailLength + head)].IndexOf(_marker);
                 if (at >= 0)
                 {
                     ServerErrorAt = _length - _tailLength + at;
                     return;
                 }
 
-                at = data.IndexOf(ServerErrorMarker);
+                at = data.IndexOf(_marker);
                 if (at >= 0)
                 {
                     ServerErrorAt = _length + at;
@@ -1244,7 +1298,7 @@ namespace UsefulProteomicsDatabases
                 if (resumed)
                 {
                     expectedLength = response.Content.Headers.ContentRange.Length;
-                    transfer.Digest?.Invalidate(); // the start of the file is on disk, not in this stream
+                    transfer.Digest?.ContinueAt(resumeFrom); // the start of the file is on disk, not in this stream
                 }
                 else
                 {
@@ -1582,40 +1636,167 @@ namespace UsefulProteomicsDatabases
                     return;
 
                 digest?.Append(buffer.AsSpan(0, read));
+                if (digest?.ServerErrorAt >= 0)
+                {
+                    // EBI's error text is in the file, so this attempt can only fail: stop paying for the rest of it.
+                    // A damaged 2.3 GB copy cost 10-40 minutes when it was downloaded to the end (PXReprise 019).
+                    throw new ContentMismatchException(
+                        $"The PRIDE download of {described} {ServerErrorMismatch(digest.ServerErrorAt)}.");
+                }
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             }
         }
 
         /// <summary>
-        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered. This is
-        /// the convenience over <see cref="GetProjectFilesAsync"/> + <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/>: it fetches
-        /// the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
+        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered, and checks
+        /// each one against PRIDE's checksum list. This is the convenience over <see cref="GetProjectFilesAsync"/>,
+        /// <see cref="GetFileChecksumsAsync"/> and <see cref="DownloadFileAsync(PrideArchiveFile, string, PrideFileChecksum, bool, bool, CancellationToken)"/>:
+        /// it fetches the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A selected file with a row in <see cref="GetFileChecksumsAsync"/> is downloaded through the checked
+        /// overload, without the MD5: its size is checked and its bytes are scanned for EBI's error text, which
+        /// EBI wrote into about a third of large transfers on 2026-10-07/08 at the announced size. A file with no
+        /// row (PRIDE's own <c>generated/</c> files, say) cannot be checked and is downloaded as
+        /// <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/> does, unchecked. The
+        /// checksum list is fetched once, and only when the selection is not empty.
+        /// </para>
+        /// <para>
+        /// The list is read before any file is downloaded, so a list that cannot be read (its request still fails
+        /// after the retries, or PRIDE answers with a list <see cref="GetFileChecksumsAsync"/> refuses) fails the
+        /// call with nothing downloaded. It does not fall back to unchecked downloads: a broken list taken as an
+        /// empty one would turn "PRIDE's list is broken" into "nothing to check", which is why that method reads
+        /// the list strictly.
+        /// </para>
+        /// <para>
+        /// Without the MD5 the scan is the only check of a file's bytes, so any <c>&lt;Error&gt;&lt;Code&gt;</c>
+        /// counts as EBI's error text. A listed file whose own bytes hold it (a log quoting a storage error, say)
+        /// is refused on every attempt, and, as after any failure here, the files after it are not downloaded.
+        /// Download it with the MD5,
+        /// <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, bool, CancellationToken)"/>
+        /// with <c>verifyMd5: true</c>, where its MD5 decides instead.
+        /// </para>
+        /// <para>
+        /// A filter that matches no file is a valid answer, not an error: the result is empty and no file is
+        /// downloaded. To name the files instead, and have a name the project does not hold refused before any
+        /// download, use <see cref="DownloadProjectFilesByNameAsync"/>.
+        /// </para>
+        /// </remarks>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
         /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
         /// <param name="filter">
         /// An optional predicate selecting which files to download (e.g. by category or extension — see
         /// <see cref="PrideArchiveExtensions"/>). When null, every file in the manifest is downloaded.
         /// </param>
-        /// <param name="overwrite">Passed through to <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/>; default true.</param>
+        /// <param name="overwrite">
+        /// Passed through to each download; default true. With false, an existing file that has a checksum row is
+        /// kept only if it passes the size check, as the checked overload describes.
+        /// </param>
         /// <param name="cancellationToken">Cancels between and during file downloads.</param>
         /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
         /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
-        /// <exception cref="HttpRequestException">The manifest request or a download returned a non-success status.</exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        /// <exception cref="MzLibException">PRIDE's checksum list could not be read, or a file failed its checks on every attempt.</exception>
+        public Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
+            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default) =>
+            DownloadProjectFilesAsync(accession, destinationDirectory, filter, overwrite, verifyMd5: false, cancellationToken);
+
+        /// <summary>
+        /// As <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, CancellationToken)"/>,
+        /// and with <paramref name="verifyMd5"/> true each file that has a checksum row is also checked against its
+        /// MD5, which reads it once more as it arrives.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="filter">An optional predicate selecting which files to download. When null, every file in the manifest is downloaded.</param>
+        /// <param name="overwrite">Passed through to each download.</param>
+        /// <param name="verifyMd5">Also check each file's MD5, where it has a checksum row.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
+        /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        /// <exception cref="MzLibException">PRIDE's checksum list could not be read, or a file failed its checks on every attempt.</exception>
         public async Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
-            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default)
+            Func<PrideArchiveFile, bool> filter, bool overwrite, bool verifyMd5, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(destinationDirectory))
                 throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
 
             List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
-            IEnumerable<PrideArchiveFile> selected = filter == null ? files : files.Where(filter);
+            List<PrideArchiveFile> selected = filter == null ? files : files.Where(filter).ToList();
+            return await DownloadCheckedAsync(accession, destinationDirectory, selected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false);
+        }
 
+        /// <summary>
+        /// Downloads the named files of a project to <paramref name="destinationDirectory"/>, checked as
+        /// <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, bool, CancellationToken)"/>
+        /// checks them. Every name is looked up in the manifest first, so a name the project does not hold is
+        /// refused before any file is downloaded.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="fileNames">
+        /// The bare file names to download, as <see cref="PrideArchiveFile.FileName"/> gives them (ordinal,
+        /// case-sensitive). A name given twice is downloaded once.
+        /// </param>
+        /// <param name="overwrite">Passed through to each download; default true.</param>
+        /// <param name="verifyMd5">Also check each file's MD5, where it has a checksum row; default false.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Never empty.</returns>
+        /// <exception cref="ArgumentException">
+        /// The accession or destination directory is blank, or <paramref name="fileNames"/> is null, empty, or
+        /// holds a blank name. No request is made.
+        /// </exception>
+        /// <exception cref="MzLibException">
+        /// A name is not in the project's manifest (the message names every one), and nothing was downloaded; or
+        /// PRIDE's checksum list could not be read, or a file failed its checks on every attempt.
+        /// </exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        public async Task<IReadOnlyList<string>> DownloadProjectFilesByNameAsync(string accession, string destinationDirectory,
+            IReadOnlyCollection<string> fileNames, bool overwrite = true, bool verifyMd5 = false,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
+            if (fileNames == null || fileNames.Count == 0)
+                throw new ArgumentException("At least one file name is required.", nameof(fileNames));
+            if (fileNames.Any(string.IsNullOrWhiteSpace))
+                throw new ArgumentException("A file name is blank.", nameof(fileNames));
+
+            List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var wanted = new HashSet<string>(fileNames, StringComparer.Ordinal);
+            var missing = wanted.Except(files.Select(f => f.FileName), StringComparer.Ordinal).ToList();
+            if (missing.Count > 0)
+                throw new MzLibException(
+                    $"{missing.Count} of the {wanted.Count} file names given are not in PRIDE project '{accession}', so nothing was downloaded: {string.Join(", ", missing.Select(n => $"'{n}'"))}.");
+
+            List<PrideArchiveFile> selected = files.Where(f => wanted.Contains(f.FileName)).ToList();
+            return await DownloadCheckedAsync(accession, destinationDirectory, selected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Downloads <paramref name="selected"/> in turn, each through the checked overload when PRIDE's checksum
+        /// list has its row, else unchecked. The list is fetched once, and not at all for an empty selection.
+        /// </summary>
+        private async Task<IReadOnlyList<string>> DownloadCheckedAsync(string accession, string destinationDirectory,
+            List<PrideArchiveFile> selected, bool overwrite, bool verifyMd5, CancellationToken cancellationToken)
+        {
             var downloadedPaths = new List<string>();
+            if (selected.Count == 0)
+                return downloadedPaths;
+
+            IReadOnlyDictionary<string, PrideFileChecksum> checksums =
+                await GetFileChecksumsAsync(accession, cancellationToken).ConfigureAwait(false);
             foreach (PrideArchiveFile file in selected)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                downloadedPaths.Add(await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false));
+                string path = file.FileName != null && checksums.TryGetValue(file.FileName, out PrideFileChecksum expected)
+                    ? await DownloadFileAsync(file, destinationDirectory, expected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false)
+                    : await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false);
+                downloadedPaths.Add(path);
             }
             return downloadedPaths;
         }

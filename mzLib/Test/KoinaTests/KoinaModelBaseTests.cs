@@ -388,6 +388,35 @@ public class KoinaModelBaseTests
         Assert.That(warning!.Message, Does.Contain("removed"));
     }
 
+    /// <summary>
+    /// The cleaned sequence comes back in mzLib notation, labels unchanged, so a caller can rebuild the peptide that was
+    /// predicted. The UNIMOD string goes to Koina only.
+    /// </summary>
+    [Test]
+    public void TryCleanSequence_ReturnsTheCleanedSequenceInMzLibNotation()
+    {
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int> { 4 }), allowedUnimodIds: new HashSet<int> { 4 });
+
+        var result = model.TryClean("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", out var apiSequence, out _);
+
+        Assert.That(result, Is.EqualTo("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K"));
+        Assert.That(apiSequence, Does.Contain("UNIMOD:4"));
+    }
+
+    /// <summary>A modification the model cannot take is dropped from the cleaned sequence, exactly as from the request.</summary>
+    [Test]
+    public void TryCleanSequence_RemoveIncompatible_CleanedSequenceLacksOnlyTheDroppedModification()
+    {
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int> { 4 }),
+            SequenceConversionHandlingMode.RemoveIncompatibleElements, new HashSet<int> { 4 });
+
+        var result = model.TryClean("PEPM[Common Variable:Oxidation on M]TIDEC[Common Fixed:Carbamidomethyl on C]K", out var apiSequence, out _);
+
+        Assert.That(result, Is.EqualTo("PEPMTIDEC[Common Fixed:Carbamidomethyl on C]K"));
+        Assert.That(apiSequence, Does.Contain("UNIMOD:4"));
+        Assert.That(apiSequence, Does.Not.Contain("UNIMOD:35"));
+    }
+
     [Test]
     public void TryCleanSequence_UnsupportedModification_ReturnsWarning()
     {
@@ -461,7 +490,7 @@ public class KoinaModelBaseTests
 
         var result = model.TryClean(mzLibSequence, out var apiSequence, out var warning);
 
-        Assert.That(result, Is.EqualTo(expectedApiSequence));
+        Assert.That(result, Is.EqualTo(mzLibSequence), "the cleaned sequence, in mzLib notation");
         Assert.That(apiSequence, Is.EqualTo(expectedApiSequence));
         Assert.That(warning, Is.Null);
     }
