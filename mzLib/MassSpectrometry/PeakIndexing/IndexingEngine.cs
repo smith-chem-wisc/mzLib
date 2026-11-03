@@ -33,6 +33,24 @@ namespace MassSpectrometry
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             ScanInfoArray = new ScanInfo[scanArray.Length];
 
+            // Count the peaks in each bin first, so every bin's list is allocated once at its final size. Growing the
+            // lists by doubling copied every bin several times over and left up to half of each list's capacity unused.
+            // The fill below is unchanged, so each bin holds the same peaks in the same order.
+            int[] peaksPerBin = new int[IndexedPeaks.Length];
+            for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
+            {
+                double[] xArray = scanArray[scanIndex].MassSpectrum.XArray;
+                for (int j = 0; j < xArray.Length; j++)
+                {
+                    peaksPerBin[(int)Math.Round(xArray[j] * BinsPerDalton, 0)]++;
+                }
+            }
+            for (int bin = 0; bin < peaksPerBin.Length; bin++)
+            {
+                if (peaksPerBin[bin] > 0)
+                    IndexedPeaks[bin] = new List<T>(peaksPerBin[bin]);
+            }
+
             for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
             {
                 ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime, scanArray[scanIndex].MsnOrder);
@@ -40,7 +58,6 @@ namespace MassSpectrometry
                 for (int j = 0; j < scanArray[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
                     int roundedMz = (int)Math.Round(scanArray[scanIndex].MassSpectrum.XArray[j] * BinsPerDalton, 0);
-                    IndexedPeaks[roundedMz] ??= new List<T>();
                     IndexedPeaks[roundedMz].Add((T)(IIndexedPeak)
                         new IndexedMassSpectralPeak(
                             scanArray[scanIndex].MassSpectrum.XArray[j],
@@ -64,10 +81,26 @@ namespace MassSpectrometry
         public IIndexedPeak? GetIndexedPeak(double m, int zeroBasedScanIndex, Tolerance ppmTolerance, int? charge = null)
         {
             if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve indexed peak before peak indexing was performed");
-            var bins = GetBinsInRange(m, ppmTolerance);
-            if (bins.Count == 0) return default(T);
-            List<int> peakIndicesInBins = bins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedScanIndex)).ToList();
-            return GetBestPeakFromBins(bins, m, zeroBasedScanIndex, peakIndicesInBins, ppmTolerance, charge);
+            // The same bins, binary search and closest-peak rule as GetBinsInRange + GetBestPeakFromBins, walked in place: this
+            // is called for every scan of every candidate in a DIA search, and the lists it allocated dominated garbage collection
+            int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(m) * BinsPerDalton);
+            int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(m) * BinsPerDalton);
+            T? bestPeak = default(T);
+            bool anyBin = false;
+            for (int j = floorMz; j <= ceilingMz; j++)
+            {
+                if (j >= IndexedPeaks.Length || IndexedPeaks[j] == null)
+                    continue;
+                if (!anyBin && charge != null && typeof(T) != typeof(IndexedMass))
+                    throw new MzLibException("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available.");
+                anyBin = true;
+                var bin = IndexedPeaks[j];
+                var tempPeak = GetPeakFromBin(bin, m, zeroBasedScanIndex, BinarySearchForIndexedPeak(bin, zeroBasedScanIndex), ppmTolerance, charge);
+                if (tempPeak.IsDefaultOrNull()) continue;
+                if (bestPeak.IsDefaultOrNull() || Math.Abs(tempPeak.M - m) < Math.Abs(bestPeak.M - m))
+                    bestPeak = tempPeak;
+            }
+            return bestPeak;
         }
 
         /// <summary>
