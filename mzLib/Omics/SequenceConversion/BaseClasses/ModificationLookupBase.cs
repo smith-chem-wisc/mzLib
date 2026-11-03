@@ -635,8 +635,9 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         source ??= CandidateSet;
+        // Modification equality ignores the location restriction, so value-distinct would merge terminal and side-chain entries.
         return source.Where(modification => MatchesIdentifierSet(modification, identifiers))
-            .Distinct();
+            .Distinct<Modification>(ReferenceEqualityComparer.Instance);
     }
 
     private bool MatchesIdentifierSet(Modification modification, HashSet<string> identifiers)
@@ -760,10 +761,6 @@ public abstract class ModificationLookupBase : IModificationLookup
             yield return input.Replace("TMTpro", "TMT18", StringComparison.OrdinalIgnoreCase);
         }
 
-        if (input.Contains("TMT", StringComparison.OrdinalIgnoreCase) && input.Contains("pro", StringComparison.OrdinalIgnoreCase))
-        {
-            yield return input.Replace("pro", "", StringComparison.OrdinalIgnoreCase);
-        }
     }
 
     #endregion

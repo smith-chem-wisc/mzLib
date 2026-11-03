@@ -177,6 +177,51 @@ namespace Test.Omics.BioPolymerGroupTests
             });
         }
 
+        /// <summary>
+        /// The flags are any-member, so they must follow the members a merge adds. Parsimony merges
+        /// indistinguishable groups into whichever was emitted first (alphabetical accession), so a real
+        /// protein and its entrapment partner otherwise came out a target or entrapment group by sort order.
+        /// Critical: these flags drive FDR, contaminant filtering and the Decoy/Contaminant/Target label.
+        /// </summary>
+        [Test]
+        [TestCase(true, false, false, Description = "Decoy")]
+        [TestCase(false, true, false, Description = "Contaminant")]
+        [TestCase(false, false, true, Description = "Entrapment")]
+        public void MergeWith_AFlaggedMemberFlagsTheSurvivingGroup(bool isDecoy, bool isContaminant, bool isEntrapment)
+        {
+            var flagged = new MockBioPolymer("PEPTLDEK", "BP00001", isDecoy, isContaminant, isEntrapment);
+            var otherGroup = new BioPolymerGroup(new HashSet<IBioPolymer> { flagged },
+                new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+
+            _bioPolymerGroup.MergeWith(otherGroup);
+
+            var rebuilt = new BioPolymerGroup(_bioPolymerGroup.BioPolymers,
+                new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            Assert.Multiple(() =>
+            {
+                Assert.That((_bioPolymerGroup.IsDecoy, _bioPolymerGroup.IsContaminant, _bioPolymerGroup.IsEntrapment),
+                    Is.EqualTo((isDecoy, isContaminant, isEntrapment)));
+                Assert.That((_bioPolymerGroup.IsDecoy, _bioPolymerGroup.IsContaminant, _bioPolymerGroup.IsEntrapment),
+                    Is.EqualTo((rebuilt.IsDecoy, rebuilt.IsContaminant, rebuilt.IsEntrapment)),
+                    "A merged group reads the same as one built from its members");
+            });
+        }
+
+        /// <summary>
+        /// Merging an unflagged group into a flagged one keeps the flag: the survivor still holds the member.
+        /// </summary>
+        [Test]
+        public void MergeWith_AnUnflaggedGroupLeavesTheSurvivorsFlags()
+        {
+            var entrapment = new MockBioPolymer("PEPTLDEK", "Random_BP12345_f0", false, false, true);
+            var survivor = new BioPolymerGroup(new HashSet<IBioPolymer> { entrapment, _decoyBioPolymer, _contaminantBioPolymer },
+                new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+
+            survivor.MergeWith(_bioPolymerGroup);
+
+            Assert.That((survivor.IsDecoy, survivor.IsContaminant, survivor.IsEntrapment), Is.EqualTo((true, true, true)));
+        }
+
         #endregion
 
         #region Equality Tests
@@ -1081,5 +1126,24 @@ namespace Test.Omics.BioPolymerGroupTests
         }
 
         #endregion
+
+        /// <summary>
+        /// A group's flags are any-member, so a group holding a contaminant and an entrapment protein
+        /// is both, and the writer follows the label's precedence and writes ET. The contaminant
+        /// member is not marked; DecoyContaminantTargetLabel.For says so. Every earlier case built a
+        /// group with one member.
+        /// </summary>
+        [Test]
+        public void AGroupWithAContaminantAndAnEntrapmentMemberIsWrittenAsEntrapment()
+        {
+            var contaminant = new MockBioPolymer("PEPTIDEK", "CONT_P1", isDecoy: false, isContaminant: true, isEntrapment: false);
+            var entrapment = new MockBioPolymer("PEPTLDEK", "Random_P1_f0", isDecoy: false, isContaminant: false, isEntrapment: true);
+            var sequence = new MockBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK");
+            var group = new BioPolymerGroup(new HashSet<IBioPolymer> { contaminant, entrapment },
+                new HashSet<IBioPolymerWithSetMods> { sequence }, new HashSet<IBioPolymerWithSetMods> { sequence });
+
+            Assert.That((group.IsContaminant, group.IsEntrapment), Is.EqualTo((true, true)));
+            Assert.That(GroupTsv.Row(group), Does.Contain("\tET\t"));
+        }
     }
 }

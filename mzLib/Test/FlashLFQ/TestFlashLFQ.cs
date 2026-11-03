@@ -97,6 +97,101 @@ namespace Test.FlashLFQ
             Assert.Greater(id.PeakfindingMass, 0);
         }
 
+        /// <summary>
+        /// The theoretical isotope distribution FlashLFQ builds for each identification is the same, value for value, as
+        /// before it moved onto <see cref="AveragineFormula"/>: <see cref="ExpectedDistribution"/> is the earlier algorithm.
+        /// Covers a modification with no formula (a TMT-sized gap, filled with averagine), a gap of 20 Da or less (not filled),
+        /// a negative gap, an unparsable sequence (all averagine), and a supplied formula (used as is, gap and all).
+        /// </summary>
+        [Test]
+        [TestCase("PEPTIDEK", 229.162932, false)]
+        [TestCase("PEPTIDEK", 15.9949, false)]
+        [TestCase("PEPTIDEK", -30.0, false)]
+        [TestCase("Z1Z2Z3", 1500.7, false)]
+        [TestCase("PEPTIDEK", 229.162932, true)]
+        public static void TheoreticalIsotopeDistributionIsUnchangedByAveragineFormula(string baseSequence, double gap, bool supplyFormula)
+        {
+            bool parsable = baseSequence == "PEPTIDEK";
+            ChemicalFormula sequenceFormula = parsable
+                ? new Proteomics.AminoAcidPolymer.Peptide(baseSequence).GetChemicalFormula()
+                : new ChemicalFormula();
+            double monoisotopicMass = sequenceFormula.MonoisotopicMass + gap;
+            string modifiedSequence = baseSequence + "[gap]";
+
+            SpectraFileInfo file = new SpectraFileInfo("a.mzML", "a", 0, 0, 0);
+            var id = new Identification(file, baseSequence, modifiedSequence, monoisotopicMass, 5.0, 2, new List<ProteinGroup>(),
+                optionalChemicalFormula: supplyFormula ? new Proteomics.AminoAcidPolymer.Peptide(baseSequence).GetChemicalFormula() : null);
+            var flashParams = new FlashLfqParameters { MaxThreads = 1 };
+            var engine = new FlashLfqEngine(flashParams, new List<Identification> { id });
+
+            engine.CalculateTheoreticalIsotopeDistributions();
+
+            var expected = ExpectedDistribution(baseSequence, parsable, monoisotopicMass,
+                supplyFormula ? new Proteomics.AminoAcidPolymer.Peptide(baseSequence).GetChemicalFormula() : null,
+                flashParams.NumIsotopesRequired);
+            CollectionAssert.AreEqual(expected, engine.ModifiedSequenceToIsotopicDistribution[modifiedSequence]);
+            Assert.AreEqual(monoisotopicMass + expected.First(p => p.Item2 == 1.0).Item1, id.PeakfindingMass);
+        }
+
+        /// <summary>
+        /// FlashLFQ's theoretical isotope distribution as computed before <see cref="AveragineFormula"/> existed.
+        /// </summary>
+        private static List<(double, double)> ExpectedDistribution(string baseSequence, bool parsable, double monoisotopicMass,
+            ChemicalFormula suppliedFormula, int numIsotopesRequired)
+        {
+            Dictionary<char, double> composition = new Averagine().GetAverageChemicalFormula();
+            double averagineMass = composition.Sum(kvp => PeriodicTable.GetElement(kvp.Key.ToString()).AverageMass * kvp.Value);
+            void AddAveragineToFormula(ChemicalFormula f, double mass)
+            {
+                double averagines = mass / averagineMass;
+                foreach (var (element, countPerAveragine) in composition)
+                {
+                    f.Add(element.ToString(), (int)Math.Round(averagines * countPerAveragine, 0));
+                }
+            }
+
+            ChemicalFormula formula = suppliedFormula;
+            if (formula is null)
+            {
+                formula = new ChemicalFormula();
+                if (parsable)
+                {
+                    formula = new Proteomics.AminoAcidPolymer.Peptide(baseSequence).GetChemicalFormula();
+                    double massDiff = monoisotopicMass;
+                    massDiff -= formula.MonoisotopicMass;
+                    if (Math.Abs(massDiff) > 20)
+                    {
+                        AddAveragineToFormula(formula, massDiff);
+                    }
+                }
+                else
+                {
+                    AddAveragineToFormula(formula, monoisotopicMass);
+                }
+            }
+
+            var distribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
+            double[] masses = distribution.Masses.ToArray();
+            double[] abundances = distribution.Intensities.ToArray();
+            for (int i = 0; i < masses.Length; i++)
+            {
+                masses[i] += (monoisotopicMass - formula.MonoisotopicMass);
+            }
+
+            double highestAbundance = abundances.Max();
+            var result = new List<(double, double)>();
+            for (int i = 0; i < masses.Length; i++)
+            {
+                masses[i] -= monoisotopicMass;
+                abundances[i] /= highestAbundance;
+                if (result.Count < numIsotopesRequired || abundances[i] > 0.1)
+                {
+                    result.Add((masses[i], abundances[i]));
+                }
+            }
+            return result;
+        }
+
         [Test]
         public static void TestIsotopicEnvelopeNegativeChargeYieldsPositiveIntensity()
         {
@@ -1468,7 +1563,10 @@ namespace Test.FlashLFQ
             Assert.AreEqual(4, peaks[0].Count(m => m.DetectionType != DetectionType.MBR));
             Assert.AreEqual(5, peaks[1].Count(m => m.DetectionType != DetectionType.MBR));
 
-            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            // File 3 holds four MS/MS peaks and no accepted transfer. Its other peaks are random-retention-time
+            // decoys, so they follow the decoy each transfer draws: since #1484, the decoy drawn for TDWDAGFK
+            // (P52298) finds a peak here as well as QYDIDDAIAK's (Q15149), both far above the MBR q-value cut.
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149", "P52298" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
 
             Assert.AreEqual(6, peptides.Count);
@@ -1995,10 +2093,11 @@ namespace Test.FlashLFQ
             var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
             var protein = res.ProteinGroups.First().Value;
 
-            // intensity should be NaN (protein is not quantifiable)
+            // no peptide links the two samples, so each is quantified from its own peptide: the number of peptides
+            // times its intensity (it used to be NaN in both, so a second peptide took away the first one's value)
             foreach (SpectraFileInfo file in res.SpectraFiles)
             {
-                Assert.That(double.IsNaN(protein.GetIntensity(file)));
+                Assert.That(protein.GetIntensity(file), Is.EqualTo(2000).Within(1e-6));
             }
         }
 

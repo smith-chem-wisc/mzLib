@@ -256,6 +256,17 @@ public class ProteinDbRetrieverTests
         </uniprot>
         """;
 
+    /// <summary>
+    /// What UniProt returned on 2026-11-02 for most entries, with HTTP 200: the prologue, the opening tag,
+    /// and an error message where the entry should be. Like <see cref="EntrylessUniProtXml"/> it holds no
+    /// entry, which is why it used to be read as a deleted accession.
+    /// </summary>
+    private const string StreamingErrorUniProtXml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"  standalone=\"no\" ?>\n" +
+        "<uniprot xmlns=\"http://uniprot.org/uniprot\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
+        "xsi:schemaLocation=\"http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd\">\n\n\n" +
+        "Error encountered when streaming data. Please try again";
+
     /// <summary>A one-entry UniProtKB XML in the real wire shape, small enough to inline.</summary>
     private const string OneEntryUniProtXml =
         """
@@ -437,6 +448,47 @@ public class ProteinDbRetrieverTests
     }
 
     /// <summary>
+    /// UniProt's streaming endpoint can fail after it has sent the status and some entries, and then writes
+    /// an error message where the rest should be. The file is not empty, so the length check above passes
+    /// it; it must still be refused, as the outage it is, and not saved as a proteome.
+    /// </summary>
+    [Test]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml)]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.fasta)]
+    public void RetrieveProteome_BodyEndsInStreamingError_ThrowsHttpRequestExceptionAndWritesNothing(
+        ProteinDbRetriever.ProteomeFormat format)
+    {
+        string entries = format == ProteinDbRetriever.ProteomeFormat.xml
+            ? OneEntryUniProtXml.Replace("</uniprot>", "")
+            : OneEntryUniProtFasta;
+        string payload = entries + "\n\nError encountered when streaming data. Please try again";
+
+        var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595",
+            _storageDirectory, format, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteomeClient(4, payload)));
+
+        Assert.That(ex.Message, Does.Contain(ProteinDbRetriever.StreamingErrorMarker));
+        Assert.That(ex.StatusCode, Is.Null, "a 200 must not be carried as the failure's status");
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty, "a failed transfer must not be left on disk");
+    }
+
+    /// <summary>
+    /// Only the end of a download is searched, and only for UniProt's own phrase, so a proteome that merely
+    /// mentions an error in an entry's text is still a success.
+    /// </summary>
+    [Test]
+    public void RetrieveProteome_EntryTextMentionsAnError_IsStillASuccess()
+    {
+        string payload = OneEntryUniProtXml.Replace("Serum albumin", "Error-prone repair protein");
+
+        string path = ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteomeClient(1, payload));
+
+        Assert.That(File.ReadAllText(path), Is.EqualTo(payload));
+    }
+
+    /// <summary>
     /// A proteome ID becomes part of a file name. Without a guard, "../../evil" writes outside the storage
     /// directory, and an NTFS ':' silently creates an alternate data stream instead of a file — the same
     /// class of defect RetrieveEntry's accession guard exists to prevent.
@@ -613,6 +665,94 @@ public class ProteinDbRetrieverTests
         Assert.That(File.Exists(path));
     }
 
+    // ---- RetrieveProteome: the gene-centric (canonical, one protein per gene) set -------------
+
+    /// <summary>
+    /// GeneCentric.yes adds one clause to the query both requests share, after any review-status clause, so the
+    /// count probe and the download always ask for the same set.
+    /// </summary>
+    [Test]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all,
+        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+is_gene_centric:true&format=list&size=0",
+        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+is_gene_centric:true&compressed=false&format=xml")]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes,
+        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+reviewed:true+AND+is_gene_centric:true&format=list&size=0",
+        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+reviewed:true+AND+is_gene_centric:true&compressed=false&format=fasta&includeIsoforms:false")]
+    public void RetrieveProteome_GeneCentric_AddsTheClauseToBothRequests(ProteinDbRetriever.ProteomeFormat format,
+        ProteinDbRetriever.Reviewed reviewed, string expectedCountUrl, string expectedDownloadUrl)
+    {
+        var handler = ProteomeHandler(21471, OneEntryUniProtFasta);
+
+        ProteinDbRetriever.RetrieveProteome("UP000002494", _storageDirectory, format, reviewed,
+            ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no, ProteinDbRetriever.GeneCentric.yes,
+            new HttpClient(handler));
+
+        Assert.That(handler.RequestedUris, Is.EqualTo(new[] { expectedCountUrl, expectedDownloadUrl }));
+    }
+
+    /// <summary>GeneCentric.no is exactly the request the overload without the option makes.</summary>
+    [Test]
+    public void RetrieveProteome_GeneCentricNo_IsTheRequestWithoutTheOption()
+    {
+        var without = ProteomeHandler(4, OneEntryUniProtFasta);
+        ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory, ProteinDbRetriever.ProteomeFormat.xml,
+            ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no,
+            new HttpClient(without));
+
+        var withNo = ProteomeHandler(4, OneEntryUniProtFasta);
+        ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory, ProteinDbRetriever.ProteomeFormat.xml,
+            ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no,
+            ProteinDbRetriever.GeneCentric.no, new HttpClient(withNo));
+
+        Assert.That(withNo.RequestedUris, Is.EqualTo(without.RequestedUris));
+        Assert.That(withNo.RequestedUris, Has.All.Not.Contains("is_gene_centric"));
+    }
+
+    /// <summary>The gene-centric set is its own file, never written over the reviewed or complete download.</summary>
+    [Test]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no, "UP000008595_all_genecentric.xml")]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no, "UP000008595_all_genecentric.xml.gz")]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.yes, "UP000008595_reviewed_genecentric_isoform.fasta")]
+    public void RetrieveProteome_GeneCentric_NamesTheFileGeneCentric(ProteinDbRetriever.ProteomeFormat format,
+        ProteinDbRetriever.Reviewed reviewed, ProteinDbRetriever.Compress compress,
+        ProteinDbRetriever.IncludeIsoforms include, string expectedFileName)
+    {
+        string path = ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory, format, reviewed, compress,
+            include, ProteinDbRetriever.GeneCentric.yes, ClientReturning("payload", totalResults: 4));
+
+        Assert.That(path, Is.EqualTo(Path.Combine(_storageDirectory, expectedFileName)));
+        Assert.That(File.Exists(path));
+    }
+
+    /// <summary>
+    /// The public GeneCentric overload validates before any request, like the one without it: a blank ID is a wrong
+    /// call, reported without touching UniProt.
+    /// </summary>
+    [Test]
+    public void RetrieveProteome_PublicGeneCentricOverload_RefusesABlankIdBeforeAnyRequest()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => ProteinDbRetriever.RetrieveProteome("  ", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteinDbRetriever.GeneCentric.yes));
+        Assert.That(ex.ParamName, Is.EqualTo("proteomeID"));
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
+    /// <summary>An enum value outside the two defined ones must not silently fall through to either.</summary>
+    [Test]
+    public void RetrieveProteome_UndefinedGeneCentricValue_ThrowsArgumentOutOfRange()
+    {
+        var handler = ProteomeHandler(4, OneEntryUniProtFasta);
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595",
+            _storageDirectory, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all,
+            ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no, (ProteinDbRetriever.GeneCentric)42,
+            new HttpClient(handler)));
+
+        Assert.That(ex.ParamName, Is.EqualTo("geneCentric"));
+        Assert.That(handler.RequestedUris, Is.Empty, "the call is wrong, so no request is made");
+    }
+
     /// <summary>
     /// Re-retrieving used to fail with an IOException, because the download opened the destination with
     /// FileMode.CreateNew. It now overwrites, and leaves no ".partial" scratch file behind either way.
@@ -740,6 +880,22 @@ public class ProteinDbRetrieverTests
     }
 
     /// <summary>
+    /// UniProt's streaming error holds no entry, exactly like a deleted accession. Reported as one, it told
+    /// callers that a perfectly good accession "may have been deleted or demerged", and a live test failed
+    /// where it should have skipped. It is an outage, so it must be HttpRequestException.
+    /// </summary>
+    [Test]
+    public void RetrieveEntry_StreamingErrorBody_ThrowsHttpRequestExceptionNotMzLibException()
+    {
+        var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveEntry("P69905", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ClientReturning(StreamingErrorUniProtXml)));
+
+        Assert.That(ex.Message, Does.Contain(ProteinDbRetriever.StreamingErrorMarker));
+        Assert.That(ex.StatusCode, Is.Null);
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
+    /// <summary>
     /// 400 and 404 are the two statuses that mean "no such entry". Any OTHER non-success status is neither
     /// an absence nor an outage — ThrowIfServiceUnavailable has already claimed every transient status — so
     /// it must be MzLibException. Reporting it as HttpRequestException would make a live canary SKIP on a
@@ -783,6 +939,22 @@ public class ProteinDbRetrieverTests
 
         Assert.That(found, Is.False);
         Assert.That(filePath, Is.Null);
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
+    /// <summary>
+    /// The case Found=false must never cover: an outage. UniProt's streaming error is told apart from a
+    /// deleted accession by its message, before the entry check, and is thrown. The phrase is matched
+    /// case-insensitively, as Test.ExternalServiceTestHelper matches it.
+    /// </summary>
+    [Test]
+    [TestCase(StreamingErrorUniProtXml)]
+    [TestCase("ERROR ENCOUNTERED WHEN STREAMING DATA. Please try again")]
+    public void TryRetrieveEntry_StreamingErrorBody_ThrowsHttpRequestExceptionNotNotFound(string body)
+    {
+        Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.TryRetrieveEntry("P69905", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ClientReturning(body)));
+
         Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
     }
 
@@ -925,6 +1097,19 @@ public class ProteinDbRetrieverTests
     {
         Assert.Throws<MzLibException>(() => ProteinDbRetriever.DownloadAvailableUniProtProteomes(
             _storageDirectory, ClientReturning("", HttpStatusCode.OK, totalResults: 0)));
+    }
+
+    /// <summary>
+    /// Saved as-is, the error message became a ".txt.gz" that UniprotProteomesList later failed to
+    /// decompress, which reached the caller as a corrupt file rather than an outage.
+    /// </summary>
+    [Test]
+    public void DownloadAvailableUniProtProteomes_StreamingErrorBody_ThrowsHttpRequestExceptionAndWritesNothing()
+    {
+        Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.DownloadAvailableUniProtProteomes(_storageDirectory,
+            ClientReturning("Error encountered when streaming data. Please try again", totalResults: 2)));
+
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
     }
 
     [Test]
@@ -1283,4 +1468,37 @@ public class ProteinDbRetrieverLiveTests
             return Task.CompletedTask;
         });
 
+    /// <summary>
+    /// The gene-centric set is one protein per gene: a strict subset of the complete proteome that still holds
+    /// every reviewed gene-centric entry and more. Asserted as set relations rather than counts, which change
+    /// with each UniProt release. Drosophila melanogaster (UP000000803) is the smallest proteome found where all
+    /// three differ (release 2026_03: 21,947 entries, 13,814 gene-centric, 3,842 of them reviewed), so a
+    /// download that ignored the clause, or kept only Swiss-Prot, fails. Many small proteomes (Plasmodium,
+    /// E. coli, yeast) are already one entry per gene and could not tell the difference. Gene NAMES are not
+    /// asserted unique: UniProt's own set repeats 69 of them in fly (different genes sharing a symbol).
+    /// </summary>
+    [Test]
+    public Task RetrieveProteome_LiveGeneCentric_IsOneProteinPerGeneWithinTheProteome() =>
+        ExternalServiceTestHelper.RunAsync("UniProt", () =>
+        {
+            List<Protein> Download(ProteinDbRetriever.Reviewed reviewed, ProteinDbRetriever.GeneCentric geneCentric) =>
+                ProteinDbLoader.LoadProteinFasta(
+                    ProteinDbRetriever.RetrieveProteome("UP000000803", _storageDirectory,
+                        ProteinDbRetriever.ProteomeFormat.fasta, reviewed, ProteinDbRetriever.Compress.no,
+                        ProteinDbRetriever.IncludeIsoforms.no, geneCentric),
+                    generateTargets: true, DecoyType.None, isContaminant: false, out _);
+
+            var complete = Download(ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.GeneCentric.no);
+            var geneCentric = Download(ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.GeneCentric.yes);
+            var reviewedGeneCentric = Download(ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.GeneCentric.yes);
+
+            var all = complete.Select(p => p.Accession).ToHashSet();
+            var canonical = geneCentric.Select(p => p.Accession).ToHashSet();
+            Assert.That(canonical, Is.SubsetOf(all), "the gene-centric set is drawn from the proteome");
+            Assert.That(canonical.Count, Is.LessThan(all.Count), "it leaves out the extra entries of each gene");
+            Assert.That(reviewedGeneCentric.Select(p => p.Accession), Is.SubsetOf(canonical));
+            Assert.That(canonical.Count, Is.GreaterThan(reviewedGeneCentric.Count),
+                "the unreviewed entries fill the genes Swiss-Prot has not curated");
+            return Task.CompletedTask;
+        });
 }

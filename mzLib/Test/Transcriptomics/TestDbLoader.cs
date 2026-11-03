@@ -788,6 +788,22 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public static void EntrapmentFasta_MarksExactlyWhatIsEntrapmentAccessionSays()
+        {
+            string[] ids = { "Random_RNA1", "random_rna2", "RNA3_RANDOM", "RNA4" };
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_rule.fasta");
+            File.WriteAllText(fastapath, string.Concat(ids.Select(i => $">id:{i}|Name:{i}|SOterm:{i}|Type:gene|Species:Homo sapiens\nGUUCUG\n")));
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors);
+            File.Delete(fastapath);
+
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Select(r => r.Accession), Is.EqualTo(ids));
+            Assert.That(rnas.Select(r => r.IsEntrapment), Is.EqualTo(ids.Select(i => ProteinDbLoader.IsEntrapmentAccession(i))));
+            Assert.That(rnas.Count(r => r.IsEntrapment), Is.EqualTo(3));
+        }
+
+        [Test]
         public static void EntrapmentFasta_DecoyPrependsWithNtrap()
         {
             string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";

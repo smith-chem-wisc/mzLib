@@ -1,0 +1,568 @@
+{
+  "definition_version": "DEF-DIFF v1",
+  "analysis_id": "adc8979a883969aa",
+  "software": [
+    {
+      "name": "mzLib",
+      "version": "9.9.0"
+    },
+    {
+      "name": "datarepo engine",
+      "version": "0.1.0"
+    }
+  ],
+  "inputs": [
+    {
+      "role": "observation_table",
+      "file": "observations.tsv",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "role": "design",
+      "file": "design.tsv",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "settings": {
+    "header_style": "machine",
+    "ci_level": 0.95,
+    "method": "moderated",
+    "robust": true,
+    "normalization": "shared_peptide_median",
+    "seed": 42
+  },
+  "columns": [
+    {
+      "machine": "definition_id",
+      "human": "Definition ID",
+      "group": "Identity"
+    },
+    {
+      "machine": "analysis_id",
+      "human": "Analysis ID",
+      "group": "Identity"
+    },
+    {
+      "machine": "quant_style",
+      "human": "Quantification Style",
+      "group": "Identity"
+    },
+    {
+      "machine": "reporter_acquisition",
+      "human": "Reporter Ion Acquisition",
+      "group": "Identity"
+    },
+    {
+      "machine": "stratum",
+      "human": "Stratum",
+      "group": "Identity"
+    },
+    {
+      "machine": "grain",
+      "human": "Grain",
+      "group": "Identity"
+    },
+    {
+      "machine": "feature_id",
+      "human": "Feature",
+      "group": "Identity"
+    },
+    {
+      "machine": "feature_accessions",
+      "human": "Accessions",
+      "group": "Identity"
+    },
+    {
+      "machine": "genes",
+      "human": "Genes",
+      "group": "Identity"
+    },
+    {
+      "machine": "quantity",
+      "human": "Quantity",
+      "group": "Identity"
+    },
+    {
+      "machine": "effect_type",
+      "human": "Effect Type",
+      "group": "Identity"
+    },
+    {
+      "machine": "quant_basis",
+      "human": "Quantification Basis",
+      "group": "Identity"
+    },
+    {
+      "machine": "contrast_id",
+      "human": "Contrast ID",
+      "group": "Contrast"
+    },
+    {
+      "machine": "contrast_label",
+      "human": "Contrast",
+      "group": "Contrast"
+    },
+    {
+      "machine": "numerator",
+      "human": "Numerator",
+      "group": "Contrast"
+    },
+    {
+      "machine": "denominator",
+      "human": "Denominator",
+      "group": "Contrast"
+    },
+    {
+      "machine": "covariate",
+      "human": "Covariate",
+      "group": "Contrast"
+    },
+    {
+      "machine": "covariate_unit",
+      "human": "Covariate Unit",
+      "group": "Contrast"
+    },
+    {
+      "machine": "covariate_scale",
+      "human": "Covariate Scale",
+      "group": "Contrast"
+    },
+    {
+      "machine": "log2_effect",
+      "human": "Log2 Effect",
+      "group": "Effect"
+    },
+    {
+      "machine": "natural_effect",
+      "human": "Effect (Natural Scale)",
+      "group": "Effect"
+    },
+    {
+      "machine": "natural_unit",
+      "human": "Natural Unit",
+      "group": "Effect"
+    },
+    {
+      "machine": "delta_percentage_points",
+      "human": "Change (Percentage Points)",
+      "group": "Effect"
+    },
+    {
+      "machine": "mean_numerator",
+      "human": "Numerator Mean",
+      "group": "Effect"
+    },
+    {
+      "machine": "mean_denominator",
+      "human": "Denominator Mean",
+      "group": "Effect"
+    },
+    {
+      "machine": "se",
+      "human": "Standard Error",
+      "group": "Confidence"
+    },
+    {
+      "machine": "ci_low",
+      "human": "CI Lower",
+      "group": "Confidence"
+    },
+    {
+      "machine": "ci_high",
+      "human": "CI Upper",
+      "group": "Confidence"
+    },
+    {
+      "machine": "ci_level",
+      "human": "CI Level",
+      "group": "Confidence"
+    },
+    {
+      "machine": "statistic",
+      "human": "Test Statistic",
+      "group": "Confidence"
+    },
+    {
+      "machine": "df",
+      "human": "Degrees of Freedom",
+      "group": "Confidence"
+    },
+    {
+      "machine": "df_method",
+      "human": "DF Method",
+      "group": "Confidence"
+    },
+    {
+      "machine": "p_value",
+      "human": "P-Value",
+      "group": "Confidence"
+    },
+    {
+      "machine": "p_adjusted",
+      "human": "Adjusted P-Value",
+      "group": "Confidence"
+    },
+    {
+      "machine": "adjustment_method",
+      "human": "Adjustment Method",
+      "group": "Confidence"
+    },
+    {
+      "machine": "family_size",
+      "human": "Family Size",
+      "group": "Confidence"
+    },
+    {
+      "machine": "pep",
+      "human": "Posterior Error Probability",
+      "group": "Confidence"
+    },
+    {
+      "machine": "bayesian_fdr",
+      "human": "Bayesian False Discovery Rate",
+      "group": "Confidence"
+    },
+    {
+      "machine": "bayes_factor",
+      "human": "Bayes Factor",
+      "group": "Confidence"
+    },
+    {
+      "machine": "null_width",
+      "human": "Null Hypothesis Width",
+      "group": "Confidence"
+    },
+    {
+      "machine": "n_samples_numerator",
+      "human": "Numerator Samples With Value",
+      "group": "Evidence"
+    },
+    {
+      "machine": "n_samples_denominator",
+      "human": "Denominator Samples With Value",
+      "group": "Evidence"
+    },
+    {
+      "machine": "n_samples_with_value",
+      "human": "Samples With Value",
+      "group": "Evidence"
+    },
+    {
+      "machine": "n_samples_total",
+      "human": "Samples In Contrast",
+      "group": "Evidence"
+    },
+    {
+      "machine": "n_peptides",
+      "human": "Peptides",
+      "group": "Evidence"
+    },
+    {
+      "machine": "n_observations",
+      "human": "Peptide-Sample Values",
+      "group": "Evidence"
+    },
+    {
+      "machine": "n_mbr_values",
+      "human": "MBR Values",
+      "group": "Evidence"
+    },
+    {
+      "machine": "status",
+      "human": "Status",
+      "group": "Status"
+    },
+    {
+      "machine": "status_detail",
+      "human": "Status Detail",
+      "group": "Status"
+    },
+    {
+      "machine": "method",
+      "human": "Method",
+      "group": "Status"
+    },
+    {
+      "machine": "model_used",
+      "human": "Model Used",
+      "group": "Status"
+    },
+    {
+      "machine": "robust",
+      "human": "Robust Weighting",
+      "group": "Status"
+    },
+    {
+      "machine": "normalization",
+      "human": "Normalization",
+      "group": "Status"
+    },
+    {
+      "machine": "covariates_fitted",
+      "human": "Covariates Fitted",
+      "group": "Status"
+    },
+    {
+      "machine": "design_sha256",
+      "human": "Design SHA-256",
+      "group": "Status"
+    },
+    {
+      "machine": "method_version",
+      "human": "Method Version",
+      "group": "Status"
+    }
+  ],
+  "strata": [
+    {
+      "stratum": "all",
+      "factors": {},
+      "source": "default_list",
+      "samples_per_level": {
+        "age=old": 6,
+        "age=young": 6
+      },
+      "individuals_per_level": {
+        "age=old": 5,
+        "age=young": 6
+      },
+      "batches": [
+        "b1",
+        "b2"
+      ],
+      "fractions": 1,
+      "technical_replicates": 1,
+      "reference_levels": {
+        "age": "young"
+      },
+      "samples_without_values": [
+        "s12"
+      ],
+      "not_run": []
+    },
+    {
+      "stratum": "organism part=liver",
+      "factors": {
+        "organism part": "liver"
+      },
+      "source": "curated_marking",
+      "samples_per_level": {
+        "age=old": 3,
+        "age=young": 3
+      },
+      "individuals_per_level": {
+        "age=old": 3,
+        "age=young": 3
+      },
+      "batches": [
+        "b1"
+      ],
+      "fractions": 12,
+      "technical_replicates": 2,
+      "samples_without_values": [],
+      "not_run": []
+    }
+  ],
+  "contrasts": [
+    {
+      "id": "c1",
+      "label": "age=old vs age=young",
+      "numerator": "age=old",
+      "denominator": "age=young",
+      "weights": {
+        "age=old": 1
+      },
+      "global_shift": [
+        {
+          "stratum": "all",
+          "quant_basis": "mbr_kept",
+          "value": 0.02,
+          "peptides": 640
+        },
+        {
+          "stratum": "all",
+          "quant_basis": "msms_only",
+          "value": 0.03,
+          "peptides": 588
+        },
+        {
+          "stratum": "organism part=liver",
+          "quant_basis": "mbr_kept",
+          "value": -0.11,
+          "peptides": 512
+        },
+        {
+          "stratum": "organism part=liver",
+          "quant_basis": "msms_only",
+          "value": -0.09,
+          "peptides": 455
+        }
+      ]
+    },
+    {
+      "id": "c2",
+      "label": "age (per decade)",
+      "covariate": "age",
+      "covariate_unit": "decade",
+      "covariate_scale": "years/10, centred at 50 years",
+      "weights": {
+        "age": 1
+      }
+    }
+  ],
+  "models": [
+    {
+      "stratum": "all",
+      "quant_basis": "mbr_kept",
+      "method": "moderated",
+      "model_used": "moderated_t",
+      "grain": "protein_group",
+      "formula": "y ~ age",
+      "reml": false,
+      "df_method": "moderated_residual",
+      "prior": {
+        "estimator": "moments_legacy",
+        "df": 3.1,
+        "trended": true,
+        "features": 240
+      }
+    },
+    {
+      "stratum": "all",
+      "quant_basis": "mbr_kept",
+      "method": "moderated",
+      "model_used": "peptide_mixed_model",
+      "grain": "protein_group",
+      "formula": "y ~ peptide \u002B age \u002B (1|individual/sample)",
+      "reml": true,
+      "df_method": "satterthwaite_moderated",
+      "robust_rule": "huber 1.345, MAD about 0, to convergence",
+      "prior": {
+        "estimator": "moments_legacy",
+        "df": 4.2,
+        "trended": false,
+        "variance": 0.08,
+        "features": 1812
+      }
+    }
+  ],
+  "normalization": [
+    {
+      "stratum": "all",
+      "quant_basis": "mbr_kept",
+      "setting": "shared_peptide_median",
+      "reference_set_size": 812,
+      "minimum_reference_set_size": 100,
+      "per_sample_shift": {
+        "s01": 0.1,
+        "s02": -0.05
+      },
+      "warnings": [
+        "sample s12 has no value"
+      ]
+    },
+    {
+      "stratum": "all",
+      "quant_basis": "msms_only",
+      "setting": "shared_peptide_median",
+      "reference_set_size": 790,
+      "minimum_reference_set_size": 100,
+      "per_sample_shift": {
+        "s01": 0.11,
+        "s02": -0.04
+      },
+      "warnings": []
+    }
+  ],
+  "families": [
+    {
+      "stratum": "all",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "mbr_kept",
+      "contrast_id": "c1",
+      "method": "moderated",
+      "size": 2
+    },
+    {
+      "stratum": "all",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "mbr_kept",
+      "contrast_id": "c2",
+      "method": "moderated",
+      "size": 1
+    },
+    {
+      "stratum": "all",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "msms_only",
+      "contrast_id": "c1",
+      "method": "moderated",
+      "size": 2
+    },
+    {
+      "stratum": "all",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "msms_only",
+      "contrast_id": "c2",
+      "method": "moderated",
+      "size": 1
+    },
+    {
+      "stratum": "organism part=liver",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "mbr_kept",
+      "contrast_id": "c1",
+      "method": "moderated",
+      "size": 2
+    },
+    {
+      "stratum": "organism part=liver",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "mbr_kept",
+      "contrast_id": "c2",
+      "method": "moderated",
+      "size": 1
+    },
+    {
+      "stratum": "organism part=liver",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "msms_only",
+      "contrast_id": "c1",
+      "method": "moderated",
+      "size": 2
+    },
+    {
+      "stratum": "organism part=liver",
+      "grain": "protein_group",
+      "quantity": "abundance",
+      "quant_basis": "msms_only",
+      "contrast_id": "c2",
+      "method": "moderated",
+      "size": 1
+    }
+  ],
+  "design_warnings": [
+    "biological replicate 3 of condition old is absent"
+  ],
+  "row_count": {
+    "total": 36,
+    "by_status": {
+      "absent_in_both": 4,
+      "absent_in_denominator": 4,
+      "absent_in_numerator": 4,
+      "below_support:min_2_per_side": 4,
+      "fitted": 8,
+      "fitted_single_peptide": 4,
+      "not_converged": 4,
+      "not_estimable:confounded": 4
+    }
+  },
+  "cleaned_text_cells": 0
+}

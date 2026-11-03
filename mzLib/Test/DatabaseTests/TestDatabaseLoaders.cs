@@ -345,53 +345,56 @@ namespace Test.DatabaseTests
             Directory.CreateDirectory(testDirectory);
             var psiModOboLocation = Path.Combine(testDirectory, "psi-mod.obo");
 
-            using (StringWriter sw = new())
+            // RunAsync turns an outage into Assert.Ignore, which leaves this body at whichever download failed.
+            // Console.Out and the download folder are process-wide, so both are restored in finally: a skip that
+            // left Console.Out on a disposed StringWriter failed every later test's TearDown, and a leftover
+            // psi-mod.obo would fail the next run's "did not exist" assertion.
+            TextWriter originalOut = Console.Out;
+            try
             {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
 
-                string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
+                    string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
+
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                    string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
+
+                //create and empty obo that will be seen as different from the downloaded file and then be updated.
+                File.WriteAllText(psiModOboLocation, "");
+
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                    string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
             }
-
-            using (StringWriter sw = new())
+            finally
             {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
-
-                string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
+                Console.SetOut(originalOut);
+                if (Directory.Exists(testDirectory))
+                {
+                    foreach (string file in Directory.GetFiles(testDirectory))
+                    {
+                        File.SetAttributes(file, FileAttributes.Normal);
+                        File.Delete(file);
+                    }
+                    Directory.Delete(testDirectory, false);
+                }
             }
-
-            //create and empty obo that will be seen as different from the downloaded file and then be updated.
-            File.WriteAllText(psiModOboLocation, "");
-
-            using (StringWriter sw = new())
-            {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
-
-                string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
-            }
-
-            string[] files = Directory.GetFiles(testDirectory);
-            foreach (string file in files)
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-                File.Delete(file);
-            }
-            Directory.Delete(testDirectory, false);
-
-            // Now you have to restore default output stream
-            var standardOutput = new StreamWriter(Console.OpenStandardOutput())
-            {
-                AutoFlush = true
-            };
-            Console.SetOut(standardOutput);
             return Task.CompletedTask;
         });
 
@@ -846,8 +849,8 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
-        /// The other half of the sign: a negative formal charge has to ADD a proton to the MM line and a
-        /// hydrogen to the formula, mirroring the trimethyllysine case above. The entry is synthetic, a
+        /// The other half of the sign: a negative formal charge has to ADD a hydrogen to the formula, and so
+        /// about a proton to the mass, mirroring the trimethyllysine case above. The entry is synthetic, a
         /// carboxylate written as the anion, because no current ptmlist entry cross-references a negatively
         /// charged PSI-MOD term; that is why the flipped sign has so far been silent.
         /// </summary>
@@ -869,9 +872,40 @@ namespace Test.DatabaseTests
             Modification adjusted = ReadSingleModification(anionEntry, formalCharges);
             Modification unadjusted = ReadSingleModification(anionEntry, new Dictionary<string, int>());
 
+            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "a 1- charge puts a hydrogen back on the formula");
+            Assert.That(adjusted.MonoisotopicMass, Is.EqualTo(adjusted.ChemicalFormula.MonoisotopicMass).Within(1e-9),
+                "and the mass is the corrected formula's");
+            // The MM line is the anion's mass, rounded to six decimals, so it is one proton below the result
+            // to within that rounding.
             Assert.That(adjusted.MonoisotopicMass - unadjusted.MonoisotopicMass,
-                Is.EqualTo(Constants.ProtonMass).Within(1e-9), "a 1- charge puts a proton back on the MM line");
-            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "and a hydrogen back on the formula");
+                Is.EqualTo(Constants.ProtonMass).Within(1e-6), "which is a proton above the anion's MM line");
+        }
+
+        /// <summary>
+        /// A charged entry with an MM line but no CF line has no formula to correct, so both loaders fall back
+        /// to subtracting one proton per charge from the MM line.
+        /// </summary>
+        [Test]
+        public void FormalChargeWithoutAFormula_SubtractsAProtonFromTheMmLine()
+        {
+            var formalCharges = new Dictionary<string, int> { { "PSI-MOD; MOD:00083", 1 } };
+            const string noFormulaEntry =
+                "ID   Test charged mod without a formula\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Lysine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "MM   43.054227\r\n" +
+                "DR   PSI-MOD; MOD:00083.\r\n" +
+                "//";
+
+            Modification viaModificationLoader = ReadSingleModification(noFormulaEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(noFormulaEntry, formalCharges);
+
+            Assert.That(viaModificationLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaModificationLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
+            Assert.That(viaPtmListLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
         }
 
         /// <summary>
@@ -1594,6 +1628,83 @@ namespace Test.DatabaseTests
             Assert.That(proteins.All(p => p.IsEntrapment), Is.True);
             Assert.That(proteins.All(p => p.Accession.StartsWith("Random_")), Is.True);
 
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        [TestCase("Random_P12345_f0", true)]
+        [TestCase("Random_foreign_P12345", true)]
+        [TestCase("random_p12345", true, Description = "case-insensitive")]
+        [TestCase("P12345_RANDOM", true, Description = "anywhere, not only a prefix")]
+        [TestCase("DECOY_Random_P12345_f0", true, Description = "a decoy of entrapment is still entrapment")]
+        [TestCase("P12345", false)]
+        [TestCase("DECOY_P12345", false)]
+        [TestCase("", false)]
+        [TestCase(null, false)]
+        public static void IsEntrapmentAccession_IsTheLoadersRule(string accession, bool expected)
+        {
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession(accession), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public static void IsEntrapmentAccession_TakesTheIdentifier_AndRefusesAnEmptyOne()
+        {
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession("Shuffled_P1", "shuffled"), Is.True);
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession("Random_P1", "Shuffled"), Is.False);
+            Assert.Throws<ArgumentException>(() => ProteinDbLoader.IsEntrapmentAccession("P1", ""));
+            Assert.Throws<ArgumentException>(() => ProteinDbLoader.IsEntrapmentAccession("P1", null));
+        }
+
+        /// <summary>
+        /// The predicate restates a rule the loaders write inline, so this pins the two together: for every
+        /// accession, it answers what LoadProteinFasta decided when it marked the protein.
+        /// </summary>
+        [Test]
+        public static void IsEntrapmentAccession_AgreesWithLoadProteinFasta()
+        {
+            string[] accessions = { "Random_PROT1_f0", "random_prot2", "PROT3_Random", "PROT4", "RANDOMPROT5", "PROT6" };
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_predicate.fasta");
+            File.WriteAllText(fastapath, string.Concat(accessions.Select(a => $">sp|{a}|{a} desc\nPEPTIDEK\n")));
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors);
+            File.Delete(fastapath);
+
+            Assert.That(errors, Is.Empty);
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(accessions));
+            foreach (var protein in proteins)
+            {
+                Assert.That(ProteinDbLoader.IsEntrapmentAccession(protein.Accession), Is.EqualTo(protein.IsEntrapment), protein.Accession);
+            }
+            Assert.That(proteins.Count(p => p.IsEntrapment), Is.EqualTo(4));
+        }
+
+        [Test]
+        public static void IsEntrapmentAccession_AgreesWithLoadProteinXml()
+        {
+            string[] accessions = { "Random_PROT1_f0", "random_prot2", "PROT3", "PROT4_RANDOM" };
+            string xmlpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_predicate.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                accessions.Select(a => new Protein("PEPTIDEK", a)).ToList(), xmlpath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlpath, true, DecoyType.None, null, false, null, out _);
+            File.Delete(xmlpath);
+
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(accessions));
+            Assert.That(proteins.Select(p => p.IsEntrapment), Is.EqualTo(accessions.Select(a => ProteinDbLoader.IsEntrapmentAccession(a))));
+        }
+
+        /// <summary>
+        /// The loaders now share IsEntrapmentAccession, which refuses an empty identifier. Before, an empty
+        /// one matched every accession and silently loaded the whole database as entrapment.
+        /// </summary>
+        [Test]
+        public static void EntrapmentFasta_EmptyIdentifier_Throws()
+        {
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_empty_identifier.fasta");
+            File.WriteAllText(fastapath, ">sp|PROT1|Prot1 desc\nPEPTIDEK\n");
+
+            Assert.Throws<ArgumentException>(() =>
+                ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out _, entrapmentIdentifier: ""));
             File.Delete(fastapath);
         }
 

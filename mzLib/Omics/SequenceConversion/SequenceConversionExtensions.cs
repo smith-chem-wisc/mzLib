@@ -176,6 +176,24 @@ public static class SequenceConversionExtensions
         return serializer.Serialize(canonical, warnings, mode);
     }
 
+    /// <summary>
+    /// Resolves a modification through the serializer's lookup when it asks for it,
+    /// keeping the modification's own position.
+    /// </summary>
+    public static CanonicalModification ResolveModification(this ISequenceSerializer serializer, CanonicalModification mod)
+    {
+        if (!serializer.ShouldResolveMod(mod) || serializer.ModificationLookup?.TryResolve(mod) is not { } match)
+            return mod;
+
+        return match with
+        {
+            PositionType = mod.PositionType,
+            ResidueIndex = mod.ResidueIndex,
+            TargetResidue = mod.TargetResidue ?? match.TargetResidue,
+            OriginalRepresentation = mod.OriginalRepresentation
+        };
+    }
+
     private static IDictionary<int, List<Modification>> SelectModDictionary(
         IBioPolymer bioPolymer,
         ConversionWarnings warnings)
@@ -287,6 +305,10 @@ public static class SequenceConversionExtensions
     {
         ArgumentNullException.ThrowIfNull(withSetMods);
         ArgumentNullException.ThrowIfNull(lookup);
+
+        // A digested peptide builds its full sequence when it is first read. Build it now, before its modifications are
+        // changed in place below, so it still describes the modifications the peptide was made with, as it always has.
+        _ = withSetMods.FullSequence;
 
         if (mode == SequenceConversionHandlingMode.UsePrimarySequence)
         {

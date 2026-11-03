@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Omics.SequenceConversion;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
@@ -44,8 +44,8 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the prediction results for a single peptide, containing fragment annotations,
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
-    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
-    /// <param name="ValidatedFullSequence">Validated and cleaned peptide sequence that was actually used for prediction (Unimod format). This may also differ from the original FullSequence if modifications were removed or if the sequence was deemed invalid for the model. This is the sequence that reflects the actual input to the model.</param>
+    /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
+    /// <param name="ValidatedFullSequence">Validated and cleaned peptide sequence that was actually sent for prediction, in the Koina API (UNIMOD) notation. This may also differ from the original FullSequence if modifications were removed or if the sequence was deemed invalid for the model. mzLib cannot parse this notation; use <see cref="CleanedFullSequence"/> to rebuild the peptide.</param>
     /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
@@ -58,7 +58,14 @@ namespace PredictionClients.Koina.AbstractClasses
         List<double>? FragmentMZs,
         List<double>? FragmentIntensities,
         WarningException? Warning = null
-    );
+    )
+    {
+        /// <summary>
+        /// The sequence that was predicted, in mzLib notation: the input's own modification labels, minus any modification
+        /// that mod handling removed. Null for an input that was not predicted.
+        /// </summary>
+        public string? CleanedFullSequence { get; init; }
+    }
 
     /// <summary>
     /// Represents all input parameters for the fragment intensity prediction models from the Koina API.
@@ -67,7 +74,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Each model will look for specific parameters within this record and may ignore others, but this provides 
     /// a standardized way to pass all relevant information to the models.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in UNIMOD format (used in every model)</param>
+    /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another (used in every model)</param>
     /// <param name="PrecursorCharge">ChargeState state of the precursor ion (used in every model)</param>
     /// <param name="CollisionEnergy">Collision energy used for fragmentation (not used by some models)</param>
     /// <param name="InstrumentType">Type of mass spectrometer instrument (not used by some models)</param>
@@ -80,7 +87,14 @@ namespace PredictionClients.Koina.AbstractClasses
         string? FragmentationType
     )
     {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
+
+        /// <summary>The cleaned sequence in mzLib notation; see <see cref="PeptideFragmentIntensityPrediction.CleanedFullSequence"/>.</summary>
+        public string? CleanedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
     }
@@ -300,17 +314,17 @@ namespace PredictionClients.Koina.AbstractClasses
             var validInputs = new List<FragmentIntensityPredictionInput>();
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning); // mod handling happens here
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning); // mod handling happens here
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
                 if (cleanedSequence != null && apiSequence != null && validModelParams)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, CleanedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, CleanedFullSequence = null, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = false;
                 }
             }
@@ -471,7 +485,7 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = peptide.SequenceWarning });
+                        { Warning = peptide.SequenceWarning, CleanedFullSequence = peptide.CleanedFullSequence });
                     }
                 }
                 else // FragmentIonMappingMode == FragmentIonMappingMode.MapToInputFullSequence
@@ -526,7 +540,7 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = peptide.SequenceWarning });
+                        { Warning = peptide.SequenceWarning, CleanedFullSequence = peptide.CleanedFullSequence });
                     }
                 }
             }
@@ -670,7 +684,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <remarks>
         /// The conversion process:
-        /// 1. Converts sequence format: UNIMOD -> mzLib -> mass-only for Peptide object creation
+        /// 1. Builds the peptide from the cleaned mzLib-notation sequence (or the input sequence, per FragmentIonMappingMode)
         /// 2. Parses each fragment annotation to determine ion properties
         /// 3. Creates MatchedFragmentIon objects with experimental m/z and predicted intensities
         /// 4. Builds LibrarySpectrum with precursor information and fragment data
@@ -707,7 +721,8 @@ namespace PredictionClients.Koina.AbstractClasses
                 var prediction = predictions[predictionIndex];
 
                 PeptideWithSetModifications peptide = FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence 
-                    ? new PeptideWithSetModifications(prediction.ValidatedFullSequence) 
+                    ? new PeptideWithSetModifications(prediction.CleanedFullSequence
+                        ?? throw new InvalidOperationException($"Prediction for {prediction.FullSequence} has no cleaned sequence to map fragments onto."))
                     : new PeptideWithSetModifications(prediction.FullSequence);
                 List<MatchedFragmentIon> fragmentIons = new();
 

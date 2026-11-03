@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using MathNet.Numerics.Statistics;
 
 namespace SpectralAveraging;
@@ -65,15 +66,42 @@ public static class OutlierRejection
     /// <returns></returns>
     internal static List<BinnedPeak> RejectOutliers(List<BinnedPeak> peaks, SpectralAveragingParameters parameters)
     {
-        var unrejected = RejectOutliers(peaks.Select(p => p.Intensity).ToArray(), parameters);
-        for (var i = 0; i < peaks.Count; i++)
-            if (!unrejected.Contains(peaks[i].Intensity))
-            {
-                peaks.RemoveAt(i);
-                i--;
-            }
-
+        int kept = RejectOutliers(CollectionsMarshal.AsSpan(peaks), parameters, new OutlierRejectionBuffers());
+        peaks.RemoveRange(kept, peaks.Count - kept);
         return peaks;
+    }
+
+    /// <summary>
+    ///     Rejects outliers among the intensities of one bin's peaks, without allocating. The peaks that are kept are
+    ///     moved, in their original order, to the front of <paramref name="peaks"/>, and their number is returned.
+    /// </summary>
+    /// <remarks>
+    ///     A peak is kept when its intensity is one of the values the rejection method leaves, compared with
+    ///     <see cref="IEquatable{T}"/> as <c>Contains</c> on the method's result array compared them (so NaN matches NaN
+    ///     and 0 matches -0) - the same rule, applied in the same order, as removing the other peaks from a list one at a
+    ///     time. Averaging calls this once per m/z bin, often millions of times per file, which is why it keeps its
+    ///     working arrays in <paramref name="buffers"/> instead of building lists.
+    /// </remarks>
+    internal static int RejectOutliers(Span<BinnedPeak> peaks, SpectralAveragingParameters parameters,
+        OutlierRejectionBuffers buffers)
+    {
+        int count = peaks.Length;
+        double[] values = buffers.Values(count);
+        for (int i = 0; i < count; i++)
+            values[i] = peaks[i].Intensity;
+
+        ReadOnlySpan<double> unrejected = parameters.OutlierRejectionType == OutlierRejectionType.SigmaClipping
+            ? values.AsSpan(0, SigmaClippingInPlace(values, count, parameters.MinSigmaValue, parameters.MaxSigmaValue, buffers))
+            : RejectOutliers(values.AsSpan(0, count).ToArray(), parameters);
+
+        int kept = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (unrejected.Contains(peaks[i].Intensity))
+                peaks[kept++] = peaks[i];
+        }
+
+        return kept;
     }
 
     #region Rejection Functions
@@ -117,24 +145,78 @@ public static class OutlierRejection
     /// <returns></returns>
     private static double[] SigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {
-        var values = initialValues.ToList();
-        int n;
+        var values = (double[])initialValues.Clone();
+        int count = SigmaClippingInPlace(values, values.Length, sValueMin, sValueMax, new OutlierRejectionBuffers());
+        return values.AsSpan(0, count).ToArray();
+    }
+
+    /// <summary>
+    ///     Sigma clipping of the first <paramref name="count"/> entries of <paramref name="values"/>, in place: the values
+    ///     that are kept are moved, in their original order, to the front, and their number is returned.
+    /// </summary>
+    /// <remarks>
+    ///     Each pass computes the median and standard deviation of what is left and then drops every value outside the
+    ///     limits, until a pass drops nothing - the passes, comparisons and arithmetic of the list-based version this
+    ///     replaced, which removed values from a <see cref="List{T}"/> one at a time. The median is MathNet's
+    ///     <see cref="ArrayStatistics.MedianInplace(double[])"/> on a copy, which is what <c>Median()</c> on a list does; the
+    ///     standard deviation is <see cref="StreamingStandardDeviation"/>, the computation <c>StandardDeviation()</c> on a
+    ///     list runs.
+    /// </remarks>
+    internal static int SigmaClippingInPlace(double[] values, int count, double sValueMin, double sValueMax,
+        OutlierRejectionBuffers buffers)
+    {
+        int removed;
         do
         {
-            var median = values.Median();
-            var standardDeviation = values.StandardDeviation();
-            n = 0;
-            for (var i = 0; i < values.Count; i++)
-                if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
-                {
-                    values.RemoveAt(i);
-                    n++;
-                    i--;
-                }
-        } while (n > 0);
+            double[] copy = buffers.ExactLength(count);
+            Array.Copy(values, copy, count);
+            // the standard deviation reads the values in order, so take it before MedianInplace reorders the copy
+            double standardDeviation = StreamingStandardDeviation(copy);
+            double median = ArrayStatistics.MedianInplace(copy);
 
-        var val = values.ToArray();
-        return val;
+            int kept = 0;
+            for (int i = 0; i < count; i++)
+            {
+                double value = values[i];
+                if (!SigmaClipping(value, median, standardDeviation, sValueMin, sValueMax))
+                    values[kept++] = value;
+            }
+
+            removed = count - kept;
+            count = kept;
+        } while (removed > 0);
+
+        return count;
+    }
+
+    /// <summary>
+    ///     The sample standard deviation, computed exactly as MathNet.Numerics 5.0's
+    ///     <see cref="StreamingStatistics.StandardDeviation(IEnumerable{double})"/> computes it - the same recurrence,
+    ///     in the same order - which is what <c>StandardDeviation()</c> runs for a <see cref="List{T}"/>. Reading a span
+    ///     directly avoids an enumerator and an interface call per value. NaN for fewer than two values.
+    /// </summary>
+    internal static double StreamingStandardDeviation(ReadOnlySpan<double> samples)
+    {
+        double variance = 0;
+        double t = 0;
+        ulong j = 0;
+
+        if (samples.Length > 0)
+        {
+            j++;
+            t = samples[0];
+        }
+
+        for (int i = 1; i < samples.Length; i++)
+        {
+            j++;
+            double xi = samples[i];
+            t += xi;
+            double diff = (j * xi) - t;
+            variance += (diff * diff) / (j * (j - 1));
+        }
+
+        return Math.Sqrt(j > 1 ? variance / (j - 1) : double.NaN);
     }
 
     /// <summary>

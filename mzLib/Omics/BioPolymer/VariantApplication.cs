@@ -1,4 +1,5 @@
-﻿using MzLibUtil;
+﻿using System.Text.RegularExpressions;
+using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
@@ -78,6 +79,49 @@ namespace Omics.BioPolymer
         {
             return protein.ConsensusVariant.Accession +
                    (appliedSequenceVariations.IsNullOrEmpty() ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
+        }
+
+        /// <summary>
+        /// One or more "_{original}{position}{variant}" tokens, as <see cref="GetAccession"/> writes them through
+        /// SequenceVariation.SimpleString: the original residues are never empty, and the variant residues are
+        /// empty for a deletion. Either side may carry "*": a stop-gain writes "Q5*", a stop-loss "*70R".
+        /// </summary>
+        private static readonly Regex AppliedVariantSuffix = new(@"^(.+?)((?:_[A-Z*]+\d+[A-Z*]*)+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// The inverse of <see cref="GetAccession"/>: reads an accession back into its parent entry and the variants
+        /// that were applied to it, so a variant biopolymer can be linked to anything stored per entry (genes,
+        /// orthologs, GO terms) without losing which variants it carries.
+        /// </summary>
+        /// <remarks>
+        /// The entry must match the full UniProt or RefSeq grammar; the name is never cut at the first "_", which
+        /// would turn "NP_000537" into "NP". Parses, never repairs: a name that only looks like a variant accession
+        /// is Unrecognized and kept verbatim. That includes ProteinDbLoader's collision counter "P12345_2", which
+        /// names a DIFFERENT entry whose accession collided, and decoy, contaminant and entrapment prefixes.
+        /// </remarks>
+        /// <param name="accession">An accession as a search reports it; may be null.</param>
+        /// <returns>The verbatim accession, its parent entry, and its applied variants (null when there are none).</returns>
+        public static ProteoformAccession ParseAccession(string? accession)
+        {
+            accession ??= "";
+
+            var plain = ProteinAccession.Parse(accession);
+            if (plain.Namespace != AccessionNamespace.Unrecognized)
+            {
+                return new ProteoformAccession(accession, plain, null);
+            }
+
+            var m = AppliedVariantSuffix.Match(accession);
+            if (m.Success)
+            {
+                var entry = ProteinAccession.Parse(m.Groups[1].Value);
+                if (entry.Namespace != AccessionNamespace.Unrecognized)
+                {
+                    return new ProteoformAccession(accession, entry, m.Groups[2].Value.Substring(1));
+                }
+            }
+
+            return new ProteoformAccession(accession, plain, null);
         }
 
         /// <summary>
@@ -396,34 +440,45 @@ namespace Omics.BioPolymer
 
             int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
 
+            // Measure against the residues the variant actually edits, not its whole [begin,end]: a residue an
+            // anchored indel keeps (T -> TAG, P -> AGP) is not edited, so a product boundary on it survives and
+            // moves exactly as a mod on that residue does (AdjustModificationIndices uses the same rule).
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
+            int editedBegin = variant.OneBasedBeginPosition + keptPrefix;
+            int editedEnd = variant.OneBasedEndPosition - keptSuffix;
+
             foreach (TruncationProduct p in proteolysisProducts.Where(p => p.OneBasedEndPosition.HasValue && p.OneBasedBeginPosition.HasValue))
             {
+                // Both bounds are known here (filtered above), so compare plain ints rather than lifted int? values.
+                int begin = p.OneBasedBeginPosition.Value;
+                int end = p.OneBasedEndPosition.Value;
+
                 // Entirely before the edit: unchanged
-                if (variant.OneBasedBeginPosition > p.OneBasedEndPosition)
+                if (editedBegin > end)
                 {
                     products.Add(p);
                 }
                 // Segment spans the edit or is clamped at boundaries: extend/contract or clamp to stop
-                else if ((p.OneBasedBeginPosition < variant.OneBasedBeginPosition || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
-                         && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.ConsensusVariant.BaseSequence.Length))
+                else if ((begin < editedBegin || begin == 1 || begin == 2)
+                         && (end > editedEnd || end == protein.ConsensusVariant.BaseSequence.Length))
                 {
                     if (variant.VariantSequence.EndsWith("*"))
                     {
                         // Introduced stop codon/terminator: clamp to the new sequence length
-                        products.Add(new TruncationProduct(p.OneBasedBeginPosition, variantAppliedProteinSequence.Length, p.Type));
+                        products.Add(new TruncationProduct(begin, variantAppliedProteinSequence.Length, p.Type));
                     }
-                    else if (p.OneBasedEndPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length)
+                    else if (end + sequenceLengthChange <= variantAppliedProteinSequence.Length)
                     {
-                        products.Add(new TruncationProduct(p.OneBasedBeginPosition, p.OneBasedEndPosition + sequenceLengthChange, p.Type));
+                        products.Add(new TruncationProduct(begin, end + sequenceLengthChange, p.Type));
                     }
                 }
                 // Entirely after the edit: shift right/left by the net length change, if still within bounds and not terminated
-                else if (p.OneBasedBeginPosition > variant.OneBasedEndPosition
-                         && p.OneBasedBeginPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length
-                         && p.OneBasedEndPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length
+                else if (begin > editedEnd
+                         && begin + sequenceLengthChange <= variantAppliedProteinSequence.Length
+                         && end + sequenceLengthChange <= variantAppliedProteinSequence.Length
                          && !variant.VariantSequence.EndsWith("*"))
                 {
-                    products.Add(new TruncationProduct(p.OneBasedBeginPosition + sequenceLengthChange, p.OneBasedEndPosition + sequenceLengthChange, p.Type));
+                    products.Add(new TruncationProduct(begin + sequenceLengthChange, end + sequenceLengthChange, p.Type));
                 }
             }
             return products;

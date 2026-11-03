@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,16 +37,31 @@ public class PrideArchiveDownloadTests
         }
     }
 
+    /// <summary>A handler that never answers, honouring only cancellation: HttpClient.Timeout is what ends it.</summary>
+    private sealed class SilentHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
     /// <summary>A read-only stream that yields a few bytes and then throws, to simulate a mid-transfer failure.</summary>
     private sealed class ThrowingStream : Stream
     {
         private int _bytesBeforeThrow;
-        public ThrowingStream(int bytesBeforeThrow) => _bytesBeforeThrow = bytesBeforeThrow;
+        private readonly Func<Exception> _failure;
+        public ThrowingStream(int bytesBeforeThrow, Func<Exception> failure = null)
+        {
+            _bytesBeforeThrow = bytesBeforeThrow;
+            _failure = failure ?? (() => new IOException("simulated mid-stream failure"));
+        }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (_bytesBeforeThrow <= 0)
-                throw new IOException("simulated mid-stream failure");
+                throw _failure();
             int n = Math.Min(count, _bytesBeforeThrow);
             for (int i = 0; i < n; i++) buffer[offset + i] = 0x41;
             _bytesBeforeThrow -= n;
@@ -391,6 +407,7 @@ public class PrideArchiveDownloadTests
         var handler = new StubHandler(request =>
         {
             string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files/checksum/")) return Text(ChecksumList("keep.raw", "drop.mzid")); // checksum list
             if (uri.Contains("/files")) return Json(manifest);           // manifest request
             return Bytes(Encoding.UTF8.GetBytes("bytes-of-" + uri));      // file download
         });
@@ -525,19 +542,46 @@ public class PrideArchiveDownloadTests
     }
 
     [Test]
-    public void DownloadFileAsync_MidStreamFailure_LeavesNoPartial()
+    public void DownloadFileAsync_MidStreamFailure_ThrowsHttpRequestException_LeavesNoPartial()
     {
-        // the ".partial"-then-move design must clean up the sibling when the transfer faults mid-stream
+        // A dropped connection is an outage, not a local fault, so it must reach the caller as the contract's
+        // transport type. Before this it escaped as a bare IOException, which neither the documented contract
+        // nor ExternalServiceTestHelper covers -- an EBI reset reddened a live test instead of skipping it.
+        // The ".partial"-then-move design must still clean up the sibling.
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4))
         });
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
-        Assert.That(async () => await client.DownloadFileAsync(file, _tempDir), Throws.InstanceOf<IOException>());
-        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
-        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.InnerException, Is.InstanceOf<IOException>());
+            Assert.That(exception.Message, Does.Contain("ended before the download completed"));
+            Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+        });
+    }
+
+    [Test]
+    public void DownloadFileAsync_ResponseEndedPrematurely_ThrowsHttpRequestException()
+    {
+        // Seen live on a PXD015239 download: on .NET 10 a connection EBI drops mid-body surfaces as
+        // HttpIOException(ResponseEnded) -- an IOException, not an HttpRequestException.
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4,
+                () => new HttpIOException(HttpRequestError.ResponseEnded, "The response ended prematurely.")))
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.That(exception.InnerException, Is.InstanceOf<HttpIOException>());
     }
 
     // ---- BodyStallTimeout: the response body gets an inactivity deadline ---
@@ -554,7 +598,8 @@ public class PrideArchiveDownloadTests
         });
         using var client = new PrideArchiveClient(new HttpClient(handler))
         {
-            BodyStallTimeout = TimeSpan.FromMilliseconds(250)
+            BodyStallTimeout = TimeSpan.FromMilliseconds(250),
+            MaxRetries = 0
         };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
@@ -630,6 +675,133 @@ public class PrideArchiveDownloadTests
         Assert.That(client.BodyStallTimeout, Is.EqualTo(TimeSpan.FromMinutes(2)));
     }
 
+    // ---- Error contract: status codes, header timeout, no URL in a message --
+
+    [Test]
+    public void DownloadFileAsync_NonSuccess_CarriesStatusCode()
+    {
+        // No PRIDE throw used to set StatusCode, so a caller could only tell a 403 from a 503 by parsing the
+        // message. Retrying, and a caller deciding whether to, both need the status as data.
+        var handler = new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("forbidden"), HttpStatusCode.Forbidden));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.That(exception.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public void GetProjectFilesAsync_NonSuccess_CarriesStatusCode()
+    {
+        // The REST path shares the rule: every status throw in the client carries the status.
+        var handler = new StubHandler(_ => Json("{}", HttpStatusCode.ServiceUnavailable));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetProjectFilesAsync("PXD000001"));
+
+        Assert.That(exception.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+    }
+
+    [Test]
+    public void DownloadFileAsync_ServerNeverAnswers_ThrowsHttpRequestException()
+    {
+        // HttpClient.Timeout expiring throws TaskCanceledException, indistinguishable by type from a caller's
+        // cancellation, so it used to escape the contract as an OperationCanceledException.
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) }) { MaxRetries = 0 };
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.That(exception.Message, Does.Contain("did not respond"));
+    }
+
+    [Test]
+    public void GetProjectAsync_ServerNeverAnswers_ThrowsHttpRequestException()
+    {
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) }) { MaxRetries = 0 };
+
+        Assert.That(async () => await client.GetProjectAsync("PXD000001"), Throws.InstanceOf<HttpRequestException>());
+    }
+
+    [Test]
+    public void DownloadFileAsync_CallerCancelsWhileWaitingForHeaders_StaysOperationCanceled()
+    {
+        // The other half of the header-timeout filter: a caller's own cancellation is never converted.
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromSeconds(30) });
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+        var exception = Assert.CatchAsync(async () => await client.DownloadFileAsync(file, _tempDir, cancellationToken: cts.Token));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
+    }
+
+    [Test]
+    public void DownloadFileAsync_InjectedClientCancelsPendingRequests_StaysOperationCanceled()
+    {
+        // A cancellation the caller asks for through the HttpClient they injected, not through the token, is
+        // still not a timeout: only HttpClient.Timeout expiring is reported as PRIDE not responding.
+        var httpClient = new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromSeconds(30) };
+        using var client = new PrideArchiveClient(httpClient);
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var download = client.DownloadFileAsync(file, _tempDir);
+        Thread.Sleep(200);
+        httpClient.CancelPendingRequests();
+        var exception = Assert.CatchAsync(async () => await download);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
+    }
+
+    /// <summary>Every way a download can fail, each run against a URL whose query string is a credential.</summary>
+    private static IEnumerable<TestCaseData> DownloadFailureModes()
+    {
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() =>
+            new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("no"), HttpStatusCode.Forbidden))), 30_000)
+            .SetArgDisplayNames("status");
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() =>
+            new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new ThrowingStream(4)) })), 30_000)
+            .SetArgDisplayNames("dropped");
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() =>
+            new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StallingStream(4)) })), 30_000)
+            .SetArgDisplayNames("stall");
+        yield return new TestCaseData((Func<HttpMessageHandler>)(() => new SilentHandler()), 200)
+            .SetArgDisplayNames("timeout");
+    }
+
+    [TestCaseSource(nameof(DownloadFailureModes))]
+    public void DownloadFileAsync_Failure_NeverPutsUrlInMessage(Func<HttpMessageHandler> handler, int timeoutMs)
+    {
+        // PRIDE's reviewer-token route hands out download hrefs whose query string IS the token. An exception
+        // message reaches logs, CI output and pasted issues, so no failure path
+        // may carry the URL. Checked over ToString(), which includes every inner exception.
+        const string secret = "S3CR3T-REVIEWER-TOKEN";
+        using var client = new PrideArchiveClient(new HttpClient(handler()) { Timeout = TimeSpan.FromMilliseconds(timeoutMs) })
+        {
+            BodyStallTimeout = TimeSpan.FromMilliseconds(200),
+            RetryDelay = (_, _) => Task.CompletedTask // retried for real, so the retry path is held to the rule too
+        };
+        var file = MakeFile("run1.raw", "RAW", ("PRIDE:0000000", $"https://private.example.org/files/run1.raw?token={secret}"));
+
+        var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ToString(), Does.Not.Contain(secret));
+            // Still useful: the message names what failed and where.
+            Assert.That(exception.Message, Does.Contain("'run1.raw' from private.example.org"));
+        });
+    }
+
     // ---- DownloadProjectFilesAsync: null filter and empty selection --------
 
     [Test]
@@ -643,6 +815,7 @@ public class PrideArchiveDownloadTests
         var handler = new StubHandler(request =>
         {
             string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files/checksum/")) return Text(ChecksumList("one.raw", "two.mzid"));
             if (uri.Contains("/files")) return Json(manifest);
             return Bytes(Encoding.UTF8.GetBytes("bytes-of-" + uri));
         });
@@ -654,6 +827,7 @@ public class PrideArchiveDownloadTests
         Assert.That(File.Exists(Path.Combine(_tempDir, "one.raw")), Is.True);
         Assert.That(File.Exists(Path.Combine(_tempDir, "two.mzid")), Is.True);
         Assert.That(handler.RequestedUris.Count(u => u.Contains("ftp.pride.ebi.ac.uk")), Is.EqualTo(2));
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("/files/checksum/")), Is.EqualTo(1)); // once, not per file
     }
 
     [Test]
@@ -663,6 +837,7 @@ public class PrideArchiveDownloadTests
         var handler = new StubHandler(request =>
         {
             string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files/checksum/")) return Text(ChecksumList("one.raw"));
             if (uri.Contains("/files")) return Json(manifest);
             return Bytes(Encoding.UTF8.GetBytes("bytes-of-" + uri));
         });
@@ -672,6 +847,229 @@ public class PrideArchiveDownloadTests
 
         Assert.That(paths, Is.Empty);
         Assert.That(handler.RequestedUris.Count(u => u.Contains("ftp.pride.ebi.ac.uk")), Is.EqualTo(0)); // manifest only
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("/files/checksum/")), Is.EqualTo(0)); // nothing to check
+    }
+
+    // ---- DownloadProjectFilesAsync: each file is checked against PRIDE's checksum list --------
+
+    /// <summary>The bytes the project stubs below serve for a file: what <see cref="ChecksumList"/> records.</summary>
+    private static byte[] Served(string fileName) =>
+        Encoding.UTF8.GetBytes("bytes-of-https://ftp.pride.ebi.ac.uk/pride/data/x/" + fileName);
+
+    /// <summary>PRIDE's checksum list, with the true MD5 and size of what is served for each named file.</summary>
+    private static string ChecksumList(params string[] fileNames) =>
+        PrideArchiveClient.ChecksumHeader + "\n" + string.Concat(fileNames.Select(name =>
+            $"{name}\t{Convert.ToHexString(MD5.HashData(Served(name))).ToLowerInvariant()}\t{Served(name).Length}\n"));
+
+    private static HttpResponseMessage Text(string body) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "text/plain") };
+
+    /// <summary>
+    /// A project whose manifest lists <paramref name="fileNames"/>, whose checksum list is
+    /// <paramref name="checksums"/>, and whose files are served as <paramref name="body"/> gives them
+    /// (default <see cref="Served"/>). One attempt per download: a refusal must not wait out the backoffs.
+    /// </summary>
+    private static (PrideArchiveClient Client, StubHandler Handler) Project(string[] fileNames, string checksums,
+        Func<string, byte[]> body = null)
+    {
+        string manifest = "[" + string.Join(",", fileNames.Select(n => FileJson(n, "RAW", "PRIDE:0000404"))) + "]";
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files/checksum/")) return Text(checksums);
+            if (uri.Contains("/files")) return Json(manifest);
+            string name = uri[(uri.LastIndexOf('/') + 1)..];
+            return Bytes((body ?? Served)(name));
+        });
+        return (new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 }, handler);
+    }
+
+    private static int Downloads(StubHandler handler) => handler.RequestedUris.Count(u => u.Contains("ftp.pride.ebi.ac.uk"));
+
+    [TestCase("short", TestName = "DownloadProjectFilesAsync_AFileShorterThanItsChecksumRow_IsRefused")]
+    [TestCase("ebi", TestName = "DownloadProjectFilesAsync_EbisErrorTextAtTheRecordedSize_IsRefused")]
+    public void DownloadProjectFilesAsync_ADamagedFile_IsRefused_AndNotKept(string damage)
+    {
+        byte[] good = Served("one.raw");
+        byte[] bad = damage == "short"
+            ? good[..^1]
+            : Encoding.UTF8.GetBytes("<Error><Code>ConnectionClosedException</Code>".PadRight(good.Length, ' '));
+        Assert.That(damage == "short" || bad.Length == good.Length); // EBI's damage keeps the announced size
+        var (client, handler) = Project(new[] { "one.raw" }, ChecksumList("one.raw"), _ => bad);
+        using (client)
+        {
+            var e = Assert.ThrowsAsync<MzLibException>(async () => await client.DownloadProjectFilesAsync("PXD012345", _tempDir));
+            Assert.That(e!.Message, Does.Contain("one.raw"));
+        }
+        Assert.That(File.Exists(Path.Combine(_tempDir, "one.raw")), Is.False);
+        Assert.That(Downloads(handler), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DownloadProjectFilesAsync_AFileWithNoChecksumRow_IsDownloadedUnchecked()
+    {
+        // generated/ files have no row: they cannot be checked, which is not a reason to refuse them.
+        var (client, handler) = Project(new[] { "listed.raw", "generated.txt" }, ChecksumList("listed.raw"),
+            name => name == "generated.txt" ? Encoding.UTF8.GetBytes("any length at all") : Served(name));
+        using (client)
+        {
+            var paths = await client.DownloadProjectFilesAsync("PXD012345", _tempDir);
+            Assert.That(paths.Select(Path.GetFileName), Is.EqualTo(new[] { "listed.raw", "generated.txt" }));
+        }
+        Assert.That(File.ReadAllText(Path.Combine(_tempDir, "generated.txt")), Is.EqualTo("any length at all"));
+        Assert.That(Downloads(handler), Is.EqualTo(2));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadProjectFilesAsync_AWrongMd5_IsRefusedOnlyWhenTheMd5IsAskedFor(bool verifyMd5)
+    {
+        // Right size, wrong bytes: only the MD5 can see it.
+        byte[] good = Served("one.raw");
+        byte[] wrong = (byte[])good.Clone();
+        wrong[0] ^= 0x01;
+        var (client, _) = Project(new[] { "one.raw" }, ChecksumList("one.raw"), _ => wrong);
+        using (client)
+        {
+            if (verifyMd5)
+            {
+                var e = Assert.ThrowsAsync<MzLibException>(async () =>
+                    await client.DownloadProjectFilesAsync("PXD012345", _tempDir, null, overwrite: true, verifyMd5: true));
+                Assert.That(e!.Message, Does.Contain("MD5"));
+                Assert.That(File.Exists(Path.Combine(_tempDir, "one.raw")), Is.False);
+            }
+            else
+            {
+                var paths = await client.DownloadProjectFilesAsync("PXD012345", _tempDir, null, overwrite: true, verifyMd5: false);
+                Assert.That(File.ReadAllBytes(paths.Single()), Is.EqualTo(wrong));
+            }
+        }
+    }
+
+    [TestCase(false, TestName = "DownloadProjectFilesAsync_AChecksumListItCannotRead_FailsBeforeAnyDownload")]
+    [TestCase(true, TestName = "DownloadProjectFilesAsync_AChecksumListRequestThatFails_FailsBeforeAnyDownload")]
+    public void DownloadProjectFilesAsync_NoReadableChecksumList_FailsBeforeAnyDownload(bool requestFails)
+    {
+        // No fallback to unchecked downloads: a broken list taken as empty would read as "nothing to check".
+        string manifest = "[" + FileJson("one.raw", "RAW", "PRIDE:0000404") + "]";
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files/checksum/"))
+                return requestFails
+                    ? Json("", HttpStatusCode.ServiceUnavailable)
+                    : Text("File-Name\tMD5\tSize\none.raw\t0\t1\n"); // a header ParseChecksums refuses
+            if (uri.Contains("/files")) return Json(manifest);
+            return Bytes(Served("one.raw"));
+        });
+        using (var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 })
+        {
+            if (requestFails)
+                Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadProjectFilesAsync("PXD012345", _tempDir));
+            else
+                Assert.ThrowsAsync<MzLibException>(async () => await client.DownloadProjectFilesAsync("PXD012345", _tempDir));
+        }
+        Assert.That(Downloads(handler), Is.EqualTo(0));
+        Assert.That(File.Exists(Path.Combine(_tempDir, "one.raw")), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadProjectFilesAsync_AListedFileQuotingAStorageError_IsRefusedOnlyWithoutTheMd5(bool verifyMd5)
+    {
+        // Without the MD5 the scan is the only check, so any <Error><Code> is EBI's error text; with it, the file's
+        // true MD5 decides. The file after it shows that a refusal ends the call.
+        byte[] quoting = Encoding.UTF8.GetBytes("2026-10-08 fetch failed: <Error><Code>NoSuchKey</Code></Error>");
+        static string Row(string name, byte[] bytes) =>
+            $"{name}\t{Convert.ToHexString(MD5.HashData(bytes)).ToLowerInvariant()}\t{bytes.Length}\n";
+        string checksums = PrideArchiveClient.ChecksumHeader + "\n" + Row("log.txt", quoting) + Row("after.raw", Served("after.raw"));
+        var (client, handler) = Project(new[] { "log.txt", "after.raw" }, checksums,
+            name => name == "log.txt" ? quoting : Served(name));
+        using (client)
+        {
+            if (verifyMd5)
+            {
+                var paths = await client.DownloadProjectFilesAsync("PXD012345", _tempDir, null, overwrite: true, verifyMd5: true);
+                Assert.That(paths.Select(Path.GetFileName), Is.EqualTo(new[] { "log.txt", "after.raw" }));
+                Assert.That(File.ReadAllBytes(paths[0]), Is.EqualTo(quoting));
+            }
+            else
+            {
+                var e = Assert.ThrowsAsync<MzLibException>(async () =>
+                    await client.DownloadProjectFilesAsync("PXD012345", _tempDir, null, overwrite: true, verifyMd5: false));
+                Assert.That(e!.Message, Does.Contain("log.txt").And.Contain("<Error><Code>"));
+                Assert.That(File.Exists(Path.Combine(_tempDir, "log.txt")), Is.False);
+                Assert.That(File.Exists(Path.Combine(_tempDir, "after.raw")), Is.False);
+                Assert.That(Downloads(handler), Is.EqualTo(1));
+            }
+        }
+    }
+
+    // ---- DownloadProjectFilesByNameAsync -----------------------------------------------------
+
+    [Test]
+    public async Task DownloadProjectFilesByNameAsync_DownloadsTheNamedFiles_InManifestOrder_EachOnce()
+    {
+        var (client, handler) = Project(new[] { "a.raw", "b.raw", "c.raw" }, ChecksumList("a.raw", "b.raw", "c.raw"));
+        using (client)
+        {
+            var paths = await client.DownloadProjectFilesByNameAsync("PXD012345", _tempDir, new[] { "c.raw", "a.raw", "c.raw" });
+            Assert.That(paths.Select(Path.GetFileName), Is.EqualTo(new[] { "a.raw", "c.raw" }));
+        }
+        Assert.That(File.Exists(Path.Combine(_tempDir, "b.raw")), Is.False);
+        Assert.That(Downloads(handler), Is.EqualTo(2));
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("/files/checksum/")), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void DownloadProjectFilesByNameAsync_NamesNotInTheProject_AreRefusedBeforeAnyDownload()
+    {
+        // "A.RAW" differs from "a.raw" only in case: PRIDE's names are matched ordinally, as everywhere in this client.
+        var (client, handler) = Project(new[] { "a.raw", "b.raw" }, ChecksumList("a.raw", "b.raw"));
+        using (client)
+        {
+            var e = Assert.ThrowsAsync<MzLibException>(async () =>
+                await client.DownloadProjectFilesByNameAsync("PXD012345", _tempDir, new[] { "a.raw", "typo.raw", "A.RAW" }));
+            Assert.That(e!.Message, Does.Contain("2 of the 3 file names"));
+            Assert.That(e.Message, Does.Contain("'typo.raw'").And.Contain("'A.RAW'"));
+            Assert.That(e.Message, Does.Not.Contain("'a.raw'"));
+        }
+        Assert.That(Downloads(handler), Is.EqualTo(0));
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("/files/checksum/")), Is.EqualTo(0));
+        Assert.That(Directory.Exists(_tempDir) ? Directory.GetFiles(_tempDir) : Array.Empty<string>(), Is.Empty);
+    }
+
+    [TestCase(null, TestName = "DownloadProjectFilesByNameAsync_NullNames_ThrowsBeforeAnyRequest")]
+    [TestCase("", TestName = "DownloadProjectFilesByNameAsync_NoNames_ThrowsBeforeAnyRequest")]
+    [TestCase("a.raw| ", TestName = "DownloadProjectFilesByNameAsync_ABlankName_ThrowsBeforeAnyRequest")]
+    public void DownloadProjectFilesByNameAsync_BadNames_ThrowArgumentException_BeforeAnyRequest(string joinedNames)
+    {
+        string[] names = joinedNames == null ? null
+            : joinedNames.Length == 0 ? Array.Empty<string>()
+            : joinedNames.Split('|');
+        var (client, handler) = Project(new[] { "a.raw" }, ChecksumList("a.raw"));
+        using (client)
+        {
+            var e = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await client.DownloadProjectFilesByNameAsync("PXD012345", _tempDir, names));
+            Assert.That(e!.ParamName, Is.EqualTo("fileNames"));
+        }
+        Assert.That(handler.RequestedUris, Is.Empty);
+    }
+
+    [TestCase(" ", "dir", "accession")]
+    [TestCase("PXD012345", " ", "destinationDirectory")]
+    public void DownloadProjectFilesByNameAsync_BlankAccessionOrDirectory_ThrowsBeforeAnyRequest(string accession,
+        string directory, string paramName)
+    {
+        var (client, handler) = Project(new[] { "a.raw" }, ChecksumList("a.raw"));
+        using (client)
+        {
+            var e = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await client.DownloadProjectFilesByNameAsync(accession, directory == "dir" ? _tempDir : directory, new[] { "a.raw" }));
+            Assert.That(e!.ParamName, Is.EqualTo(paramName));
+        }
+        Assert.That(handler.RequestedUris, Is.Empty);
     }
 
     /// <summary>A single PRIDE file object in the real v3 wire shape (FTP + Aspera locations).</summary>
@@ -706,7 +1104,8 @@ public class PrideArchiveDownloadLiveTests
     public Task DownloadFileAsync_LiveSmallestFile_WritesRealBytes() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var files = await client.GetProjectFilesAsync("PXD012345");
             var smallest = files.OrderBy(f => f.FileSizeBytes).First(f => f.TryGetHttpsDownloadUrl(out _));
 

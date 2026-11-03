@@ -299,7 +299,7 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
                 => new();
 
             public string? TestTryCleanSequence(string sequence, out string? api, out System.ComponentModel.WarningException? warning)
-                => TryCleanSequence(sequence, out api, out warning);
+                => TryCleanSequence(sequence, null, out api, out warning);
 
             public bool TestValidate(CrosslinkIntensityPredictionInput input, out System.ComponentModel.WarningException? warning)
                 => ValidateModelSpecificInputs(input, out warning);

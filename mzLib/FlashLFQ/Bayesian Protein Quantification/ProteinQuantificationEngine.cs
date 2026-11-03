@@ -1,4 +1,5 @@
 ﻿using BayesianEstimation;
+using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using MathNet.Numerics.Statistics;
@@ -270,6 +271,13 @@ namespace FlashLFQ
         }
 
         /// <summary>
+        /// The biological replicate numbers present in <paramref name="condition"/>, ascending. A design may skip a
+        /// number (a sample was lost), so samples are looked up by these numbers, never by counting 0..max.
+        /// </summary>
+        internal static List<int> BiologicalReplicatesIn(IEnumerable<SpectraFileInfo> spectraFiles, string condition) =>
+            spectraFiles.Where(p => p.Condition == condition).Select(p => p.BiologicalReplicate).Distinct().OrderBy(b => b).ToList();
+
+        /// <summary>
         /// This method is only used if the control condition has 1 sample. In more typical cases, "EstimateIonizationEfficiencies" is called instead.
         /// </summary>
         private void EstimateIonizationEfficienciesIfControlConditionHasOneSample()
@@ -290,7 +298,7 @@ namespace FlashLFQ
 
                     foreach (var condition in conditions)
                     {
-                        int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(v => v.BiologicalReplicate) + 1;
+                        var samples = BiologicalReplicatesIn(Results.SpectraFiles, condition);
 
                         List<List<(double, DetectionType)>> conditionIntensities = new List<List<(double, DetectionType)>>();
 
@@ -298,7 +306,7 @@ namespace FlashLFQ
                         {
                             List<(double, DetectionType)> peptideIntensities = new List<(double, DetectionType)>();
 
-                            for (int s = 0; s < numSamples; s++)
+                            foreach (int s in samples)
                             {
                                 var intensity = PeptideToSampleQuantity[(peptide, condition, s)].Item1;
 
@@ -607,7 +615,7 @@ namespace FlashLFQ
 
             foreach (string condition in conditions)
             {
-                int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+                var samples = BiologicalReplicatesIn(Results.SpectraFiles, condition);
 
                 List<(double, double)> intensityToPeptideDiffToProtein = new List<(double, double)>();
                 List<(double, double)> intensityToStdev = new List<(double, double)>();
@@ -624,7 +632,7 @@ namespace FlashLFQ
 
                     foreach (var peptide in peptides)
                     {
-                        for (int s = 0; s < numSamples; s++)
+                        foreach (int s in samples)
                         {
                             if (PeptideToSampleQuantity[(peptide, condition, s)].Item1 > 0)
                             {
@@ -642,7 +650,7 @@ namespace FlashLFQ
                         }
 
                         List<double> intensities = new List<double>();
-                        for (int s = 0; s < numSamples; s++)
+                        foreach (int s in samples)
                         {
                             double intensity = PeptideToSampleQuantity[(peptide, condition, s)].Item1;
 
@@ -845,7 +853,7 @@ namespace FlashLFQ
                 ProteinAndConditionToSigmaPrior.Add((protein.Key, condition), null);
             }
 
-            int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+            var samples = BiologicalReplicatesIn(Results.SpectraFiles, condition);
 
             Dictionary<int, List<int>> randomSeeds = new Dictionary<int, List<int>>();
             for (int i = 0; i < ProteinsWithConstituentPeptides.Count; i++)
@@ -878,7 +886,7 @@ namespace FlashLFQ
                                      continue;
                                  }
 
-                                 for (int s = 0; s < numSamples; s++)
+                                 foreach (int s in samples)
                                  {
                                      double intensity = PeptideToSampleQuantity[(peptide, condition, s)].Item1;
 
@@ -1047,7 +1055,7 @@ namespace FlashLFQ
             // calculate reference intensities
             var ProteinToControlConditionIntensity = new Dictionary<ProteinGroup, double>();
 
-            var numBRef = Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
+            var controlSamples = BiologicalReplicatesIn(Results.SpectraFiles, ControlCondition);
 
             foreach (var protein in ProteinsWithConstituentPeptides)
             {
@@ -1058,7 +1066,7 @@ namespace FlashLFQ
                     double avgIntensity = 0;
                     int n = 0;
 
-                    for (int b = 0; b < numBRef; b++)
+                    foreach (int b in controlSamples)
                     {
                         double intensity = PeptideToSampleQuantity[(peptide, ControlCondition, b)].Item1;
                         avgIntensity += intensity;
