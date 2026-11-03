@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using MzLibUtil;
 using Proteomics;
+using UsefulProteomicsDatabases.EntrapmentGeneration;
 
 namespace UsefulProteomicsDatabases.GeneOntology
 {
@@ -36,6 +37,11 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// inherited: UniProt writes GO on the entry, so a database holding isoforms as separate entries holds
     /// every isoform with none, and reading that as "no GO" would make the answer depend on which database
     /// was used. An isoform with GO of its own keeps it.
+    ///
+    /// An entrapment entry carries no GO unless it is a foreign-proteome entry
+    /// (<see cref="EntrapmentAccession.TryParseForeign"/>), whose GO is true of its sequence. Any other entrapment
+    /// entry -- a shuffled partner, or one only the database marks entrapment -- gets its term-less row: a shuffled
+    /// sequence has no function or location, and a generator may have copied its target's references onto it.
     /// </summary>
     public sealed class GoAccessionAnnotation
     {
@@ -77,6 +83,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
                     terms = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
                     _direct.Add(protein.Accession, terms);
                 }
+                if (OwnsNoGo(protein))
+                {
+                    continue;
+                }
                 foreach (var goTerm in protein.GoTerms)
                 {
                     if (!ontology.TryGetTerm(goTerm.Id, out var term))
@@ -103,6 +113,14 @@ namespace UsefulProteomicsDatabases.GeneOntology
             UnresolvedGoIds = missing.ToList();
             Accessions = _direct.Keys.OrderBy(a => a, StringComparer.Ordinal).ToList();
         }
+
+        /// <summary>
+        /// An entrapment entry that cannot be shown to own its GO: entrapment by the loader's rule or the database's
+        /// mark, and not a foreign-proteome entry. Its references are ignored, unknown ids included.
+        /// </summary>
+        private static bool OwnsNoGo(Protein protein) =>
+            (protein.IsEntrapment || ProteinDbLoader.IsEntrapmentAccession(protein.Accession))
+            && !EntrapmentAccession.TryParseForeign(protein.Accession, out _);
 
         /// <summary>The release terms were resolved against.</summary>
         public GeneOntologyGraph Ontology { get; }

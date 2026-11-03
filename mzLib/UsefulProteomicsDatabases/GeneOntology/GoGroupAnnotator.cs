@@ -24,9 +24,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// row names the group's entrapment members (<see cref="GoAnnotationRow.EntrapmentMembers"/>). A member
     /// is entrapment by the loader's own rule (<see cref="ProteinDbLoader.IsEntrapmentAccession"/>), which
     /// is the only signal a stored MetaMorpheus file carries, or when the annotation database marks its
-    /// protein entrapment. An entrapment member contributes its own entry's terms like any other member: a
-    /// foreign-proteome entrapment protein's GO is true of its sequence, and the label lets the consumer
-    /// decide whether it counts.
+    /// protein entrapment. Only a foreign-proteome entrapment member contributes its entry's terms: its GO is
+    /// true of its sequence, and the label lets the consumer decide whether it counts. Any other entrapment
+    /// entry carries no GO (<see cref="GoAccessionAnnotation"/>), so such a member reads no_go_terms and is
+    /// still named.
     ///
     /// The annotator takes proteins already loaded (ProteinDbLoader.LoadProteinXML mutates static state and
     /// is not safe to call from here) and never filters on q-value or evidence: both travel on every row.
