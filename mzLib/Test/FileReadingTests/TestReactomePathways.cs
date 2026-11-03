@@ -141,6 +141,28 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void ReactomePathways_NullPropertyIsSkipped()
+        {
+            var reference = new DatabaseReference("Reactome", "R-HSA-70171", new List<Tuple<string, string>>
+            {
+                null,
+                new Tuple<string, string>("pathway name", "Glycolysis"),
+            });
+
+            Assert.That(WithReferences(reference).ReactomePathways.Single().Name, Is.EqualTo("Glycolysis"));
+        }
+
+        [Test]
+        public void ReactomePathway_NullArgumentsReadAsEmpty()
+        {
+            var pathway = new ReactomePathway(null, null);
+
+            Assert.That(pathway.Id, Is.EqualTo(""));
+            Assert.That(pathway.Name, Is.EqualTo(""));
+            Assert.That(pathway.Molecules, Is.Not.Null.And.Empty, "no molecules means the whole entry");
+        }
+
+        [Test]
         public void Decoys_CarryNoReactomePathways()
         {
             var decoys = Load("isoformScope.xml", DecoyType.Reverse).Where(p => p.IsDecoy).ToList();

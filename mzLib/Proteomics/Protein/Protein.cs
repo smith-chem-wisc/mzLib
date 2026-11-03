@@ -357,7 +357,7 @@ namespace Proteomics
         /// none. A KEGG reference is a bare gene id: UniProt carries no KEGG pathway, module or orthology, so this is a
         /// link to KEGG, not pathway membership.
         /// </summary>
-        public IReadOnlyList<string> KeggGeneIds => (DatabaseReferences ?? Enumerable.Empty<DatabaseReference>())
+        public IReadOnlyList<string> KeggGeneIds => DatabaseReferences
             .Where(r => r != null && r.Type == KeggDatabaseReferenceType && !string.IsNullOrEmpty(r.Id))
             .Select(r => r.Id)
             .Distinct(StringComparer.Ordinal)
@@ -369,7 +369,7 @@ namespace Proteomics
         /// A Reactome membership scoped to that isoform applies to this sequence. See
         /// <see cref="UniProtSequenceAttributes.DisplayedIsoformId"/>.
         /// </summary>
-        public string DisplayedIsoformId => UniProtSequenceAttributes?.DisplayedIsoformId;
+        public string DisplayedIsoformId => UniProtSequenceAttributes.DisplayedIsoformId;
 
         public string Organism { get; }
         public bool IsDecoy { get; }

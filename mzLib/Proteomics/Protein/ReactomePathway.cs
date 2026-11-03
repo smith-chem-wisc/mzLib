@@ -61,7 +61,7 @@ namespace Proteomics
 
             return references
                 .Where(r => r != null && r.Type == Protein.ReactomeDatabaseReferenceType)
-                .GroupBy(r => r.Id ?? "", StringComparer.Ordinal)
+                .GroupBy(r => r.Id, StringComparer.Ordinal)
                 .Select(BuildPathway)
                 .ToList();
         }
@@ -74,8 +74,8 @@ namespace Proteomics
             return new ReactomePathway(sameId.Key, name, molecules);
         }
 
+        // DatabaseReference never holds a null Id or Properties (its constructor substitutes "" and an empty list).
         private static string PropertyValue(DatabaseReference reference, string type) =>
-            (reference.Properties ?? Enumerable.Empty<Tuple<string, string>>())
-                .FirstOrDefault(p => p != null && p.Item1 == type)?.Item2;
+            reference.Properties.FirstOrDefault(p => p != null && p.Item1 == type)?.Item2;
     }
 }
