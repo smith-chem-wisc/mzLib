@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -573,12 +574,11 @@ public class PrideArchiveRetryTests
         });
     }
 
-    [Test]
-    public void CancellationAfterAPartialTransfer_DeletesThePartialAndItsValidator()
-    {
-        using var cts = new CancellationTokenSource();
-        var handler = new ScriptedHandler(_ => Full(dropAfter: 400));
-        using var client = new PrideArchiveClient(new HttpClient(handler))
+    // ---- a stopped download is kept, so the next call carries on ---------------
+
+    /// <summary>A client that cancels <paramref name="cts"/> at its first backoff, as a caller stopping a stalled download does.</summary>
+    private static PrideArchiveClient CancellingClient(HttpMessageHandler handler, CancellationTokenSource cts) =>
+        new(new HttpClient(handler))
         {
             RetryDelay = (_, _) =>
             {
@@ -587,11 +587,216 @@ public class PrideArchiveRetryTests
             },
         };
 
+    /// <summary>
+    /// A 206 as PRIDE's Globus HTTPS host sends one (measured 2026-10-18): no ETag, no Last-Modified, and "*" for the
+    /// total in Content-Range. It serves <paramref name="source"/> (default <see cref="Source"/>) from byte <paramref name="from"/>.
+    /// </summary>
+    private static HttpResponseMessage UntaggedPartial(long from, byte[] source = null)
+    {
+        source ??= Source;
+        byte[] rest = source.Skip((int)from).ToArray();
+        var content = new ByteArrayContent(rest);
+        content.Headers.ContentLength = rest.Length;
+        content.Headers.ContentRange = new ContentRangeHeaderValue(from, source.Length - 1);
+        return new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content };
+    }
+
+    private static readonly PrideFileChecksum SourceChecksum =
+        new("run1.raw", Convert.ToHexString(MD5.HashData(Source)).ToLowerInvariant(), Source.Length);
+
+    private long PartialLength => File.Exists(PartialPath) ? new FileInfo(PartialPath).Length : -1;
+
+    [Test]
+    public void CancellationAfterAPartialTransfer_KeepsThePartialAndItsValidator()
+    {
+        // The caller stopped the transfer, not the file. PXReprise's watchdog cancels a stalled 2-3 GB download, and
+        // deleting what had arrived made its retry start again from byte 0 (PXReprise 019, M2 (b)).
+        using var cts = new CancellationTokenSource();
+        using var client = CancellingClient(new ScriptedHandler(_ => Full(dropAfter: 400)), cts);
+
         Assert.CatchAsync<OperationCanceledException>(async () => await client.DownloadFileAsync(MakeFile(), _tempDir, cancellationToken: cts.Token));
 
         Assert.Multiple(() =>
         {
-            Assert.That(File.Exists(PartialPath), Is.False);
+            Assert.That(PartialLength, Is.EqualTo(400));
+            Assert.That(File.Exists(ValidatorPath) ? File.ReadAllText(ValidatorPath) : null, Is.EqualTo(ETag));
+            Assert.That(File.Exists(DestinationPath), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task APartialKeptByACancelledCall_IsResumedByTheNextOne()
+    {
+        using (var cts = new CancellationTokenSource())
+        using (var client = CancellingClient(new ScriptedHandler(_ => Full(dropAfter: 400)), cts))
+            Assert.CatchAsync<OperationCanceledException>(async () => await client.DownloadFileAsync(MakeFile(), _tempDir, cancellationToken: cts.Token));
+
+        var second = new ScriptedHandler(_ => Partial(400));
+        using (var client = ClientOver(second))
+        {
+            string path = await client.DownloadFileAsync(MakeFile(), _tempDir);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.Requests, Has.Count.EqualTo(1));
+                Assert.That(second.Requests[0].Headers.Range?.ToString(), Is.EqualTo("bytes=400-"));
+                Assert.That(second.Requests[0].Headers.IfRange?.EntityTag?.Tag, Is.EqualTo(ETag));
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+            });
+        }
+    }
+
+    [Test]
+    public void CancellationWithNoValidator_LeavesNoPartial()
+    {
+        // Without a validator, and without an MD5 to check, the bytes could never be resumed, so they are not kept.
+        using var cts = new CancellationTokenSource();
+        using var client = CancellingClient(new ScriptedHandler(_ => Full(dropAfter: 400, etag: null)), cts);
+
+        Assert.CatchAsync<OperationCanceledException>(async () => await client.DownloadFileAsync(MakeFile(), _tempDir, cancellationToken: cts.Token));
+
+        Assert.That(File.Exists(PartialPath), Is.False);
+    }
+
+    // ---- no validator, but the whole file's MD5 is checked: the MD5 stands in for it ----
+
+    [Test]
+    public async Task NoValidator_WithTheMd5Checked_ResumesWithABareRange()
+    {
+        // PRIDE's Globus HTTPS host accepts Range but sends no validator (measured 2026-10-18). A splice of two versions
+        // would fail the MD5 at the end and be downloaded again from zero, so resuming without If-Range is safe here.
+        var handler = new ScriptedHandler(_ => Full(dropAfter: 400, etag: null), _ => UntaggedPartial(400));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests, Has.Count.EqualTo(2));
+            Assert.That(handler.Requests[1].Headers.Range?.ToString(), Is.EqualTo("bytes=400-"));
+            Assert.That(handler.Requests[1].Headers.IfRange, Is.Null, "there is no validator to send");
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+        });
+    }
+
+    [Test]
+    public async Task NoValidator_WithTheMd5Checked_AWrongStitchFailsTheMd5_AndTheFileIsFetchedFromZero()
+    {
+        // The resumed tail does not belong to the start on disk. Nothing but the MD5 can see that.
+        byte[] other = Source.Select(b => (byte)(b ^ 0xFF)).ToArray();
+        var handler = new ScriptedHandler(_ => Full(dropAfter: 400, etag: null), _ => UntaggedPartial(400, other), _ => Full(etag: null));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests, Has.Count.EqualTo(3));
+            Assert.That(handler.Requests[1].Headers.Range?.ToString(), Is.EqualTo("bytes=400-"));
+            Assert.That(handler.Requests[2].Headers.Range, Is.Null, "a file that failed its MD5 is never resumed");
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+        });
+    }
+
+    [Test]
+    public async Task NoValidator_WithTheMd5Checked_AShortResumeIsCaughtByTheChecksumSize()
+    {
+        // Content-Range's total is "*", so only the checksum's size can tell that the resumed body ended early.
+        var handler = new ScriptedHandler(_ => Full(dropAfter: 400, etag: null), _ =>
+        {
+            var content = new ByteArrayContent(Source.Skip(400).Take(400).ToArray());
+            content.Headers.ContentLength = 400;
+            content.Headers.ContentRange = new ContentRangeHeaderValue(400, Source.Length - 1);
+            return new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content };
+        }, _ => Full(etag: null));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests, Has.Count.EqualTo(3));
+            Assert.That(handler.Requests[1].Headers.Range?.ToString(), Is.EqualTo("bytes=400-"), "the short body was a resume");
+            Assert.That(handler.Requests[2].Headers.Range, Is.Null);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+        });
+    }
+
+    [Test]
+    public async Task NoValidator_WithoutTheMd5_IsNotResumed_EvenWithAChecksum()
+    {
+        // The size and the error-text scan cannot see a splice, so only the MD5 lets a partial go without a validator.
+        var handler = new ScriptedHandler(_ => Full(dropAfter: 400, etag: null), _ => Full(etag: null));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests[1].Headers.Range, Is.Null);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+        });
+    }
+
+    [Test]
+    public async Task NoValidator_APartialKeptForTheMd5_IsResumedByTheNextCall()
+    {
+        var first = new ScriptedHandler(_ => Full(dropAfter: 400, etag: null));
+        using (var client = ClientOver(first, maxRetries: 0))
+            Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true));
+        Assert.Multiple(() =>
+        {
+            Assert.That(PartialLength, Is.EqualTo(400), "a transport failure keeps the partial when the MD5 will be checked");
+            Assert.That(File.Exists(ValidatorPath), Is.False, "there was no validator to record");
+        });
+
+        var second = new ScriptedHandler(_ => UntaggedPartial(400));
+        using (var client = ClientOver(second))
+        {
+            string path = await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.Requests, Has.Count.EqualTo(1));
+                Assert.That(second.Requests[0].Headers.Range?.ToString(), Is.EqualTo("bytes=400-"));
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+            });
+        }
+    }
+
+    [Test]
+    public async Task NoValidator_APartialKeptForTheMd5_IsNotResumedByACallWithoutIt()
+    {
+        var first = new ScriptedHandler(_ => Full(dropAfter: 400, etag: null));
+        using (var client = ClientOver(first, maxRetries: 0))
+            Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true));
+        Assume.That(PartialLength, Is.EqualTo(400));
+
+        var second = new ScriptedHandler(_ => Full(etag: null));
+        using (var client = ClientOver(second))
+        {
+            string path = await client.DownloadFileAsync(MakeFile(), _tempDir);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.Requests[0].Headers.Range, Is.Null, "nothing else proves those bytes belong to the file");
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+            });
+        }
+    }
+
+    [Test]
+    public void NoValidator_CancellationWithTheMd5Checked_KeepsThePartial()
+    {
+        using var cts = new CancellationTokenSource();
+        using var client = CancellingClient(new ScriptedHandler(_ => Full(dropAfter: 400, etag: null)), cts);
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await client.DownloadFileAsync(MakeFile(), _tempDir, SourceChecksum, verifyMd5: true, cancellationToken: cts.Token));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PartialLength, Is.EqualTo(400));
             Assert.That(File.Exists(ValidatorPath), Is.False);
         });
     }
