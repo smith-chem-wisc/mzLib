@@ -86,7 +86,16 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
         spectrum.AppendLine("MW: " + PrecursorMz.ToString(CultureInfo.InvariantCulture));
         spectrum.Append("Comment: ");
         spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
-        spectrum.AppendLine(" RT=" + RetentionTime?.ToString(CultureInfo.InvariantCulture));
+        spectrum.Append(" RT=" + RetentionTime?.ToString(CultureInfo.InvariantCulture));
+        if (!string.IsNullOrEmpty(FragmentModelName))
+        {
+            spectrum.Append(" FragmentModel=" + FragmentModelName);
+        }
+        if (!string.IsNullOrEmpty(RetentionTimeModelName))
+        {
+            spectrum.Append(" RTModel=" + RetentionTimeModelName);
+        }
+        spectrum.AppendLine();
         spectrum.Append("Num alpha peaks: " + MatchedFragmentIons.Count);
         spectrum.AppendLine(", Num beta peaks: " + BetaPeptideSpectrum.MatchedFragmentIons.Count);
 
