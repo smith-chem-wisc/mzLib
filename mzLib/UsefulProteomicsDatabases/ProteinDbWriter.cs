@@ -417,11 +417,34 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
+                    // written only when known, so output for an entry without isoforms is unchanged
+                    string displayedIsoformId = protein.UniProtSequenceAttributes?.DisplayedIsoformId;
+                    if (displayedIsoformId != null)
+                    {
+                        writer.WriteStartElement("comment");
+                        writer.WriteAttributeString("type", "alternative products");
+                        writer.WriteStartElement("isoform");
+                        writer.WriteStartElement("id");
+                        writer.WriteString(displayedIsoformId);
+                        writer.WriteEndElement();
+                        writer.WriteStartElement("sequence");
+                        writer.WriteAttributeString("type", "displayed");
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
+
                     foreach (var dbRef in protein.DatabaseReferences)
                     {
                         writer.WriteStartElement("dbReference");
                         writer.WriteAttributeString("type", dbRef.Type);
                         writer.WriteAttributeString("id", dbRef.Id);
+                        if (dbRef.Molecule != null)
+                        {
+                            writer.WriteStartElement("molecule");
+                            writer.WriteAttributeString("id", dbRef.Molecule);
+                            writer.WriteEndElement();
+                        }
                         foreach (Tuple<string, string> property in dbRef.Properties.OrderBy(t => t.Item1).ThenBy(t => t.Item2))
                         {
                             writer.WriteStartElement("property");
