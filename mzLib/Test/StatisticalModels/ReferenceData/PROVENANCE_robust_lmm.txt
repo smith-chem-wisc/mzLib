@@ -1,0 +1,6 @@
+generated_utc 2026-10-08 17:19:12 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+lme4 2.0.6; lmerTest 3.2.1; limma 3.68.5; MASS 7.3.65
+seed 20261009
+script make_robust_lmm_fixtures.R
+robust loop = msqrob2 1.20.0 .robust_fitting rules (psi.huber k = 1.345 on resid / mad(res, 0); pwrss tol 1e-6), cap 100, each round refitted from scratch with weights in the call; then lmerTest + squeezeVar(legacy) as GR-21
