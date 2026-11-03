@@ -34,7 +34,30 @@ namespace Readers
             MaxIndex = maxIndex;
             FileType = fileType;
             InitializeLookupTables(fileHandle);
-        }   
+        }
+
+        /// <summary>
+        /// A factory that reads frames through <paramref name="fileHandle"/>, a handle of its own on the same file, under
+        /// a lock of its own, and shares everything else - the frames table and the m/z and 1/K0 lookup arrays - with this
+        /// one. Bruker's reader may not be read from by two threads at once through one handle, so one handle shared by a
+        /// parallel load serializes every frame read; a worker with its own handle reads alongside the others.
+        /// </summary>
+        internal FrameProxyFactory WithOwnHandle(UInt64 fileHandle)
+        {
+            return new FrameProxyFactory(this, fileHandle);
+        }
+
+        private FrameProxyFactory(FrameProxyFactory shared, UInt64 fileHandle)
+        {
+            FramesTable = shared.FramesTable;
+            FileHandle = fileHandle;
+            FileLock = new object();
+            Converter = new TimsConversion(fileHandle, FileLock);
+            MaxIndex = shared.MaxIndex;
+            FileType = shared.FileType;
+            MzLookupArray = shared.MzLookupArray;
+            OneOverK0LookupArray = shared.OneOverK0LookupArray;
+        }
 
         /// <summary>
         /// This class is marked virtual for testing purposes only.
