@@ -644,22 +644,42 @@ namespace Readers
         /// taking the name from there wrote the motif twice, and once in a field that is not for it.
         /// OriginalId is the same choice ProFormaConverter.cs:159 makes when it emits a modification
         /// name into an external format.
+        ///
+        /// When the modification is accessioned to a Unimod record the embedded Unimod holds, NT= is
+        /// that record's name instead: the accession is the term, and its name is Unimod's. A search
+        /// engine's own id is not: MetaMorpheus names UNIMOD:737 "TMT10" and UNIMOD:21
+        /// "Phosphorylation", where the curated corpus writes TMT6plex and Phospho.
+        ///
+        /// A terminal modification says which terminus in PP=, and its TA= is left out when the motif
+        /// is X ("any residue"), which names no residue. MetaMorpheus 1.1.13 wrote TMT's N-terminal
+        /// label as "NT=TMT10;AC=UNIMOD:737;TA=X;MT=Fixed"; the corpus writes
+        /// "NT=TMT6plex;AC=UNIMOD:737;PP=Any N-term;MT=Fixed".
         /// </summary>
         private static string ModificationCell(Modification mod, string modificationType, SdrfBuilderOptions options)
         {
             string accession = "";
+            string? unimodId = null;
             if (mod.DatabaseReference is not null
                 && mod.DatabaseReference.TryGetValue("Unimod", out var unimod)
                 && unimod.Count > 0)
-                accession = "UNIMOD:" + unimod.First();
+            {
+                unimodId = unimod.First();
+                accession = "UNIMOD:" + unimodId;
+            }
 
+            string? terminus = TerminusOf(mod.LocationRestriction);
             var extras = new List<(string, string)>();
-            if (mod.Target is not null) extras.Add(("TA", mod.Target.ToString()));
+            if (mod.Target is not null && !(terminus is not null && mod.Target.ToString() == "X"))
+                extras.Add(("TA", mod.Target.ToString()));
+            if (terminus is not null) extras.Add(("PP", terminus));
             extras.Add(("MT", modificationType));
 
             // IdWithMotif is only ever populated when OriginalId is, so this fallback order is the
             // safe one; the reverse could never reach OriginalId.
-            string name = mod.OriginalId ?? mod.IdWithMotif ?? "";
+            string name = (unimodId is not null && UnimodNames.Value.TryGetValue(unimodId.Trim(), out var unimodName)
+                    ? unimodName
+                    : null)
+                ?? mod.OriginalId ?? mod.IdWithMotif ?? "";
 
             // As in InstrumentCell: a modification naming nothing and accessioned to nothing cannot
             // be written as a term, and must not throw out of a lenient build.
@@ -670,6 +690,44 @@ namespace Readers
                 new CvParam(string.IsNullOrEmpty(accession) ? "" : "UNIMOD", accession, name, ""),
                 extras.ToArray());
         }
+
+        /// <summary>
+        /// SDRF's PP= for an mzLib location restriction, or null when the modification is not terminal.
+        /// mzLib's "N-terminal." / "C-terminal." are the intact protein's termini and "Peptide N-terminal." /
+        /// "Peptide C-terminal." any peptide's (ModificationLocalization.ModFits), which are SDRF's
+        /// "Protein N-term" and "Any N-term". The nucleic-acid restrictions have no SDRF-Proteomics term.
+        /// </summary>
+        private static string? TerminusOf(string? locationRestriction) => locationRestriction switch
+        {
+            "N-terminal." => "Protein N-term",
+            "C-terminal." => "Protein C-term",
+            "Peptide N-terminal." => "Any N-term",
+            "Peptide C-terminal." => "Any C-term",
+            _ => null
+        };
+
+        /// <summary>
+        /// Unimod record id -> Unimod's name for it, from the Unimod embedded in Omics. Only Unimod's own entries
+        /// (ModificationType "Unimod") are read: <see cref="Mods"/> appends its isobaric labels to the same list under
+        /// their own names ("TMT10"), accessioned to the same records. Lazy, so a build that writes no modification
+        /// never touches <see cref="Mods"/>.
+        /// </summary>
+        private static readonly Lazy<Dictionary<string, string>> UnimodNames = new(() =>
+        {
+            var names = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var unimodMod in Mods.UnimodModifications)
+            {
+                if (unimodMod.ModificationType != "Unimod" || string.IsNullOrEmpty(unimodMod.OriginalId)
+                    || unimodMod.DatabaseReference is null
+                    || !unimodMod.DatabaseReference.TryGetValue("Unimod", out var ids))
+                    continue;
+                // Every specificity of a record repeats its name, so which entry is kept does not matter here;
+                // the ModificationType test above is what keeps "TMT10" from replacing "TMT6plex".
+                foreach (string id in ids)
+                    names[id.Trim()] = unimodMod.OriginalId;
+            }
+            return names;
+        });
 
         /// <summary>
         /// Tolerances are written as a value and a unit ("10 ppm", "0.02 Da"), which is what the
