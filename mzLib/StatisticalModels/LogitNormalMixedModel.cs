@@ -706,9 +706,9 @@ namespace StatisticalModels
                 bool unbounded = ridge || Math.Abs(ml.Beta[j]) >= bound;
                 if (!unbounded)
                 {
-                    var (atBound, _) = EstimateOne(Reduced(data, j, (ml.Beta[j] < 0 ? -1 : 1) * bound), false, logSigmaGiven, start);
                     double critical = double.IsNaN(df) ? 3.841458820694124 : Math.Pow(StudentT.InvCDF(0, 1, df, 0.975), 2);
-                    unbounded = atBound == null || 2 * (atBound.Objective - ml.Objective) < critical;
+                    unbounded = ReachesTheLikelihoodRegion(Reduced(data, j, (ml.Beta[j] < 0 ? -1 : 1) * bound), logSigmaGiven, start,
+                        ml.Objective, critical);
                 }
                 if (!unbounded) continue;
                 fit.UnboundedMatrix[f, j] = true;
@@ -725,6 +725,44 @@ namespace StatisticalModels
             }
             fit.StatusValues[f] = FeatureFitStatus.Unbounded;
         }
+
+        /// <summary>
+        /// The ridge check's question: whether the ML fit with a coefficient held at the effect bound (<paramref name="held"/>)
+        /// comes inside the 95% likelihood region, 2(ℓ̂ − ℓ̂_bound) &lt; <paramref name="critical"/>, or fails. As before, a failed
+        /// fit counts as inside.
+        /// </summary>
+        /// <remarks>
+        /// Only the answer is needed, not the fit, and the held fit is the costliest of a feature's fits: its variances must
+        /// grow to absorb an effect of ±<see cref="UnboundedEffect"/>, where many counts take the panel rules. So the search
+        /// stops at the first point inside the region, since the fit can only end at or above it, and otherwise runs to a
+        /// tolerance of 1e-6 without <see cref="Polish"/>. The answer needs more only when that fit ends near the region's
+        /// edge, within <see cref="RidgeCheckMargin"/>; then the fit is made again at full precision.
+        /// </remarks>
+        private static bool ReachesTheLikelihoodRegion(Data held, double logSigmaGiven,
+            (double LogTau, double LogSigma, Vector<double> Beta) start, double fullObjective, double critical)
+        {
+            double edge = fullObjective + critical / 2;
+            try
+            {
+                var (atBound, _) = EstimateOne(held, false, logSigmaGiven, start, edge, precise: false);
+                if (atBound != null && atBound.Objective - edge < RidgeCheckMargin)
+                    (atBound, _) = EstimateOne(held, false, logSigmaGiven, start, edge, precise: true);
+                return atBound == null || 2 * (atBound.Objective - fullObjective) < critical;
+            }
+            catch (InsideTheLikelihoodRegion)
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// How close, in −ℓ, a ridge check's coarse fit may end to the 95% region's edge before the fit is made again at full
+        /// precision. A coarse fit's −ℓ is within about 1e-6 of the precise one's.
+        /// </summary>
+        private const double RidgeCheckMargin = 1;
+
+        /// <summary>Thrown from a held fit's search when it reaches a point inside the 95% likelihood region.</summary>
+        private sealed class InsideTheLikelihoodRegion : Exception;
 
         /// <summary>A feature that could not be fitted: every value NaN, and the reason.</summary>
         private static void Clear(LogitNormalMixedModelFit fit, int f, int p, FeatureFitStatus status)
@@ -760,8 +798,16 @@ namespace StatisticalModels
         /// and H there. Null, with the reason, when the fit fails or β is separated.
         /// </summary>
         /// <param name="start">Starting log SDs; null starts from the measured samples' spread.</param>
+        /// <param name="stopBelow">
+        /// When not NaN, the search throws <see cref="InsideTheLikelihoodRegion"/> at the first point whose objective is below
+        /// it (the ridge check, which needs no more).
+        /// </param>
+        /// <param name="precise">
+        /// False searches to 1e-6 instead of 1e-10 and skips <see cref="Polish"/>: for the ridge check, whose answer needs the
+        /// objective only to compare it with the region's edge.
+        /// </param>
         private static (Estimate? Estimate, FeatureFitStatus Status) EstimateOne(Data data, bool reml, double logSigmaGiven,
-            (double LogTau, double LogSigma, Vector<double> Beta)? start)
+            (double LogTau, double LogSigma, Vector<double> Beta)? start, double stopBelow = double.NaN, bool precise = true)
         {
             int p = data.X.ColumnCount;
             bool sigmaGiven = !double.IsNaN(logSigmaGiven);
@@ -783,6 +829,7 @@ namespace StatisticalModels
                     catch (ArgumentException) { return double.MaxValue; }
                     value += -0.5 * logDet + 0.5 * p * Math.Log(2 * Math.PI);
                 }
+                if (-value < stopBelow) throw new InsideTheLikelihoodRegion();
                 return double.IsFinite(value) ? -value : double.MaxValue;
             }
 
@@ -793,7 +840,7 @@ namespace StatisticalModels
             {
                 logSigmaHat = logSigmaGiven;
                 logTauHat = start == null ? MinimizeOneDimension(u => Outer(u, logSigmaGiven), logTau0)
-                    : MinimizeNear(u => Outer(u, logSigmaGiven), logTau0);
+                    : MinimizeNear(u => Outer(u, logSigmaGiven), logTau0, precise ? 1e-10 : 1e-6);
             }
             else
             {
@@ -802,8 +849,9 @@ namespace StatisticalModels
                     double size = start == null ? 0.5 : 0.1;
                     var r = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(v => Outer(v[0], v[1])),
                         Vector<double>.Build.DenseOfArray(new[] { logTau0, logSigma0 }), Vector<double>.Build.DenseOfArray(new[] { size, size }),
-                        1e-10, 4000);
-                    (logTauHat, logSigmaHat) = Polish(Outer, r.MinimizingPoint[0], r.MinimizingPoint[1]);
+                        precise ? 1e-10 : 1e-6, 4000);
+                    (logTauHat, logSigmaHat) = precise ? Polish(Outer, r.MinimizingPoint[0], r.MinimizingPoint[1])
+                        : (r.MinimizingPoint[0], r.MinimizingPoint[1]);
                 }
                 catch (MaximumIterationsException)
                 {
@@ -898,7 +946,7 @@ namespace StatisticalModels
         /// Brent's method about <paramref name="start"/>: steps of 0.25 downhill, doubling, until the minimum is
         /// bracketed or the range's end is reached.
         /// </summary>
-        private static double MinimizeNear(Func<double, double> f, double start)
+        private static double MinimizeNear(Func<double, double> f, double start, double tolerance = 1e-10)
         {
             double a = Math.Clamp(start, LogSdMin, LogSdMax), fa = f(a), step = 0.25;
             double b = Math.Min(a + step, LogSdMax), fb = f(b);
@@ -912,7 +960,7 @@ namespace StatisticalModels
                 if (fc > fb || c == b) break;
                 (a, fa, b, fb) = (b, fb, c, fc);
             }
-            return MixedModel.Brent(f, Math.Min(a, c), Math.Max(a, c), 1e-10);
+            return MixedModel.Brent(f, Math.Min(a, c), Math.Max(a, c), tolerance);
         }
 
         /// <summary>Brent's method over [LogSdMin, LogSdMax], bracketed by a coarse grid around the start.</summary>
@@ -939,6 +987,8 @@ namespace StatisticalModels
             var beta = start.ToArray();
             var grad = new double[p];
             var h = new double[p, p];
+            var gradTrial = new double[p];
+            var hTrial = new double[p, p];
             var rules = Centre(d, beta, logTau, logSigma);
             double ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
             if (!double.IsFinite(ll))
@@ -961,20 +1011,29 @@ namespace StatisticalModels
                     // brings back inside the search box; cap its length so step halving can work.
                     double longest = step.AbsoluteMaximum();
                     if (longest > MaxNewtonStep) step *= MaxNewtonStep / longest;
-                    bool moved = false, small = false;
+                    bool moved = false, small = false, haveDerivatives = false;
                     double t = 1;
                     for (int half = 0; half < 40; half++, t /= 2)
                     {
                         var candidate = beta.Select((b, j) => b + t * step[j]).ToArray();
                         if (candidate.Any(v => Math.Abs(v) > 4 * SeparationLimit)) continue;
-                        double c = Evaluate(d, candidate, logTau, logSigma, rules, null, null);
+                        // The full step is usually taken, so its derivatives come with its value (ℓ is the same either
+                        // way), and a taken full step needs no second evaluation at the same β.
+                        double c = half == 0 ? Evaluate(d, candidate, logTau, logSigma, rules, gradTrial, hTrial)
+                            : Evaluate(d, candidate, logTau, logSigma, rules, null, null);
                         if (!(double.IsFinite(c) && c >= ll - 1e-12)) continue;
                         small = t * step.AbsoluteMaximum() < 1e-10 * Math.Max(1, beta.Max(Math.Abs));
                         moved = c > ll;
                         beta = candidate;
+                        if (half == 0)
+                        {
+                            (grad, gradTrial, h, hTrial) = (gradTrial, grad, hTrial, h);
+                            ll = c;
+                            haveDerivatives = true;
+                        }
                         break;
                     }
-                    ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+                    if (!haveDerivatives) ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
                     if (!moved || small) break;
                 }
                 if (d.CountedRows.All(r => r.Count == 0)) break;
@@ -1405,16 +1464,8 @@ namespace StatisticalModels
             double logNormE = -0.5 * (LogTwoPi + 2 * logSigma);
             var link = d.Link;
             double slope = link.Slope;
-            var sx = new double[p];
-            int maxNodes = rules.MaxNodes;
-            var logF = new double[maxNodes];
-            var gF = deriv ? new double[maxNodes, p] : null;
-            var hF = deriv ? new double[maxNodes, p, p] : null;
-            var gL = new double[p];
-            int maxENodes = rules.MaxENodes;
-            var lw = new double[maxENodes];
-            var s1 = new double[maxENodes];
-            var s2c = new double[maxENodes];
+            // Every entry of these is written before it is read, so they are kept per thread rather than allocated per call.
+            var (sx, logF, gF, hF, gL, lw, s1, s2c) = (scratch ??= new Scratch()).For(p, rules.MaxNodes, rules.MaxENodes, deriv);
             for (int g = 0; g < d.G; g++)
             {
                 var measured = d.MeasuredRows[g];
@@ -1538,6 +1589,40 @@ namespace StatisticalModels
             return total;
         }
 
+        [ThreadStatic] private static Scratch? scratch;
+
+        /// <summary><see cref="Evaluate"/>'s working arrays, grown as needed and kept per thread.</summary>
+        private sealed class Scratch
+        {
+            private int p = -1, nodes, eNodes;
+            private double[] sx = [], logF = [], gL = [], lw = [], s1 = [], s2c = [];
+            private double[,] gF = new double[0, 0];
+            private double[,,] hF = new double[0, 0, 0];
+
+            public (double[] Sx, double[] LogF, double[,]? GF, double[,,]? HF, double[] GL, double[] Lw, double[] S1, double[] S2c)
+                For(int p, int nodes, int eNodes, bool deriv)
+            {
+                if (p != this.p || nodes > this.nodes)
+                {
+                    this.nodes = p == this.p ? nodes : Math.Max(nodes, this.nodes);
+                    this.p = p;
+                    sx = new double[p];
+                    gL = new double[p];
+                    logF = new double[this.nodes];
+                    gF = new double[this.nodes, p];
+                    hF = new double[this.nodes, p, p];
+                }
+                if (eNodes > this.eNodes)
+                {
+                    this.eNodes = eNodes;
+                    lw = new double[eNodes];
+                    s1 = new double[eNodes];
+                    s2c = new double[eNodes];
+                }
+                return (sx, logF, deriv ? gF : null, deriv ? hF : null, gL, lw, s1, s2c);
+            }
+        }
+
         private static double Dot(double[] x, double[] beta)
         {
             double s = 0;
@@ -1558,7 +1643,9 @@ namespace StatisticalModels
         /// </summary>
         internal static double LogCountProbability(int k, int n, double logit, double rho, double logChoose, out double d1, out double d2)
         {
-            double logG = -Log1pExp(-logit), log1mG = -Log1pExp(logit);
+            // log g and log(1 − g) share log(1 + e^−|logit|), computed once and without overflow.
+            double shared = Math.Log(1 + Math.Exp(-Math.Abs(logit)));
+            double logG = logit > 0 ? -shared : logit - shared, log1mG = logit > 0 ? -(logit + shared) : -shared;
             double g = Math.Exp(logG), h = Math.Exp(log1mG);
             if (rho == 0)
             {
@@ -1594,9 +1681,6 @@ namespace StatisticalModels
             for (int j = 1; j <= Math.Min(k, n - k); j++) sum += Math.Log((double)(n - Math.Min(k, n - k) + j) / j);
             return sum;
         }
-
-        /// <summary>log(1 + e^x) without overflow.</summary>
-        private static double Log1pExp(double x) => x > 0 ? x + Math.Log(1 + Math.Exp(-x)) : Math.Log(1 + Math.Exp(x));
 
         private static double LogAdd(double a, double b)
         {
