@@ -26,7 +26,7 @@ namespace Omics.Modifications
     /// acyl stem -- an O-linked "acetyl" sugar on a lysine would be the shape of it. Two things bound
     /// that: the residue gate (only a Lys/Arg target reaches the name test at all) and the location
     /// gate (only the side-chain "Anywhere." form). Measured rather than assumed, against the three
-    /// modification files mzLib ships (as of 1.0.597): 56 unimod.xml, 22 ptmlist.txt and 18 Mods.txt
+    /// modification files mzLib ships (as of 1.0.597): 57 unimod.xml, 23 ptmlist.txt and 19 Mods.txt
     /// entries classify as blocking, and every one of them is an epsilon-amine acylation, a ubiquitin or SUMO remnant,
     /// or citrulline. There is no false positive in shipped data today. A user-curated modification
     /// file is not covered by that measurement, which is the honest limit of a name-keyed rule.
@@ -36,15 +36,11 @@ namespace Omics.Modifications
     /// as a missed cleavage rather than an impossible one. Revisit if evidence says otherwise.
     ///
     /// Carbamylation (homocitrulline: "Carbamyl" in unimod.xml and Mods.txt, "N6-carbamoyllysine" in
-    /// ptmlist.txt) is deliberately EXCLUDED too, for a different reason. It does remove the charge, and
-    /// trypsin does not cleave after a carbamylated lysine. But it is mostly a sample-handling artefact:
-    /// the cyanate in urea keeps carbamylating amines through lysis AND digestion, so a lysine carbamylated
-    /// after trypsin has cut sits at a genuine peptide C-terminus. A reanalysis of 155 public searches found
-    /// those peptides with real y1 ions, matched in two thirds of them and as close in mass as unmodified
-    /// lysine's. Blocking would refuse real peptides. Excluded, a carbamylated lysine is treated as it is
-    /// with the correction off, so an internal one counts as an ordinary missed cleavage. Formyl, the other
-    /// common artefact acylation, stays: at a cut its y1 ion is mostly absent, and the mass usually belongs
-    /// to an O-formyl Ser/Thr nearby.
+    /// ptmlist.txt) blocks too, and it is the one class that digestion ALSO allows at a cut. It removes the
+    /// charge and trypsin does not cleave after it, so an internal carbamylated lysine is discounted like any
+    /// other. But the cyanate in urea keeps carbamylating amines through lysis and digestion, so a lysine
+    /// carbamylated after trypsin has cut sits at a genuine peptide C-terminus as well. See
+    /// <see cref="MayFormAfterDigestion"/>.
     ///
     /// Charge is the criterion, which is why glycosylation is absent from this set even though a
     /// glycan is far bulkier than an acetyl group. An N-glycan sits on N in an N-X-S/T sequon and an
@@ -71,7 +67,7 @@ namespace Omics.Modifications
         private static readonly string[] ChargeNeutralizingAcylStems =
         {
             "acetyl", "succinyl", "malonyl", "glutaryl", "crotonyl", "propionyl", "butyryl",
-            "formyl", "hydroxyisobutyryl", "benzoyl", "lactyl", "biotinyl",
+            "formyl", "carbamyl", "carbamoyl", "hydroxyisobutyryl", "benzoyl", "lactyl", "biotinyl",
             "methacryl", "isonicotinyl", "lipoyl", "decanoyl", "myristoyl", "palmitoyl", "stearoyl", "lactoyl",
         };
 
@@ -204,5 +200,32 @@ namespace Omics.Modifications
             && modification is not null
             && modification.BlocksCleavage
             && agent.CleavesCTerminalTo(BlockedResidue(modification));
+
+        /// <summary>
+        /// Blocking modifications that also form after digestion: the urea artefact carbamylation, under its Unimod
+        /// and Mods.txt name ("Carbamyl") and its UniProt one ("N6-carbamoyllysine").
+        /// </summary>
+        private static readonly string[] AlsoFormsAfterDigestionStems = { "carbamyl", "carbamoyl" };
+
+        /// <summary>
+        /// True if <paramref name="modification"/> blocks cleavage (<see cref="Modification.BlocksCleavage"/>) but can
+        /// also form AFTER digestion, so a peptide ending in it at a cut is a real peptide too. Only carbamylation
+        /// qualifies: the cyanate in urea keeps carbamylating amines through lysis and the digest. Digestion therefore
+        /// still discounts an internal carbamylated lysine from the missed-cleavage count and reads through it, and
+        /// does not refuse one on a peptide's C-terminal residue (<c>CleavageBlockingPolicy.RefusesAtCut</c>).
+        /// </summary>
+        /// <remarks>
+        /// Measured on public data, a reanalysis of 155 MetaMorpheus searches. At a cut, the y1 ion of a carbamylated
+        /// lysine is matched in two thirds of the peptides, as close in mass as an unmodified lysine's, while the y1
+        /// of acetyl, succinyl and the other blockers is mostly absent. An internal carbamylated lysine at the
+        /// missed-cleavage limit is found with no decoys, so both forms are real. Formyl, the other common artefact
+        /// acylation, does not qualify: at a cut its y1 is mostly absent, and the mass usually belongs to an O-formyl
+        /// Ser/Thr nearby.
+        /// </remarks>
+        public static bool MayFormAfterDigestion(Modification modification) =>
+            modification is not null
+            && modification.BlocksCleavage
+            && AlsoFormsAfterDigestionStems.Any(stem =>
+                (modification.OriginalId ?? modification.IdWithMotif ?? string.Empty).ToLowerInvariant().Contains(stem));
     }
 }
