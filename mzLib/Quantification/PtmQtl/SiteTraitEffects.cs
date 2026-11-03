@@ -10,14 +10,19 @@ namespace Quantification.PtmQtl;
 /// <param name="Status">
 /// <c>Fitted</c>; <c>BelowSupport</c> (fewer runs or replicates than the options require); with
 /// <see cref="BoundCellModel.Sampling"/>, <c>MostlyOneBound</c> (fewer than <see cref="SiteTraitEffects.MinRunsOffExtremes"/>
-/// runs that are not 0 of N or N of N), <c>NoDetectionLink</c> or <c>NoScatterToBorrow</c>; or the
-/// <see cref="FeatureFitStatus"/> name of a fit that could not be computed. Every non-fitted value is NaN.
+/// runs that are not 0 of N or N of N), <c>NoDetectionLink</c> or <c>NoScatterToBorrow</c>, or <c>Unbounded</c> (a
+/// site with counted runs whose trait effect has a sign the data may bound but no size:
+/// <see cref="LogitNormalMixedModelFit.IsUnbounded"/>; its effect and standard error are NaN, and its p-value, df and q
+/// stand); or the <see cref="FeatureFitStatus"/> name of a fit that could not be computed. Every other non-fitted value is NaN.
 /// </param>
 /// <param name="Effect">Change in the log odds of occupancy per unit of the trait, other covariates held fixed, on <see cref="Scale"/>.</param>
 /// <param name="StandardError">Standard error of <paramref name="Effect"/>.</param>
-/// <param name="DegreesOfFreedom">Denominator df of the t test (containment rule, see <see cref="MixedModel"/>).</param>
-/// <param name="PValue">Two-sided p-value of the trait coefficient.</param>
-/// <param name="Q">Benjamini-Hochberg q over the fitted sites of one call.</param>
+/// <param name="DegreesOfFreedom">Denominator df of the test (containment rule, see <see cref="MixedModel"/>).</param>
+/// <param name="PValue">
+/// Two-sided p-value of the trait coefficient: the t test, or for a site with counted runs the likelihood-ratio test of
+/// <see cref="LogitNormalMixedModel"/>.
+/// </param>
+/// <param name="Q">Benjamini-Hochberg q over the sites of one call with a p-value (Fitted and Unbounded).</param>
 /// <param name="Runs">Runs contributing a response (with <see cref="BoundCellModel.Sampling"/>, measured or counted).</param>
 /// <param name="Replicates">Distinct biological replicates among those runs.</param>
 /// <param name="MedianFraction">Median occupancy over the contributing runs with both forms quantified.</param>
@@ -131,12 +136,14 @@ public sealed record SiteTraitOptions
 /// By default only runs with both forms quantified are responses; Floor, CountOnly and NotDetected are left out,
 /// never entered as 0. With <see cref="BoundCellModel.Sampling"/> (ptmQtl D37, D39, D44-D49) every other covered run
 /// enters as a count, "k of N covering peptidoforms carried the modification", whose chance per peptidoform is
-/// linked to the same latent log odds (<see cref="LogitNormalMixedModel"/>, approximate REML). The link is fitted
+/// linked to the same latent log odds (<see cref="LogitNormalMixedModel"/>: REML estimates, and the trait, the only
+/// coefficient tested, by a likelihood-ratio test from ML fits). The link is fitted
 /// once per call, on whether the modified form was seen, from the sites with at least
 /// <see cref="MinMeasuredRunsForScatter"/> measured runs (their mean and SD of log odds as each cell's latent).
 /// A site needs at least <see cref="MinRunsOffExtremes"/> runs that are not 0 of N or N of N (else the trait could
 /// separate them and its estimate run to infinity); one with fewer than <see cref="MinMeasuredRunsForScatter"/>
-/// measured runs borrows the call's median run-to-run variance. A site with no counted run is fitted by
+/// measured runs borrows the call's median run-to-run variance (over Fitted sites only). A site whose trait effect
+/// the data cannot size is <c>Unbounded</c>, with its p-value. A site with no counted run is fitted by
 /// <see cref="MixedModel"/> exactly as under <see cref="BoundCellModel.Exclude"/>.
 /// </para>
 /// </remarks>
@@ -308,8 +315,9 @@ public static class SiteTraitEffects
                             else counts[f, runIndex[t.cell.Run]] = t.count;
                         }
                     }
+                    // Only the trait is tested: each tested coefficient costs two more ML fits per site.
                     var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, link, depth,
-                        Enumerable.Repeat(scatter, batch.Count).ToArray(), names);
+                        Enumerable.Repeat(scatter, batch.Count).ToArray(), names, testedCoefficients: TraitOnly);
                     for (int f = 0; f < batch.Count; f++)
                     {
                         int s = batch[f];
@@ -373,14 +381,21 @@ public static class SiteTraitEffects
         return linkCells.Count < MinLinkCells ? null : LogitNormalMixedModel.FitLink(linkCells, withDepth: depth != null);
     }
 
+    /// <summary>The coefficient a counted site's fit tests (the design's second column).</summary>
+    private static readonly string[] TraitOnly = ["trait"];
+
+    /// <summary>
+    /// A fit's values for the trait. An Unbounded fit is read like a Fitted one: the model gives its trait effect and
+    /// standard error as NaN, and its p-value and df stand.
+    /// </summary>
     private static SiteTraitEffect Read(SiteTraitEffect prior, FeatureFitStatus status, Func<int, int, double> coefficient,
         Func<int, int, double> standardError, Func<int, int, double> df, Func<int, int, double> p, int f, int k, double unit,
         double groupVariance, double residualVariance) =>
-        status != FeatureFitStatus.Fitted
+        status is not (FeatureFitStatus.Fitted or FeatureFitStatus.Unbounded)
             ? prior with { Status = status.ToString() }
             : prior with
             {
-                Status = "Fitted",
+                Status = status.ToString(),
                 Effect = coefficient(f, 1) / unit,
                 StandardError = standardError(f, 1) / unit,
                 DegreesOfFreedom = df(f, 1),

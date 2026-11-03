@@ -1048,10 +1048,13 @@ public class PtmQtlTests
             y[0, i] = cell.State == OccupancyState.Quantified ? Math.Log(f / (1 - f)) : double.NaN;
             if (cell.State == OccupancyState.NotDetected) counts[0, i] = new BinomialCount(0, 2);
         }
-        var direct = LogitNormalMixedModel.Fit(y, counts, design, runs.Select(r => rep[r]).ToArray(), link);
+        var direct = LogitNormalMixedModel.Fit(y, counts, design, runs.Select(r => rep[r]).ToArray(), link,
+            coefficientNames: ["intercept", "trait"], testedCoefficients: ["trait"]);
+        Assert.That(double.IsFinite(e.PValue), Is.True, "a likelihood-ratio p");
+        Assert.That(e.PValue, Is.EqualTo(direct.PValue(0, 1)).Within(1e-12));
+        Assert.That(direct.PValue(0, 0), Is.NaN, "only the trait is tested");
         Assert.That(e.Effect, Is.EqualTo(direct.Coefficient(0, 1)).Within(1e-12));
         Assert.That(e.StandardError, Is.EqualTo(direct.StandardError(0, 1)).Within(1e-12));
-        Assert.That(e.PValue, Is.EqualTo(direct.PValue(0, 1)).Within(1e-12));
 
         // By default the covered-zeros are left out, as before.
         var excluded = SiteTraitEffects.Fit(occ, trait, rep).Single();
@@ -1097,6 +1100,31 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void ASiteWhoseEffectTheDataCannotSizeIsUnboundedWithItsPValue()
+    {
+        // Measured in every run of the two high-trait replicates, and seen in one of the other eight runs: the trait's
+        // sign is clear, its size is not (LogitNormalMixedModelFit.IsUnbounded). The guard passes (5 runs off the extremes).
+        var (occ, trait, rep) = TraitDesign();
+        occ = occ.Select(o => WithCounts(o, 1, 2)).ToList();                     // DeamN: measured everywhere
+        var site = new ModificationSite("P4", 40, 'N', DeamN.Modification);
+        var measured = new Dictionary<string, double> { ["R4_0"] = 0.5, ["R4_1"] = 0.52, ["R5_0"] = 0.48, ["R5_1"] = 0.5 };
+        foreach (string run in trait.Keys)
+            occ.Add(measured.TryGetValue(run, out double f) ? WithCounts(Cell(run, f, site: site), 1, 2)
+                : run == "R2_0" ? WithCounts(Cell(run, double.NaN, OccupancyState.Floor, site: site), 1, 2)
+                : WithCounts(Cell(run, double.NaN, OccupancyState.NotDetected, site: site), 0, 2));
+        var options = new SiteTraitOptions { BoundCells = BoundCellModel.Sampling, DetectionLink = new DetectionLink(0, 1) };
+        var e = SiteTraitEffects.Fit(occ, trait, rep, options: options).Single(r => r.Site == site);
+        Assert.That(e.Status, Is.EqualTo("Unbounded"));
+        Assert.That(e.CountedRuns, Is.EqualTo(8));
+        Assert.That(e.Effect, Is.NaN);
+        Assert.That(e.StandardError, Is.NaN);
+        Assert.That(double.IsFinite(e.PValue), Is.True, "the likelihood-ratio p stands");
+        Assert.That(e.PValue, Is.LessThan(0.05));
+        Assert.That(e.DegreesOfFreedom, Is.EqualTo(4));
+        Assert.That(double.IsFinite(e.Q), Is.True, "and enters the call's q");
+    }
+
+    [Test]
     public void TheLinkIsFittedPerCallOrFallsBack()
     {
         var (occ, trait, rep) = SampledTraitDesign();
@@ -1108,7 +1136,8 @@ public class PtmQtlTests
         Assert.That(withFallback.Status, Is.EqualTo("Fitted"));
         Assert.That(withFallback.Link, Is.EqualTo(fallback));
 
-        // Nine more sites like it give 120 cells: the call fits its own link.
+        // Nine more sites like it give 104 cells: the call fits its own link. Every site with 3 measured runs informs the
+        // link, fitted or not; Q2-Q9 lack replicate R0, so at MinReplicates = 6 only P1 and Q1 are fitted (each fit is seconds).
         var more = new List<SiteRunOccupancy>(occ);
         for (int s = 1; s <= 9; s++)
         {
@@ -1119,12 +1148,14 @@ public class PtmQtlTests
                 ReportedFraction = o.State == OccupancyState.Quantified ? Math.Min(0.95, o.Fraction * (1 + 0.1 * s)) : o.ReportedFraction,
                 ModifiedPeptidoforms = o.State == OccupancyState.Quantified ? 1 + (i + s) % 2 : 0,
                 CoveringPeptidoforms = 2,
-            }));
+            }).Where(o => s == 1 || rep[o.Run] != "R0"));
         }
-        var own = SiteTraitEffects.Fit(more, trait, rep, options: sampling with { FallbackLink = fallback });
-        Assert.That(own.Select(e => e.Link).Distinct().Count(), Is.EqualTo(1), "one link per call");
-        Assert.That(own[0].Link, Is.Not.Null.And.Not.EqualTo(fallback));
-        Assert.That(own[0].Link!.Slope, Is.GreaterThan(0), "more occupancy, more often seen");
+        var own = SiteTraitEffects.Fit(more, trait, rep, options: sampling with { FallbackLink = fallback, MinReplicates = 6 });
+        var fitted = own.Where(e => e.Status == "Fitted").ToList();
+        Assert.That(fitted.Select(e => e.Site.Key), Is.EquivalentTo(new[] { DeamN.Key, own.Single(e => e.Site.ProteinAccession == "Q1").Site.Key }));
+        Assert.That(fitted.Select(e => e.Link).Distinct().Count(), Is.EqualTo(1), "one link per call");
+        Assert.That(fitted[0].Link, Is.Not.Null.And.Not.EqualTo(fallback));
+        Assert.That(fitted[0].Link!.Slope, Is.GreaterThan(0), "more occupancy, more often seen");
     }
 
     [Test]
