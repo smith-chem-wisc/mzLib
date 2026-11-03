@@ -43,7 +43,8 @@ namespace Readers
         FlashLFQQuantifiedPeptide,
         MetaMorpheusQuantifiedTranscriptGroups,
         FlashLFQQuantifiedOligo,
-        DiaNnReportParquet
+        DiaNnReportParquet,
+        DiaPrecursorTsv
     }
 
     public static class SupportedFileTypeExtensions
@@ -111,6 +112,8 @@ namespace Readers
                 // As with DiaNnReport, only the conventional name WriteResults would use: the report is
                 // recognized by its columns, whatever it is called.
                 SupportedFileType.DiaNnReportParquet => "report.parquet",
+                // MetaMorpheus's DIA precursor table, recognized by the name MetaMorpheus gives it
+                SupportedFileType.DiaPrecursorTsv => "AllDiaPrecursors.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -196,6 +199,8 @@ namespace Readers
                         return SupportedFileType.Tsv_Dinosaur;
                     if(filePath.EndsWith(SupportedFileType.Sdrf.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Sdrf;
+                    if (filePath.EndsWith(SupportedFileType.DiaPrecursorTsv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.DiaPrecursorTsv;
 
                         // these tsv cases are just .tsv and need an extra step to determine the type
                         // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -334,6 +339,7 @@ namespace Readers
                 SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups => typeof(TranscriptGroupFromTsvFile),
                 SupportedFileType.FlashLFQQuantifiedOligo => typeof(QuantifiedOligoFile),
                 SupportedFileType.DiaNnReportParquet => typeof(DiaNnParquetReportFile),
+                SupportedFileType.DiaPrecursorTsv => typeof(DiaPrecursorFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
