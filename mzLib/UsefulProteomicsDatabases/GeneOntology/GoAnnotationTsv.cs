@@ -136,7 +136,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
         };
 
         /// <summary>GO's own namespace names; "unknown" when the ontology did not say; null for no term.</summary>
-        private static string AspectName(GoAspect? aspect) => aspect switch
+        internal static string AspectName(GoAspect? aspect) => aspect switch
         {
             null => null,
             GoAspect.BiologicalProcess => "biological_process",
@@ -144,6 +144,18 @@ namespace UsefulProteomicsDatabases.GeneOntology
             GoAspect.MolecularFunction => "molecular_function",
             GoAspect.Unknown => "unknown",
             _ => throw new ArgumentOutOfRangeException(nameof(aspect), aspect, null)
+        };
+
+        /// <summary>The inverse of <see cref="AspectName"/>: null for an empty cell.</summary>
+        /// <exception cref="InvalidDataException">The value is not one of the four names.</exception>
+        internal static GoAspect? ParseAspect(string value, string where) => value switch
+        {
+            "" => null,
+            "biological_process" => GoAspect.BiologicalProcess,
+            "cellular_component" => GoAspect.CellularComponent,
+            "molecular_function" => GoAspect.MolecularFunction,
+            "unknown" => GoAspect.Unknown,
+            _ => throw new InvalidDataException($"{where}: aspect '{value}' is not a GO namespace.")
         };
 
         private static string Bool(bool? value) => value switch
