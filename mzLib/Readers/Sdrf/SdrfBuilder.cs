@@ -575,8 +575,10 @@ namespace Readers
 
         /// <summary>
         /// The instrument. mzML supplies it already accessioned; a Thermo RAW supplies a name with
-        /// an empty accession, which is resolved here against PSI-MS — the one place a name-to-
-        /// accession lookup genuinely belongs, since the raw reader must not carry an ontology.
+        /// an empty accession, which is resolved here against PSI-MS's instrument models, since the
+        /// raw reader must not carry an ontology. Only an instrument model counts: a bare name
+        /// lookup turned a RAW file's device family "MS" into UO:0000028 "millisecond". The rule is
+        /// <see cref="InstrumentModelCvTerms"/>, shared with the mzML writer.
         /// </summary>
         private static string InstrumentCell(CvParam? instrument, SdrfBuilderOptions options)
         {
@@ -584,7 +586,7 @@ namespace Readers
 
             if (string.IsNullOrEmpty(instrument.Accession)
                 && !string.IsNullOrEmpty(instrument.Name)
-                && ControlledVocabulary.PsiMs.TryGetByName(instrument.Name, out var resolved))
+                && InstrumentModelCvTerms.TryGetByName(instrument.Name, out var resolved))
                 instrument = resolved;
 
             // Neither a name nor an accession is not a term, and SdrfCell.ToCell rightly refuses

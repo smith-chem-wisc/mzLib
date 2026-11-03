@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
+using UsefulProteomicsDatabases;
 
 namespace Readers
 {
@@ -242,14 +243,21 @@ namespace Readers
 
             // The instrument model the file came from, if the reader could determine it. mzML
             // records it as an accessioned PSI-MS term; a Thermo RAW yields only a name, so the
-            // accession may be empty and the term is then written name-only.
+            // accession is empty and the name is resolved against PSI-MS here, which is what
+            // ThermoRawFileReader.BuildInstrumentModel's empty accession asks a caller to do.
             //
             // Before this was carried through, every mzML written here declared the bare parent
             // term MS:1000031 "instrument model" and nothing else, so writing a file -- which
             // calibration and spectral averaging both do -- silently discarded which mass
             // spectrometer produced the data. Reading such a file back reported no instrument at
             // all, and the loss was invisible because MS:1000031 looks like a real declaration.
+            // Without the name lookup a RAW file's copies still lost it: a MetaMorpheus
+            // Calibrate -> Search of PXD034564 read its 16 calibrated files back with no instrument.
             var instrumentModel = myMsDataFile.SourceFile.InstrumentModel;
+            if (instrumentModel is not null
+                && string.IsNullOrEmpty(instrumentModel.Accession)
+                && InstrumentModelCvTerms.TryGetByName(instrumentModel.Name, out var resolvedModel))
+                instrumentModel = resolvedModel;
             var serialNumber = myMsDataFile.SourceFile.InstrumentSerialNumber;
 
             // One configuration is still emitted per mass analyzer present, which is not
@@ -277,12 +285,9 @@ namespace Readers
                 // A specific model when we have an ACCESSIONED one, otherwise the bare parent term
                 // as before. The accession is required: mzML types cvParam/@accession as mandatory,
                 // so emitting a name-only term would produce a file that does not validate -- a
-                // worse outcome than the loss being fixed here.
-                //
-                // That means a model read from a Thermo RAW, which records only free text, still
-                // does not survive a write. Recovering it needs a name-to-accession lookup against
-                // the PSI-MS vocabulary, which is a separate piece of work; until then the mzML
-                // path (every converted vendor file) is preserved and the RAW path is unchanged.
+                // worse outcome than the loss being fixed here. A RAW name PSI-MS does not hold as
+                // an instrument model (a prototype, or the bare device family "MS") stays unresolved
+                // above and is written as the parent term.
                 //
                 // The value stays empty either way: an instrument model is a presence flag, which
                 // is also how a reader tells it from the serial number written beside it.
