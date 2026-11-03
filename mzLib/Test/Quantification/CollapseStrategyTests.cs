@@ -244,6 +244,27 @@ public class CollapseStrategyTests
     }
 
     /// <summary>
+    /// The label-free counterpart: a pooled reference file collapses to a reference column, so the role is not lost
+    /// for every step downstream (GR-20).
+    /// </summary>
+    [Test]
+    public void CollapsingLabelFreeReferenceFiles_KeepsTheRole()
+    {
+        var columns = new List<ISampleInfo>
+        {
+            new SpectraFileInfo("qc1.raw", "QC", 0, 0, 0) { IsReference = true },
+            new SpectraFileInfo("qc2.raw", "QC", 0, 1, 0) { IsReference = true },
+            new SpectraFileInfo("s1.raw", "A", 0, 0, 0),
+        };
+
+        var collapsed = new CollapseTechnicalReplicates().CollapseSamples(Matrix(columns, 100, 300, 50), new SumAggregation());
+
+        var keys = collapsed.ColumnKeys.Cast<SpectraFileInfo>().ToList();
+        Assert.That(keys.Single(k => k.Condition == "QC").IsReference, Is.True);
+        Assert.That(keys.Single(k => k.Condition == "A").IsReference, Is.False);
+    }
+
+    /// <summary>
     /// A collapsed column keeps a sample name only when every column merged into it carries that
     /// same name.
     ///

@@ -24,6 +24,121 @@ namespace Readers
         internal static bool IsUnknownWord(string value) =>
             UnknownWords.Any(w => string.Equals(value.Trim(), w, StringComparison.OrdinalIgnoreCase));
 
+        // GR-20 (sdrf QP-S28 and QP-S31, ruled 2026-10-08): the sample-type words that mark a pooled reference, and the
+        // pooled-sample word that marks none.
+        private static readonly HashSet<string> ReferenceSampleTypes = new(StringComparer.OrdinalIgnoreCase) { "reference", SdrfReserved.Pooled };
+        private const string NotPooled = "not pooled";
+
+        /// <summary>True for the biological replicate the SDRF specification prescribes for a pooled sample.</summary>
+        internal static bool IsPooledWord(string value) =>
+            string.Equals(value.Trim(), SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The pooled-reference signals a row carries (GR-20), each read on its own; any one makes the row's sample a
+        /// reference. They come in two kinds. <c>Role</c> states the sample's role: <c>characteristics[sample type]</c>
+        /// <c>reference</c> or <c>pooled</c>, and, for an isobaric channel, <c>comment[reference channel]</c> naming it
+        /// (<paramref name="namesThisChannel"/>; a label-free file has no channel). <c>Preparation</c> can also say only how
+        /// the sample was made: <c>characteristics[pooled sample]</c> other than <c>not pooled</c>, and a biological replicate
+        /// of <c>pooled</c>. A kind every sample carries tells no sample apart and is cleared (<see cref="EverySampleIsMarked"/>).
+        /// Beside them, what the row says that reads as a study sample (a sample type naming something else,
+        /// <c>not pooled</c>), so a disagreement can be reported. Empty cells and unknown words say neither. A role is never
+        /// read from a name.
+        /// </summary>
+        internal static (List<string> Role, List<string> Preparation, List<string> StudySample) ReadReferenceSignals(SdrfRow row,
+            Func<string, bool>? namesThisChannel)
+        {
+            var role = new List<string>();
+            var preparation = new List<string>();
+            var studySample = new List<string>();
+
+            string sampleTypeCell = (row[SdrfLabelFreeDesign.SampleTypeColumn] ?? string.Empty).Trim();
+            string sampleType = sampleTypeCell.Length == 0 ? string.Empty : SdrfQuantAuditor.ReadLabel(sampleTypeCell).Name;
+            if (ReferenceSampleTypes.Contains(sampleType))
+                role.Add($"sample type '{sampleType}'");
+            else if (sampleType.Length > 0 && !IsUnknownWord(sampleType))
+                studySample.Add($"sample type '{sampleType}'");
+
+            // The deposits write the plex's reference channel on every row (TMT127N), so it marks only the row it names.
+            string referenceChannel = (row[SdrfIsobaricDesign.ReferenceChannelColumn] ?? string.Empty).Trim();
+            if (namesThisChannel != null && referenceChannel.Length > 0 && !IsUnknownWord(referenceChannel)
+                && namesThisChannel(referenceChannel))
+            {
+                role.Add($"reference channel '{referenceChannel}'");
+            }
+
+            string pooledSample = (row[SdrfLabelFreeDesign.PooledSampleColumn] ?? string.Empty).Trim();
+            if (string.Equals(pooledSample, NotPooled, StringComparison.OrdinalIgnoreCase))
+                studySample.Add($"pooled sample '{pooledSample}'");
+            else if (pooledSample.Length > 0 && !IsUnknownWord(pooledSample))
+                preparation.Add("pooled sample");
+
+            string biorep = (row[SdrfLabelFreeDesign.BiologicalReplicateColumn] ?? string.Empty).Trim();
+            if (IsPooledWord(biorep))
+                preparation.Add($"biological replicate '{biorep}'");
+
+            return (role, preparation, studySample);
+        }
+
+        /// <summary>
+        /// sdrf 041: two signals that disagree are reported, and the sample is read as a reference, because a pool read as a
+        /// study sample pulls its group towards the mean of all groups.
+        /// </summary>
+        internal static string DisagreementNote(string what, IEnumerable<string> reference, IEnumerable<string> studySample) =>
+            $"{what} is marked a reference by {string.Join(", ", reference.Distinct())}, but also says " +
+            $"{string.Join(", ", studySample.Distinct())}. It is read as a reference: a pool read as a study sample would pull " +
+            "its group towards the mean of all groups.";
+
+        /// <summary>
+        /// Which kinds of a row's reference signals a whole design clears (<see cref="EverySampleIsMarked"/>).
+        /// </summary>
+        internal readonly record struct ClearedReferenceSignals(bool Role, bool Preparation)
+        {
+            /// <summary>The row's reference signals the design still reads, roles first; any one makes its sample a reference.</summary>
+            internal List<string> Kept(IEnumerable<string> role, IEnumerable<string> preparation) =>
+                (Role ? Enumerable.Empty<string>() : role).Concat(Preparation ? Enumerable.Empty<string>() : preparation).ToList();
+        }
+
+        /// <summary>
+        /// GR-20: a reference signal every sample of a whole design carries tells no sample apart, so it is cleared, and a note
+        /// says so. A role (sample type <c>reference</c> or <c>pooled</c>, a named reference channel) is cleared only when every
+        /// sample has one (ruled 2026-11-03). A preparation mark (<c>pooled sample</c>, a <c>pooled</c> replicate) says how the
+        /// samples were made, each itself a pool, not that they are references (ruled 2026-10-26). It is cleared when every
+        /// sample without a role that stands carries one, so a role on only some samples still marks them references.
+        /// Judged over the whole design, never per plex: a plex holding only reference channels beside plexes of study samples
+        /// keeps its references. A signal on only some samples marks them references.
+        /// </summary>
+        /// <param name="signalsByRow">The role and preparation signals of every row the design reads (dropped rows excluded).</param>
+        /// <param name="notes">The design's notes; one sentence is added for each kind cleared, naming the signal(s).</param>
+        internal static ClearedReferenceSignals EverySampleIsMarked(
+            IReadOnlyList<(IReadOnlyList<string> Role, IReadOnlyList<string> Preparation)> signalsByRow, List<string> notes)
+        {
+            if (signalsByRow.Count == 0)
+                return default;
+
+            bool role = signalsByRow.All(s => s.Role.Count > 0);
+            var judged = role ? signalsByRow : signalsByRow.Where(s => s.Role.Count == 0).ToList();
+            bool preparation = judged.Count > 0 && judged.All(s => s.Preparation.Count > 0);
+
+            if (role)
+            {
+                var roles = signalsByRow.SelectMany(s => s.Role).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                bool preparationMarksSome = !preparation && judged.Any(s => s.Preparation.Count > 0);
+                notes.Add($"Every sample in this design is marked a reference by {string.Join(" or ", roles)}, so the role tells no " +
+                          "sample apart: all are read as study samples" +
+                          (preparationMarksSome ? ", except those that pooled sample or a pooled replicate marks as a reference." : "."));
+            }
+
+            if (preparation)
+            {
+                var signals = judged.SelectMany(s => s.Preparation).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                notes.Add($"Every sample in this design is marked by {string.Join(" or ", signals)}, so the mark says how the samples " +
+                          "were made, not that they are pooled references: all are read as study samples" +
+                          (judged.Count == signalsByRow.Count ? "." : ", except those that sample type or reference channel marks as a reference."));
+            }
+
+            return new ClearedReferenceSignals(role, preparation);
+        }
+
         /// <summary>
         /// MAP-12: the file the search read when the document says which, else the acquired one.
         /// Null (and a refusal) when neither column is present.
@@ -83,9 +198,11 @@ namespace Readers
         /// <summary>
         /// Reads one row's factor values for the condition (MAP-07). An empty or unknown value is a
         /// refusal (SDRF-P1), and the refusal names its remedy, which depends on how the column was chosen.
+        /// A pooled reference's unknown value (a pool of every condition says <c>not applicable</c>) is kept as written:
+        /// a reference is in no comparison, so its condition pairs it with nothing, and a pool is never refused (GR-20).
         /// </summary>
         internal static List<string> ReadFactorValues(SdrfRow row, int line, string fileName, List<string> conditionColumns,
-            bool conditionDeclared, List<string> refusals)
+            bool conditionDeclared, List<string> refusals, bool isReference = false)
         {
             var factorValues = new List<string>();
             foreach (var column in conditionColumns)
@@ -93,7 +210,7 @@ namespace Readers
                 string value = (row[column] ?? string.Empty).Trim();
                 if (value.Length == 0)
                     refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is empty.");
-                else if (IsUnknownWord(value))
+                else if (IsUnknownWord(value) && !isReference)
                     refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is '{value}'. A condition cannot be built from an unknown " +
                                  (conditionDeclared
                                      ? "factor; fill it in, or leave the column out of the declared condition columns to pool these rows."
