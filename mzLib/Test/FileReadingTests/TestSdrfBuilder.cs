@@ -431,6 +431,18 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void ADeviceFamilyNameIsNeverResolvedToATermThatIsNoInstrument()
+        {
+            // A RAW file that records no model falls back to its device family, typically "MS"
+            // (ThermoRawFileReader.BuildInstrumentModel). A bare name lookup resolved that to UO:0000028
+            // "millisecond" (exact synonym "ms", matched ignoring case) and wrote it as the instrument.
+            var assay = Assay() with { Instrument = new CvParam("MS", "", "MS", "") };
+            var row = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) }).Results[0];
+
+            Assert.That(row["comment[instrument]"], Is.EqualTo("NT=MS"), "named, but no term claimed");
+        }
+
+        [Test]
         public void AnUnresolvableInstrumentNameIsWrittenWithoutAnAccession()
         {
             var assay = Assay() with { Instrument = new CvParam("MS", "", "Some Prototype Instrument", "") };
