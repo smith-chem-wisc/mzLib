@@ -996,11 +996,13 @@ namespace Readers
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].cvParam = new Generated.CVParamType[3];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].cvParam[0] = new Generated.CVParamType
                     {
-                        accession = "MS:1000786",
-                        name = "non-standard data array",
+                        accession = "MS:1002743",
+                        name = "sampled noise m/z array",
                         cvRef = "MS",
-                        value = "mass",
+                        value = "",
                         unitCvRef = "MS",
+                        unitAccession = "MS:1000040",
+                        unitName = "m/z"
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].cvParam[1] = new Generated.CVParamType
                     {
@@ -1016,27 +1018,26 @@ namespace Readers
                         cvRef = "MS",
                         value = ""
                     };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].userParam = new Generated.UserParamType[1];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].userParam[0] = new Generated.UserParamType
-                    {
-                        name = "kelleherCustomType",
-                        value = "noise m/z",
-                    };
 
-                    // noise
+                    // noise: PSI-MS's sampled noise intensity is the noise above the baseline, so noise minus baseline;
+                    // the readers add the baseline back.
+                    double[,] noiseTable = myMsDataFile.GetOneBasedScan(i).NoiseData;
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3] = new Generated.BinaryDataArrayType
                     {
-                        binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataNoise()
+                        binary = MzSpectrum.Get64Bitarray(Enumerable.Range(0, noiseTable.Length / 3).Select(k => noiseTable[1, k] - noiseTable[2, k]))
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].arrayLength = (mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 8).ToString();
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].encodedLength = (4 * Math.Ceiling(((double)mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam = new Generated.CVParamType[3];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[0] = new Generated.CVParamType
                     {
-                        accession = "MS:1000786",
-                        name = "non-standard data array",
+                        accession = "MS:1002744",
+                        name = "sampled noise intensity array",
                         cvRef = "MS",
-                        value = "SignalToNoise"
+                        value = "",
+                        unitCvRef = "MS",
+                        unitAccession = "MS:1000131",
+                        unitName = "number of detector counts"
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[1] = new Generated.CVParamType
                     {
@@ -1052,12 +1053,6 @@ namespace Readers
                         cvRef = "MS",
                         value = ""
                     };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].userParam = new Generated.UserParamType[1];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].userParam[0] = new Generated.UserParamType
-                    {
-                        name = "kelleherCustomType",
-                        value = "noise baseline",
-                    };
 
                     // baseline
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4] = new Generated.BinaryDataArrayType
@@ -1069,10 +1064,10 @@ namespace Readers
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam = new Generated.CVParamType[3];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam[0] = new Generated.CVParamType
                     {
-                        accession = "MS:1000786",
-                        name = "non-standard data array",
+                        accession = "MS:1002745",
+                        name = "sampled noise baseline array",
                         cvRef = "MS",
-                        value = "baseline"
+                        value = ""
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam[1] = new Generated.CVParamType
                     {
@@ -1087,12 +1082,6 @@ namespace Readers
                         name = "no compression",
                         cvRef = "MS",
                         value = ""
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].userParam = new Generated.UserParamType[1];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].userParam[0] = new Generated.UserParamType
-                    {
-                        name = "kelleherCustomType",
-                        value = "noise intensity",
                     };
                 }
 
