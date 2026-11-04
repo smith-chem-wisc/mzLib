@@ -62,7 +62,8 @@ namespace MassSpectrometry
             TotalIonCurrent = totalIonCurrent;
             InjectionTime = injectionTime;
             NoiseData = noiseData;
-            MassSpectrum = massSpectrum;
+            // MassSpectrum is assigned below, after we've decided whether to wrap it for
+            // a chargeArray ctor parameter. Setting it here would be overwritten anyway.
             NativeId = nativeId;
             OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
             IsolationMz = isolationMZ;
@@ -74,7 +75,43 @@ namespace MassSpectrometry
             HcdEnergy = hcdEnergy;
             ScanDescription = scanDescription;
             CompensationVoltage = compensationVoltage;
-            ChargeArray = chargeArray;
+
+            // ChargeArray now lives on MzSpectrum (so that every MzSpectrum mutator can
+            // keep it in sync with XArray/YArray). The chargeArray ctor parameter is
+            // preserved for source compatibility:
+            //   * If the caller built the MzSpectrum without charges, wrap into a new
+            //     MzSpectrum that carries them. This is the path the readers and most
+            //     legacy callers take.
+            //   * If the MzSpectrum already carries charges and the caller also passed a
+            //     chargeArray here, require them to agree — a mismatch is a programming
+            //     error that should surface immediately, not silently win one way or the other.
+            //   * If neither is set, ChargeArray remains null.
+            if (chargeArray != null)
+            {
+                if (massSpectrum?.ChargeArray != null)
+                {
+                    if (!massSpectrum.ChargeArray.SequenceEqual(chargeArray))
+                    {
+                        throw new ArgumentException(
+                            "chargeArray parameter conflicts with massSpectrum.ChargeArray. "
+                            + "Pass chargeArray on EITHER the MzSpectrum constructor OR this "
+                            + "MsDataScan constructor (preferring the former), not both with "
+                            + "different values.",
+                            nameof(chargeArray));
+                    }
+                    // Equal arrays — caller passed the same data twice; harmless.
+                }
+                else if (massSpectrum != null)
+                {
+                    // Wrap the existing peaks into a charge-carrying MzSpectrum. The 4-arg
+                    // ctor validates length match and throws if chargeArray.Length differs
+                    // from XArray.Length, surfacing the bug at scan-construction time
+                    // instead of letting a misaligned ChargeArray ride downstream.
+                    massSpectrum = new MzSpectrum(massSpectrum.XArray, massSpectrum.YArray,
+                                                  chargeArray, shouldCopy: false);
+                }
+            }
+            MassSpectrum = massSpectrum;
 
             // Ensure the charge of the selected ion matches the polarity of the scan
             SelectedIonChargeStateGuess = Polarity switch
@@ -87,16 +124,21 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Per-peak charge state, parallel to <see cref="MassSpectrum"/>.XArray.
-        /// Length must equal MassSpectrum.Size when set; null means "no charge data captured".
-        /// Encoded in mzML as a third &lt;binaryDataArray&gt; with cvParam
+        /// Length equals <c>MassSpectrum.Size</c> when set; null means "no per-peak charge
+        /// data captured". Encoded in mzML as a third &lt;binaryDataArray&gt; with cvParam
         /// MS:1000516 ("charge array"), 32-bit float, no compression
         /// (charge arrays are small enough that the zlib overhead isn't worth it; could
         /// be made configurable in a follow-up if a downstream consumer needs it).
         ///
-        /// Only set by deisotopers (e.g. YADA's annotate mode); vendor-converted mzML
-        /// rarely includes it. Readers that don't understand MS:1000516 silently ignore it.
+        /// <para>This is a thin delegating property over <see cref="MzSpectrum.ChargeArray"/>.
+        /// The data lives on the spectrum so it travels with the peak data it indexes —
+        /// every MzSpectrum mutator can keep all three parallel arrays (m/z, intensity,
+        /// charge) in sync without needing to know there is a parent MsDataScan.</para>
+        ///
+        /// <para>Only set by deisotopers (e.g. YADA's annotate mode); vendor-converted mzML
+        /// rarely includes it. Readers that don't understand MS:1000516 silently ignore it.</para>
         /// </summary>
-        public int[] ChargeArray { get; protected set; }
+        public int[] ChargeArray => MassSpectrum?.ChargeArray;
 
         /// <summary>
         /// The mass spectrum associated with the scan

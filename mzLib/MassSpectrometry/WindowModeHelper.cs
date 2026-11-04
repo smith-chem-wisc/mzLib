@@ -12,7 +12,65 @@ namespace MassSpectrometry
         public static void Run(ref double[] intensities, ref double[] mArray,
             IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
         {
-            Array.Sort(intensities, mArray);
+            // Backward-compatible thin wrapper: callers without a per-peak charge array
+            // continue to use the original 5-parameter signature unchanged. The 6-parameter
+            // overload below carries an optional `ref int[] chargeArray` so reader paths
+            // that loaded a per-peak charge array (PSI-MS MS:1000516) can keep it in sync
+            // with the windowing/filtering's reordering and pruning of mArray/intensities.
+            int[] noChargeArray = null;
+            Run(ref intensities, ref mArray, ref noChargeArray, filteringParams,
+                scanRangeMinMz, scanRangeMaxMz, keepZeroPeaks);
+        }
+
+        /// <summary>
+        /// Charge-array-aware overload. When <paramref name="chargeArray"/> is non-null and
+        /// its length matches <paramref name="mArray"/>, the same selection / reordering /
+        /// pruning that the windowing applies to mz+intensity is also applied to charges,
+        /// preserving per-peak alignment. Pass <c>null</c> (or a length-mismatched array)
+        /// to get the original behavior unchanged.
+        /// </summary>
+        public static void Run(ref double[] intensities, ref double[] mArray, ref int[] chargeArray,
+            IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
+        {
+            // Charges only follow the selection if the caller provided a length-aligned
+            // array. Mismatched lengths are ambiguous and would corrupt alignment further;
+            // drop the array in that case so the caller sees an honest "no charge data".
+            bool hasCharges = chargeArray != null && chargeArray.Length == mArray.Length;
+            if (chargeArray != null && !hasCharges)
+            {
+                chargeArray = null;
+            }
+
+            if (hasCharges)
+            {
+                // Index-permutation sort: Array.Sort handles 2 parallel arrays at most;
+                // for 3 parallel arrays we sort an index array by the intensity key and
+                // then materialize all three in the new order. Locals are needed because
+                // C# disallows capturing `ref` parameters inside the lambda comparator.
+                double[] intLocal = intensities;
+                double[] mzLocal = mArray;
+                int[] chgLocal = chargeArray;
+                int n = intLocal.Length;
+                int[] perm = new int[n];
+                for (int i = 0; i < n; i++) perm[i] = i;
+                Array.Sort(perm, (a, b) => intLocal[a].CompareTo(intLocal[b]));
+                var newInt = new double[n];
+                var newMz = new double[n];
+                var newChg = new int[n];
+                for (int i = 0; i < n; i++)
+                {
+                    newInt[i] = intLocal[perm[i]];
+                    newMz[i] = mzLocal[perm[i]];
+                    newChg[i] = chgLocal[perm[i]];
+                }
+                intensities = newInt;
+                mArray = newMz;
+                chargeArray = newChg;
+            }
+            else
+            {
+                Array.Sort(intensities, mArray);
+            }
             double TIC = intensities.Sum();
 
             //filter low intensites based on a percent for the whole spectrum.
@@ -138,13 +196,20 @@ namespace MassSpectrometry
 
             List<double> reducedMzList = new List<double>();
             List<double> reducedIntensityList = new List<double>();
+            // Parallel reduced charge list — only populated when the caller passed a
+            // length-aligned chargeArray. Indices into mArray/intensities are stored in
+            // mzInRange[rangeIndex], so charges follow the same selection by indexing
+            // into the (already-permuted) chargeArray with arrayIndex.
+            List<int> reducedChargeList = hasCharges ? new List<int>() : null;
 
             foreach (int rangeIndex in mzInRange.Keys)
             {
                 List<double> tempMzList = new List<double>();
+                List<int> tempChargeList = hasCharges ? new List<int>() : null;
                 foreach (int arrayIndex in mzInRange[rangeIndex])
                 {
                     tempMzList.Add(mArray[arrayIndex]);
+                    if (hasCharges) tempChargeList.Add(chargeArray[arrayIndex]);
                 }
                 //There is no need to do any normalization unless there are multiple windows
                 if (filteringParams.NormalizePeaksAcrossAllWindows)
@@ -169,14 +234,46 @@ namespace MassSpectrometry
 
                 if (tempMzList.Count > 0 && mzRangeIntensities[rangeIndex].Count > 0)
                 {
-                    reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
+                    int takeCount = Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow);
+                    reducedMzList.AddRange(tempMzList.GetRange(0, takeCount));
                     reducedIntensityList.AddRange(mzRangeIntensities[rangeIndex].GetRange(0, Math.Min(mzRangeIntensities[rangeIndex].Count, countOfPeaksToKeepPerWindow)));
+                    if (hasCharges)
+                        reducedChargeList.AddRange(tempChargeList.GetRange(0, takeCount));
                 }
             }
 
             intensities = reducedIntensityList.ToArray();
             mArray = reducedMzList.ToArray();
-            Array.Sort(mArray, intensities);
+            if (hasCharges)
+            {
+                // Final m/z sort must permute charges in lockstep — repeat the
+                // index-permutation idiom from the top of the method. Locals are needed
+                // because C# disallows capturing `ref` parameters inside the lambda.
+                chargeArray = reducedChargeList.ToArray();
+                double[] mzLocal = mArray;
+                double[] intLocal = intensities;
+                int[] chgLocal = chargeArray;
+                int n = mzLocal.Length;
+                int[] perm = new int[n];
+                for (int i = 0; i < n; i++) perm[i] = i;
+                Array.Sort(perm, (a, b) => mzLocal[a].CompareTo(mzLocal[b]));
+                var newMz = new double[n];
+                var newInt = new double[n];
+                var newChg = new int[n];
+                for (int i = 0; i < n; i++)
+                {
+                    newMz[i] = mzLocal[perm[i]];
+                    newInt[i] = intLocal[perm[i]];
+                    newChg[i] = chgLocal[perm[i]];
+                }
+                mArray = newMz;
+                intensities = newInt;
+                chargeArray = newChg;
+            }
+            else
+            {
+                Array.Sort(mArray, intensities);
+            }
         }
     }
 }
