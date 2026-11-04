@@ -76,6 +76,38 @@ public class EffectScaleTests
         Assert.That(fit.ConfidenceHigh, Is.EqualTo(fit.Scale + 1.959963984540054 * fit.StandardError).Within(1e-12));
     }
 
+    /// <summary>The two estimating equations (Zhao et al. 2020), written out here independently of the code under test.</summary>
+    private static (double Scale, double Tau2) Scores(double[] x, double[] sx, double[] y, double[] sy, double c, double tau2)
+    {
+        double s1 = 0, s2 = 0;
+        for (int j = 0; j < x.Length; j++)
+        {
+            double sx2 = sx[j] * sx[j], ty = tau2 + sy[j] * sy[j], d = ty + sx2 * c * c, r = y[j] - c * x[j];
+            s1 += r * (y[j] * sx2 * c + x[j] * ty) / (d * d);
+            s2 += sx2 * (r * r - d) / (d * d);
+        }
+        return (s1, s2);
+    }
+
+    [TestCase("typical")]
+    [TestCase("strong_overdispersion")]
+    [TestCase("weak_effects")]
+    [TestCase("negative_scale")]
+    public void SolvesTheEstimatingEquationsFarMoreTightlyThanMrRaps(string scenario)
+    {
+        // mr.raps stops at about √ε in the argument; the reported scale and τ² must make both equations at least a
+        // hundred times closer to zero than mr.raps's own values do (scenarios with τ² inside its interval).
+        var expected = ReadTsv("effect_scale_results.tsv").Single(r => r["scenario"] == scenario);
+        var (x, sx, y, sy) = Inputs(scenario);
+        EffectScaleResult fit = EffectScale.Estimate(x, sx, y, sy);
+
+        var ours = Scores(x, sx, y, sy, fit.Scale, fit.Tau2);
+        var theirs = Scores(x, sx, y, sy, D(expected["scale"]), D(expected["tau2"]));
+
+        Assert.That(Math.Abs(ours.Scale), Is.LessThan(Math.Abs(theirs.Scale) / 100), "scale equation");
+        Assert.That(Math.Abs(ours.Tau2), Is.LessThan(Math.Abs(theirs.Tau2) / 100), "overdispersion equation");
+    }
+
     [Test]
     public void WeakReferenceEffectsShrinkTheInverseVarianceSlopeButNotTheScale()
     {
