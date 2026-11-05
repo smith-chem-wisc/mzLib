@@ -1,0 +1,13 @@
+sample	individual	group	intercept	groupB	groupC
+s01	NA	A	1	0	0
+s02	NA	A	1	0	0
+s03	NA	A	1	0	0
+s04	NA	A	1	0	0
+s05	NA	B	1	1	0
+s06	NA	B	1	1	0
+s07	NA	B	1	1	0
+s08	NA	B	1	1	0
+s09	NA	C	1	0	1
+s10	NA	C	1	0	1
+s11	NA	C	1	0	1
+s12	NA	C	1	0	1
