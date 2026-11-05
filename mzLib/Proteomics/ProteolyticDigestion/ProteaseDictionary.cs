@@ -466,8 +466,8 @@ namespace Proteomics.ProteolyticDigestion
         /// "chymotrypsin (cleave before proline)" → "chymotrypsin/P".
         /// </para>
         /// <para>
-        /// One name is deliberately NOT remapped: bare "trypsin". Between January 2026 and the
-        /// restoration of this convention it named the unrestricted motif; it now names the
+        /// One name is deliberately NOT remapped: bare "trypsin". It named the unrestricted motif
+        /// from at least 2022 until this convention was adopted; it now names the
         /// restricted one. Both spellings are live dictionary keys, so the change cannot be
         /// detected here — it is called out in proteases.tsv and in the release notes instead.
         /// </para>

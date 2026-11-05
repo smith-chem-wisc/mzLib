@@ -314,8 +314,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// <summary>
         /// The bare name is the proline-restricted enzyme and the "/P" suffix is the variant that
         /// ignores the restriction, matching MaxQuant, Mascot, Comet and the PSI-MS cleavage agent
-        /// terms of the same spelling. Between January 2026 and the restoration of this convention
-        /// the file said the reverse, so this pins the direction rather than merely the motifs.
+        /// terms of the same spelling. Before this convention was adopted the file said the
+        /// reverse, so this pins the direction rather than merely the motifs.
         /// </summary>
         [Test]
         public static void ProlineSuffixFollowsTheCommunityConvention()

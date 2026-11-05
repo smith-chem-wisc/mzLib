@@ -49,7 +49,7 @@
 # The bare name is the proline-restricted enzyme. The /P suffix marks the					
 # variant that ignores the restriction -- '/P' reads as 'proline allowed'.					
 #					
-# HISTORY: between 2026-01 and this file, the suffix was '|P' and meant the					
+# HISTORY: from 2026-02 (#1005) until this file, the suffix was '|P' and meant the					
 # exact opposite -- 'trypsin|P' was the restricted enzyme and bare 'trypsin'					
 # was unrestricted, inverting the convention every other search engine uses.					
 # Old names still load: ProteaseDictionary.NormalizeProteaseName maps 'X|P'					
