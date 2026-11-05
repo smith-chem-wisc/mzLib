@@ -256,6 +256,17 @@ public class ProteinDbRetrieverTests
         </uniprot>
         """;
 
+    /// <summary>
+    /// What UniProt returned on 2026-11-02 for most entries, with HTTP 200: the prologue, the opening tag,
+    /// and an error message where the entry should be. Like <see cref="EntrylessUniProtXml"/> it holds no
+    /// entry, which is why it used to be read as a deleted accession.
+    /// </summary>
+    private const string StreamingErrorUniProtXml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"  standalone=\"no\" ?>\n" +
+        "<uniprot xmlns=\"http://uniprot.org/uniprot\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
+        "xsi:schemaLocation=\"http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd\">\n\n\n" +
+        "Error encountered when streaming data. Please try again";
+
     /// <summary>A one-entry UniProtKB XML in the real wire shape, small enough to inline.</summary>
     private const string OneEntryUniProtXml =
         """
@@ -434,6 +445,47 @@ public class ProteinDbRetrieverTests
 
         Assert.That(ex.Message, Does.Contain("empty body"));
         Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty, "an empty download must not be left on disk");
+    }
+
+    /// <summary>
+    /// UniProt's streaming endpoint can fail after it has sent the status and some entries, and then writes
+    /// an error message where the rest should be. The file is not empty, so the length check above passes
+    /// it; it must still be refused, as the outage it is, and not saved as a proteome.
+    /// </summary>
+    [Test]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.xml)]
+    [TestCase(ProteinDbRetriever.ProteomeFormat.fasta)]
+    public void RetrieveProteome_BodyEndsInStreamingError_ThrowsHttpRequestExceptionAndWritesNothing(
+        ProteinDbRetriever.ProteomeFormat format)
+    {
+        string entries = format == ProteinDbRetriever.ProteomeFormat.xml
+            ? OneEntryUniProtXml.Replace("</uniprot>", "")
+            : OneEntryUniProtFasta;
+        string payload = entries + "\n\nError encountered when streaming data. Please try again";
+
+        var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595",
+            _storageDirectory, format, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteomeClient(4, payload)));
+
+        Assert.That(ex.Message, Does.Contain(ProteinDbRetriever.StreamingErrorMarker));
+        Assert.That(ex.StatusCode, Is.Null, "a 200 must not be carried as the failure's status");
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty, "a failed transfer must not be left on disk");
+    }
+
+    /// <summary>
+    /// Only the end of a download is searched, and only for UniProt's own phrase, so a proteome that merely
+    /// mentions an error in an entry's text is still a success.
+    /// </summary>
+    [Test]
+    public void RetrieveProteome_EntryTextMentionsAnError_IsStillASuccess()
+    {
+        string payload = OneEntryUniProtXml.Replace("Serum albumin", "Error-prone repair protein");
+
+        string path = ProteinDbRetriever.RetrieveProteome("UP000008595", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteomeClient(1, payload));
+
+        Assert.That(File.ReadAllText(path), Is.EqualTo(payload));
     }
 
     /// <summary>
@@ -828,6 +880,22 @@ public class ProteinDbRetrieverTests
     }
 
     /// <summary>
+    /// UniProt's streaming error holds no entry, exactly like a deleted accession. Reported as one, it told
+    /// callers that a perfectly good accession "may have been deleted or demerged", and a live test failed
+    /// where it should have skipped. It is an outage, so it must be HttpRequestException.
+    /// </summary>
+    [Test]
+    public void RetrieveEntry_StreamingErrorBody_ThrowsHttpRequestExceptionNotMzLibException()
+    {
+        var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveEntry("P69905", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ClientReturning(StreamingErrorUniProtXml)));
+
+        Assert.That(ex.Message, Does.Contain(ProteinDbRetriever.StreamingErrorMarker));
+        Assert.That(ex.StatusCode, Is.Null);
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
+    /// <summary>
     /// 400 and 404 are the two statuses that mean "no such entry". Any OTHER non-success status is neither
     /// an absence nor an outage — ThrowIfServiceUnavailable has already claimed every transient status — so
     /// it must be MzLibException. Reporting it as HttpRequestException would make a live canary SKIP on a
@@ -871,6 +939,22 @@ public class ProteinDbRetrieverTests
 
         Assert.That(found, Is.False);
         Assert.That(filePath, Is.Null);
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
+    /// <summary>
+    /// The case Found=false must never cover: an outage. UniProt's streaming error is told apart from a
+    /// deleted accession by its message, before the entry check, and is thrown. The phrase is matched
+    /// case-insensitively, as Test.ExternalServiceTestHelper matches it.
+    /// </summary>
+    [Test]
+    [TestCase(StreamingErrorUniProtXml)]
+    [TestCase("ERROR ENCOUNTERED WHEN STREAMING DATA. Please try again")]
+    public void TryRetrieveEntry_StreamingErrorBody_ThrowsHttpRequestExceptionNotNotFound(string body)
+    {
+        Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.TryRetrieveEntry("P69905", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ClientReturning(body)));
+
         Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
     }
 
@@ -1013,6 +1097,19 @@ public class ProteinDbRetrieverTests
     {
         Assert.Throws<MzLibException>(() => ProteinDbRetriever.DownloadAvailableUniProtProteomes(
             _storageDirectory, ClientReturning("", HttpStatusCode.OK, totalResults: 0)));
+    }
+
+    /// <summary>
+    /// Saved as-is, the error message became a ".txt.gz" that UniprotProteomesList later failed to
+    /// decompress, which reached the caller as a corrupt file rather than an outage.
+    /// </summary>
+    [Test]
+    public void DownloadAvailableUniProtProteomes_StreamingErrorBody_ThrowsHttpRequestExceptionAndWritesNothing()
+    {
+        Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.DownloadAvailableUniProtProteomes(_storageDirectory,
+            ClientReturning("Error encountered when streaming data. Please try again", totalResults: 2)));
+
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
     }
 
     [Test]
