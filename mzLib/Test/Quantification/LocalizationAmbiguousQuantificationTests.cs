@@ -375,5 +375,201 @@ namespace Test.Quantification
                 Assert.Throws<ArgumentException>(() => new LocalizationAmbiguousPeptide(new[] { at3, Peptide(protein, 1, 7) }));
             });
         }
+
+        /// <summary>
+        /// The peptides of <paramref name="baseSequence"/> carrying <paramref name="numMods"/> modifications that digesting
+        /// <paramref name="protein"/> really gives, so these tests read the members digestion really sets.
+        /// </summary>
+        private static List<IBioPolymerWithSetMods> Digested(Protein protein, DigestionParams digestion, string baseSequence, int numMods,
+            Modification[] fixedMods, params Modification[] variableMods) =>
+            protein.Digest(digestion, fixedMods.ToList(), variableMods.ToList())
+                .Where(p => p.BaseSequence == baseSequence && p.NumMods == numMods)
+                .Cast<IBioPolymerWithSetMods>()
+                .ToList();
+
+        /// <summary>The row refuses to answer, and says which member it was asked for.</summary>
+        private static void AssertRefuses(string member, Func<object> read) =>
+            Assert.That(new TestDelegate(() => read()),
+                Throws.TypeOf<NotSupportedException>().With.Message.Contains(member), member);
+
+        /// <summary>
+        /// nbollis's review. With cleavage-blocking digestion on, a peptide's missed cleavages depend on where its
+        /// modification sits: under trypsin|P the K2 of AKPAAKAAAR is before a proline and was never a cleavage site, so
+        /// acetylating it leaves the K6 cleavage open (1 missed), while acetylating K6 abolishes that cleavage (0 missed).
+        /// One base sequence, one acetylation, so a spectrum can leave both open, and they disagree. Reading the first
+        /// site's count answered 0 or 1 by which full sequence sorts first, so the row must refuse instead.
+        /// </summary>
+        [Test]
+        public void MissedCleavages_DependOnTheSite_AndTheRowDoesNotPickOne()
+        {
+            var acetylation = Mod("Acetylation", "K", "C2H2O");
+            var protein = new Protein("AKPAAKAAAR", "P1");
+            var blockingOn = new DigestionParams(protease: "trypsin|P", maxMissedCleavages: 1, minPeptideLength: 1,
+                respectCleavageBlockingModifications: true);
+
+            var sites = Digested(protein, blockingOn, "AKPAAKAAAR", 1, Array.Empty<Modification>(), acetylation);
+            Assert.That(sites.Select(s => s.MissedCleavages), Is.EquivalentTo(new[] { 0, 1 }), "the premise: digestion gives both counts");
+
+            var row = new LocalizationAmbiguousPeptide(sites);
+            AssertRefuses(nameof(IBioPolymerWithSetMods.MissedCleavages), () => row.MissedCleavages);
+            Assert.That(row.Sites.Select(s => s.MissedCleavages), Is.EquivalentTo(new[] { 0, 1 }), "the sites still answer");
+        }
+
+        /// <summary>
+        /// The control: with cleavage-blocking digestion off, the same two sites both report the one cleavage the peptide
+        /// spans, so the row has one true count and gives it.
+        /// </summary>
+        [Test]
+        public void MissedCleavages_ThatEverySiteAgreesOn_AreTheRows()
+        {
+            var acetylation = Mod("Acetylation", "K", "C2H2O");
+            var protein = new Protein("AKPAAKAAAR", "P1");
+            var blockingOff = new DigestionParams(protease: "trypsin|P", maxMissedCleavages: 1, minPeptideLength: 1);
+
+            var sites = Digested(protein, blockingOff, "AKPAAKAAAR", 1, Array.Empty<Modification>(), acetylation);
+            Assert.That(sites, Has.Count.EqualTo(2));
+
+            Assert.That(new LocalizationAmbiguousPeptide(sites).MissedCleavages, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// One base sequence in two places: ACMDMEK follows the initiator methionine of P1 and is in the middle of P2. A
+        /// match can leave the oxidation on M3 in P1 and on M5 in P2 open (the database annotates each only there, or the
+        /// search lists both). Everything of one place then disagrees and the row gives none of it, while what every site
+        /// shares it still gives.
+        /// </summary>
+        [Test]
+        public void MembersOfOnePlace_DisagreeAcrossPlaces_AndTheRowDoesNotPickOne()
+        {
+            var nTerminal = new Protein("MACMDMEKGGGR", "P1");
+            var internalCopy = new Protein("WWWRACMDMEKWWWR", "P2");
+            var digestion = new DigestionParams(minPeptideLength: 1);
+            var oxidation = new[] { Mod("Oxidation", "M", "O") };
+
+            var inP1 = Digested(nTerminal, digestion, "ACMDMEK", 1, Array.Empty<Modification>(), oxidation)
+                .Single(s => s.AllModsOneIsNterminus.ContainsKey(4));
+            var inP2 = Digested(internalCopy, digestion, "ACMDMEK", 1, Array.Empty<Modification>(), oxidation)
+                .Single(s => s.AllModsOneIsNterminus.ContainsKey(6));
+            var row = new LocalizationAmbiguousPeptide(new[] { inP1, inP2 });
+
+            Assert.Multiple(() =>
+            {
+                AssertRefuses(nameof(IBioPolymerWithSetMods.Parent), () => row.Parent);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.OneBasedStartResidue), () => row.OneBasedStartResidue);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.OneBasedEndResidue), () => row.OneBasedEndResidue);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.PreviousResidue), () => row.PreviousResidue);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.NextResidue), () => row.NextResidue);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.Description), () => row.Description);
+
+                // The same for both sites, so these are the row's: the constructor guarantees the first group, and these
+                // two digests happen to agree on the second.
+                Assert.That(row.BaseSequence, Is.EqualTo("ACMDMEK"));
+                Assert.That(row.Length, Is.EqualTo(7));
+                Assert.That(row.NumMods, Is.EqualTo(1));
+                Assert.That(row.MonoisotopicMass, Is.EqualTo(inP2.MonoisotopicMass).Within(1e-9));
+                Assert.That(row.ThisChemicalFormula.Formula, Is.EqualTo(inP2.ThisChemicalFormula.Formula));
+                Assert.That(row.MostAbundantMonoisotopicMass, Is.EqualTo(inP2.MostAbundantMonoisotopicMass).Within(1e-9));
+                Assert.That(row.MissedCleavages, Is.Zero);
+                Assert.That(row.NumFixedMods, Is.Zero);
+                Assert.That(row.NumVariableMods, Is.EqualTo(1));
+                Assert.That(row.CleavageSpecificityForFdrCategory, Is.EqualTo(CleavageSpecificity.Full));
+                Assert.That(row.DigestionParams, Is.EqualTo(digestion));
+            });
+        }
+
+        /// <summary>
+        /// A semi-specific search can reach ACMDMEK fully cleaved in P1 and cut at one end only in P2; two searches with
+        /// different digestion settings reach it under different parameters.
+        /// </summary>
+        [Test]
+        public void HowAPeptideWasDigested_DisagreesAcrossPlaces_AndTheRowDoesNotPickOne()
+        {
+            var fully = new Protein("ACMDMEKGGGR", "P1");
+            var atOneEnd = new Protein("WWACMDMEKGGGR", "P2");
+            var oxidation = new[] { Mod("Oxidation", "M", "O") };
+            var semi = new DigestionParams(minPeptideLength: 1, searchModeType: CleavageSpecificity.Semi);
+            var otherSemi = new DigestionParams(minPeptideLength: 2, searchModeType: CleavageSpecificity.Semi);
+
+            var inP1 = Digested(fully, semi, "ACMDMEK", 1, Array.Empty<Modification>(), oxidation)
+                .Single(s => s.AllModsOneIsNterminus.ContainsKey(4));
+            var inP2 = Digested(atOneEnd, semi, "ACMDMEK", 1, Array.Empty<Modification>(), oxidation)
+                .Single(s => s.AllModsOneIsNterminus.ContainsKey(6));
+            var inP1OtherSearch = Digested(fully, otherSemi, "ACMDMEK", 1, Array.Empty<Modification>(), oxidation)
+                .Single(s => s.AllModsOneIsNterminus.ContainsKey(6));
+            Assert.That(inP1.CleavageSpecificityForFdrCategory, Is.Not.EqualTo(inP2.CleavageSpecificityForFdrCategory), "the premise");
+
+            var acrossPlaces = new LocalizationAmbiguousPeptide(new[] { inP1, inP2 });
+            var acrossSearches = new LocalizationAmbiguousPeptide(new[] { inP1, inP1OtherSearch });
+
+            Assert.Multiple(() =>
+            {
+                AssertRefuses(nameof(IBioPolymerWithSetMods.CleavageSpecificityForFdrCategory), () => acrossPlaces.CleavageSpecificityForFdrCategory);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.DigestionParams), () => acrossSearches.DigestionParams);
+                Assert.That(acrossPlaces.DigestionParams, Is.EqualTo(semi));
+                Assert.That(acrossSearches.CleavageSpecificityForFdrCategory, Is.EqualTo(CleavageSpecificity.Full));
+            });
+        }
+
+        /// <summary>
+        /// A variable modification takes a residue from a fixed one, so the fixed count depends on where things sit. With
+        /// methylation fixed on K and variable on R, and carboxylation variable on K and on E: methyl on K with carboxyl on
+        /// E has one fixed modification; carboxyl on K with methyl on R has none. One base sequence, the same two
+        /// modifications, so one row, and it must not report either count.
+        /// </summary>
+        [Test]
+        public void FixedAndVariableCounts_DependOnTheSite_AndTheRowDoesNotPickOne()
+        {
+            var protein = new Protein("AKAEARG", "P1");
+            var digestion = new DigestionParams(minPeptideLength: 1);
+            var fixedMethyl = new[] { Mod("Methylation", "K", "CH2") };
+
+            var candidates = Digested(protein, digestion, "AKAEARG", 2, fixedMethyl,
+                Mod("Methylation", "R", "CH2"), Mod("Carboxylation", "K", "CO2"), Mod("Carboxylation", "E", "CO2"));
+            var methylOnK = candidates.Single(s => s.AllModsOneIsNterminus[3].OriginalId == "Methylation"
+                && s.AllModsOneIsNterminus.ContainsKey(5));
+            var carboxylOnK = candidates.Single(s => s.AllModsOneIsNterminus[3].OriginalId == "Carboxylation"
+                && s.AllModsOneIsNterminus.ContainsKey(7));
+            Assert.That(methylOnK.NumFixedMods, Is.EqualTo(1), "the premise");
+            Assert.That(carboxylOnK.NumFixedMods, Is.Zero, "the premise");
+
+            var row = new LocalizationAmbiguousPeptide(new[] { methylOnK, carboxylOnK });
+
+            Assert.Multiple(() =>
+            {
+                AssertRefuses(nameof(IBioPolymerWithSetMods.NumFixedMods), () => row.NumFixedMods);
+                AssertRefuses(nameof(IBioPolymerWithSetMods.NumVariableMods), () => row.NumVariableMods);
+                Assert.That(row.NumMods, Is.EqualTo(2), "the same two modifications either way");
+            });
+        }
+
+        /// <summary>
+        /// The usual case: every site is a form of one peptide in one place, so all of it is true of every site and the row
+        /// gives it.
+        /// </summary>
+        [Test]
+        public void EveryMemberTheSitesAgreeOn_IsTheRows()
+        {
+            var protein = new Protein("GGGRACMDMEKGGGR", "P1");
+            var digestion = new DigestionParams(minPeptideLength: 1);
+            var sites = Digested(protein, digestion, "ACMDMEK", 1, Array.Empty<Modification>(), Mod("Oxidation", "M", "O"));
+            Assert.That(sites, Has.Count.EqualTo(2));
+
+            var row = new LocalizationAmbiguousPeptide(sites);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(row.Parent, Is.SameAs(protein));
+                Assert.That(row.OneBasedStartResidue, Is.EqualTo(5));
+                Assert.That(row.OneBasedEndResidue, Is.EqualTo(11));
+                Assert.That(row.PreviousResidue, Is.EqualTo('R'));
+                Assert.That(row.NextResidue, Is.EqualTo('G'));
+                Assert.That(row.MissedCleavages, Is.Zero);
+                Assert.That(row.Description, Is.EqualTo(sites[0].Description));
+                Assert.That(row.CleavageSpecificityForFdrCategory, Is.EqualTo(CleavageSpecificity.Full));
+                Assert.That(row.DigestionParams, Is.EqualTo(digestion));
+                Assert.That(row.NumFixedMods, Is.Zero);
+                Assert.That(row.NumVariableMods, Is.EqualTo(1));
+            });
+        }
     }
 }

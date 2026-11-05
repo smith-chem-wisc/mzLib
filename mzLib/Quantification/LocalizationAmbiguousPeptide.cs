@@ -22,11 +22,22 @@ namespace Quantification;
 /// <see cref="FullSequence"/> is the sites' full sequences, each once, in ordinal order, joined by '|' (the separator
 /// MetaMorpheus's Full Sequence column uses for an ambiguous match). Every match with the same base sequence and
 /// modifications is one row, named by every site those matches leave open, so two ambiguous matches of one peptide are
-/// not two peptides. Members that are the same for every site (base sequence, mass, formula, the number of
-/// modifications) are the sites'; members of one place in one protein (parent, residues, digestion) are those of
-/// <see cref="Sites"/>[0]; <see cref="AllModsOneIsNterminus"/> holds only the modifications whose site every candidate
-/// agrees on. A localization-ambiguous peptide has no single set of fragments, so <see cref="Fragment"/>,
-/// <see cref="FragmentInternally"/> and <see cref="Localize"/> throw; fragment its <see cref="Sites"/> instead.
+/// not two peptides. A reader holding this row among other peptides never gets one site's value as if it were the
+/// row's:
+/// <list type="bullet">
+/// <item>Members the constructor makes the same for every site (base sequence, length, mass, formula, the number of
+/// modifications) come from the sites.</item>
+/// <item>Members that can differ between sites (parent, residues, missed cleavages, digestion, description, the fixed
+/// and variable counts) are given only when every site agrees, and otherwise throw
+/// <see cref="NotSupportedException"/> naming the member; read them from each of <see cref="Sites"/> instead. They do
+/// differ on real inputs: with <c>RespectCleavageBlockingModifications</c> a peptide's missed cleavages depend on where
+/// its modification sits, and one site may be known only in one protein and the next only in another.</item>
+/// <item><see cref="AllModsOneIsNterminus"/> holds only the modifications whose site every candidate agrees on.</item>
+/// <item>A localization-ambiguous peptide has no single set of fragments, so <see cref="Fragment"/>,
+/// <see cref="FragmentInternally"/> and <see cref="Localize"/> throw; fragment its <see cref="Sites"/> instead.</item>
+/// </list>
+/// Each site is one copy per full sequence (<c>QuantificationEngine.OnePerFullSequence</c>), so agreement is among those
+/// copies: as for any peptide row, a sequence also found in another protein is not listed again.
 /// </remarks>
 public sealed class LocalizationAmbiguousPeptide : IBioPolymerWithSetMods
 {
@@ -60,24 +71,40 @@ public sealed class LocalizationAmbiguousPeptide : IBioPolymerWithSetMods
     public ChemicalFormula ThisChemicalFormula => Sites[0].ThisChemicalFormula;
     public double MostAbundantMonoisotopicMass => Sites[0].MostAbundantMonoisotopicMass;
     public string SequenceWithChemicalFormulas => string.Join("|", Sites.Select(s => s.SequenceWithChemicalFormulas));
-    public int OneBasedStartResidue => Sites[0].OneBasedStartResidue;
-    public int OneBasedEndResidue => Sites[0].OneBasedEndResidue;
-    public int MissedCleavages => Sites[0].MissedCleavages;
-    public string Description => Sites[0].Description;
+    public int OneBasedStartResidue => Agreed(s => s.OneBasedStartResidue, nameof(OneBasedStartResidue));
+    public int OneBasedEndResidue => Agreed(s => s.OneBasedEndResidue, nameof(OneBasedEndResidue));
+    public int MissedCleavages => Agreed(s => s.MissedCleavages, nameof(MissedCleavages));
+    public string Description => Agreed(s => s.Description, nameof(Description));
     public CleavageSpecificity CleavageSpecificityForFdrCategory
     {
-        get => Sites[0].CleavageSpecificityForFdrCategory;
+        get => Agreed(s => s.CleavageSpecificityForFdrCategory, nameof(CleavageSpecificityForFdrCategory));
         set => throw new NotSupportedException("Set the cleavage specificity on the sites of a localization-ambiguous peptide.");
     }
-    public char PreviousResidue => Sites[0].PreviousResidue;
-    public char NextResidue => Sites[0].NextResidue;
-    public IDigestionParams DigestionParams => Sites[0].DigestionParams;
+    public char PreviousResidue => Agreed(s => s.PreviousResidue, nameof(PreviousResidue));
+    public char NextResidue => Agreed(s => s.NextResidue, nameof(NextResidue));
+    public IDigestionParams DigestionParams => Agreed(s => s.DigestionParams, nameof(DigestionParams));
     public Dictionary<int, Modification> AllModsOneIsNterminus { get; }
     public int NumMods => Sites[0].NumMods;
-    public int NumFixedMods => Sites[0].NumFixedMods;
-    public int NumVariableMods => Sites[0].NumVariableMods;
+    public int NumFixedMods => Agreed(s => s.NumFixedMods, nameof(NumFixedMods));
+    public int NumVariableMods => Agreed(s => s.NumVariableMods, nameof(NumVariableMods));
     public int Length => Sites[0].Length;
-    public IBioPolymer Parent => Sites[0].Parent;
+    public IBioPolymer Parent => Agreed(s => s.Parent, nameof(Parent));
+
+    /// <summary>
+    /// A member's value when every site gives the same one. A member that can differ between sites is read through this,
+    /// never from <see cref="Sites"/>[0], so nobody takes one site's value for the row's without knowing.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The sites disagree, so the row has no single value.</exception>
+    private T Agreed<T>(Func<IBioPolymerWithSetMods, T> member, string memberName)
+    {
+        T value = member(Sites[0]);
+        if (Sites.Skip(1).All(site => EqualityComparer<T>.Default.Equals(member(site), value)))
+        {
+            return value;
+        }
+        throw new NotSupportedException(
+            $"The sites of localization-ambiguous peptide {FullSequence} disagree on {memberName}, so it has no single value; read it from each of Sites.");
+    }
 
     public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
         List<Product> products, IFragmentationParams? fragmentationParams = null) =>
