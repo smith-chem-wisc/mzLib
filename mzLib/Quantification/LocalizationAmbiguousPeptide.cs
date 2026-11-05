@@ -31,7 +31,8 @@ namespace Quantification;
 /// and variable counts) are given only when every site agrees, and otherwise throw
 /// <see cref="NotSupportedException"/> naming the member; read them from each of <see cref="Sites"/> instead. They do
 /// differ on real inputs: with <c>RespectCleavageBlockingModifications</c> a peptide's missed cleavages depend on where
-/// its modification sits, and one site may be known only in one protein and the next only in another.</item>
+/// its modification sits, and when a database annotates a site in only some of the proteins that carry the peptide, the
+/// copy kept for that site can be in another protein than the copy kept for the next.</item>
 /// <item><see cref="AllModsOneIsNterminus"/> holds only the modifications whose site every candidate agrees on.</item>
 /// <item>A localization-ambiguous peptide has no single set of fragments, so <see cref="Fragment"/>,
 /// <see cref="FragmentInternally"/> and <see cref="Localize"/> throw; fragment its <see cref="Sites"/> instead.</item>
