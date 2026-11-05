@@ -22,7 +22,7 @@ public class EntrapmentProteinTests
     private static readonly HashSet<string> NothingForbidden = new();
     private const string Sequence = "SYKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK";
 
-    private static IDigestionParams Tryptic => new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+    private static IDigestionParams Tryptic => new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
 
     private static Modification Phospho()
     {
@@ -746,16 +746,56 @@ public class EntrapmentProteinTests
     [Test]
     public void AnAgentWhoseSitesCannotBeHeldIsRefused()
     {
-        // trypsin|P's K[P]| pins nothing: CleavageSitePositions skips a position where a motif fits
+        // trypsin's K[P]| pins nothing: CleavageSitePositions skips a position where a motif fits
         // but is prevented, so a rearrangement can move that P away and invent a cleavage site the
         // target lacked. Five shipped agents carry preventing motifs. Refusing is the honest answer
         // until pinning works across piece boundaries -- a database that digests differently from
         // its target produces peptides that fail to pair, and it does so silently.
-        var preventing = new DigestionParams("trypsin|P", minPeptideLength: 7, maxMissedCleavages: 2);
+        var preventing = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
 
         var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
             EntrapmentAssembler.Assemble(Sequence, preventing, NothingForbidden));
         Assert.That(ex.Message, Does.Contain("preventing-cleavage motif"));
+    }
+
+    [TestCase("trypsin", "trypsin/P")]
+    [TestCase("trypsin|P", "trypsin/P")] // the retired spelling resolves to restricted trypsin
+    [TestCase("chymotrypsin", "chymotrypsin/P")]
+    [TestCase("Lys-C", "Lys-C/P")]
+    public void ARestrictedAgentIsToldItsUnrestrictedVariantAndThatVariantIsAccepted(string name, string variant)
+    {
+        // Bare trypsin named the unrestricted enzyme for years, so "use an agent without one" would
+        // leave a caller with no idea that the agent they want is one suffix away.
+        var refused = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") },
+            new DigestionParams(name, minPeptideLength: 7, maxMissedCleavages: 2), NothingForbidden));
+        Assert.That(refused!.Message, Does.Contain("preventing-cleavage motif"));
+        Assert.That(refused.Message, Does.Contain($"Use '{variant}'"));
+
+        List<Protein> accepted = EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") },
+            new DigestionParams(variant, minPeptideLength: 7, maxMissedCleavages: 2), NothingForbidden);
+        Assert.That(accepted, Has.Count.EqualTo(1));
+    }
+
+    [TestCase("elastase")]
+    [TestCase("subtilisin")]
+    public void ARestrictedAgentWithNoUnrestrictedVariantIsNotSentToOneThatDoesNotExist(string name)
+    {
+        var refused = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") },
+            new DigestionParams(name, minPeptideLength: 7, maxMissedCleavages: 2), NothingForbidden));
+        Assert.That(refused!.Message, Does.Contain("preventing-cleavage motif"));
+        Assert.That(refused.Message, Does.Not.Contain($"{name}/P"));
+    }
+
+    [Test]
+    public void TheDefaultDigestionParamsAreRefusedAndToldToUseTrypsinSlashP()
+    {
+        // DigestionParams defaults to bare trypsin, so a caller who names no protease lands here.
+        var refused = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") }, new DigestionParams(), NothingForbidden));
+        Assert.That(refused!.Message, Does.Contain("Use 'trypsin/P'"));
     }
 
     [Test]
@@ -1313,7 +1353,7 @@ public class EntrapmentProteinTests
         // Alexander-Sol, #1271: Q156A1 -- a methionine and 79 glutamines -- has one arrangement once
         // its termini are anchored, and was excised whole although nothing of it is searchable.
         string sequence = "M" + new string('Q', 79);
-        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2,
             maxPeptideLength: 50);
 
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
@@ -1329,7 +1369,7 @@ public class EntrapmentProteinTests
         // One residue over the bound: without its initiator methionine the piece is searchable, and
         // kept verbatim it would be a real peptide in the entrapment database.
         string sequence = "M" + new string('Q', 50);
-        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2,
             maxPeptideLength: 50);
         HashSet<string> forbidden = EntrapmentProteinGenerator.TargetPeptides(
             new[] { new Protein(sequence, "P00001") }, digestion);
@@ -1466,7 +1506,7 @@ public class EntrapmentProteinTests
         // A semi-specific search reports peptides that end inside a piece. They have no isomeric
         // counterpart, and the run test never saw them, so partner peptides equal to real target
         // peptides went unnamed. With FragmentationTerminus N or C even the forbidden set was seeds.
-        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2,
             searchModeType: mode);
         var protein = new Protein(Sequence, "P00001");
         static void Refused(TestDelegate call) =>
@@ -1489,7 +1529,7 @@ public class EntrapmentProteinTests
         // so it reports runs longer than MaxMissedCleavages + 1 pieces. The partner keeps the acetyl on
         // the same K and reads through too, but no run that long was collision-checked or paired:
         // pcruzparri found 99 unnamed target peptides among histone H4's partners (#1271, 2026-10-24).
-        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2,
             respectCleavageBlockingModifications: true);
         var protein = new Protein(Sequence, "P00001");
         static void Refused(TestDelegate call) =>
@@ -1506,7 +1546,7 @@ public class EntrapmentProteinTests
         Refused(() => new EntrapmentReportBuilder(digestion, 1, 1));
 
         // Off, the same digestion is accepted.
-        var off = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+        var off = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
         Assert.That(() => EntrapmentProteinGenerator.Create(protein, off, NothingForbidden), Throws.Nothing);
     }
 
@@ -1573,7 +1613,7 @@ public class EntrapmentProteinTests
     {
         // The entries are what get permuted, and a loaded list need not contain its own consensus, so
         // digesting only the list left an entry's own peptides unforbidden.
-        IDigestionParams digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
+        IDigestionParams digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 0);
         var variation = new SequenceVariation(16, 16, "L", "W", "L16W");
         var consensus = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P1",
             sequenceVariations: new List<SequenceVariation> { variation });

@@ -148,7 +148,7 @@ public sealed class EntrapmentAssembly
     /// form can share its composition with an unrelated target run by chance -- on reviewed human
     /// with isoforms, Q99700's <c>R</c> + <c>SATAESPVR</c> beside the target's <c>SATAESPVR</c> +
     /// <c>R</c> -- but its cleavage sites are pinned elsewhere, so it still resolves to nothing.
-    /// Measured at r = 9 (trypsin, MC 2, length 7 and up, seed 1), this list matched the stripped
+    /// Measured at r = 9 (trypsin/P, MC 2, length 7 and up, seed 1), this list matched the stripped
     /// forms <c>TryResolve</c> leaves unresolved peptide for peptide: 465 on reviewed mouse, 865 on
     /// reviewed human with isoforms.</para>
     /// </remarks>
@@ -229,7 +229,7 @@ public sealed class EntrapmentAssembly
     /// <c>MaxLength</c>. Both are legitimate. A run of short pieces can still reach <c>MinLength</c>
     /// through missed cleavages, but then it is a real target peptide completed by pieces with no
     /// alternative, and the run test names it in <see cref="UnrepairableRunCollisionPeptides"/>. On
-    /// the reviewed human proteome (trypsin, MC = 2, length 7 and up) the three such entries are 2,
+    /// the reviewed human proteome (trypsin/P, MC = 2, length 7 and up) the three such entries are 2,
     /// 4 and 25 residues long, and none holds a searchable peptide.</para>
     /// <para>Searching with wider bounds than the database was generated with breaks this. A piece
     /// kept verbatim for being longer than the generation's <c>MaxLength</c> is a real target peptide
@@ -571,11 +571,14 @@ public static class EntrapmentAssembler
     /// target. That rests on every cleavage site being pinned, and two kinds of motif escape the
     /// pinning that <see cref="DecoySequenceValidator.CleavageSitePositions"/> performs.</para>
     /// <para>A <b>preventing</b> motif pins nothing at all: <c>CleavageSitePositions</c> skips a
-    /// position where a motif fits but is prevented, so under <c>trypsin|P</c>'s <c>K[P]|</c> neither
+    /// position where a motif fits but is prevented, so under <c>trypsin</c>'s <c>K[P]|</c> neither
     /// the K nor the P after it is held. Moving that P away invents a cleavage site the target
-    /// lacked; moving another P next to another K destroys one. That is five shipped agents --
-    /// <c>chymotrypsin|P</c>, <c>elastase|P</c>, <c>Lys-C|P</c>, <c>trypsin|P</c> and
-    /// <c>subtilisin|P</c> -- and <c>trypsin|P</c> is an ordinary choice in real work.</para>
+    /// lacked; moving another P next to another K destroys one. That is five shipped agents, the
+    /// proline-restricted bare names -- <c>chymotrypsin</c>, <c>elastase</c>, <c>Lys-C</c>,
+    /// <c>trypsin</c> and <c>subtilisin</c> -- and bare <c>trypsin</c> is an ordinary choice in real
+    /// work as well as <see cref="DigestionParams"/>'s default. So the refusal names the variant to
+    /// use where one ships: <c>trypsin/P</c>, <c>chymotrypsin/P</c> and <c>Lys-C/P</c> carry no
+    /// preventing motif and are accepted.</para>
     /// <para>A <b>multi-residue</b> motif has its span cut by the piece boundary: <c>TX|T</c> cuts
     /// after the second of three residues, so one piece ends <c>…TX</c> and the next begins
     /// <c>T…</c>, neither fragment matches inside its own piece, and nothing is held at the seam.
@@ -635,7 +638,8 @@ public static class EntrapmentAssembler
                     + $"('{motif.InducingCleavage}[{motif.PreventingCleavage}]'), whose residues this "
                     + "assembler cannot hold in place. A rearrangement could then invent or destroy a "
                     + "cleavage site, so the entrapment protein would not digest into the same pieces "
-                    + "as its target and its peptides would not pair. Use an agent without one.");
+                    + "as its target and its peptides would not pair. "
+                    + RemedyForPreventingMotif(agentName));
             }
 
             if ((motif.InducingCleavage?.Length ?? 0) > 1)
@@ -679,6 +683,22 @@ public static class EntrapmentAssembler
     }
 
     /// <summary>
+    /// What a caller refused for a preventing motif should pass instead. Bare <c>trypsin</c> is the
+    /// likeliest way here, being <see cref="DigestionParams"/>'s default and having named the
+    /// unrestricted enzyme for years, so the refusal names the agent that works rather than leaving
+    /// the caller to find the convention in proteases.tsv. An agent with no <c>/P</c> variant, or a
+    /// bare motif list with no agent name, gets the general rule.
+    /// </summary>
+    private static string RemedyForPreventingMotif(string? agentName)
+    {
+        string? variant = agentName is null ? null : agentName + "/P";
+        return variant is not null && ProteaseDictionary.Dictionary.ContainsKey(variant)
+            ? $"Use '{variant}', the same enzyme without the proline restriction."
+            : "Use an agent without one: a protease's /P variant, where one ships, ignores the "
+                + "proline restriction (trypsin/P for trypsin).";
+    }
+
+    /// <summary>
     /// Positions within a piece that must not move: the PROTEIN's termini, and the PIECE's own.
     /// </summary>
     /// <remarks>
@@ -719,7 +739,7 @@ public static class EntrapmentAssembler
         // Protein coordinates, translated into piece coordinates -- not piece coordinates that
         // happen to coincide. When the opening piece is a single residue the protein's second
         // residue lives in the NEXT piece, and computing "the first two" per piece never held it, so
-        // an "N-terminal." modification annotated at position 2 could still move. Under trypsin that
+        // an "N-terminal." modification annotated at position 2 could still move. Under trypsin/P that
         // needs an entry beginning with K or R, which is rare rather than impossible, and the
         // documentation promised to cover it either way.
         int[] protein = proteinLength > 1

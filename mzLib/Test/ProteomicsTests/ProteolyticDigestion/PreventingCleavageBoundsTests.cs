@@ -25,6 +25,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     /// <c>trypsin|P</c> therefore digested <c>RPAAAAK</c> into <c>R</c> + <c>PAAAAK</c>, making exactly the
     /// R|P cleavage the entry exists to forbid, while behaving correctly one residue later. The same
     /// applies to <c>chymotrypsin|P</c>, <c>elastase|P</c>, <c>Lys-C|P</c> and <c>subtilisin|P</c>.</para>
+    ///
+    /// <para>Since #1186 these entries carry the bare names (<c>trypsin</c>, <c>chymotrypsin</c>, ...), and
+    /// the <c>|P</c> spellings resolve to them. The proline-blind trypsin is <c>trypsin/P</c>.</para>
     /// </remarks>
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -47,8 +50,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void ACutAfterMotifHonoursItsPreventingResidueAtPositionOne()
         {
             // The bug, in shipped configuration and with no test fixture involved.
-            CollectionAssert.AreEqual(new[] { "RPAAAAK" }, Digest("RPAAAAK", "trypsin|P"),
-                "proline follows the arginine, so trypsin|P must not cut -- position in the sequence "
+            CollectionAssert.AreEqual(new[] { "RPAAAAK" }, Digest("RPAAAAK", "trypsin"),
+                "proline follows the arginine, so trypsin must not cut -- position in the sequence "
                 + "cannot change whether a rule applies");
         }
 
@@ -56,27 +59,27 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void TheSameBondAwayFromTheTerminusWasAlwaysCorrect()
         {
             // The control that localises the fault: identical bond, two residues further along.
-            CollectionAssert.AreEqual(new[] { "AARPAAAK" }, Digest("AARPAAAK", "trypsin|P"));
+            CollectionAssert.AreEqual(new[] { "AARPAAAK" }, Digest("AARPAAAK", "trypsin"));
         }
 
         [Test]
         public static void ThePreventingRuleStillOnlyBlocksWhereItShould()
         {
             // The fix must not turn the prevention into a blanket refusal.
-            CollectionAssert.AreEqual(new[] { "AAAAK", "R" }, Digest("RAAAAK", "trypsin|P"),
+            CollectionAssert.AreEqual(new[] { "AAAAK", "R" }, Digest("RAAAAK", "trypsin"),
                 "no proline after the arginine, so the cut is made even at position 1");
 
             // And the proline-blind entry is unaffected, since it has no preventing rule at all.
-            CollectionAssert.AreEqual(new[] { "PAAAAK", "R" }, Digest("RPAAAAK", "trypsin"),
-                "trypsin is proline-blind by design and must keep cutting here");
+            CollectionAssert.AreEqual(new[] { "PAAAAK", "R" }, Digest("RPAAAAK", "trypsin/P"),
+                "trypsin/P is proline-blind by design and must keep cutting here");
         }
 
         [Test]
-        [TestCase("chymotrypsin|P", "FPAAAAK", TestName = "chymotrypsin_P honours its proline rule at position one")]
-        // elastase|P recognises almost every residue, so the rest of the sequence uses ones it does not
+        [TestCase("chymotrypsin", "FPAAAAK", TestName = "chymotrypsin honours its proline rule at position one")]
+        // elastase recognises almost every residue, so the rest of the sequence uses ones it does not
         // (W, M) -- otherwise the test would be measuring its other sites rather than this rule.
-        [TestCase("elastase|P", "IPWWWM", TestName = "elastase_P honours its proline rule at position one")]
-        [TestCase("Lys-C|P", "KPAAAAR", TestName = "Lys-C_P honours its proline rule at position one")]
+        [TestCase("elastase", "IPWWWM", TestName = "elastase honours its proline rule at position one")]
+        [TestCase("Lys-C", "KPAAAAR", TestName = "Lys-C honours its proline rule at position one")]
         public static void EveryShippedProlineEntryIsAffectedTheSameWay(string protease, string sequence)
         {
             CollectionAssert.AreEqual(new[] { sequence }, Digest(sequence, protease),
@@ -87,7 +90,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void ACutBeforeMotifHonoursItsPreventingResidueAtTheLastResidue()
         {
             // The mirror fault. No shipped protease is a cut-BEFORE motif with a preventing rule -- every
-            // "|P" entry is cut-after -- so this builds one. For CutIndex 0 the bracketed residues are
+            // proline-restricted entry is cut-after -- so this builds one. For CutIndex 0 the bracketed residues are
             // read BEFORE the recognition sequence, and it was the FORWARD index that went out of range
             // at the C-terminus and abandoned the rule.
             var motifs = DigestionMotif.ParseDigestionMotifsFromString("[D]|T");
