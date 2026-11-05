@@ -746,16 +746,56 @@ public class EntrapmentProteinTests
     [Test]
     public void AnAgentWhoseSitesCannotBeHeldIsRefused()
     {
-        // trypsin|P's K[P]| pins nothing: CleavageSitePositions skips a position where a motif fits
+        // trypsin's K[P]| pins nothing: CleavageSitePositions skips a position where a motif fits
         // but is prevented, so a rearrangement can move that P away and invent a cleavage site the
         // target lacked. Five shipped agents carry preventing motifs. Refusing is the honest answer
         // until pinning works across piece boundaries -- a database that digests differently from
         // its target produces peptides that fail to pair, and it does so silently.
-        var preventing = new DigestionParams("trypsin|P", minPeptideLength: 7, maxMissedCleavages: 2);
+        var preventing = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
 
         var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
             EntrapmentAssembler.Assemble(Sequence, preventing, NothingForbidden));
         Assert.That(ex.Message, Does.Contain("preventing-cleavage motif"));
+    }
+
+    [TestCase("trypsin", "trypsin/P")]
+    [TestCase("trypsin|P", "trypsin/P")] // the retired spelling resolves to restricted trypsin
+    [TestCase("chymotrypsin", "chymotrypsin/P")]
+    [TestCase("Lys-C", "Lys-C/P")]
+    public void ARestrictedAgentIsToldItsUnrestrictedVariantAndThatVariantIsAccepted(string name, string variant)
+    {
+        // Bare trypsin named the unrestricted enzyme for years, so "use an agent without one" would
+        // leave a caller with no idea that the agent they want is one suffix away.
+        var refused = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") },
+            new DigestionParams(name, minPeptideLength: 7, maxMissedCleavages: 2), NothingForbidden));
+        Assert.That(refused!.Message, Does.Contain("preventing-cleavage motif"));
+        Assert.That(refused.Message, Does.Contain($"Use '{variant}'"));
+
+        List<Protein> accepted = EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") },
+            new DigestionParams(variant, minPeptideLength: 7, maxMissedCleavages: 2), NothingForbidden);
+        Assert.That(accepted, Has.Count.EqualTo(1));
+    }
+
+    [TestCase("elastase")]
+    [TestCase("subtilisin")]
+    public void ARestrictedAgentWithNoUnrestrictedVariantIsNotSentToOneThatDoesNotExist(string name)
+    {
+        var refused = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") },
+            new DigestionParams(name, minPeptideLength: 7, maxMissedCleavages: 2), NothingForbidden));
+        Assert.That(refused!.Message, Does.Contain("preventing-cleavage motif"));
+        Assert.That(refused.Message, Does.Not.Contain($"{name}/P"));
+    }
+
+    [Test]
+    public void TheDefaultDigestionParamsAreRefusedAndToldToUseTrypsinSlashP()
+    {
+        // DigestionParams defaults to bare trypsin, so a caller who names no protease lands here.
+        var refused = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { new Protein(Sequence, "P00001") }, new DigestionParams(), NothingForbidden));
+        Assert.That(refused!.Message, Does.Contain("Use 'trypsin/P'"));
     }
 
     [Test]
