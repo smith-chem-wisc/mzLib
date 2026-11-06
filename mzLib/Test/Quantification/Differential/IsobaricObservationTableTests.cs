@@ -96,11 +96,12 @@ public class IsobaricObservationTableTests
         var table = Build(Design(Plex("f", 1)),
             Psm("f", 1, "THREE", 2, 0, 8, 4, 2), // three measured, one in a sample channel: kept
             Psm("f", 2, "TWO", 2, 16, 8, 0, 0), // two measured: dropped
-            Psm("f", 3, "ONE", 2, 0, 0, 0, 5)); // one measured: dropped
+            Psm("f", 3, "ONE", 2, 0, 0, 0, 5), // one measured: dropped
+            Psm("f", 4, "NONE", 2, 0, 0, 0, 0)); // none measured: dropped, not an all-missing row
 
         Assert.That(table.Samples, Is.EqualTo(new[] { "a1", "b1" }));
         Assert.That(table.Rows.Select(r => r.Peptide.FullSequence), Is.EqualTo(new[] { "THREE" }));
-        Assert.That(table.IonsWithFewChannels, Is.EqualTo(2));
+        Assert.That(table.IonsWithFewChannels, Is.EqualTo(3));
         Assert.That(table.Observations().Select(o => o.SampleId), Is.EqualTo(new[] { "a1", "b1" }));
     }
 

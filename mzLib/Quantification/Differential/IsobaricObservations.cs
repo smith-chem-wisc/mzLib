@@ -59,9 +59,9 @@ public readonly record struct IsobaricObservation(IsobaricIonRow Row, string Sam
 /// lower scan. A plex run is a plex and technical replicate; its fractions are its files.
 /// </para>
 /// <para>
-/// <b>Few channels.</b> An ion whose chosen match has a reporter measured in only 1 or 2 of its file's channels is dropped
+/// <b>Few channels.</b> An ion whose chosen match has a reporter measured in at most 2 of its file's channels is dropped
 /// (MSstatsTMT's <c>rmPSM_withfewMea_withinRun = TRUE</c>), counting every channel of the file: reference and unused
-/// channels too. <see cref="IonsWithFewChannels"/> counts them.
+/// channels too. A match with no reporter at all goes the same way. <see cref="IonsWithFewChannels"/> counts them.
 /// </para>
 /// <para>
 /// <b>Samples</b> are the design's (<see cref="AnalysisSample.FromExperimentalDesign"/>): one per sample channel of a plex,
@@ -130,7 +130,7 @@ public sealed class IsobaricObservationTable
     /// <summary>The protein groups the producer described, by name.</summary>
     public IReadOnlyDictionary<string, ProteinGroupInfo> ProteinGroups { get; }
 
-    /// <summary>How many ions in plex runs were dropped for a reporter measured in only 1 or 2 channels.</summary>
+    /// <summary>How many ions in plex runs were dropped for a reporter measured in at most 2 channels.</summary>
     public int IonsWithFewChannels { get; }
 
     /// <summary>Things a reader should know that did not stop the build (e.g. groups the protein table does not describe).</summary>
