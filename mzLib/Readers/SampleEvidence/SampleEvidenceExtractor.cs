@@ -31,6 +31,13 @@ namespace Readers
         private const string Supplement = "supplement";
         private const string Deposit = "deposit";
 
+        /// <summary>
+        /// bigbio's SDRF as PRIDE lists it: <c>&lt;accession&gt;_community_annotated.sdrf.tsv</c>. Read like any SDRF, but neither a
+        /// paper nor the submitter stated it, and most of these files are agent-assisted, so a claim from one says so.
+        /// </summary>
+        private const string CommunitySdrf = SdrfEvidence.CommunitySdrfSource;
+        private const string CommunitySuffix = "_community_annotated.sdrf.tsv";
+
         /// <summary>The claims the tables support about <paramref name="rawFiles"/>. Never null; empty when nothing links.</summary>
         internal static IReadOnlyList<SdrfEvidence> Extract(IEnumerable<SupplementTable> tables, IReadOnlyList<string> rawFiles) =>
             Extract(tables, rawFiles, Supplement);
@@ -72,7 +79,8 @@ namespace Readers
             {
                 var key = (c.DataFile, c.Label, c.Column);
                 if (!owner.TryAdd(key, c.Method) && owner[key] != c.Method) continue;
-                if (seen.Add((c.DataFile, c.Label, c.Column, c.Value.ToLowerInvariant()))) kept.Add(source == Supplement ? c : c with { Source = source });
+                if (seen.Add((c.DataFile, c.Label, c.Column, c.Value.ToLowerInvariant())))
+                    kept.Add(source == Supplement || c.Source == CommunitySdrf ? c : c with { Source = source });
             }
             return kept;
         }
@@ -126,6 +134,7 @@ namespace Readers
                 int data = header.FindIndex(h => h.StartsWith("comment[data file", StringComparison.Ordinal));
                 if (data < 0 || !header.Contains("source name")) continue;
                 int label = header.IndexOf("comment[label]");
+                string from = t.File.EndsWith(CommunitySuffix, StringComparison.OrdinalIgnoreCase) ? CommunitySdrf : Supplement;
                 for (int k = 0; k < t.Rows.Count; k++)
                 {
                     var files = index.Match(FileStem(t.Rows[k][data]));
@@ -138,7 +147,7 @@ namespace Readers
                         string column = header[j] == "source name" ? "source name"
                             : m.Success && m.Groups[2].Value.Length > 0 ? $"{m.Groups[1].Value}[{m.Groups[2].Value}]" : "";
                         if (column.Length > 0)
-                            yield return Claim(files.First(), channel, column, t.Rows[k][j].Trim(), t.Locator(k, j), "sdrf", SdrfEvidenceConfidence.Certain);
+                            yield return Claim(files.First(), channel, column, t.Rows[k][j].Trim(), t.Locator(k, j), "sdrf", SdrfEvidenceConfidence.Certain) with { Source = from };
                     }
                 }
             }
