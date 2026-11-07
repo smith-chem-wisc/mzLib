@@ -147,7 +147,56 @@ namespace Readers
         public static SdrfDraft Draft(SdrfDepositRecord record, IEnumerable<string> rawFileNames, IEnumerable<SdrfEvidence>? evidence = null)
         {
             var draft = DraftFromRecord(record, rawFileNames);
-            return evidence == null ? draft : ApplyEvidence(draft, evidence.ToList());
+            return OneConditionColumnWhereColumnsLeaveBlanks(evidence == null ? draft : ApplyEvidence(draft, evidence.ToList()));
+        }
+
+        /// <summary>
+        /// The last step of every draft, so that a design can be read from what it writes (sdrf D65;
+        /// results/design-census-2026-11-07). Each family of names fills only its own factor columns, and a design table only
+        /// the runs it names, so a file could have a level in one column and <c>not available</c> in another. A condition
+        /// built from the columns was then unknown for every such file, and a design reader refused them all (PXD005123:
+        /// <c>Diff_Neurons</c>, <c>Neural_P_Cells</c> and <c>Stem_Cells</c> were written as <c>condition</c> = Neurons / Cells /
+        /// Cells and <c>condition 2</c> = not available / Neural / Stem). Such a draft writes one <c>factor value[condition]</c>
+        /// instead: each file's own levels, joined by a space, citing every slot they came from. A file with no level stays
+        /// <c>not available</c>, because nothing states its condition. Columns that every file fills are left as they are.
+        ///
+        /// <para>The one column groups the files exactly as the columns did, or it is not written. Two families can use one
+        /// word for two conditions: PXD040292's <c>ID</c> is three spectral-library pools in one family and eighteen patients in
+        /// another, and joined they would be one condition. Where two files the columns told apart would get one value, the
+        /// columns stay as they were (measured 2026-11-07 on 1,147 cached deposits).</para>
+        ///
+        /// <para>Biological replicates are deliberately not touched. Families number their samples apart, so two samples of
+        /// one written condition can share a number, and a design reader refuses that. Numbering them apart was measured and
+        /// rejected (2026-11-07, 1,147 cached deposits): a design reader takes every number as stated, and the names cannot
+        /// tell new samples (PXD018315's <c>pd33</c>) from the same samples acquired again (PXD070189's <c>IAA-5-1</c> and
+        /// <c>IAA-5-1-dda</c>) or from fractions of one sample (PXD001928). Refused is better than wrong.</para>
+        /// </summary>
+        internal static SdrfDraft OneConditionColumnWhereColumnsLeaveBlanks(SdrfDraft draft)
+        {
+            static bool Placed(SdrfDraftCell cell) => cell.Source != SdrfDraftSource.NotAvailable;
+            if (draft.FactorColumns.Count < 2 || !draft.Rows.Any(r => r.Factors.Any(Placed) && !r.Factors.All(Placed)))
+                return draft;
+            var rows = draft.Rows.Select(r =>
+            {
+                var own = r.Factors.Where(Placed).ToList();
+                var cell = own.Count switch
+                {
+                    0 => r.Factors[0],
+                    1 => own[0],
+                    _ => own[0] with
+                    {
+                        Value = string.Join(" ", own.Select(c => c.Value)),
+                        Term = null,
+                        Evidence = string.Join("; ", own.Select(c => c.Evidence).Where(e => e.Length > 0).Distinct(StringComparer.Ordinal)),
+                        Reference = string.Join("; ", own.Select(c => c.Reference).Where(x => !string.IsNullOrEmpty(x)).Distinct(StringComparer.Ordinal)) is { Length: > 0 } refs ? refs : null
+                    }
+                };
+                return r with { Factors = new[] { cell } };
+            }).ToList();
+            static string Tuple(SdrfDraftRow r) => string.Join("\u001f", r.Factors.Select(f => f.Value));
+            bool samePartition = draft.Rows.Zip(rows).GroupBy(p => Tuple(p.Second), StringComparer.Ordinal)
+                .All(g => g.Select(p => Tuple(p.First)).Distinct(StringComparer.Ordinal).Count() == 1);
+            return samePartition ? draft with { Rows = rows, FactorColumns = new[] { "factor value[condition]" } } : draft;
         }
 
         private static SdrfDraft DraftFromRecord(SdrfDepositRecord record, IEnumerable<string> rawFileNames)
