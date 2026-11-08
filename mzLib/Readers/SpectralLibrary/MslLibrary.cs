@@ -214,9 +214,53 @@ public sealed class MslLibrary : IDisposable
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
 	/// <exception cref="FormatException">Magic, version, or structural validation failed.</exception>
 	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch (data corruption).</exception>
-	public static MslLibrary LoadIndexOnly(string filePath)
+	public static MslLibrary LoadIndexOnly(string filePath) =>
+		LoadIndexOnly(filePath, DefaultIndexOnlyCacheSize);
+
+	/// <summary>
+	/// Number of full entries that <see cref="LoadIndexOnly(string)"/> keeps in its entry cache.
+	/// </summary>
+	public const int DefaultIndexOnlyCacheSize = 10_000;
+
+	/// <summary>
+	/// Opens a .msl file in index-only mode, as <see cref="LoadIndexOnly(string)"/>, with an entry
+	/// cache of the given size.
+	///
+	/// <para>
+	/// In index-only mode <see cref="GetEntry(int)"/> reads an entry's fragments from disk and keeps
+	/// the entry in a cache, so that a second request for the same entry does not read the file
+	/// again. The cache holds at most <paramref name="maxCachedEntries"/> entries and, when full,
+	/// discards the entry that was added first. Whether it helps depends on the access pattern: a
+	/// caller that reads each entry about once, or that re-reads an entry only after many other
+	/// reads (a DIA search over overlapping isolation windows, for example), gets no hits and pays
+	/// for the cache in memory and synchronization. Pass 0 to turn the cache off.
+	/// </para>
+	///
+	/// <para>
+	/// The cache size has no effect on a compressed file, which is always loaded in full (see
+	/// <see cref="LoadIndexOnly(string)"/>); a fully loaded library needs no cache.
+	/// </para>
+	/// </summary>
+	/// <param name="filePath">
+	///   Absolute or relative path to the .msl file. Must not be null or empty.
+	/// </param>
+	/// <param name="maxCachedEntries">
+	///   Maximum number of full entries kept in the cache; 0 turns the cache off.
+	///   <see cref="DefaultIndexOnlyCacheSize"/> is the size used by <see cref="LoadIndexOnly(string)"/>.
+	/// </param>
+	/// <returns>
+	///   An <see cref="MslLibrary"/> in index-only mode for uncompressed files, or in full-load
+	///   mode for compressed files.
+	/// </returns>
+	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCachedEntries"/> is negative.</exception>
+	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
+	/// <exception cref="FormatException">Magic, version, or structural validation failed.</exception>
+	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch (data corruption).</exception>
+	public static MslLibrary LoadIndexOnly(string filePath, int maxCachedEntries)
 	{
 		ArgumentNullException.ThrowIfNull(filePath);
+		ArgumentOutOfRangeException.ThrowIfNegative(maxCachedEntries);
 
 		// Delegate to MslReader. For uncompressed files this returns a true index-only
 		// MslLibraryData (IsIndexOnly = true) with an open FileStream for on-demand reads.
@@ -260,7 +304,8 @@ public sealed class MslLibrary : IDisposable
 		// Defer the sequence/charge dictionary: building it here would call the loader for EVERY entry,
 		// which in index-only mode reads every fragment block from disk — defeating index-only. It is
 		// built lazily if TryGetBySequenceCharge is ever called.
-		index = MslIndex.Build(rawLib.Entries, loader, deferSeqChargeIndex: true);
+		index = MslIndex.Build(rawLib.Entries, loader, deferSeqChargeIndex: true,
+			maxBufferSize: maxCachedEntries);
 		proteoformIndex = BuildProteoformIndexIfNeeded(rawLib.Entries, loader);
 
 		return new MslLibrary(index, rawLib.Header, isIndexOnly: true,
