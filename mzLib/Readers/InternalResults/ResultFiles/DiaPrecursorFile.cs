@@ -1,5 +1,4 @@
 using CsvHelper;
-using MzLibUtil;
 
 namespace Readers
 {
@@ -11,8 +10,6 @@ namespace Readers
     /// </summary>
     public class DiaPrecursorFile : ResultFile<DiaPrecursorFromTsv>, IResultFile
     {
-        private const string ContaminantsLine = "# contaminants: ";
-
         public override SupportedFileType FileType => SupportedFileType.DiaPrecursorTsv;
         public override Software Software { get; set; }
 
@@ -34,13 +31,7 @@ namespace Readers
         public override void LoadResults()
         {
             using var reader = new StreamReader(FilePath);
-            string first = reader.ReadLine() ?? "";
-            ContaminantsAssessed = first switch
-            {
-                ContaminantsLine + "assessed" => true,
-                ContaminantsLine + "not assessed" => false,
-                _ => throw new MzLibException($"{FilePath} is not a DIA precursor table: its first line must say whether contaminants were assessed."),
-            };
+            ContaminantsAssessed = DiaContaminantsLine.Read(reader, FilePath, "DIA precursor table");
             using var csv = new CsvReader(reader, DiaPrecursorFromTsv.CsvConfiguration);
             Results = csv.GetRecords<DiaPrecursorFromTsv>().ToList();
         }
@@ -51,7 +42,7 @@ namespace Readers
                 outputPath += FileType.GetFileExtension();
 
             using var writer = new StreamWriter(File.Create(outputPath));
-            writer.WriteLine(ContaminantsLine + (ContaminantsAssessed ? "assessed" : "not assessed"));
+            DiaContaminantsLine.Write(writer, ContaminantsAssessed);
             using var csv = new CsvWriter(writer, DiaPrecursorFromTsv.CsvConfiguration);
             csv.WriteHeader<DiaPrecursorFromTsv>();
             foreach (var result in Results)

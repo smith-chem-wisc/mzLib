@@ -110,6 +110,18 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(file.Results.Single().FileName, Is.EqualTo("a.raw"));
         }
 
+        /// <summary>A path without the table's name gets it appended, so the written file is still recognised.</summary>
+        [Test]
+        public void APathWithoutTheTableNameGetsItAppended()
+        {
+            string prefix = Path.Combine(Folder, "run1_");
+            new DiaPrecursorFile(prefix, [Row("a.raw", "T", 1)], contaminantsAssessed: false).WriteResults(prefix);
+
+            string written = prefix + "AllDiaPrecursors.tsv";
+            Assert.That(File.Exists(written));
+            Assert.That(FileReader.ReadFile<DiaPrecursorFile>(written).Results.Single().FileName, Is.EqualTo("a.raw"));
+        }
+
         /// <summary>A file without the contaminant line is refused rather than read as "not assessed".</summary>
         [Test]
         public void AFileWithoutTheContaminantLineIsRefused()
