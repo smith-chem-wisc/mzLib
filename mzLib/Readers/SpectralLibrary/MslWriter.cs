@@ -362,7 +362,7 @@ public static class MslWriter
 
 					if (frags.Count > 0)
 					{
-						frags.Sort((a, b) => a.Mz.CompareTo(b.Mz));
+						frags.Sort(CompareFragmentsForWrite);
 						NormalizeIntensities(frags);
 					}
 
@@ -1278,6 +1278,44 @@ public static class MslWriter
 		MslCrc32.Compute(data.AsSpan(0, length));
 
 	// ────────────────────────────────────────────────────────────────────────
+	// Fragment order
+	// ────────────────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// The order in which fragments are written within an entry: ascending m/z, with ties broken
+	/// by every other stored field. Two fragments compare equal only when they would be written as
+	/// identical bytes, so the written order does not depend on the input order, and writing the
+	/// same content twice gives the same file. Sorting on m/z alone left fragments of exactly equal
+	/// m/z (for example b4 1+ and b8 2+ of a poly-alanine peptide) in whatever order
+	/// <see cref="List{T}.Sort(Comparison{T})"/>, which is unstable, happened to leave them.
+	/// Intensity is compared before normalization; dividing every intensity by the same maximum
+	/// does not change the order.
+	/// </summary>
+	internal static int CompareFragmentsForWrite(MslFragmentIon a, MslFragmentIon b)
+	{
+		int c = a.Mz.CompareTo(b.Mz);
+		if (c != 0) return c;
+		c = a.ProductType.CompareTo(b.ProductType);
+		if (c != 0) return c;
+		c = a.FragmentNumber.CompareTo(b.FragmentNumber);
+		if (c != 0) return c;
+		c = a.Charge.CompareTo(b.Charge);
+		if (c != 0) return c;
+		// Terminal ions (no secondary type) sort before internal ions.
+		c = Nullable.Compare(a.SecondaryProductType, b.SecondaryProductType);
+		if (c != 0) return c;
+		c = a.SecondaryFragmentNumber.CompareTo(b.SecondaryFragmentNumber);
+		if (c != 0) return c;
+		c = a.NeutralLoss.CompareTo(b.NeutralLoss);
+		if (c != 0) return c;
+		c = a.ResiduePosition.CompareTo(b.ResiduePosition);
+		if (c != 0) return c;
+		c = a.Intensity.CompareTo(b.Intensity);
+		if (c != 0) return c;
+		return a.ExcludeFromQuant.CompareTo(b.ExcludeFromQuant);
+	}
+
+	// ────────────────────────────────────────────────────────────────────────
 	// Intensity normalization
 	// ────────────────────────────────────────────────────────────────────────
 
@@ -1526,7 +1564,7 @@ public static class MslWriter
 					}
 				}
 
-				entry.MatchedFragmentIons.Sort((a, b) => a.Mz.CompareTo(b.Mz));
+				entry.MatchedFragmentIons.Sort(CompareFragmentsForWrite);
 				NormalizeIntensities(entry.MatchedFragmentIons);
 			}
 
