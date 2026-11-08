@@ -196,6 +196,44 @@ public class MslLibraryBuilderTests
     }
 
     /// <summary>
+    /// A precursor is entrapment (.msl precursor flag bit 3) when every protein it comes from is entrapment, and a protein
+    /// from the entrapment hook is entrapment even when it does not say so. The flag reaches the reversed decoys, which keep
+    /// their protein's, and it survives a save. A peptide an entrapment protein shares with a target is a target.
+    /// Here the hook's protein shares AAGGLLR with P1, and only it holds FFHHK; reversed, they share LLGGAAK, and only it
+    /// holds HHFFK.
+    /// </summary>
+    [Test]
+    public void EntrapmentPeptidesCarryTheEntrapmentFlagThroughASave()
+    {
+        var proteins = new List<Protein> { new("MPEPTIDEKAAGGLLR", "P1") };
+        var builder = new MslLibraryBuilder(new CannedKoina().Intensity, new CannedKoina().Irt)
+        {
+            EntrapmentProteins = targets => targets.Select(p => new Protein("MWWYYKFFHHKAAGGLLR", "Random_" + p.Accession)).ToList(),
+        };
+
+        var entries = builder.Build(proteins, Parameters(), out _);
+        string path = Path.Combine(_directory, "entrapment.msl");
+        MslLibrary.Save(path, entries);
+        using var library = MslLibrary.Load(path);
+        var saved = library.GetAllEntries().ToList();
+
+        foreach (var set in new[] { entries, saved })
+        {
+            bool EntrapmentOf(string baseSequence, bool isDecoy)
+            {
+                var flags = set.Where(e => e.BaseSequence == baseSequence && e.IsDecoy == isDecoy).Select(e => e.IsEntrapment).Distinct().ToList();
+                Assert.That(flags, Has.Count.EqualTo(1), $"{baseSequence} (decoy {isDecoy}) is in the library, with one flag");
+                return flags[0];
+            }
+            Assert.That(EntrapmentOf("FFHHK", isDecoy: false), Is.True, "only the entrapment protein holds it");
+            Assert.That(EntrapmentOf("HHFFK", isDecoy: true), Is.True, "the reversed entrapment protein's own decoy");
+            Assert.That(EntrapmentOf("AAGGLLR", isDecoy: false), Is.False, "shared with the target P1");
+            Assert.That(EntrapmentOf("LLGGAAK", isDecoy: true), Is.False, "shared with P1's reversed decoy");
+            Assert.That(EntrapmentOf("MPEPTIDEK", isDecoy: false), Is.False, "a target's own peptide");
+        }
+    }
+
+    /// <summary>
     /// Decoy proteins from the hook replace the reversed ones. It is called with every target-side protein (targets and
     /// entrapment), so the decoys can be made the same way as paired entrapment: on the paired benchmark, reversed-protein
     /// decoys were easier to reject than near-isomeric false hits and our q-values under-controlled the FDR.

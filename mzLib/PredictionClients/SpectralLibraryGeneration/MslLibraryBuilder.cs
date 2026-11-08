@@ -51,7 +51,8 @@ namespace PredictionClients.SpectralLibraryGeneration
     /// <item>return one <see cref="MslLibraryEntry"/> per peptide and charge.</item>
     /// </list>
     /// Each entry carries its decoy flag, its proteins' accessions and genes (sorted and '|'-joined when shared), the NCE and
-    /// dissociation type, and the predicted iRT in its retention-time field.
+    /// dissociation type, and the predicted iRT in its retention-time field. Its entrapment flag is set when every protein
+    /// it comes from is entrapment (<see cref="Protein.IsEntrapment"/>), so a peptide shared with a target is a target.
     /// </summary>
     /// <remarks>
     /// Koina failures (<see cref="Koina.Client.KoinaServiceException"/>) propagate. Precursors a model rejects are counted in
@@ -71,14 +72,16 @@ namespace PredictionClients.SpectralLibraryGeneration
 
         /// <summary>
         /// Called with the target proteins before decoys are made. The proteins it returns are digested, decoyed and
-        /// predicted like targets, keeping their own accessions. Null adds none.
+        /// predicted like targets, keeping their own accessions, and are entrapment whether or not they say so: their
+        /// entries and their reversed decoys' entries carry the entrapment flag. Null adds none.
         /// </summary>
         public Func<IReadOnlyList<Protein>, IReadOnlyList<Protein>>? EntrapmentProteins { get; init; }
 
         /// <summary>
         /// Called with every target-side protein (targets and any entrapment). The proteins it returns are the decoys, in
         /// place of <see cref="MslLibraryBuildParameters.DecoyType"/> reversal; they are digested and predicted as decoys,
-        /// keeping their own accessions. Null makes reversed decoys.
+        /// keeping their own accessions, and a decoy made from entrapment should say so (<see cref="Protein.IsEntrapment"/>).
+        /// Null makes reversed decoys.
         /// </summary>
         public Func<IReadOnlyList<Protein>, IReadOnlyList<Protein>>? DecoyProteins { get; init; }
 
@@ -98,8 +101,9 @@ namespace PredictionClients.SpectralLibraryGeneration
             cancellationToken.ThrowIfCancellationRequested();
 
             var proteins = targets.ToList();
+            // What the hook returns is entrapment whether or not it says so; reversed decoys keep the flag
             if (EntrapmentProteins is not null)
-                proteins.AddRange(EntrapmentProteins(targets));
+                proteins.AddRange(EntrapmentProteins(targets).Select(p => p.IsEntrapment ? p : new Protein(p, isEntrapment: true)));
             var decoyProteins = DecoyProteins is not null
                 ? DecoyProteins(proteins).ToList()
                 : DecoyProteinGenerator.GenerateDecoys(proteins, parameters.DecoyType);
@@ -116,7 +120,7 @@ namespace PredictionClients.SpectralLibraryGeneration
             foreach (var (peptides, isDecoy) in new[] { (targetPeptides, false), (decoyPeptides, true) })
                 foreach (var (sequence, proteinsOfPeptide) in peptides.OrderBy(p => p.Key, StringComparer.Ordinal))
                     foreach (int charge in parameters.PrecursorCharges)
-                        precursors.Add(new Precursor(sequence, charge, isDecoy,
+                        precursors.Add(new Precursor(sequence, charge, isDecoy, proteinsOfPeptide.All(p => p.IsEntrapment),
                             Join(proteinsOfPeptide.Select(p => p.Accession)),
                             Join(proteinsOfPeptide.SelectMany(p => p.GeneNames?.Select(g => g.Item2) ?? []))));
 
@@ -159,6 +163,7 @@ namespace PredictionClients.SpectralLibraryGeneration
                         continue;
                     }
                     entry.IsDecoy = precursor.IsDecoy;
+                    entry.IsEntrapment = precursor.IsEntrapment;
                     entry.ProteinAccession = precursor.Accessions;
                     entry.GeneName = precursor.Genes;
                     entry.Nce = parameters.Nce;
@@ -192,7 +197,7 @@ namespace PredictionClients.SpectralLibraryGeneration
             return new string(chars);
         }
 
-        private sealed record Precursor(string FullSequence, int Charge, bool IsDecoy, string Accessions, string Genes);
+        private sealed record Precursor(string FullSequence, int Charge, bool IsDecoy, bool IsEntrapment, string Accessions, string Genes);
 
         /// <summary>Each digested peptide (by full sequence, finite mass only) with every protein it comes from.</summary>
         private static Dictionary<string, List<Protein>> Digest(IEnumerable<Protein> proteins, MslLibraryBuildParameters parameters)
