@@ -1158,6 +1158,59 @@ public class PtmQtlTests
         Assert.That(fitted[0].Link!.Slope, Is.GreaterThan(0), "more occupancy, more often seen");
     }
 
+    /// <summary>TraitDesign with no run measured: every cell a floor counted 1 of 3, so no site has scatter of its own or feeds a link.</summary>
+    private static (List<SiteRunOccupancy> occ, Dictionary<string, double> trait, Dictionary<string, string> rep) CountedOnlyDesign()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        occ = occ.Select(o => WithCounts(Cell(o.Run, double.NaN, OccupancyState.Floor), 1, 3)).ToList();
+        return (occ, trait, rep);
+    }
+
+    [Test]
+    public void ACountedSiteWithNoScatterOfItsOwnOrToBorrowIsNotFitted()
+    {
+        // No run is measured, so the site must borrow its run-to-run variance, and no site in the call has one to lend.
+        // Nothing is fitted. An explicit ExcludeCeiling = false is accepted with Sampling.
+        var (occ, trait, rep) = CountedOnlyDesign();
+        var options = new SiteTraitOptions
+        {
+            BoundCells = BoundCellModel.Sampling, DetectionLink = new DetectionLink(0, 1), ExcludeCeiling = false,
+        };
+        var e = SiteTraitEffects.Fit(occ, trait, rep, options: options).Single();
+        Assert.That(e.Status, Is.EqualTo("NoScatterToBorrow"));
+        Assert.That(e.CountedRuns, Is.EqualTo(12));
+        Assert.That(e.PValue, Is.NaN);
+        Assert.That(e.Link, Is.Null);
+    }
+
+    [Test]
+    public void AFallbackLinkWithADepthTermNeedsRunDepth()
+    {
+        // No site has measured runs, so the call has no cells to fit a link from and takes the fallback.
+        var (occ, trait, rep) = CountedOnlyDesign();
+        var options = new SiteTraitOptions
+        {
+            BoundCells = BoundCellModel.Sampling, FallbackLink = new DetectionLink(0, 1, DepthSlope: 0.2),
+        };
+        Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(occ, trait, rep, options: options));
+
+        // With a depth per run the fallback is accepted; the site then stops at the scatter it cannot borrow.
+        var depth = trait.Keys.ToDictionary(r => r, r => r.EndsWith("_0") ? 12.0 : 11.0);
+        var e = SiteTraitEffects.Fit(occ, trait, rep, options: options with { RunDepth = depth }).Single();
+        Assert.That(e.Status, Is.EqualTo("NoScatterToBorrow"));
+    }
+
+    [Test]
+    public void TheSiteTraitFitRefusesAnUnknownBoundCellModelOrOccupancyState()
+    {
+        var (occ, trait, rep) = SampledTraitDesign();
+        Assert.Throws<ArgumentOutOfRangeException>(() => SiteTraitEffects.Fit(occ, trait, rep,
+            options: new SiteTraitOptions { BoundCells = (BoundCellModel)99 }));
+        var unknown = occ.Select((o, i) => i == 0 ? o with { State = (OccupancyState)99 } : o).ToList();
+        Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(unknown, trait, rep,
+            options: new SiteTraitOptions { BoundCells = BoundCellModel.Sampling, DetectionLink = new DetectionLink(0, 1) }));
+    }
+
     [Test]
     public void CombiningFractionsSumsThePeptidoformCountsAndRefusesUnknownStates()
     {
