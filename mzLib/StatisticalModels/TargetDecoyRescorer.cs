@@ -118,6 +118,34 @@ namespace StatisticalModels
             int networkMembers = NetworkMembers, int networkEpochs = NetworkEpochs, int networkPasses = 1,
             NetworkTrainingSample networkTrainingSample = NetworkTrainingSample.Random, int? normalizationGroups = null,
             IReadOnlyList<int>? networkLayers = null, double? networkPositiveQValue = null, double networkTargetFraction = 0.5)
+            => ScoreRows(features, isDecoy, groupKeys, folds, iterations, positiveQValue, candidateGroups, model, maxNetworkTrainingRows, randomSeed,
+                networkMembers, networkEpochs, networkPasses, networkTrainingSample, normalizationGroups, networkLayers, networkPositiveQValue, networkTargetFraction);
+
+        /// <summary>
+        /// <see cref="Score(IReadOnlyList{double[]}, IReadOnlyList{bool}, IReadOnlyList{string}, int, int, double, IReadOnlyList{int}?, RescoreModel, int?, int, int, int, int, NetworkTrainingSample, int?, IReadOnlyList{int}?, double?, double)"/>
+        /// on float features. Every value is widened exactly to a double before any arithmetic, so the scores are bit for bit
+        /// those of the same values in double rows, at half the memory: a DIA search keeps tens of millions of candidate rows.
+        /// A name of its own, not an overload, so that a call passing <c>null</c> or <c>[]</c> stays unambiguous.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <exception cref="ArgumentException">Lengths disagree, rows are ragged, or a value is not finite.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A count or the q-value cutoff is out of range.</exception>
+        public static RescoreResult ScoreSinglePrecision(IReadOnlyList<float[]> features, IReadOnlyList<bool> isDecoy, IReadOnlyList<string> groupKeys,
+            int folds = 3, int iterations = 3, double positiveQValue = 0.01, IReadOnlyList<int>? candidateGroups = null,
+            RescoreModel model = RescoreModel.LinearDiscriminant, int? maxNetworkTrainingRows = null, int randomSeed = 0,
+            int networkMembers = NetworkMembers, int networkEpochs = NetworkEpochs, int networkPasses = 1,
+            NetworkTrainingSample networkTrainingSample = NetworkTrainingSample.Random, int? normalizationGroups = null,
+            IReadOnlyList<int>? networkLayers = null, double? networkPositiveQValue = null, double networkTargetFraction = 0.5)
+            => ScoreRows(features, isDecoy, groupKeys, folds, iterations, positiveQValue, candidateGroups, model, maxNetworkTrainingRows, randomSeed,
+                networkMembers, networkEpochs, networkPasses, networkTrainingSample, normalizationGroups, networkLayers, networkPositiveQValue, networkTargetFraction);
+
+        private static RescoreResult ScoreRows<T>(IReadOnlyList<T[]> features, IReadOnlyList<bool> isDecoy, IReadOnlyList<string> groupKeys,
+            int folds, int iterations, double positiveQValue, IReadOnlyList<int>? candidateGroups,
+            RescoreModel model, int? maxNetworkTrainingRows, int randomSeed,
+            int networkMembers, int networkEpochs, int networkPasses,
+            NetworkTrainingSample networkTrainingSample, int? normalizationGroups,
+            IReadOnlyList<int>? networkLayers, double? networkPositiveQValue, double networkTargetFraction)
+            where T : unmanaged, System.Numerics.IBinaryFloatingPointIeee754<T>
         {
             if (!(networkTargetFraction > 0 && networkTargetFraction < 1))
                 throw new ArgumentOutOfRangeException(nameof(networkTargetFraction), "The target share must lie strictly between 0 and 1.");
@@ -151,7 +179,7 @@ namespace StatisticalModels
             int n = features.Count;
             int p = n == 0 ? 0 : features[0].Length;
             foreach (var row in features)
-                if (row is null || row.Length != p || !row.All(double.IsFinite))
+                if (row is null || row.Length != p || !FeatureRows.AllFinite(row))
                     throw new ArgumentException("Every candidate needs the same number of finite features.", nameof(features));
 
             int[] fold = AssignFolds(groupKeys, folds);
@@ -174,7 +202,7 @@ namespace StatisticalModels
                 // The folds run at once, so each seed step takes its share of the cores (and of the workers' buffers)
                 var seed = BestSingleFeature(features, isDecoy, trainGroups, positiveQValue,
                     maxParallelism: Math.Max(1, Environment.ProcessorCount / Math.Max(1, folds)));
-                Func<double[], double> scorer = x => seed.Sign * x[seed.Feature];
+                Func<T[], double> scorer = x => seed.Sign * double.CreateTruncating(x[seed.Feature]);
                 MultilayerPerceptronEnsemble? network = null; // the scorer, when it is the network
                 bool trained = false;
                 for (int iteration = 0; iteration < iterations; iteration++)
@@ -184,7 +212,7 @@ namespace StatisticalModels
                     double[] trainScores = active.Select(i => scorer(features[i])).ToArray();
                     double[] q = QValues(trainScores, active.Select(i => isDecoy[i]).ToArray());
                     double cutoff = TrainingCutoff(q, active.Select(i => isDecoy[i]).ToArray(), positiveQValue);
-                    var rows = new List<double[]>();
+                    var rows = new List<T[]>();
                     var positive = new List<bool>();
                     for (int t = 0; t < active.Length; t++)
                     {
@@ -197,8 +225,8 @@ namespace StatisticalModels
                     }
                     if (positive.Count(b => b) < 2 || positive.All(b => b))
                         break;
-                    var fit = LinearDiscriminant.Fit(rows, positive);
-                    scorer = x => fit.Score(x);
+                    var fit = LinearDiscriminant.FitRows(rows, positive);
+                    scorer = x => fit.ScoreOf<T>(x);
                     trained = true;
                 }
                 if (!trained)
@@ -239,9 +267,10 @@ namespace StatisticalModels
                             // linear score: where the line misses the signal, its top rows are the wrong ones.
                             rows = RandomTrainingRows(rows, isDecoy, cap2, new Random(31 + f + 1000 * randomSeed + 100_000 * pass));
                         }
-                        var ensemble = MultilayerPerceptron.TrainEnsemble(rows.Select(i => features[i]).ToList(), rows.Select(i => !isDecoy[i]).ToList(),
+                        // The training rows as doubles (a float row widened exactly; a double row as it is): a capped sample
+                        var ensemble = MultilayerPerceptron.TrainEnsemble(rows.Select(i => FeatureRows.Widened(features[i])).ToList(), rows.Select(i => !isDecoy[i]).ToList(),
                             networkMembers, networkLayers ?? NetworkLayers, networkEpochs, seed: 17 + f + 1000 * randomSeed + 100_000 * pass);
-                        scorer = x => ensemble.PredictLogit(x);
+                        scorer = x => ensemble.PredictLogitOf(x);
                         network = ensemble;
                     }
                 }
@@ -276,7 +305,7 @@ namespace StatisticalModels
                         var block = new int[range.Item2 - range.Item1];
                         for (int k = 0; k < block.Length; k++)
                             block[k] = which?[range.Item1 + k] ?? range.Item1 + k;
-                        network.PredictLogits(features, block, final);
+                        network.PredictLogitsOf(features, block, final);
                     });
                 }
 
@@ -345,8 +374,8 @@ namespace StatisticalModels
             => BestSingleFeature(features, isDecoy, RowGroups.Of(train, candidateGroups), cutoff, maxParallelism);
 
         /// <summary><see cref="BestSingleFeature(IReadOnlyList{double[]}, IReadOnlyList{bool}, int[], double, IReadOnlyList{int}?, int)"/> on rows already grouped.</summary>
-        internal static (int Feature, int Sign) BestSingleFeature(IReadOnlyList<double[]> features, IReadOnlyList<bool> isDecoy, RowGroups groups, double cutoff,
-            int maxParallelism)
+        internal static (int Feature, int Sign) BestSingleFeature<T>(IReadOnlyList<T[]> features, IReadOnlyList<bool> isDecoy, RowGroups groups, double cutoff,
+            int maxParallelism) where T : unmanaged, System.Numerics.IBinaryFloatingPointIeee754<T>
         {
             int p = features.Count == 0 ? 0 : features[0].Length;
             int rowCount = groups.Count; // the rows each feature and sign judges
@@ -365,12 +394,12 @@ namespace StatisticalModels
                 {
                     int j = k / 2, sign = k % 2 == 0 ? 1 : -1;
                     // With candidate groups, each feature and sign judges only the group rows it ranks top
-                    int count = TopPerGroupInto(groups, i => sign * features[i][j], buffers.Rows);
+                    int count = TopPerGroupInto(groups, i => sign * double.CreateTruncating(features[i][j]), buffers.Rows);
                     for (int t = 0; t < count; t++)
                     {
                         int row = buffers.Rows[t];
                         buffers.Decoy[t] = isDecoy[row];
-                        buffers.Values[t] = features[row][j];
+                        buffers.Values[t] = double.CreateTruncating(features[row][j]);
                     }
                     double separation = StandardizedMeanDifference(buffers.Values, buffers.Decoy, count);
                     // The signed values in place (sign * v, exactly): the unsigned ones are not needed again

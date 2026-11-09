@@ -1024,6 +1024,51 @@ public class TargetDecoyRescorerTests
     }
 
     /// <summary>
+    /// Float rows score bit for bit as the same values in double rows, under the linear model and the network alike, with
+    /// candidate groups, a capped pooled sample and a normalisation sample: every value is widened exactly before any
+    /// arithmetic. A caller can then keep its rows at half the memory without changing a result.
+    /// </summary>
+    [Test]
+    public void FloatRowsScoreAsTheSameValuesInDoubleRows()
+    {
+        var random = new Random(23);
+        int n = 1200, p = 6;
+        var floats = new float[n][];
+        var isDecoy = new bool[n];
+        var keys = new string[n];
+        var groups = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            int group = i / 3;
+            isDecoy[i] = group % 2 == 1;
+            keys[i] = "P" + group / 2;
+            groups[i] = group;
+            floats[i] = Enumerable.Range(0, p).Select(j => (float)(random.NextDouble() + (!isDecoy[i] && i % 3 == 0 && j < 3 ? 1.2 : 0))).ToArray();
+        }
+        double[][] doubles = floats.Select(row => row.Select(v => (double)v).ToArray()).ToArray();
+
+        foreach (var model in new[] { RescoreModel.LinearDiscriminant, RescoreModel.NeuralNetworkEnsemble })
+        {
+            RescoreResult FromDoubles() => TargetDecoyRescorer.Score(doubles, isDecoy, keys, candidateGroups: groups, model: model, maxNetworkTrainingRows: 100,
+                networkMembers: 2, networkEpochs: 2, networkPasses: 2, networkTrainingSample: NetworkTrainingSample.ConfidentPooled, normalizationGroups: 50,
+                networkLayers: [4, 3]);
+            RescoreResult FromFloats() => TargetDecoyRescorer.ScoreSinglePrecision(floats, isDecoy, keys, candidateGroups: groups, model: model, maxNetworkTrainingRows: 100,
+                networkMembers: 2, networkEpochs: 2, networkPasses: 2, networkTrainingSample: NetworkTrainingSample.ConfidentPooled, normalizationGroups: 50,
+                networkLayers: [4, 3]);
+            var expected = FromDoubles();
+            var actual = FromFloats();
+            Assert.That(actual.Status, Is.EqualTo(expected.Status), $"{model}");
+            Assert.That(actual.Folds, Is.EqualTo(expected.Folds), $"{model}");
+            Assert.That(actual.Scores.Select(BitConverter.DoubleToInt64Bits), Is.EqualTo(expected.Scores.Select(BitConverter.DoubleToInt64Bits)), $"{model}");
+            Assert.That(expected.Scores.Distinct().Count(), Is.GreaterThan(n / 2), $"{model}: the scores must vary, or this proves nothing");
+        }
+
+        float[][] notFinite = floats.Select(row => row.ToArray()).ToArray();
+        notFinite[7][2] = float.NaN;
+        Assert.Throws<ArgumentException>(() => TargetDecoyRescorer.ScoreSinglePrecision(notFinite, isDecoy, keys));
+    }
+
+    /// <summary>
     /// With too few targets for any to pass, the seed is the feature and sign with the larger standardized separation. Here
     /// that is the second feature, taken negatively: −5 / 2.74 beats 2 / 1.26.
     /// </summary>
