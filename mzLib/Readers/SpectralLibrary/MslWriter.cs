@@ -890,7 +890,8 @@ public static class MslWriter
 	/// <summary>
 	/// Throws <see cref="ArgumentException"/> for an entry the format cannot store as given:
 	/// a null entry; a precursor m/z that is not a finite float (the index cannot place it,
-	/// so no reader would ever return it); a precursor charge outside the stored 16-bit range;
+	/// so no reader would ever return it); an infinite retention time (NaN is allowed, and
+	/// means "no retention time"); a precursor charge outside the stored 16-bit range;
 	/// or a fragment charge outside the stored 8-bit range [0, 255] (a negative charge used to
 	/// be stored wrapped, e.g. -1 as 255).
 	/// Unlike <see cref="ValidateEntries"/>, it checks only what would be stored wrongly, so an
@@ -908,6 +909,13 @@ public static class MslWriter
 			throw new ArgumentException(
 				$"entries[{index}] ('{entry.FullSequence}') has precursor m/z {entry.PrecursorMz}, which is " +
 				"not a finite number. The index cannot place it, so no reader would return it.", "entries");
+
+		// NaN is the one non-finite value allowed, and only here: it means "no retention time".
+		float storedRt = (float)entry.RetentionTime;
+		if (float.IsInfinity(storedRt))
+			throw new ArgumentException(
+				$"entries[{index}] ('{entry.FullSequence}') has retention time {entry.RetentionTime}, which is " +
+				"infinite as the stored float. Use NaN for an entry with no retention time.", "entries");
 
 		if (entry.ChargeState < short.MinValue || entry.ChargeState > short.MaxValue)
 			throw new ArgumentException(
@@ -955,6 +963,11 @@ public static class MslWriter
 
 			if (entry.PrecursorMz <= 0.0 || !double.IsFinite(entry.PrecursorMz))
 				errors.Add($"Entry [{i}] '{entry.FullSequence}': PrecursorMz must be > 0 (got {entry.PrecursorMz}).");
+
+			// NaN means "no retention time" and is allowed; infinity (as the stored float) is not.
+			if (float.IsInfinity((float)entry.RetentionTime))
+				errors.Add($"Entry [{i}] '{entry.FullSequence}': RetentionTime must be finite, or NaN for " +
+						   $"no retention time (got {entry.RetentionTime}).");
 
 			if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 			{

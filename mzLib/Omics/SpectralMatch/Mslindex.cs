@@ -695,7 +695,8 @@ public sealed class MslIndex : IDisposable
 	///     <term>RT window</term>
 	///     <description>
 	///       <see cref="MslPrecursorIndexEntry.Irt"/> in
-	///       [<paramref name="rtLow"/>, <paramref name="rtHigh"/>].
+	///       [<paramref name="rtLow"/>, <paramref name="rtHigh"/>]. An entry with no retention
+	///       time (NaN) passes any RT window: an unknown time cannot rule a candidate out.
 	///     </description>
 	///   </item>
 	///   <item>
@@ -785,8 +786,9 @@ public sealed class MslIndex : IDisposable
 			if (!includeDecoys && e.IsDecoy != 0)
 				continue;
 
-			// RT filter
-			if (e.Irt < rtLow || e.Irt > rtHigh)
+			// RT filter. An entry with no retention time (NaN) passes any RT window: an unknown
+			// time cannot rule a candidate out.
+			if (!float.IsNaN(e.Irt) && (e.Irt < rtLow || e.Irt > rtHigh))
 				continue;
 
 			// IM filter (when either bound is non-zero)
@@ -940,6 +942,7 @@ public sealed class MslIndex : IDisposable
 	/// <see cref="MslIndex"/> containing the transformed entries.
 	/// The formula applied to each entry is:
 	/// <code>calibratedRT = (float)(slope * entry.RetentionTime + intercept)</code>
+	/// An entry with no retention time (NaN) keeps NaN.
 	/// <para>
 	/// The original index is not modified in any way. The new index shares the same
 	/// entry-loader delegate and LRU configuration but starts with an empty LRU cache.
@@ -1015,6 +1018,7 @@ public sealed class MslIndex : IDisposable
 
 			if (e.PrecursorMz < minMz) minMz = e.PrecursorMz;
 			if (e.PrecursorMz > maxMz) maxMz = e.PrecursorMz;
+			// A NaN time (no retention time) fails both comparisons, so it never sets a bound.
 			if (e.Irt < minIrt) minIrt = e.Irt;
 			if (e.Irt > maxIrt) maxIrt = e.Irt;
 		}

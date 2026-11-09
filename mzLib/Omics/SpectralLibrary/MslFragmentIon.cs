@@ -292,8 +292,15 @@ public class MslLibraryEntry
 	/// in minutes. Which representation is stored is indicated by <see cref="RtIsCalibrated"/>
 	/// (the rt_is_calibrated bit in PrecursorFlags). Maps to LibrarySpectrum.RetentionTime and
 	/// MslPrecursorRecord.RetentionTime.
+	/// <para>
+	/// NaN when the library has no retention time for this precursor; then
+	/// <see cref="RtIsCalibrated"/> has no meaning. NaN is the default, so an entry built
+	/// without a time has none. 0.0 is a real iRT value (where GAGSSEPVTGLDAK elutes, one of
+	/// the scale's two defining points), so it never stands for "missing". Writers before this
+	/// rule stored a missing time as 0.0, so in older files an exact 0.0 may mean "no time".
+	/// </para>
 	/// </summary>
-	public double RetentionTime { get; set; }
+	public double RetentionTime { get; set; } = double.NaN;
 
 	/// <summary>
 	/// False (the default) when <see cref="RetentionTime"/> holds iRT; true when it holds a
@@ -513,7 +520,9 @@ public class MslLibraryEntry
 			precursorMz: PrecursorMz,
 			chargeState: ChargeState,
 			peaks: matchedIons,
-			rt: RetentionTime,
+			// NaN (no time) becomes null, so an MSP export omits RT= rather than printing RT=NaN,
+			// and code testing HasValue sees a missing time.
+			rt: double.IsNaN(RetentionTime) ? null : RetentionTime,
 			isDecoy: IsDecoy);
 	}
 
@@ -594,7 +603,8 @@ public class MslLibraryEntry
 			BaseSequence = strippedSeq,
 			PrecursorMz = spectrum.PrecursorMz,
 			ChargeState = spectrum.ChargeState,
-			RetentionTime = spectrum.RetentionTime ?? 0.0,
+			// A spectrum with no time gives an entry with no time (NaN), never iRT 0.
+			RetentionTime = spectrum.RetentionTime ?? double.NaN,
 			IsDecoy = spectrum.IsDecoy,
 			MatchedFragmentIons = fragments,
 			IonMobility = 0.0,
@@ -618,6 +628,7 @@ public class MslLibraryEntry
 	/// All structured fragment fields (ProductType, FragmentNumber, ResiduePosition, etc.)
 	/// are extracted from the MatchedFragmentIon list. Extended metadata fields that have
 	/// no representation in LibrarySpectrum are initialized to sensible defaults:
+	/// RetentionTime = NaN when the spectrum has none,
 	/// IonMobility = 0, QValue = float.NaN, ElutionGroupId = 0, Source = Predicted,
 	/// MoleculeType = Peptide, DissociationType = Unknown, Nce = 0.
 	///
