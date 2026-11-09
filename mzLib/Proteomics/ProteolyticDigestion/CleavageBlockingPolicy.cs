@@ -63,7 +63,7 @@ namespace Proteomics.ProteolyticDigestion
         /// </param>
         /// <param name="protein">
         /// The protein being digested. The policy is per protein: it records which residues are real
-        /// protease sites there, so a blocked residue that was never a site (a K before P under trypsin|P)
+        /// protease sites there, so a blocked residue that was never a site (a K before P under trypsin)
         /// cannot cancel a genuine missed cleavage, and it reads the modifications annotated on it.
         /// </param>
         /// <remarks>

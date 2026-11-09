@@ -55,7 +55,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     {
         /// <summary>
         /// Initiator Met, several K/R, and no K or R followed by P, so the result does not depend on whether the embedded
-        /// "trypsin" applies the proline rule (its naming is being changed by #1186).
+        /// "trypsin" applies the proline rule (it does since #1186; "trypsin/P" does not).
         /// </summary>
         private const string Sequence = "MAAKCCKDDKEEKFFKGGPEPTIDERSSTTAAK";
 
