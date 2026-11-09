@@ -176,7 +176,7 @@ namespace Proteomics.ProteolyticDigestion
         ///
         /// Exact: a modified residue counts only if it is one of the protease's real sites in this protein
         /// (the same site list <see cref="MissedCleavages"/> was counted from), so a modified K whose site
-        /// was prevented by sequence context (trypsin's K[P] rule) discounts nothing, and a site a
+        /// was prevented by sequence context (trypsin|P's K[P] rule) discounts nothing, and a site a
         /// wildcard motif also cuts (StcE's "TX|T") is not blockable. The reported count therefore equals
         /// the real, unblocked sites the peptidoform spans.
         /// </remarks>

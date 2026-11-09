@@ -24,7 +24,7 @@ public class EntrapmentMassGroupTests
     private static readonly HashSet<string> NothingForbidden = new();
 
     private static IDigestionParams Tryptic =>
-        new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 0);
+        new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
 
     private static Modification Mod(string motifResidue, string id, double mass,
         string restriction = "Anywhere.")

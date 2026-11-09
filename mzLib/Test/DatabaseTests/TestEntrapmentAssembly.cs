@@ -17,7 +17,7 @@ public class EntrapmentAssemblyTests
     private static readonly HashSet<string> NothingForbidden = new();
 
     private static IDigestionParams Tryptic(int minLength = 7) =>
-        new DigestionParams("trypsin/P", minPeptideLength: minLength, maxMissedCleavages: 2);
+        new DigestionParams("trypsin", minPeptideLength: minLength, maxMissedCleavages: 2);
 
     /// <summary>Base pieces of a sequence under the same partition the assembler uses.</summary>
     private static List<string> BasePieces(string sequence, IDigestionParams digestionParams)
@@ -315,7 +315,7 @@ public class EntrapmentAssemblyTests
     {
         // With no missed cleavages there are no runs to collide, so forbidding a concatenation must
         // change nothing -- otherwise the check is firing where it has no business.
-        IDigestionParams noMissed = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 0);
+        IDigestionParams noMissed = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
         EntrapmentAssembly free = EntrapmentAssembler.Assemble(FourPieces, noMissed, NothingForbidden);
         string run = free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_;
 
@@ -602,7 +602,7 @@ public class EntrapmentAssemblyTests
     {
         // Kept verbatim, a piece a search can report is a real target peptide in the entrapment
         // database. Only pieces strictly longer than MaxLength are unsearchable.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2,
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
             maxPeptideLength: 50);
         string piece = new string('Q', 49) + "K";
 
@@ -710,7 +710,7 @@ public class EntrapmentAssemblyTests
     [TestCase(2)]
     public void AnExcisedOpeningPieceCountsTheStrippedFormsOfThePiecePromotedInItsPlace(int maxMissedCleavages)
     {
-        var digestion = new DigestionParams("trypsin/P", maxMissedCleavages: maxMissedCleavages, minPeptideLength: 7);
+        var digestion = new DigestionParams("trypsin", maxMissedCleavages: maxMissedCleavages, minPeptideLength: 7);
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(PromotesAMethionine, digestion, NothingForbidden);
         Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the opening piece goes");
         string promoted = assembly.Pieces[1].EntrapmentPiece_!;
@@ -775,7 +775,7 @@ public class EntrapmentAssemblyTests
     public void StrippedFormsAreCountedOnlyWhenASearchStripsTheMethionine(InitiatorMethionineBehavior behavior,
         int expected)
     {
-        var digestion = new DigestionParams("trypsin/P", maxMissedCleavages: 2, minPeptideLength: 7,
+        var digestion = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
             initiatorMethionineBehavior: behavior);
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(PromotesAMethionine, digestion, NothingForbidden);
 
@@ -809,7 +809,7 @@ public class EntrapmentAssemblyTests
         // MSTQAEK strips to a six-residue peptide no search reports at length 7 and up; with the
         // next piece it strips to 20 residues.
         const string sequence = "SSSSSSRMSTQAEKGGVDTTPFAWENDR";
-        var digestion = new DigestionParams("trypsin/P", maxMissedCleavages: 2, minPeptideLength: 7,
+        var digestion = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
             maxPeptideLength: maxLength);
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
         Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the opening piece goes");

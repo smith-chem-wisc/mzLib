@@ -161,7 +161,7 @@ public static class EntrapmentPeptideGenerator
         IReadOnlyCollection<int>? alsoHeldInPlace = null, Func<string, bool>? rejectInContext = null)
     {
         // Vetted here as well as by the assembler, because this is public and the class promises
-        // every cleavage site stays where it was. Under trypsin's K[P]| the vetting lived only on the
+        // every cleavage site stays where it was. Under trypsin|P the vetting lived only on the
         // protein path, so a caller of this method got AKLPPR -> AKPPLR, a partner missing one of
         // its target's two cleavage sites.
         if (motifs is null)
