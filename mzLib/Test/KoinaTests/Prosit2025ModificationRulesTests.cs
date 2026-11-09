@@ -262,16 +262,18 @@ namespace Test.KoinaTests
             var probe = create(SequenceConversionHandlingMode.RemoveIncompatibleElements);
             const string sequence = "[UNIMOD:27]-EPEC[UNIMOD:4]TE[UNIMOD:954]DEM[UNIMOD:35]K-[UNIMOD:2]";
 
-            var warnings = probe.Predict(ProForma, sequence, "[UNIMOD:385]-CPEM[UNIMOD:35]TIDEK");
+            // The third also has a mass shift base removes itself; both warnings are kept.
+            var warnings = probe.Predict(ProForma, sequence, "[UNIMOD:385]-CPEM[UNIMOD:35]TIDEK", "PEPE[UNIMOD:954]TIDE[+12.3456]K");
             var cleaned = probe.Clean(sequence, ProForma, out var api, out var warning);
 
-            Assert.That(probe.Mask, Is.EqualTo(new[] { true, true }));
-            Assert.That(probe.Sent, Is.EqualTo(new[] { "E[UNIMOD:27]PEC[UNIMOD:4]TEDEM[UNIMOD:35]K", "CPEM[UNIMOD:35]TIDEK" }));
+            Assert.That(probe.Mask, Is.EqualTo(new[] { true, true, true }));
+            Assert.That(probe.Sent, Is.EqualTo(new[] { "E[UNIMOD:27]PEC[UNIMOD:4]TEDEM[UNIMOD:35]K", "CPEM[UNIMOD:35]TIDEK", "PEPETIDEK" }));
             Assert.That(api, Is.EqualTo("E[UNIMOD:27]PEC[UNIMOD:4]TEDEM[UNIMOD:35]K"));
             Assert.That(cleaned, Is.EqualTo("[UNIMOD:27]EPEC[UNIMOD:4]TEDEM[UNIMOD:35]K"));
             Assert.That(warning!.Message, Does.StartWith($"Removing modifications {probe.ModelName} cannot place")
                 .And.Contain("E[UNIMOD:954]").And.Contain("-[UNIMOD:2]"));
             Assert.That(warnings[1], Does.Contain("[UNIMOD:385]-"));
+            Assert.That(warnings[2], Does.Contain("E[UNIMOD:954]").And.Contain("+12.3456"));
         }
 
         /// <summary>
