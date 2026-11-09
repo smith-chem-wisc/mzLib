@@ -41,6 +41,17 @@ namespace StatisticalModels
         /// </summary>
         internal static void Into(double[] s, bool[] d, int count, int[] order, double[] ranked, double[] q)
         {
+            Rank(s, d, count, order, ranked);
+            for (int k = 0; k < count; k++)
+                q[order[k]] = ranked[k];
+        }
+
+        /// <summary>
+        /// The ranking behind <see cref="Into"/>: <paramref name="order"/> holds the entries best first, and
+        /// <paramref name="ranked"/> the q-value at each rank, so <c>ranked[k]</c> belongs to entry <c>order[k]</c>.
+        /// </summary>
+        internal static void Rank(double[] s, bool[] d, int count, int[] order, double[] ranked)
+        {
             // Score descending, decoys first at a tie, then index: a total order, so any sort gives this one permutation,
             // the same as a stable LINQ sort, without its per-comparison key machinery
             for (int i = 0; i < count; i++)
@@ -68,9 +79,6 @@ namespace StatisticalModels
             }
             for (int k = count - 2; k >= 0; k--)
                 ranked[k] = Math.Min(ranked[k], ranked[k + 1]);
-
-            for (int k = 0; k < count; k++)
-                q[order[k]] = ranked[k];
         }
     }
 

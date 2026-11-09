@@ -172,7 +172,7 @@ namespace StatisticalModels
 
                 var trainGroups = RowGroups.Of(train, candidateGroups);
                 // The folds run at once, so each seed step takes its share of the cores (and of the workers' buffers)
-                var seed = BestSingleFeature(features, isDecoy, train, positiveQValue, candidateGroups,
+                var seed = BestSingleFeature(features, isDecoy, trainGroups, positiveQValue,
                     maxParallelism: Math.Max(1, Environment.ProcessorCount / Math.Max(1, folds)));
                 Func<double[], double> scorer = x => seed.Sign * x[seed.Feature];
                 MultilayerPerceptronEnsemble? network = null; // the scorer, when it is the network
@@ -250,13 +250,11 @@ namespace StatisticalModels
                 // of rows otherwise costs more than training it
                 var final = new double[n];
                 var normalizers = trainGroups;
-                if (normalizationGroups is int sampleSize && trainGroups.Singles.Length + trainGroups.Multiple.Length > sampleSize)
+                if (normalizationGroups is int sampleSize && trainGroups.Count > sampleSize)
                 {
                     // A random sample of training groups, seeded by the fold, sets the normalisation: scoring every training
                     // row only for that was twice the work of scoring the fold's own rows
-                    var sampler = new Random(53 + f + 1000 * randomSeed);
-                    int[] sampledRows = trainGroups.Singles.Select(i => new[] { i }).Concat(trainGroups.Multiple)
-                        .OrderBy(_ => sampler.Next()).Take(sampleSize).SelectMany(g => g).Order().ToArray();
+                    int[] sampledRows = SampleGroupRows(trainGroups, sampleSize, new Random(53 + f + 1000 * randomSeed));
                     normalizers = RowGroups.Of(sampledRows, candidateGroups);
                     int[] needed = sampledRows.Concat(test).ToArray();
                     ScoreRows(needed);
@@ -344,19 +342,25 @@ namespace StatisticalModels
         /// </summary>
         internal static (int Feature, int Sign) BestSingleFeature(IReadOnlyList<double[]> features, IReadOnlyList<bool> isDecoy, int[] train, double cutoff,
             IReadOnlyList<int>? candidateGroups = null, int maxParallelism = -1)
+            => BestSingleFeature(features, isDecoy, RowGroups.Of(train, candidateGroups), cutoff, maxParallelism);
+
+        /// <summary><see cref="BestSingleFeature(IReadOnlyList{double[]}, IReadOnlyList{bool}, int[], double, IReadOnlyList{int}?, int)"/> on rows already grouped.</summary>
+        internal static (int Feature, int Sign) BestSingleFeature(IReadOnlyList<double[]> features, IReadOnlyList<bool> isDecoy, RowGroups groups, double cutoff,
+            int maxParallelism)
         {
             int p = features.Count == 0 ? 0 : features[0].Length;
-            var groups = RowGroups.Of(train, candidateGroups);
-            int rowCount = groups.Singles.Length + groups.Multiple.Length; // the rows each feature and sign judges
+            int rowCount = groups.Count; // the rows each feature and sign judges
             // The requested cutoff, then the relaxed ones above it: the choice below needs only each slot's passing count at
             // these, so a slot keeps its counts, not its q-values
             double[] cutoffs = new[] { cutoff }.Concat(RelaxedCutoffs.Where(c => c > cutoff)).ToArray();
             // Every feature and sign is judged independently, so in parallel, each into its own slot (same order as before).
-            // Each worker ranks into one set of buffers, reused for every slot it takes: fresh arrays per slot, millions of
-            // rows each for 152 slots in each of three folds, were most of a DIA search's peak memory.
+            // Each worker ranks into a set of buffers from a pool, reused for every slot it takes and handed back when it
+            // stops (the loop may retire a worker and start another): fresh arrays per slot, millions of rows each for 152
+            // slots in each of three folds, were most of a DIA search's peak memory.
             var slots = new (int Feature, int Sign, double Separation, int[] Passing)[2 * p];
+            var pool = new System.Collections.Concurrent.ConcurrentBag<SeedBuffers>();
             System.Threading.Tasks.Parallel.For(0, 2 * p, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = maxParallelism },
-                () => new SeedBuffers(rowCount),
+                () => pool.TryTake(out var reused) ? reused : new SeedBuffers(rowCount),
                 (k, _, buffers) =>
                 {
                     int j = k / 2, sign = k % 2 == 0 ? 1 : -1;
@@ -373,17 +377,19 @@ namespace StatisticalModels
                     if (sign < 0)
                         for (int t = 0; t < count; t++)
                             buffers.Values[t] = sign * buffers.Values[t];
-                    TargetDecoyQValues.Into(buffers.Values, buffers.Decoy, count, buffers.Order, buffers.Ranked, buffers.Q);
+                    // Each target's q-value is read at its rank, the order the ranking leaves them in: the counts need no
+                    // q-values in row order
+                    TargetDecoyQValues.Rank(buffers.Values, buffers.Decoy, count, buffers.Order, buffers.Ranked);
                     var passing = new int[cutoffs.Length];
-                    for (int t = 0; t < count; t++)
-                        if (!buffers.Decoy[t])
+                    for (int r = 0; r < count; r++)
+                        if (!buffers.Decoy[buffers.Order[r]])
                             for (int c = 0; c < cutoffs.Length; c++)
-                                if (buffers.Q[t] <= cutoffs[c])
+                                if (buffers.Ranked[r] <= cutoffs[c])
                                     passing[c]++;
                     slots[k] = (j, sign, sign * separation, passing);
                     return buffers;
                 },
-                _ => { });
+                pool.Add);
 
             // The first cutoff at which some slot passes enough targets; the requested one when none does
             int chosen = 0;
@@ -407,9 +413,9 @@ namespace StatisticalModels
         /// </summary>
         private static int[] TopPerGroup(RowGroups groups, Func<int, double> score)
         {
-            if (groups.Multiple.Length == 0)
+            if (groups.MultipleCount == 0)
                 return groups.Singles;
-            var top = new int[groups.Singles.Length + groups.Multiple.Length];
+            var top = new int[groups.Count];
             TopPerGroupInto(groups, score, top);
             return top;
         }
@@ -422,29 +428,71 @@ namespace StatisticalModels
         {
             groups.Singles.CopyTo(into, 0);
             int k = groups.Singles.Length;
-            foreach (int[] members in groups.Multiple)
+            int[] rows = groups.MultipleRows, starts = groups.MultipleStarts;
+            for (int g = 0; g < groups.MultipleCount; g++)
             {
-                // Highest score; ties go to the earlier row (members are in ascending row order)
-                int best = members[0];
+                // Highest score; ties go to the earlier row (a group's rows are in ascending order)
+                int best = rows[starts[g]];
                 double bestScore = score(best);
-                for (int m = 1; m < members.Length; m++)
+                for (int m = starts[g] + 1; m < starts[g + 1]; m++)
                 {
-                    double s = score(members[m]);
+                    double s = score(rows[m]);
                     if (s > bestScore)
                     {
-                        best = members[m];
+                        best = rows[m];
                         bestScore = s;
                     }
                 }
                 into[k++] = best;
             }
             // Distinct rows, so any sort gives the one ascending order (the singles alone are ascending already)
-            if (groups.Multiple.Length > 0)
+            if (groups.MultipleCount > 0)
                 into.AsSpan(0, k).Sort();
             return k;
         }
 
-        /// <summary>One worker's buffers for <see cref="BestSingleFeature"/>, each holding one feature and sign's rows.</summary>
+        /// <summary>
+        /// The rows of <paramref name="sampleSize"/> groups drawn at random, ascending. Each group, the singles first and then
+        /// the groups of two or more, takes the next draw of <paramref name="sampler"/> in turn; the lowest draws win, and a tie
+        /// goes to the earlier group. That is <c>OrderBy(_ =&gt; sampler.Next()).Take(sampleSize)</c> over the groups, which
+        /// this replaces, without a list per group.
+        /// </summary>
+        internal static int[] SampleGroupRows(RowGroups groups, int sampleSize, Random sampler)
+        {
+            int count = groups.Count;
+            var draws = new int[count];
+            var order = new int[count];
+            for (int g = 0; g < count; g++)
+            {
+                draws[g] = sampler.Next();
+                order[g] = g;
+            }
+            order.AsSpan().Sort((a, b) =>
+            {
+                int c = draws[a].CompareTo(draws[b]);
+                return c != 0 ? c : a.CompareTo(b);
+            });
+            int take = Math.Min(sampleSize, count), singles = groups.Singles.Length, total = 0;
+            for (int k = 0; k < take; k++)
+                total += order[k] < singles ? 1 : groups.Multiple(order[k] - singles).Length;
+            var rows = new int[total];
+            int at = 0;
+            for (int k = 0; k < take; k++)
+            {
+                if (order[k] < singles)
+                    rows[at++] = groups.Singles[order[k]];
+                else
+                {
+                    var members = groups.Multiple(order[k] - singles);
+                    members.CopyTo(rows.AsSpan(at));
+                    at += members.Length;
+                }
+            }
+            rows.AsSpan().Sort();
+            return rows;
+        }
+
+        /// <summary>One worker's buffers for the seed step (BestSingleFeature), each holding one feature and sign's rows.</summary>
         private sealed class SeedBuffers(int rows)
         {
             public int[] Rows { get; } = new int[rows];
@@ -452,41 +500,125 @@ namespace StatisticalModels
             public double[] Values { get; } = new double[rows];
             public int[] Order { get; } = new int[rows];
             public double[] Ranked { get; } = new double[rows];
-            public double[] Q { get; } = new double[rows];
         }
 
         /// <summary>
         /// Rows split by candidate group once, so that picking each group's top row under a new score is one pass with no
-        /// regrouping. Without candidate groups every row is its own group.
+        /// regrouping. Without candidate groups every row is its own group. The groups of two or more rows are held flat, one
+        /// array of their rows and one of where each starts: a list per group was millions of small objects per fold.
         /// </summary>
-        private sealed class RowGroups
+        internal sealed class RowGroups
         {
-            private RowGroups(int[] singles, int[][] multiple)
+            private RowGroups(int[] singles, int[] multipleRows, int[] multipleStarts)
             {
                 Singles = singles;
-                Multiple = multiple;
+                MultipleRows = multipleRows;
+                MultipleStarts = multipleStarts;
             }
 
             /// <summary>Rows alone in their group, in ascending order.</summary>
             public int[] Singles { get; }
 
-            /// <summary>Groups of two or more rows, each in ascending row order.</summary>
-            public int[][] Multiple { get; }
+            /// <summary>
+            /// The rows of every group of two or more, group after group in the order each group first appears in the rows
+            /// given, each group's rows ascending.
+            /// </summary>
+            public int[] MultipleRows { get; }
+
+            /// <summary>Where each group of two or more starts in <see cref="MultipleRows"/>, and one past the last.</summary>
+            public int[] MultipleStarts { get; }
+
+            /// <summary>The groups of two or more rows.</summary>
+            public int MultipleCount => MultipleStarts.Length - 1;
+
+            /// <summary>Every group: the singles, then the groups of two or more.</summary>
+            public int Count => Singles.Length + MultipleCount;
+
+            /// <summary>The rows of group <paramref name="g"/> of two or more (0 is the first of them).</summary>
+            public ReadOnlySpan<int> Multiple(int g) => MultipleRows.AsSpan(MultipleStarts[g], MultipleStarts[g + 1] - MultipleStarts[g]);
 
             public static RowGroups Of(int[] rows, IReadOnlyList<int>? candidateGroups)
             {
                 if (candidateGroups is null)
-                    return new RowGroups(rows, []);
-                var byGroup = new Dictionary<int, List<int>>();
+                    return new RowGroups(rows, [], [0]);
+
+                // Each group's number, in the order it first appears; an array keyed by group when the groups are dense
+                // (precursor indices are), a dictionary otherwise
+                var number = new int[rows.Length];
+                var sizes = new List<int>();
+                int low = int.MaxValue, high = int.MinValue;
                 foreach (int i in rows)
                 {
-                    if (!byGroup.TryGetValue(candidateGroups[i], out var list))
-                        byGroup[candidateGroups[i]] = list = [];
-                    list.Add(i);
+                    low = Math.Min(low, candidateGroups[i]);
+                    high = Math.Max(high, candidateGroups[i]);
                 }
-                var singles = byGroup.Values.Where(g => g.Count == 1).Select(g => g[0]).Order().ToArray();
-                var multiple = byGroup.Values.Where(g => g.Count > 1).Select(g => g.Order().ToArray()).ToArray();
-                return new RowGroups(singles, multiple);
+                if (rows.Length > 0 && (long)high - low < 4L * rows.Length + 1024)
+                {
+                    var numberOf = new int[high - low + 1];
+                    Array.Fill(numberOf, -1);
+                    for (int t = 0; t < rows.Length; t++)
+                    {
+                        ref int g = ref numberOf[candidateGroups[rows[t]] - low];
+                        if (g < 0)
+                        {
+                            g = sizes.Count;
+                            sizes.Add(0);
+                        }
+                        number[t] = g;
+                        sizes[g]++;
+                    }
+                }
+                else
+                {
+                    var numberOf = new Dictionary<int, int>();
+                    for (int t = 0; t < rows.Length; t++)
+                    {
+                        if (!numberOf.TryGetValue(candidateGroups[rows[t]], out int g))
+                        {
+                            numberOf[candidateGroups[rows[t]]] = g = sizes.Count;
+                            sizes.Add(0);
+                        }
+                        number[t] = g;
+                        sizes[g]++;
+                    }
+                }
+
+                // The groups of two or more keep their order of first appearance; each one's rows, written in the order
+                // given, are then sorted
+                var multipleIndex = new int[sizes.Count];
+                int multiples = 0, singleCount = 0;
+                for (int g = 0; g < sizes.Count; g++)
+                {
+                    if (sizes[g] == 1)
+                    {
+                        multipleIndex[g] = -1;
+                        singleCount++;
+                    }
+                    else
+                        multipleIndex[g] = multiples++;
+                }
+                var starts = new int[multiples + 1];
+                for (int g = 0; g < sizes.Count; g++)
+                    if (multipleIndex[g] >= 0)
+                        starts[multipleIndex[g] + 1] = sizes[g];
+                for (int m = 0; m < multiples; m++)
+                    starts[m + 1] += starts[m];
+                var singles = new int[singleCount];
+                var multipleRows = new int[starts[multiples]];
+                var cursor = starts[..^1];
+                int s = 0;
+                for (int t = 0; t < rows.Length; t++)
+                {
+                    int m = multipleIndex[number[t]];
+                    if (m < 0)
+                        singles[s++] = rows[t];
+                    else
+                        multipleRows[cursor[m]++] = rows[t];
+                }
+                singles.AsSpan().Sort();
+                for (int m = 0; m < multiples; m++)
+                    multipleRows.AsSpan(starts[m], starts[m + 1] - starts[m]).Sort();
+                return new RowGroups(singles, multipleRows, starts);
             }
         }
 

@@ -963,6 +963,67 @@ public class TargetDecoyRescorerTests
     }
 
     /// <summary>
+    /// The groups held flat are the list-per-group formula's exactly, whatever the row order and however sparse the group
+    /// keys: singles ascending, then each group of two or more in the order it first appears, its rows ascending.
+    /// </summary>
+    [Test]
+    public void RowGroupsAreTheListPerGroupFormula()
+    {
+        var random = new Random(13);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int n = random.Next(3000);
+            bool sparse = trial % 3 == 0;
+            int[] groupOf = Enumerable.Range(0, n).Select(_ => sparse ? random.Next() - int.MaxValue / 2 : random.Next(1 + n / 3)).ToArray();
+            int[] rows = Enumerable.Range(0, n).Where(_ => random.Next(4) > 0).ToArray();
+            if (trial % 2 == 1)
+                rows = rows.OrderBy(_ => random.Next()).ToArray(); // not ascending
+
+            var byGroup = new Dictionary<int, List<int>>();
+            foreach (int i in rows)
+            {
+                if (!byGroup.TryGetValue(groupOf[i], out var list))
+                    byGroup[groupOf[i]] = list = [];
+                list.Add(i);
+            }
+            int[] singles = byGroup.Values.Where(g => g.Count == 1).Select(g => g[0]).Order().ToArray();
+            int[][] multiple = byGroup.Values.Where(g => g.Count > 1).Select(g => g.Order().ToArray()).ToArray();
+
+            var groups = TargetDecoyRescorer.RowGroups.Of(rows, groupOf);
+            Assert.That(groups.Singles, Is.EqualTo(singles), $"trial {trial}");
+            Assert.That(groups.MultipleCount, Is.EqualTo(multiple.Length), $"trial {trial}");
+            for (int g = 0; g < multiple.Length; g++)
+                Assert.That(groups.Multiple(g).ToArray(), Is.EqualTo(multiple[g]), $"trial {trial}, group {g}");
+        }
+    }
+
+    /// <summary>
+    /// The normalisation sample takes the same groups as <c>OrderBy(_ =&gt; sampler.Next()).Take(size)</c> over the singles and
+    /// then the groups of two or more, with the same generator: so the normalisation, and every score, is unchanged.
+    /// </summary>
+    [Test]
+    public void TheNormalisationSampleIsTheOrderByFormula()
+    {
+        var random = new Random(17);
+        for (int trial = 0; trial < 100; trial++)
+        {
+            int n = 1 + random.Next(4000);
+            int[] groupOf = Enumerable.Range(0, n).Select(_ => random.Next(1 + n / 4)).ToArray();
+            int[] rows = Enumerable.Range(0, n).ToArray();
+            var groups = TargetDecoyRescorer.RowGroups.Of(rows, groupOf);
+            int size = 1 + random.Next(groups.Count);
+            int seed = random.Next();
+
+            var listed = groups.Singles.Select(i => new[] { i })
+                .Concat(Enumerable.Range(0, groups.MultipleCount).Select(g => groups.Multiple(g).ToArray())).ToList();
+            var sampler = new Random(seed);
+            int[] expected = listed.OrderBy(_ => sampler.Next()).Take(size).SelectMany(g => g).Order().ToArray();
+
+            Assert.That(TargetDecoyRescorer.SampleGroupRows(groups, size, new Random(seed)), Is.EqualTo(expected), $"trial {trial}");
+        }
+    }
+
+    /// <summary>
     /// With too few targets for any to pass, the seed is the feature and sign with the larger standardized separation. Here
     /// that is the second feature, taken negatively: −5 / 2.74 beats 2 / 1.26.
     /// </summary>

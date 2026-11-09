@@ -356,7 +356,14 @@ namespace StatisticalModels
     /// <summary>An averaged ensemble of <see cref="MultilayerPerceptron"/>s.</summary>
     public sealed class MultilayerPerceptronEnsemble
     {
-        internal MultilayerPerceptronEnsemble(IReadOnlyList<MultilayerPerceptron> members) => Members = members;
+        internal MultilayerPerceptronEnsemble(IReadOnlyList<MultilayerPerceptron> members)
+        {
+            Members = members;
+            _width = members.Count == 0 ? 0 : members.Max(m => m.Width);
+        }
+
+        /// <summary>The widest member's widest layer, once: prediction is per row, millions of times a search.</summary>
+        private readonly int _width;
 
         public IReadOnlyList<MultilayerPerceptron> Members { get; }
 
@@ -372,7 +379,7 @@ namespace StatisticalModels
             ArgumentNullException.ThrowIfNull(features);
             if (Members.Count == 0 || features.Length != Members[0].InputCount)
                 return LogitOfMeanProbability(Members.Select(m => m.PredictLogit(features)).ToArray()); // the members report the error
-            int width = Members.Max(m => m.Width);
+            int width = _width;
             Span<double> first = stackalloc double[width];
             Span<double> second = stackalloc double[width];
             Span<double> logits = stackalloc double[Members.Count];
@@ -396,7 +403,7 @@ namespace StatisticalModels
             int lanes = Vector<double>.Count, members = Members.Count, k = 0;
             if (Vector.IsHardwareAccelerated && members > 0 && rows.Count >= lanes)
             {
-                int width = Members.Max(m => m.Width), inputs = Members[0].InputCount;
+                int width = _width, inputs = Members[0].InputCount;
                 var first = new Vector<double>[width];
                 var second = new Vector<double>[width];
                 Span<int> block = stackalloc int[lanes];
