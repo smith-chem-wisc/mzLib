@@ -39,9 +39,9 @@ public readonly struct MslPrecursorIndexEntry : IComparable<MslPrecursorIndexEnt
 
 	/// <summary>
 	/// Ion-mobility value for this precursor (float32, 4 bytes).
-	/// Used as the IM filter key when both IM bounds are non-zero in
+	/// Used as the IM filter key when either IM bound is non-zero in
 	/// <see cref="MslIndex.QueryWindow"/>. Zero indicates ion mobility is not applicable
-	/// or was not measured for this precursor.
+	/// or was not measured for this precursor; such a precursor fails any IM filter.
 	/// </summary>
 	public readonly float IonMobility;
 
@@ -160,28 +160,40 @@ public readonly struct MslPrecursorIndexEntry : IComparable<MslPrecursorIndexEnt
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Disposable, zero-extra-allocation result container returned by
+/// Disposable result container returned by
 /// <see cref="MslIndex.QueryWindow"/>. Internally backed by a pooled
 /// <see cref="MslPrecursorIndexEntry"/> array rented from
 /// <see cref="ArrayPool{T}.Shared"/>. Callers <b>must</b> call
 /// <see cref="Dispose"/> (or use a <c>using</c> statement) after processing the
 /// <see cref="Entries"/> span to return the buffer to the pool. Failing to dispose
 /// will not cause data corruption but will increase GC pressure over time.
+/// A non-empty result allocates one small holder object, which is what lets every copy
+/// of this struct see that the buffer has been returned.
 /// </summary>
 public readonly struct MslWindowResults : IDisposable
 {
 	// ── Private state ────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Pooled array rented from <see cref="ArrayPool{T}.Shared"/>. May be larger than
-	/// <see cref="_count"/> because the pool returns the next-larger power-of-two size.
-	/// Null only when <see cref="_count"/> is zero (empty result, no rental required).
+	/// Holds the pooled array so that Dispose can take it exactly once, even when the struct
+	/// has been copied: every copy shares the one holder.
 	/// </summary>
-	private readonly MslPrecursorIndexEntry[]? _buffer;
+	private sealed class BufferHolder
+	{
+		/// <summary>The rented array, or null once returned to the pool.</summary>
+		public MslPrecursorIndexEntry[]? Array;
+	}
 
 	/// <summary>
-	/// Number of valid entries written into <see cref="_buffer"/>.
-	/// May be less than <c>_buffer.Length</c> when the pool over-allocated.
+	/// Holder of the array rented from <see cref="ArrayPool{T}.Shared"/>. The array may be
+	/// larger than <see cref="_count"/> because the pool returns the next-larger power-of-two
+	/// size. Null only when the result is empty (no rental required).
+	/// </summary>
+	private readonly BufferHolder? _holder;
+
+	/// <summary>
+	/// Number of valid entries written into the rented array.
+	/// May be less than its length when the pool over-allocated.
 	/// </summary>
 	private readonly int _count;
 
@@ -201,7 +213,7 @@ public readonly struct MslWindowResults : IDisposable
 	/// </param>
 	internal MslWindowResults(MslPrecursorIndexEntry[]? buffer, int count)
 	{
-		_buffer = buffer;
+		_holder = buffer is null ? null : new BufferHolder { Array = buffer };
 		_count = count;
 	}
 
@@ -212,11 +224,12 @@ public readonly struct MslWindowResults : IDisposable
 	/// this <see cref="MslWindowResults"/> is alive — do not hold the span past
 	/// <see cref="Dispose"/>. The entries are in ascending <see cref="MslPrecursorIndexEntry.PrecursorMz"/>
 	/// order, reflecting the sort order of the backing index array.
+	/// After <see cref="Dispose"/> it is empty.
 	/// </summary>
 	public ReadOnlySpan<MslPrecursorIndexEntry> Entries
-		=> _buffer is null
-			? ReadOnlySpan<MslPrecursorIndexEntry>.Empty
-			: _buffer.AsSpan(0, _count);
+		=> _holder?.Array is { } array
+			? array.AsSpan(0, _count)
+			: ReadOnlySpan<MslPrecursorIndexEntry>.Empty;
 
 	/// <summary>
 	/// Number of matching index entries in this result set.
@@ -228,14 +241,19 @@ public readonly struct MslWindowResults : IDisposable
 
 	/// <summary>
 	/// Returns the rented backing array to <see cref="ArrayPool{T}.Shared"/>.
-	/// Safe to call multiple times (idempotent due to null guard).
+	/// Safe to call more than once, on this value or on any copy of it: the array is returned
+	/// exactly once. (Returning it twice would let two later queries rent the same array and
+	/// overwrite each other's results.)
 	/// Must be called once the caller has finished processing <see cref="Entries"/>;
-	/// the span must not be used after this call.
+	/// a span taken before this call must not be used after it.
 	/// </summary>
 	public void Dispose()
 	{
-		if (_buffer is not null)
-			ArrayPool<MslPrecursorIndexEntry>.Shared.Return(_buffer);
+		if (_holder is null)
+			return;
+		MslPrecursorIndexEntry[]? array = Interlocked.Exchange(ref _holder.Array, null);
+		if (array is not null)
+			ArrayPool<MslPrecursorIndexEntry>.Shared.Return(array);
 	}
 }
 
@@ -328,7 +346,8 @@ public record MslIndexStatistics
 ///   <item>O(1) DDA-style lookup by modified-sequence + charge via a dictionary.</item>
 ///   <item>O(k) elution-group queries via a pre-built group dictionary.</item>
 ///   <item>O(N) RT calibration producing a new immutable index instance.</item>
-///   <item>LRU-buffered full-entry access to avoid repeated disk reads in index-only mode.</item>
+///   <item>A bounded full-entry cache to avoid repeated disk reads in index-only mode. It evicts
+///   first in, first out (a hit does not refresh an entry), although its members say "Lru".</item>
 /// </list>
 /// <para>
 /// This class is the hot path of DIA search — <see cref="QueryWindow"/> is called hundreds
@@ -682,8 +701,10 @@ public sealed class MslIndex : IDisposable
 	///   <item>
 	///     <term>IM window (optional)</term>
 	///     <description>
-	///       Applied only when both <paramref name="imLow"/> and <paramref name="imHigh"/>
-	///       are non-zero. When either is zero the IM filter is skipped entirely.
+	///       Applied when either <paramref name="imLow"/> or <paramref name="imHigh"/>
+	///       is non-zero; only when both are zero is the IM filter skipped. A precursor
+	///       whose IonMobility is 0 (not measured) fails an applied filter, so on a library
+	///       without ion mobility any non-zero bound returns nothing.
 	///     </description>
 	///   </item>
 	///   <item>
@@ -768,7 +789,7 @@ public sealed class MslIndex : IDisposable
 			if (e.Irt < rtLow || e.Irt > rtHigh)
 				continue;
 
-			// IM filter (only when both bounds are non-zero)
+			// IM filter (when either bound is non-zero)
 			if (applyIm && (e.IonMobility < imLow || e.IonMobility > imHigh))
 				continue;
 
@@ -831,8 +852,9 @@ public sealed class MslIndex : IDisposable
 	/// </summary>
 	/// <param name="elutionGroupId">
 	/// The integer elution-group ID as stored in
-	/// <see cref="MslPrecursorIndexEntry.ElutionGroupId"/>. Use 0 as the sentinel for
-	/// ungrouped precursors when the library was built without elution-group assignments.
+	/// <see cref="MslPrecursorIndexEntry.ElutionGroupId"/>. The writer assigns IDs densely
+	/// from 0, in first-seen order of the stripped sequence, so 0 is the first group, not a
+	/// sentinel for ungrouped precursors.
 	/// </param>
 	/// <returns>
 	/// A read-only span over the entries in the group in ascending m/z order.
@@ -929,8 +951,7 @@ public sealed class MslIndex : IDisposable
 	/// (output values are numerically identical to the input).
 	/// </param>
 	/// <param name="intercept">
-	/// Additive offset applied after scaling. Represents the iRT value corresponding to
-	/// a run-RT of zero.
+	/// Additive offset applied after scaling: the run RT that corresponds to an iRT of zero.
 	/// </param>
 	/// <returns>
 	/// A new <see cref="MslIndex"/> whose entries have calibrated RT values and whose

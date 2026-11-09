@@ -100,17 +100,24 @@ public static class MslWriter
 	/// <exception cref="ArgumentOutOfRangeException">
 	///   Thrown when <paramref name="compressionLevel"/> is outside [0, 22].
 	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   Thrown, and nothing is written, when an entry is null, has a precursor m/z that is not
+	///   a finite float, a charge outside the stored range, more than
+	///   <see cref="MaxFragmentsPerEntry"/> fragments, or a fragment charge outside [0, 255].
+	/// </exception>
 	public static void Write(string outputPath, IReadOnlyList<MslLibraryEntry> entries,
 		int compressionLevel = 0)
 	{
 		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
-		if (compressionLevel < 0 || compressionLevel > 22)
-			throw new ArgumentOutOfRangeException(nameof(compressionLevel),
-				"compressionLevel must be in [0, 22]. Use 0 for no compression.");
+		ThrowIfInvalidCompressionLevel(compressionLevel, nameof(compressionLevel));
+		for (int i = 0; i < entries.Count; i++)
+			ThrowIfUnwritable(entries[i], i);
 
-		string tempPath = outputPath + ".tmp~";
-		string compressedTempPath = outputPath + ".zfrags~";
+		// A per-call token keeps two writers aimed at the same output from sharing temp files.
+		string token = TempToken();
+		string tempPath = $"{outputPath}.{token}.tmp~";
+		string compressedTempPath = $"{outputPath}.{token}.zfrags~";
 
 		try
 		{
@@ -214,10 +221,26 @@ public static class MslWriter
 		if (spectra is null) throw new ArgumentNullException(nameof(spectra));
 
 		var entries = new List<MslLibraryEntry>(spectra.Count);
-		foreach (LibrarySpectrum spectrum in spectra)
-			entries.Add(MslLibraryEntry.FromLibrarySpectrum(spectrum));
+		for (int i = 0; i < spectra.Count; i++)
+			entries.Add(ConvertForWrite(spectra[i], i, nameof(spectra)));
 
 		Write(outputPath, entries, compressionLevel);
+	}
+
+	/// <summary>
+	/// Converts one <see cref="LibrarySpectrum"/> to an entry, throwing
+	/// <see cref="ArgumentException"/> with the converter's reasons when it cannot be converted.
+	/// <see cref="MslLibraryEntry.FromLibrarySpectrum"/> returns null in that case, and the
+	/// writers used to pass the null on and fail later with a NullReferenceException.
+	/// </summary>
+	internal static MslLibraryEntry ConvertForWrite(LibrarySpectrum spectrum, int index, string paramName)
+	{
+		ConversionResult result = MslLibraryEntry.TryFromLibrarySpectrum(spectrum);
+		if (result.Success && result.Entry is not null)
+			return result.Entry;
+		throw new ArgumentException(
+			$"{paramName}[{index}] ('{spectrum?.Name}') cannot be converted to a .msl entry: " +
+			string.Join("; ", result.Errors), paramName);
 	}
 
 	/// <summary>
@@ -253,6 +276,14 @@ public static class MslWriter
 	/// <exception cref="ArgumentNullException">
 	///   Thrown when <paramref name="outputPath"/> or <paramref name="entries"/> is null.
 	/// </exception>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   Thrown when <paramref name="compressionLevel"/> is outside [0, 22].
+	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   Thrown, and nothing is written, when an entry is null, has a precursor m/z that is not
+	///   a finite float, a charge outside the stored range, more than
+	///   <see cref="MaxFragmentsPerEntry"/> fragments, or a fragment charge outside [0, 255].
+	/// </exception>
 	/// <exception cref="IOException">An I/O error occurred during write or temp-file cleanup.</exception>
 	public static void WriteStreaming(
 		string outputPath,
@@ -261,13 +292,17 @@ public static class MslWriter
 	{
 		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
+		ThrowIfInvalidCompressionLevel(compressionLevel, nameof(compressionLevel));
 
 		// All three temps live on the same volume as the final output so that the
 		// concluding File.Move is a same-volume atomic rename rather than a cross-device copy.
-		string fragmentTempPath = outputPath + ".frags~";
-		string spillTempPath = outputPath + ".spill~";
-		string outputTempPath = outputPath + ".tmp~";
-		string compressedTempPath = outputPath + ".zfrags~";
+		// A per-call token keeps two writers aimed at the same output from sharing temp files.
+		string token = TempToken();
+		string fragmentTempPath = $"{outputPath}.{token}.frags~";
+		string spillTempPath = $"{outputPath}.{token}.spill~";
+		string outputTempPath = $"{outputPath}.{token}.tmp~";
+		string compressedTempPath = $"{outputPath}.{token}.zfrags~";
+		int entryIndex = 0;
 
 		try
 		{
@@ -313,6 +348,7 @@ public static class MslWriter
 			{
 				foreach (MslLibraryEntry entry in entries)
 				{
+					ThrowIfUnwritable(entry, entryIndex++);
 					seenAnyEntry = true;
 
 					// ── Step 1: Intern all string fields ─────────────────────
@@ -815,11 +851,6 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Validates a list of <see cref="MslLibraryEntry"/> objects before writing.
-	/// Returns a list of human-readable error strings. An empty list means all entries
-	/// are safe to pass to <see cref="Write"/>.
-	/// </summary>
-	/// <summary>
 	/// Maximum number of fragment ions a single entry may hold, bounded by the on-disk
 	/// <see cref="MslPrecursorRecord.FragmentCount"/> field (a signed 16-bit int).
 	/// </summary>
@@ -841,6 +872,71 @@ public static class MslWriter
 		return (short)count;
 	}
 
+	/// <summary>
+	/// Throws <see cref="ArgumentOutOfRangeException"/> when <paramref name="compressionLevel"/> is
+	/// outside [0, 22], the levels zstd defines. Every writer entry point calls it, so
+	/// <see cref="Write"/>, <see cref="WriteStreaming"/> and <see cref="MslMerger.Merge"/> agree.
+	/// </summary>
+	internal static void ThrowIfInvalidCompressionLevel(int compressionLevel, string paramName)
+	{
+		if (compressionLevel < 0 || compressionLevel > 22)
+			throw new ArgumentOutOfRangeException(paramName, compressionLevel,
+				"compressionLevel must be in [0, 22]. Use 0 for no compression.");
+	}
+
+	/// <summary>A short random token that makes one write call's temp-file names its own.</summary>
+	private static string TempToken() => Guid.NewGuid().ToString("N").Substring(0, 12);
+
+	/// <summary>
+	/// Throws <see cref="ArgumentException"/> for an entry the format cannot store as given:
+	/// a null entry; a precursor m/z that is not a finite float (the index cannot place it,
+	/// so no reader would ever return it); a precursor charge outside the stored 16-bit range;
+	/// or a fragment charge outside the stored 8-bit range [0, 255] (a negative charge used to
+	/// be stored wrapped, e.g. -1 as 255).
+	/// Unlike <see cref="ValidateEntries"/>, it checks only what would be stored wrongly, so an
+	/// entry with no fragments (a predicted entry awaiting <c>PredictFragments</c>) passes.
+	/// A null fragment list or a null fragment is left to the writer, as before.
+	/// </summary>
+	/// <param name="entry">The entry to check.</param>
+	/// <param name="index">The entry's position in the input, for the message.</param>
+	private static void ThrowIfUnwritable(MslLibraryEntry? entry, int index)
+	{
+		if (entry is null)
+			throw new ArgumentException($"entries[{index}] is null.", "entries");
+
+		if (!float.IsFinite((float)entry.PrecursorMz))
+			throw new ArgumentException(
+				$"entries[{index}] ('{entry.FullSequence}') has precursor m/z {entry.PrecursorMz}, which is " +
+				"not a finite number. The index cannot place it, so no reader would return it.", "entries");
+
+		if (entry.ChargeState < short.MinValue || entry.ChargeState > short.MaxValue)
+			throw new ArgumentException(
+				$"entries[{index}] ('{entry.FullSequence}') has charge {entry.ChargeState}, outside the " +
+				$"stored 16-bit range [{short.MinValue}, {short.MaxValue}].", "entries");
+
+		if (entry.MatchedFragmentIons is null)
+			return;
+
+		foreach (MslFragmentIon fragment in entry.MatchedFragmentIons)
+		{
+			if (fragment is not null && (fragment.Charge < byte.MinValue || fragment.Charge > byte.MaxValue))
+				throw new ArgumentException(
+					$"entries[{index}] ('{entry.FullSequence}') has a fragment of charge {fragment.Charge}, " +
+					"outside the stored 8-bit range [0, 255].", "entries");
+		}
+	}
+
+	/// <summary>
+	/// Validates a list of <see cref="MslLibraryEntry"/> objects before writing.
+	/// Returns a list of human-readable error strings. An empty list means every entry
+	/// meets this method's rules.
+	/// <para>
+	/// <see cref="Write"/> does not call it, and its rules are stricter than the writer's:
+	/// it rejects an entry with no fragments, which the writer accepts. It does not check the
+	/// per-entry fragment limit (<see cref="MaxFragmentsPerEntry"/>), which
+	/// <see cref="Write"/> enforces by throwing <see cref="ArgumentException"/>.
+	/// </para>
+	/// </summary>
 	public static List<string> ValidateEntries(IReadOnlyList<MslLibraryEntry> entries)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));

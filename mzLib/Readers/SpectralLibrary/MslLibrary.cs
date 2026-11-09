@@ -329,8 +329,8 @@ public sealed class MslLibrary : IDisposable
 
 		// Convert each LibrarySpectrum to an MslLibraryEntry, then delegate to the primary Save path
 		var entries = new List<MslLibraryEntry>(spectra.Count);
-		foreach (LibrarySpectrum spectrum in spectra)
-			entries.Add(MslLibraryEntry.FromLibrarySpectrum(spectrum));
+		for (int i = 0; i < spectra.Count; i++)
+			entries.Add(MslWriter.ConvertForWrite(spectra[i], i, nameof(spectra)));
 
 		MslWriter.Write(filePath, entries);
 	}
@@ -379,13 +379,13 @@ public sealed class MslLibrary : IDisposable
 
 	/// <summary>
 	/// Smallest precursor m/z value among all entries, in Thomson (m/z) units.
-	/// Returns 0 when the library contains no entries.
+	/// Returns <see cref="float.PositiveInfinity"/> when the library contains no entries.
 	/// </summary>
 	public float MinPrecursorMz => _stats.MinPrecursorMz;
 
 	/// <summary>
 	/// Largest precursor m/z value among all entries, in Thomson (m/z) units.
-	/// Returns 0 when the library contains no entries.
+	/// Returns <see cref="float.NegativeInfinity"/> when the library contains no entries.
 	/// </summary>
 	public float MaxPrecursorMz => _stats.MaxPrecursorMz;
 
@@ -633,7 +633,8 @@ public sealed class MslLibrary : IDisposable
 
 	/// <summary>
 	/// Returns the full <see cref="MslLibraryEntry"/> for the precursor at
-	/// zero-based position <paramref name="precursorIdx"/> in the m/z-sorted index.
+	/// zero-based precursor index <paramref name="precursorIdx"/>: the precursor's position in
+	/// the file (<see cref="MslPrecursorIndexEntry.PrecursorIdx"/>), not its rank in m/z order.
 	///
 	/// <para>
 	/// In full-load mode the entry is retrieved from the in-memory array.
@@ -887,11 +888,26 @@ public sealed class MslLibrary : IDisposable
 
 		foreach (MslPrecursorIndexEntry indexEntry in all)
 		{
+			// Disposed mid-enumeration: stop cleanly, as documented. Dispose clears _index, so
+			// reading through it would throw NullReferenceException.
+			MslIndex? index = _index;
+			if (_disposed || index is null)
+				yield break;
+
 			// Apply the decoy filter before triggering a potentially expensive disk read
 			if (!includeDecoys && indexEntry.IsDecoy == 1)
 				continue;
 
-			MslLibraryEntry? entry = _index.GetEntry(indexEntry.PrecursorIdx);
+			MslLibraryEntry? entry;
+			try
+			{
+				entry = index.GetEntry(indexEntry.PrecursorIdx);
+			}
+			catch (ObjectDisposedException) when (_disposed)
+			{
+				// Disposed by another thread between the check above and the read.
+				yield break;
+			}
 			if (entry is not null)
 				yield return entry;
 		}
@@ -916,9 +932,16 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
-	/// <b>This instance is not modified.</b> The new library is independent and holds its
-	/// own index. Dispose the new library when finished; it does not share a file stream with
-	/// the original.
+	/// <b>This instance is not modified.</b> The new library holds its own index, but it reads
+	/// fragments through the original's open file (in index-only mode) and shares its raw
+	/// data. Dispose the new library before the original: once the original is disposed, the
+	/// new library's reads fail with <see cref="ObjectDisposedException"/>.
+	/// </para>
+	///
+	/// <para>
+	/// Only the index moves. The entries themselves keep their <c>RetentionTime</c> and
+	/// <c>RtIsCalibrated</c>, so <see cref="GetEntry(int, bool)"/> still returns the stored
+	/// value, and saving the new library's entries does not save the calibration.
 	/// </para>
 	///
 	/// <para>
@@ -930,8 +953,8 @@ public sealed class MslLibrary : IDisposable
 	/// </summary>
 	/// <param name="slope">
 	///   Slope of the linear iRT → calibrated RT regression. Typical values: 0.1–10.0.
-	///   No guard against zero or NaN; callers are responsible for providing a well-conditioned
-	///   regression fit.
+	///   Must be finite and non-zero: a NaN slope makes every RT NaN, so every RT window
+	///   matches, and a zero slope collapses every RT onto the intercept.
 	/// </param>
 	/// <param name="intercept">
 	///   Intercept of the linear iRT → calibrated RT regression (in the same units as the
@@ -943,10 +966,19 @@ public sealed class MslLibrary : IDisposable
 	///   the <see cref="ProteoformIndex"/>. The new library has the same <see cref="Header"/>
 	///   and <see cref="IsIndexOnly"/> flag as the original.
 	/// </returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="slope"/> is zero or not finite, or <paramref name="intercept"/> is not finite.
+	/// </exception>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	public MslLibrary WithCalibratedRetentionTimes(double slope, double intercept)
 	{
 		ThrowIfDisposed();
+		if (!double.IsFinite(slope) || slope == 0.0)
+			throw new ArgumentOutOfRangeException(nameof(slope), slope,
+				"The calibration slope must be a finite, non-zero number.");
+		if (!double.IsFinite(intercept))
+			throw new ArgumentOutOfRangeException(nameof(intercept), intercept,
+				"The calibration intercept must be a finite number.");
 
 		// MslIndex.WithCalibratedRetentionTimes creates a brand-new index with transformed
 		// RetentionTime values; the original index (_index) is not modified.
@@ -1050,6 +1082,10 @@ public sealed class MslLibrary : IDisposable
 	/// <exception cref="ArgumentNullException">
 	///   <paramref name="newSpectra"/> or <paramref name="outputPath"/> is <see langword="null"/>.
 	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   A spectrum in <paramref name="newSpectra"/> cannot be converted to a .msl entry
+	///   (null, empty sequence, charge or m/z not positive). Thrown before anything is written.
+	/// </exception>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	/// <exception cref="IOException">An I/O error occurred while writing the file.</exception>
 	public MslUpdateResult UpdateAndSave(
@@ -1060,6 +1096,11 @@ public sealed class MslLibrary : IDisposable
 		ArgumentNullException.ThrowIfNull(newSpectra);
 		ArgumentNullException.ThrowIfNull(outputPath);
 		ThrowIfDisposed();
+
+		// Refuse an unconvertible spectrum up front, by its position, rather than failing
+		// later on the null that FromLibrarySpectrum returns for it.
+		for (int i = 0; i < newSpectra.Count; i++)
+			_ = MslWriter.ConvertForWrite(newSpectra[i], i, nameof(newSpectra));
 
 		// Clamp: a linear regression requires at least 2 points.
 		if (minRegressionAnchors < 2)
@@ -1310,10 +1351,16 @@ public sealed class MslLibrary : IDisposable
 	/// function, then writes the results back into those entries in-place.
 	///
 	/// The prediction function receives the list of eligible entries and returns a dictionary
-	/// mapping each entry's Name to its predicted LibrarySpectrum. Use
-	/// MslFragmentModelRouter.Predict from PredictionClients to supply this function:
+	/// mapping each entry's Name to its predicted LibrarySpectrum, for example a wrapper
+	/// around a Koina fragment-intensity model from PredictionClients:
 	///
-	///   library.PredictFragments(entries => MslFragmentModelRouter.Predict(entries, out _));
+	///   library.PredictFragments(entries => PredictWithMyModel(entries));
+	///
+	/// <para>
+	/// The predicted fragments live only in memory: nothing is written to disk. On an
+	/// index-only library they are written into a cached copy of each entry, so an entry
+	/// evicted from the cache loses them.
+	/// </para>
 	/// </summary>
 	/// <param name="predict">
 	///   Function that accepts a read-only list of MslLibraryEntry and returns a dictionary

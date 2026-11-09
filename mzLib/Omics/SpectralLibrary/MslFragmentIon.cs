@@ -156,8 +156,10 @@ public class MslFragmentIon
 	/// Neutral-loss mass applied to this fragment ion (0.0 = no loss).
 	/// For named losses (H2O, NH3, H3PO4, etc.) this value is populated by the reader
 	/// from the NeutralLossCode bits; for Custom losses it is read from the extended
-	/// annotation table. Negative values represent losses; positive values represent gains.
-	/// Maps to Product.NeutralLoss.
+	/// annotation table. Positive values represent losses (the mass removed) and negative
+	/// values gains, the same sign as Product.NeutralLoss, to which it maps unchanged.
+	/// Files written before this convention was fixed may hold a negative Custom value meant
+	/// as a loss; named codes were always losses and read back as positive masses now.
 	/// </summary>
 	public double NeutralLoss { get; set; }
 
@@ -222,13 +224,13 @@ public class MslFragmentIon
 				typePart = $"{ProductType}{FragmentNumber}";
 			}
 
-			// Append neutral-loss suffix when non-zero
-			// Negative loss magnitude is shown as a subtraction; positive as addition
+			// Append neutral-loss suffix when non-zero.
+			// A loss (positive, as in Product.NeutralLoss) is shown as a subtraction; a gain as addition.
 			if (NeutralLoss != 0.0)
 			{
-				string lossSuffix = NeutralLoss < 0
-					? $"-{-NeutralLoss:F4}"
-					: $"+{NeutralLoss:F4}";
+				string lossSuffix = NeutralLoss > 0
+					? $"-{NeutralLoss:F4}"
+					: $"+{-NeutralLoss:F4}";
 				typePart += lossSuffix;
 			}
 
@@ -618,20 +620,21 @@ public class MslLibraryEntry
 	/// no representation in LibrarySpectrum are initialized to sensible defaults:
 	/// IonMobility = 0, QValue = float.NaN, ElutionGroupId = 0, Source = Predicted,
 	/// MoleculeType = Peptide, DissociationType = Unknown, Nce = 0.
-	/// 
-	/// This method throws exceptions on validation failure; for batch processing where you
-	/// need to collect errors and continue, use <see cref="TryFromLibrarySpectrum"/> instead.
+	///
+	/// This method does not throw on validation failure: it returns <see langword="null"/>.
+	/// To learn why a spectrum was refused, use <see cref="TryFromLibrarySpectrum"/>, whose
+	/// <see cref="ConversionResult.Errors"/> lists the reasons.
 	/// </summary>
 	/// <param name="spectrum">
-	///   The LibrarySpectrum to convert. Must not be null. The MatchedFragmentIon list may be
+	///   The LibrarySpectrum to convert. The MatchedFragmentIon list may be
 	///   empty (resulting in an entry with no fragments) but should not be null.
 	/// </param>
 	/// <returns>
 	///   A new MslLibraryEntry whose core fields mirror the spectrum and whose fragment list
-	///   contains one MslFragmentIon per MatchedFragmentIon in spectrum.MatchedFragmentIons.
+	///   contains one MslFragmentIon per MatchedFragmentIon in spectrum.MatchedFragmentIons;
+	///   or <see langword="null"/> when <paramref name="spectrum"/> is null or fails validation
+	///   (an empty sequence, or a charge or precursor m/z that is not positive).
 	/// </returns>
-	/// <exception cref="ArgumentNullException">Thrown when <paramref name="spectrum"/> is null.</exception>
-	/// <exception cref="ArgumentException">Thrown when spectrum.Sequence is null or empty, or other validation fails.</exception>
 	public static MslLibraryEntry? FromLibrarySpectrum(LibrarySpectrum spectrum)
 	{
 		// Use TryFromLibrarySpectrum for validation and conversion
@@ -718,8 +721,8 @@ public class MslLibraryEntry
 	/// minor floating-point variations in how different tools report mass shifts.
 	/// </summary>
 	/// <param name="neutralLoss">
-	///   Neutral-loss mass in daltons. 0.0 = no loss. Negative values represent mass losses;
-	///   positive values represent mass gains.
+	///   Neutral-loss mass in daltons. 0.0 = no loss. Positive values represent mass losses,
+	///   as in Product.NeutralLoss; negative values represent mass gains.
 	/// </param>
 	/// <returns>The best-matching NeutralLossCode, or Custom if no match is found.</returns>
 	private static MslFormat.NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
