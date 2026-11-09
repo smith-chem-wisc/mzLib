@@ -464,9 +464,25 @@ namespace StatisticalModels
             return ranked.Where(i => !isDecoy[i]).Take(cap / 2).Concat(ranked.Where(i => isDecoy[i]).Take(cap - cap / 2)).Order().ToArray();
         }
 
-        /// <summary>A random <paramref name="cap"/> of <paramref name="rows"/>, in ascending row order.</summary>
-        internal static int[] RandomTrainingRows(int[] rows, IReadOnlyList<bool> isDecoy, int cap, Random sampler) =>
-            rows.OrderBy(_ => sampler.Next()).Take(cap).Order().ToArray();
+        /// <summary>
+        /// A random <paramref name="cap"/> of <paramref name="rows"/>, in ascending row order. The network cannot train on one
+        /// class, so a draw that holds one label while the rows hold both gives up its last row to the first row of the other
+        /// label in the same random order. A draw that holds both is unchanged.
+        /// </summary>
+        internal static int[] RandomTrainingRows(int[] rows, IReadOnlyList<bool> isDecoy, int cap, Random sampler)
+        {
+            int[] shuffled = rows.OrderBy(_ => sampler.Next()).ToArray();
+            int[] sample = shuffled.Take(cap).ToArray();
+            bool hasTarget = sample.Any(i => !isDecoy[i]), hasDecoy = sample.Any(i => isDecoy[i]);
+            if (hasTarget != hasDecoy && sample.Length < shuffled.Length)
+            {
+                // The missing label is the decoys when only targets were drawn, and the other way round
+                int other = Array.FindIndex(shuffled, sample.Length, i => isDecoy[i] == hasTarget);
+                if (other >= 0)
+                    sample[^1] = shuffled[other];
+            }
+            return sample.Order().ToArray();
+        }
 
         /// <summary>
         /// The confident training sample from rows <paramref name="ranked"/> best first (their scores in
@@ -478,6 +494,9 @@ namespace StatisticalModels
             double targetFraction = 0.5)
         {
             int targetCount = (int)Math.Floor(cap * targetFraction + 1e-9); // cap / 2 at one half, as before
+            // The network cannot train on one class: a small cap or share that rounds one away keeps a row of each (cap >= 2)
+            if (ranked.Any(i => !isDecoy[i]) && ranked.Any(i => isDecoy[i]))
+                targetCount = Math.Clamp(targetCount, 1, cap - 1);
             if (positiveQValue is double cutoff)
             {
                 double[] q = QValues(rankedScores, ranked.Select(i => isDecoy[i]).ToArray());
