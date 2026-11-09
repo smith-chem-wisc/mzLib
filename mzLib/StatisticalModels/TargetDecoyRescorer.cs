@@ -171,7 +171,9 @@ namespace StatisticalModels
                     return;
 
                 var trainGroups = RowGroups.Of(train, candidateGroups);
-                var seed = BestSingleFeature(features, isDecoy, train, positiveQValue, candidateGroups);
+                // The folds run at once, so each seed step takes its share of the cores (and of the workers' buffers)
+                var seed = BestSingleFeature(features, isDecoy, train, positiveQValue, candidateGroups,
+                    maxParallelism: Math.Max(1, Environment.ProcessorCount / Math.Max(1, folds)));
                 Func<double[], double> scorer = x => seed.Sign * x[seed.Feature];
                 MultilayerPerceptronEnsemble? network = null; // the scorer, when it is the network
                 bool trained = false;
@@ -341,37 +343,47 @@ namespace StatisticalModels
         /// right sign, so a direction is never chosen by the order the features happen to be in.
         /// </summary>
         internal static (int Feature, int Sign) BestSingleFeature(IReadOnlyList<double[]> features, IReadOnlyList<bool> isDecoy, int[] train, double cutoff,
-            IReadOnlyList<int>? candidateGroups = null)
+            IReadOnlyList<int>? candidateGroups = null, int maxParallelism = -1)
         {
             int p = features.Count == 0 ? 0 : features[0].Length;
             var groups = RowGroups.Of(train, candidateGroups);
+            int rowCount = groups.Singles.Length + groups.Multiple.Length; // the rows each feature and sign judges
             // The requested cutoff, then the relaxed ones above it: the choice below needs only each slot's passing count at
-            // these, so a slot keeps its counts, not its q-values (152 slots of millions of rows, per fold, were most of a
-            // DIA search's peak memory)
+            // these, so a slot keeps its counts, not its q-values
             double[] cutoffs = new[] { cutoff }.Concat(RelaxedCutoffs.Where(c => c > cutoff)).ToArray();
-            // Every feature and sign is judged independently, so in parallel, each into its own slot (same order as before)
+            // Every feature and sign is judged independently, so in parallel, each into its own slot (same order as before).
+            // Each worker ranks into one set of buffers, reused for every slot it takes: fresh arrays per slot, millions of
+            // rows each for 152 slots in each of three folds, were most of a DIA search's peak memory.
             var slots = new (int Feature, int Sign, double Separation, int[] Passing)[2 * p];
-            System.Threading.Tasks.Parallel.For(0, 2 * p, k =>
-            {
-                int j = k / 2, sign = k % 2 == 0 ? 1 : -1;
-                // With candidate groups, each feature and sign judges only the group rows it ranks top
-                int[] rows = TopPerGroup(groups, i => sign * features[i][j]);
-                bool[] rowDecoy = rows.Select(i => isDecoy[i]).ToArray();
-                double[] values = rows.Select(i => features[i][j]).ToArray();
-                double separation = StandardizedMeanDifference(values, rowDecoy);
-                // The signed values in place (sign * v, exactly): the unsigned ones are not needed again
-                if (sign < 0)
-                    for (int t = 0; t < values.Length; t++)
-                        values[t] = sign * values[t];
-                double[] q = QValues(values, rowDecoy);
-                var passing = new int[cutoffs.Length];
-                for (int t = 0; t < q.Length; t++)
-                    if (!rowDecoy[t])
-                        for (int c = 0; c < cutoffs.Length; c++)
-                            if (q[t] <= cutoffs[c])
-                                passing[c]++;
-                slots[k] = (j, sign, sign * separation, passing);
-            });
+            System.Threading.Tasks.Parallel.For(0, 2 * p, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = maxParallelism },
+                () => new SeedBuffers(rowCount),
+                (k, _, buffers) =>
+                {
+                    int j = k / 2, sign = k % 2 == 0 ? 1 : -1;
+                    // With candidate groups, each feature and sign judges only the group rows it ranks top
+                    int count = TopPerGroupInto(groups, i => sign * features[i][j], buffers.Rows);
+                    for (int t = 0; t < count; t++)
+                    {
+                        int row = buffers.Rows[t];
+                        buffers.Decoy[t] = isDecoy[row];
+                        buffers.Values[t] = features[row][j];
+                    }
+                    double separation = StandardizedMeanDifference(buffers.Values, buffers.Decoy, count);
+                    // The signed values in place (sign * v, exactly): the unsigned ones are not needed again
+                    if (sign < 0)
+                        for (int t = 0; t < count; t++)
+                            buffers.Values[t] = sign * buffers.Values[t];
+                    TargetDecoyQValues.Into(buffers.Values, buffers.Decoy, count, buffers.Order, buffers.Ranked, buffers.Q);
+                    var passing = new int[cutoffs.Length];
+                    for (int t = 0; t < count; t++)
+                        if (!buffers.Decoy[t])
+                            for (int c = 0; c < cutoffs.Length; c++)
+                                if (buffers.Q[t] <= cutoffs[c])
+                                    passing[c]++;
+                    slots[k] = (j, sign, sign * separation, passing);
+                    return buffers;
+                },
+                _ => { });
 
             // The first cutoff at which some slot passes enough targets; the requested one when none does
             int chosen = 0;
@@ -398,7 +410,17 @@ namespace StatisticalModels
             if (groups.Multiple.Length == 0)
                 return groups.Singles;
             var top = new int[groups.Singles.Length + groups.Multiple.Length];
-            groups.Singles.CopyTo(top, 0);
+            TopPerGroupInto(groups, score, top);
+            return top;
+        }
+
+        /// <summary>
+        /// <see cref="TopPerGroup"/> written into <paramref name="into"/> (at least one entry per group), in ascending row order;
+        /// returns how many rows it wrote.
+        /// </summary>
+        private static int TopPerGroupInto(RowGroups groups, Func<int, double> score, int[] into)
+        {
+            groups.Singles.CopyTo(into, 0);
             int k = groups.Singles.Length;
             foreach (int[] members in groups.Multiple)
             {
@@ -414,10 +436,23 @@ namespace StatisticalModels
                         bestScore = s;
                     }
                 }
-                top[k++] = best;
+                into[k++] = best;
             }
-            Array.Sort(top);
-            return top;
+            // Distinct rows, so any sort gives the one ascending order (the singles alone are ascending already)
+            if (groups.Multiple.Length > 0)
+                into.AsSpan(0, k).Sort();
+            return k;
+        }
+
+        /// <summary>One worker's buffers for <see cref="BestSingleFeature"/>, each holding one feature and sign's rows.</summary>
+        private sealed class SeedBuffers(int rows)
+        {
+            public int[] Rows { get; } = new int[rows];
+            public bool[] Decoy { get; } = new bool[rows];
+            public double[] Values { get; } = new double[rows];
+            public int[] Order { get; } = new int[rows];
+            public double[] Ranked { get; } = new double[rows];
+            public double[] Q { get; } = new double[rows];
         }
 
         /// <summary>
@@ -457,13 +492,20 @@ namespace StatisticalModels
 
         /// <summary>(mean of targets − mean of decoys) / pooled SD; 0 when either class is missing or the feature is constant.</summary>
         internal static double StandardizedMeanDifference(double[] values, bool[] isDecoy)
+            => StandardizedMeanDifference(values, isDecoy, values.Length);
+
+        /// <summary>
+        /// <see cref="StandardizedMeanDifference(double[], bool[])"/> over the first <paramref name="count"/> entries. Every mean
+        /// and sum is taken as LINQ's Average and Sum take it over an array, one addition at a time in row order, so the result
+        /// is bit for bit the same, without the class arrays: this runs for every feature and sign of every fold.
+        /// </summary>
+        internal static double StandardizedMeanDifference(double[] values, bool[] isDecoy, int count)
         {
-            // Each class's mean as LINQ's Average takes it over an array (a sum in row order, then one division), without the
-            // two class arrays: this runs for every feature and sign of every fold
-            double targetSum = 0, decoySum = 0;
+            double targetSum = 0, decoySum = 0, total = 0;
             int targets = 0, decoys = 0;
-            for (int t = 0; t < values.Length; t++)
+            for (int t = 0; t < count; t++)
             {
+                total += values[t];
                 if (isDecoy[t])
                 {
                     decoySum += values[t];
@@ -477,8 +519,11 @@ namespace StatisticalModels
             }
             if (targets == 0 || decoys == 0)
                 return 0;
-            double mean = values.Average();
-            double sd = Math.Sqrt(values.Sum(v => (v - mean) * (v - mean)) / Math.Max(1, values.Length - 1));
+            double mean = total / count;
+            double squares = 0;
+            for (int t = 0; t < count; t++)
+                squares += (values[t] - mean) * (values[t] - mean);
+            double sd = Math.Sqrt(squares / Math.Max(1, count - 1));
             return sd > LinearDiscriminant.ConstantTolerance ? (targetSum / targets - decoySum / decoys) / sd : 0;
         }
 
