@@ -198,6 +198,97 @@ namespace Test.FileReadingTests
             Assert.That(One(e, "A1.raw", "characteristics[sex]").Method, Is.EqualTo("sdrf"));
         }
 
+        [Test]
+        public void AnSdrfIsNotReadAgainByARuleThatGuessesAtItsColumns()
+        {
+            // PXD004916 and 37 other deposits: the file-key rule read the deposit's SDRF a second time and took "agent", in
+            // "cleavage agent" and in "reagent", for a treatment. An SDRF's columns already say what they are.
+            var t = Table("PXD1_community_annotated.sdrf.tsv", "",
+                new[] { "source name", "characteristics[genotype]", "characteristics[strain or breed]", "comment[cleavage agent details]",
+                    "comment[reduction reagent]", "comment[alkylation reagent]", "comment[technical replicate]", "comment[data file]" },
+                new[] { "s1", "wild type", "C57BL/6", "NT=Trypsin;AC=MS:1001251", "DTT", "IAA", "1", "A1.raw" },
+                new[] { "s2", "APP/PS1", "C57BL/6", "NT=Trypsin;AC=MS:1001251", "DTT", "IAA", "1", "A2.raw" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { t }, new[] { "A1.raw", "A2.raw" });
+
+            Assert.That(e.Select(x => x.Column), Has.No.Member("characteristics[treatment]"), "digestion reagents are not a treatment");
+            Assert.That(e.Select(x => x.Column), Has.No.Member("characteristics[strain]"), "a genotype is not a strain");
+            Assert.That(e.Select(x => x.Column), Has.No.Member("characteristics[biological replicate]"), "a technical replicate is not a biological one");
+            Assert.That(e.All(x => x.Method == "sdrf"));
+            Assert.That(One(e, "A1.raw", "comment[cleavage agent details]").Value, Is.EqualTo("NT=Trypsin;AC=MS:1001251"));
+            Assert.That(One(e, "A2.raw", "characteristics[genotype]").Value, Is.EqualTo("APP/PS1"));
+            Assert.That(One(e, "A1.raw", "characteristics[strain or breed]").Value, Is.EqualTo("C57BL/6"));
+        }
+
+        [Test]
+        public void AnSdrfDoesNotStopATableBesideItFromBeingRead()
+        {
+            // PXD069093: the supplement's own metadata table names the treatment the deposit's SDRF does not.
+            var sdrf = Table("sdrf.tsv", "", new[] { "source name", "comment[cleavage agent details]", "comment[data file]" },
+                new[] { "s1", "NT=Trypsin;AC=MS:1001251", "A1.raw" }, new[] { "s2", "NT=Trypsin;AC=MS:1001251", "A2.raw" });
+            var key = Table("KinomeMetadata.xlsx", "S1", new[] { "File", "Treatment" }, new[] { "A1", "palbociclib" }, new[] { "A2", "vehicle" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { sdrf, key }, new[] { "A1.raw", "A2.raw" });
+
+            var c = One(e, "A1.raw", "characteristics[treatment]");
+            Assert.That((c.Value, c.Method, c.Confidence), Is.EqualTo(("palbociclib", "file-key", SdrfEvidenceConfidence.Likely)));
+        }
+
+        [Test]
+        public void AFileNamedExactlyIsReadEvenWhenItsNameIsPartOfAnothers()
+        {
+            // PXD014274: every token of Tg1_L is in Tg1_L_Ctr, so the token match found two files and the row was dropped.
+            var t = Table("sdrf.tsv", "", new[] { "source name", "characteristics[sex]", "comment[data file]" },
+                new[] { "s1", "male", "Tg1_L.raw" },
+                new[] { "s2", "female", "Tg1_L_Ctr.raw" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { t }, new[] { "Tg1_L.raw", "Tg1_L_Ctr.raw" });
+
+            Assert.That(One(e, "Tg1_L.raw", "characteristics[sex]").Value, Is.EqualTo("male"));
+            Assert.That(One(e, "Tg1_L_Ctr.raw", "characteristics[sex]").Value, Is.EqualTo("female"));
+            Assert.That(e.All(x => x.Method == "sdrf" && x.Confidence == SdrfEvidenceConfidence.Certain));
+        }
+
+        [Test]
+        public void AnSdrfCellThatOnlyPartlyNamesAFileStillNeedsExactlyOne()
+        {
+            var t = Table("sdrf.tsv", "", new[] { "source name", "characteristics[sex]", "comment[data file]" },
+                new[] { "s1", "male", "Liver_1" },
+                new[] { "s2", "female", "Tg1" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { t }, new[] { "Liver_1_run.raw", "Tg1_L.raw", "Tg1_R.raw" });
+
+            Assert.That(One(e, "Liver_1_run.raw", "characteristics[sex]").Value, Is.EqualTo("male"), "one file holds these tokens");
+            Assert.That(e.Where(x => x.DataFile.StartsWith("Tg1")), Is.Empty, "two files hold this token and neither is named exactly");
+        }
+
+        [TestCase("comment[data file]", "Sex")]
+        [TestCase("File", "Sex", "source name")]
+        public void ATableMissingEitherSdrfColumnIsNotAnSdrfAndIsStillRead(string key, string column, string? extra = null)
+        {
+            var header = extra == null ? new[] { key, column } : new[] { key, column, extra };
+            string[] Row(string file, string sex) => extra == null ? new[] { file, sex } : new[] { file, sex, "s_" + file };
+            var t = Table("a.xlsx", "S1", header, Row("A1", "male"), Row("A2", "female"));
+
+            var e = SampleEvidenceExtractor.Extract(new[] { t }, new[] { "A1.raw", "A2.raw" });
+
+            var c = One(e, "A1.raw", "characteristics[sex]");
+            Assert.That((c.Value, c.Method), Is.EqualTo(("male", "file-key")));
+        }
+
+        [TestCase("Additional.reagents", null)]
+        [TestCase("Reducing agent", null)]
+        [TestCase("Cleavage agent", null)]
+        [TestCase("Treatment", "characteristics[treatment]")]
+        [TestCase("Drug", "characteristics[treatment]")]
+        [TestCase("Compound", "characteristics[treatment]")]
+        [TestCase("Stimulation", "characteristics[treatment]")]
+        public void ASampleProcessingHeaderIsNotATreatment(string header, string? expected)
+        {
+            // Over 3,096 real supplement tables, "agent" matched only "additional.reagents" and never a treatment.
+            Assert.That(HeaderMap.ColumnFor(header), Is.EqualTo(expected));
+        }
+
         [TestCase("Organism", "Not correct", null)]
         [TestCase("Organism", "Escherichia coli", "Escherichia coli")]
         [TestCase("Biological replicate", "lung_1w_F", null)]

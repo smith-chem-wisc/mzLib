@@ -55,8 +55,9 @@ namespace Readers
             claims.AddRange(IsaTab(list, index));
             claims.AddRange(SdrfTables(list, index));
             claims.AddRange(DesignTables(list, index));
-            // A table the design-table rule read whole is not read again by a rule that guesses at columns.
-            var guessable = list.Where(t => !IsResultTable(t) && KindOf(t.Header) == DesignKind.None).ToList();
+            // A table the design-table rule or the SDRF rule read whole is not read again by a rule that guesses at columns: its
+            // columns already say what they are, and a guess turns comment[cleavage agent details] into a treatment.
+            var guessable = list.Where(t => !IsResultTable(t) && KindOf(t.Header) == DesignKind.None && !IsSdrf(t)).ToList();
             foreach (var t in guessable)
                 claims.AddRange(ChannelMap(t, index));
             foreach (var t in guessable)
@@ -122,13 +123,13 @@ namespace Readers
         {
             foreach (var t in tables)
             {
+                if (!IsSdrf(t)) continue;
                 var header = t.Header.Select(h => h.Trim().ToLowerInvariant()).ToList();
                 int data = header.FindIndex(h => h.StartsWith("comment[data file", StringComparison.Ordinal));
-                if (data < 0 || !header.Contains("source name")) continue;
                 int label = header.IndexOf("comment[label]");
                 for (int k = 0; k < t.Rows.Count; k++)
                 {
-                    var files = index.Match(FileStem(t.Rows[k][data]));
+                    var files = index.Named(FileStem(t.Rows[k][data]));
                     if (files.Count != 1) continue;
                     string channel = label < 0 ? "" : ChannelLabel(t.Rows[k][label]);
                     for (int j = 0; j < header.Count; j++)
@@ -143,6 +144,11 @@ namespace Readers
                 }
             }
         }
+
+        /// <summary>Whether a table is an SDRF: it has a source name and names its data files in SDRF's own column.</summary>
+        private static bool IsSdrf(SupplementTable t) =>
+            t.Header.Any(h => h.Trim().StartsWith("comment[data file", StringComparison.OrdinalIgnoreCase))
+            && t.Header.Any(h => h.Trim().Equals("source name", StringComparison.OrdinalIgnoreCase));
 
         private enum DesignKind { None, Spectronaut, Msstats, MaxQuant }
 
@@ -425,6 +431,16 @@ namespace Readers
                 return hit;
             }
 
+            /// <summary>
+            /// The files a whole file name means: the file with that stem, and <see cref="Match"/> only when no file has it. A
+            /// name whose tokens all appear in another file's (<c>Tg1_L</c> and <c>Tg1_L_Ctr</c>) still names one file.
+            /// </summary>
+            internal IReadOnlyCollection<string> Named(string stem)
+            {
+                var exact = ByExactStem(stem);
+                return exact.Count > 0 ? exact : Match(stem);
+            }
+
             private static IEnumerable<string> Tokens(string s) =>
                 Regex.Split(s.ToLowerInvariant(), @"[_\-. ()\[\]]+").Where(t => t.Length > 0);
         }
@@ -452,7 +468,7 @@ namespace Readers
             ("characteristics[organism part]", @"tissue(?! ?enrich)(?! ?specific)|organ\b|anatom|body ?site|specimen|biopsy ?site"),
             ("characteristics[individual]", @"patient|donor|subject|individual|case ?(id|no|number|#)|\bcase\b|mouse ?(id|no)|animal|participant"),
             ("characteristics[strain]", @"strain|genotype|mutant|mutation|knock"),
-            ("characteristics[treatment]", @"treatment|drug|compound|inhibitor|stimul|agent"),
+            ("characteristics[treatment]", @"treatment|drug|compound|inhibitor|stimul"),
             ("characteristics[dose]", @"dose|concentration"),
             ("characteristics[time]", @"time ?point|timepoint|\btime\b|\bday\b|\bweek\b|\bhours?\b"),
             ("characteristics[biological replicate]", @"biological ?rep|bio ?rep|replicate"),
