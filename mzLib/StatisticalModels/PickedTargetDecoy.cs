@@ -28,8 +28,9 @@ namespace StatisticalModels
 
             // Score descending, decoys first at a tie, then index: the same total order as a stable LINQ sort, without its
             // per-comparison key machinery (the rescorer's seed step computes this for every feature and sign)
-            double[] s = scores.ToArray();
-            bool[] d = isDecoy.ToArray();
+            // Only read below, so arrays are used as given: the seed step calls this for every feature and sign of every fold
+            double[] s = scores as double[] ?? scores.ToArray();
+            bool[] d = isDecoy as bool[] ?? isDecoy.ToArray();
             int[] order = new int[s.Length];
             for (int i = 0; i < order.Length; i++)
                 order[i] = i;

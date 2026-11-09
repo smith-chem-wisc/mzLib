@@ -933,6 +933,36 @@ public class TargetDecoyRescorerTests
     }
 
     /// <summary>
+    /// The class means are summed in row order without the two class arrays: bit for bit what LINQ's Average gave over those
+    /// arrays, on values of every magnitude, so the seed feature (and every score after it) is unchanged.
+    /// </summary>
+    [Test]
+    public void StandardizedMeanDifferenceIsTheLinqFormulaBitForBit()
+    {
+        var random = new Random(11);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int n = 2 + random.Next(5000);
+            double scale = Math.Pow(10, random.Next(-6, 7));
+            double[] values = Enumerable.Range(0, n).Select(_ => (random.NextDouble() - 0.3) * scale).ToArray();
+            bool[] decoy = Enumerable.Range(0, n).Select(_ => random.Next(3) == 0).ToArray();
+
+            double[] targets = values.Where((_, t) => !decoy[t]).ToArray();
+            double[] decoys = values.Where((_, t) => decoy[t]).ToArray();
+            double expected = 0;
+            if (targets.Length > 0 && decoys.Length > 0)
+            {
+                double mean = values.Average();
+                double sd = Math.Sqrt(values.Sum(v => (v - mean) * (v - mean)) / Math.Max(1, values.Length - 1));
+                expected = sd > LinearDiscriminant.ConstantTolerance ? (targets.Average() - decoys.Average()) / sd : 0;
+            }
+
+            Assert.That(BitConverter.DoubleToInt64Bits(TargetDecoyRescorer.StandardizedMeanDifference(values, decoy)),
+                Is.EqualTo(BitConverter.DoubleToInt64Bits(expected)), $"trial {trial}, n {n}");
+        }
+    }
+
+    /// <summary>
     /// With too few targets for any to pass, the seed is the feature and sign with the larger standardized separation. Here
     /// that is the second feature, taken negatively: −5 / 2.74 beats 2 / 1.26.
     /// </summary>
