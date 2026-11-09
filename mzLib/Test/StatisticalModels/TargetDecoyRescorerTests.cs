@@ -472,6 +472,88 @@ public class TargetDecoyRescorerTests
     }
 
     /// <summary>
+    /// The confident sample keeps a row of each class whatever the share and the cap: 10% of a cap of 2 rounds to no target,
+    /// and 99.99999999% of it to no decoy, but the network cannot train on one class (review of mzLib #1456).
+    /// </summary>
+    [Test]
+    public void TheConfidentSampleKeepsBothClassesWhenTheShareRoundsOneAway()
+    {
+        int[] ranked = Enumerable.Range(0, 20).ToArray();
+        double[] scores = ranked.Select(i => 20.0 - i).ToArray();
+        bool[] decoy = ranked.Select(i => i % 2 == 1).ToArray();
+
+        foreach (double share in new[] { 0.1, 0.9999999999 })
+        {
+            int[] rows = TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 2, positiveQValue: null, targetFraction: share);
+            Assert.That(rows, Is.EqualTo(new[] { 0, 1 }), $"share {share}: the top target and the top decoy");
+        }
+    }
+
+    /// <summary>
+    /// The reviewer's input: 100 targets and 100 decoys on one separating feature, three folds, a network capped at 2 rows on
+    /// the confident sample with a 10% target share. Every row is scored; nothing throws.
+    /// </summary>
+    [Test]
+    public void AConfidentNetworkCappedAtTwoRowsStillScores()
+    {
+        var random = new Random(3);
+        bool[] decoy = Enumerable.Range(0, 200).Select(i => i >= 100).ToArray();
+        var features = decoy.Select(d => new[] { random.NextDouble() + (d ? 0 : 1.5) }).ToList();
+        var keys = Enumerable.Range(0, 200).Select(i => i.ToString()).ToList();
+
+        var result = TargetDecoyRescorer.Score(features, decoy, keys, model: RescoreModel.NeuralNetworkEnsemble, maxNetworkTrainingRows: 2,
+            networkTrainingSample: NetworkTrainingSample.Confident, networkTargetFraction: 0.1, networkMembers: 1, networkEpochs: 1);
+
+        Assert.That(result.Scores, Has.All.Matches<double>(double.IsFinite));
+    }
+
+    /// <summary>
+    /// The random subsample keeps a row of each class: when the draw holds one label only, its last row gives way to the first
+    /// row of the other label in the same random order. A draw that already holds both is left as it was.
+    /// </summary>
+    [Test]
+    public void TheRandomSampleKeepsBothClasses()
+    {
+        int[] rows = Enumerable.Range(0, 21).ToArray();
+        bool[] oneTarget = rows.Select(i => i != 7).ToArray();
+        for (int seed = 0; seed < 20; seed++)
+        {
+            int[] sample = TargetDecoyRescorer.RandomTrainingRows(rows, oneTarget, 2, new Random(seed));
+            Assert.That(sample, Has.Length.EqualTo(2).And.Contains(7), $"seed {seed}");
+            Assert.That(sample, Is.Ordered);
+        }
+
+        bool[] halves = rows.Select(i => i % 2 == 1).ToArray();
+        for (int seed = 0; seed < 20; seed++)
+        {
+            var sampler = new Random(seed);
+            int[] expected = rows.OrderBy(_ => sampler.Next()).Take(6).Order().ToArray();
+            int[] sample = TargetDecoyRescorer.RandomTrainingRows(rows, halves, 6, new Random(seed));
+            if (expected.Any(i => halves[i]) && expected.Any(i => !halves[i]))
+                Assert.That(sample, Is.EqualTo(expected), $"seed {seed}: a draw with both labels is unchanged");
+            else
+                Assert.That(sample.Any(i => halves[i]) && sample.Any(i => !halves[i]), $"seed {seed}");
+        }
+    }
+
+    /// <summary>The random network sample, capped at 2 rows, scores every row at any seed: no fold trains on one class.</summary>
+    [Test]
+    public void ARandomNetworkCappedAtTwoRowsStillScores()
+    {
+        var random = new Random(4);
+        bool[] decoy = Enumerable.Range(0, 200).Select(i => i >= 100).ToArray();
+        var features = decoy.Select(d => new[] { random.NextDouble() + (d ? 0 : 1.5) }).ToList();
+        var keys = Enumerable.Range(0, 200).Select(i => i.ToString()).ToList();
+
+        for (int seed = 0; seed < 8; seed++)
+        {
+            var result = TargetDecoyRescorer.Score(features, decoy, keys, model: RescoreModel.NeuralNetworkEnsemble, maxNetworkTrainingRows: 2,
+                networkTrainingSample: NetworkTrainingSample.Random, randomSeed: seed, networkMembers: 1, networkEpochs: 1);
+            Assert.That(result.Scores, Has.All.Matches<double>(double.IsFinite), $"seed {seed}");
+        }
+    }
+
+    /// <summary>
     /// The network's hidden layers can be chosen (DIA-NN 2020's 25-20-15-10-5 by default): another architecture gives other
     /// scores, a wider one still finds non-linear signal a line misses, and an empty or zero-unit layer list is refused.
     /// </summary>

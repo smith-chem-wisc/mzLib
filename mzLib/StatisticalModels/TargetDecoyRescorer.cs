@@ -235,8 +235,7 @@ namespace StatisticalModels
                         {
                             // A random subsample of the fold's own training rows, seeded by the fold. Not the top rows by the
                             // linear score: where the line misses the signal, its top rows are the wrong ones.
-                            var sampler = new Random(31 + f + 1000 * randomSeed + 100_000 * pass);
-                            rows = rows.OrderBy(_ => sampler.Next()).Take(cap2).Order().ToArray();
+                            rows = RandomTrainingRows(rows, isDecoy, cap2, new Random(31 + f + 1000 * randomSeed + 100_000 * pass));
                         }
                         var ensemble = MultilayerPerceptron.TrainEnsemble(rows.Select(i => features[i]).ToList(), rows.Select(i => !isDecoy[i]).ToList(),
                             networkMembers, networkLayers ?? NetworkLayers, networkEpochs, seed: 17 + f + 1000 * randomSeed + 100_000 * pass);
@@ -464,6 +463,10 @@ namespace StatisticalModels
                 return top.Order().ToArray();
             return ranked.Where(i => !isDecoy[i]).Take(cap / 2).Concat(ranked.Where(i => isDecoy[i]).Take(cap - cap / 2)).Order().ToArray();
         }
+
+        /// <summary>A random <paramref name="cap"/> of <paramref name="rows"/>, in ascending row order.</summary>
+        internal static int[] RandomTrainingRows(int[] rows, IReadOnlyList<bool> isDecoy, int cap, Random sampler) =>
+            rows.OrderBy(_ => sampler.Next()).Take(cap).Order().ToArray();
 
         /// <summary>
         /// The confident training sample from rows <paramref name="ranked"/> best first (their scores in
