@@ -106,6 +106,38 @@ namespace Test.FileReadingTests
             Assert.That(e.All(x => x.Method == "isa-tab" && x.Confidence == SdrfEvidenceConfidence.Certain));
         }
 
+        [TestCase("PXD004916_community_annotated.sdrf.tsv", "community sdrf")]
+        [TestCase("pxd004916_COMMUNITY_ANNOTATED.SDRF.TSV", "community sdrf")]
+        [TestCase("sdrf.tsv", "supplement")]
+        [TestCase("BV2_Aldh1l1_Camk2a_SDRF.tsv", "supplement")]
+        [TestCase("community_annotated_notes.sdrf.tsv", "supplement")]
+        public void ACommunitySdrfOnPrideIsNotCalledASupplement(string file, string source)
+        {
+            // bigbio's file: PRIDE lists it as <accession>_community_annotated.sdrf.tsv, and most of them are agent-assisted, so a
+            // cell read from it must not look as though a paper or the submitter stated it.
+            var t = Table(file, "", new[] { "source name", "characteristics[sex]", "comment[data file]" },
+                new[] { "s1", "male", "A1.raw" }, new[] { "s2", "female", "A2.raw" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { t }, new[] { "A1.raw", "A2.raw" });
+
+            Assert.That(e.Where(x => x.Method == "sdrf").Select(x => x.Source).Distinct(), Is.EqualTo(new[] { source }));
+            var c = One(e, "A1.raw", "characteristics[sex]");
+            Assert.That((c.Method, c.Confidence), Is.EqualTo(("sdrf", SdrfEvidenceConfidence.Certain)), "it is still read as an SDRF");
+        }
+
+        [Test]
+        public void ACommunitySdrfAmongADepositsOwnFilesIsStillCommunity()
+        {
+            string[] header = { "source name", "characteristics[sex]", "comment[data file]" };
+            var community = Table("PXD1_community_annotated.sdrf.tsv", "", header, new[] { "s1", "male", "A1.raw" });
+            var own = Table("metadata/own.sdrf.tsv", "", header, new[] { "s2", "female", "A2.raw" });
+
+            var e = SampleEvidenceExtractor.ExtractDeposited(new[] { community, own }, new[] { "A1.raw", "A2.raw" });
+
+            Assert.That(One(e, "A1.raw", "characteristics[sex]").Source, Is.EqualTo("community sdrf"));
+            Assert.That(One(e, "A2.raw", "characteristics[sex]").Source, Is.EqualTo("deposit"));
+        }
+
         [Test]
         public void AnSdrfShippedAsASupplementIsReadForItsOwnFilesOnly()
         {

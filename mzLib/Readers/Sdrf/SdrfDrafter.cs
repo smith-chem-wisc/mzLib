@@ -42,7 +42,13 @@ namespace Readers
         /// condition setup, an MSstats annotation, MaxQuant's experimental design). Written <c>deposited</c>, with
         /// <c>comment[&lt;column&gt; source reference]</c> naming the file and cell (sdrf MASSIVE-SDRF.md, MV3).
         /// </summary>
-        Deposit
+        Deposit,
+
+        /// <summary>
+        /// Read from bigbio's SDRF as PRIDE lists it (<c>&lt;accession&gt;_community_annotated.sdrf.tsv</c>). Written
+        /// <c>community sdrf</c>: neither a paper nor the submitter stated it, and most of these files are agent-assisted.
+        /// </summary>
+        Community
     }
 
     /// <summary>
@@ -589,12 +595,17 @@ namespace Readers
             || column is "comment[fraction identifier]" or "comment[technical replicate]" or "source name";
 
         private static SdrfDraftCell EvidenceCell(SdrfEvidence claim, string value) =>
-            new(value, claim.Source == "deposit" ? SdrfDraftSource.Deposit : SdrfDraftSource.Publication,
+            new(value, claim.Source switch
+                {
+                    "deposit" => SdrfDraftSource.Deposit,
+                    SdrfEvidence.CommunitySdrfSource => SdrfDraftSource.Community,
+                    _ => SdrfDraftSource.Publication
+                },
                 $"{claim.Method} evidence from the {claim.Source}", null, claim.Locator, MethodWord(claim.Method)!);
 
         /// <summary>Whether a cell came from evidence (a paper, a supplement, or a file the deposit holds), so it carries a
         /// source reference and method.</summary>
-        internal static bool FromEvidence(SdrfDraftSource source) => source is SdrfDraftSource.Publication or SdrfDraftSource.Deposit;
+        internal static bool FromEvidence(SdrfDraftSource source) => source is SdrfDraftSource.Publication or SdrfDraftSource.Deposit or SdrfDraftSource.Community;
 
         /// <summary>How a factor column's provenance is named (<c>factor value[condition]</c> -> <c>factor value condition</c>,
         /// as in <c>comment[factor value condition source]</c>), apart from any characteristic's.</summary>
@@ -692,6 +703,7 @@ namespace Readers
             SdrfDraftSource.Default => "default",
             SdrfDraftSource.Publication => "publication",
             SdrfDraftSource.Deposit => "deposited",
+            SdrfDraftSource.Community => SdrfEvidence.CommunitySdrfSource,
             _ => "inferred"
         };
 
