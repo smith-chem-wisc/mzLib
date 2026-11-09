@@ -68,9 +68,10 @@ namespace Test.Quantification
             return (protein, Digest(protein));
         }
 
+        // trypsin/P: PEPTIDEKPEPTIDEK must cut at K|P to yield the sequence twice.
         private static List<IBioPolymerWithSetMods> Digest(Protein protein) =>
             protein
-                .Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 5),
+                .Digest(new DigestionParams("trypsin/P", maxMissedCleavages: 0, minPeptideLength: 5),
                     new List<Modification>(), new List<Modification>())
                 .Cast<IBioPolymerWithSetMods>()
                 .OrderBy(p => p.OneBasedStartResidue)

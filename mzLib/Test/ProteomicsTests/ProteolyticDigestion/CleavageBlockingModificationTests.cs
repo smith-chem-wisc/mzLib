@@ -150,6 +150,57 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(modification.BlocksCleavage, Is.False);
         }
 
+        /// <summary>
+        /// Lysine acylations that the shipped unimod.xml carries, every one classified "Post-translational" on K
+        /// at "Anywhere", under titles no earlier stem reached. Most arrived with the 2026-02 Unimod refresh
+        /// (records 2072 and 2108-2121); Gluratylation, 3-phosphoglyceryl and Phosphogluconoylation shipped
+        /// before it. Each is an amide on the epsilon-amine, which removes the charge trypsin needs, exactly as
+        /// acetyl does. "Gluratylation" is Unimod's own misspelling of glutarylation (record 1848), which the
+        /// "glutaryl" stem therefore misses; "Isovaleryl" and "Pentanoyl" are isomeric C5 acyls.
+        /// </summary>
+        [Test]
+        [TestCase("Isovaleryl")]
+        [TestCase("Pentanoyl")]
+        [TestCase("Hexanoyl")]
+        [TestCase("Tiglyl")]
+        [TestCase("3-methylglutaconyl")]
+        [TestCase("Gluratylation")]
+        [TestCase("Pyruvoyl")]
+        [TestCase("Glyoxylyl")]
+        [TestCase("Itaconyl")]
+        [TestCase("Glyceroyl")]
+        [TestCase("3-phosphoglyceryl")]
+        [TestCase("Phosphogluconoylation")]
+        public static void AUnimodLysineAcylationNoEarlierStemReached_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// Two more ubiquitin-like isopeptide remnants that unimod.xml ships on K. UFM1 ends in Val-Gly, so its
+        /// tryptic remnant ("ValGly", record 2119, "UFMylation residue") ends in VG and the Gly-Gly token rule
+        /// misses it. Pup, the prokaryotic ubiquitin-like protein, leaves Gly-Gly-Glu ("pupylation", record
+        /// 1264, "addition of GGE"), named by the modifier the way the SUMO entries are.
+        /// </summary>
+        [Test]
+        [TestCase("ValGly")]
+        [TestCase("pupylation")]
+        public static void AUbiquitinLikeRemnantThatDoesNotEndInGlyGly_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// unimod.xml also ships "PyruvicAcidIminyl" on K, an imine on the epsilon-amine rather than an amide, and
+        /// it has never classified as blocking. Whether an imine blocks is a separate question; this pins only
+        /// that the pyruvoyl stem names the amide and is not shortened to "pyruv", which would decide it silently.
+        /// </summary>
+        [Test]
+        public static void PyruvicAcidIminyl_IsNotReachedByThePyruvoylStem()
+        {
+            Assert.That(MakeKModification("PyruvicAcidIminyl").BlocksCleavage, Is.False);
+        }
+
         [Test]
         public static void Digestion_PeptidoformEndingInBlockedLysine_IsDroppedWhenRespected()
         {
@@ -622,8 +673,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsFalse(ProteaseDictionary.Dictionary["trypsin"].CleavesCTerminalTo('E'));
 
             // Lys-C cuts after K only, Arg-C after R only -- each is blind to the other's blocking mod.
-            Assert.IsTrue(ProteaseDictionary.Dictionary["Lys-C|P"].CleavesCTerminalTo('K'));
-            Assert.IsFalse(ProteaseDictionary.Dictionary["Lys-C|P"].CleavesCTerminalTo('R'));
+            Assert.IsTrue(ProteaseDictionary.Dictionary["Lys-C"].CleavesCTerminalTo('K'));
+            Assert.IsFalse(ProteaseDictionary.Dictionary["Lys-C"].CleavesCTerminalTo('R'));
             Assert.IsTrue(ProteaseDictionary.Dictionary["Arg-C"].CleavesCTerminalTo('R'));
             Assert.IsFalse(ProteaseDictionary.Dictionary["Arg-C"].CleavesCTerminalTo('K'));
 
@@ -692,7 +743,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             var succinyl = MakeKModification("N6-succinyllysine");
             var protein = new Protein("PEPTIDEKAAAAAAAK", "accession");   // Lys-C cuts after K8; K16 is the protein C-terminus
-            var dp = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 0, minPeptideLength: 7,
+            var dp = new DigestionParams(protease: "Lys-C", maxMissedCleavages: 0, minPeptideLength: 7,
                 respectCleavageBlockingModifications: true);
 
             var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { succinyl })
@@ -717,7 +768,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 _locationRestriction: "Anywhere.", _monoisotopicMass: 0.98402);
 
             var protein = new Protein("AAAAAAAKAARAAAAAKAAAAAAA", "accession");   // K8, R11, K17
-            var dp = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 1, minPeptideLength: 7,
+            var dp = new DigestionParams(protease: "Lys-C", maxMissedCleavages: 1, minPeptideLength: 7,
                 respectCleavageBlockingModifications: true);
 
             var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { citrulline })
@@ -858,7 +909,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// <summary>
         /// The reported missed-cleavage count must be EXACT, not just within budget. Review (Alexander-Sol)
         /// reproduced two ways a residue-level site test under-reported it: a blocked K that was never a site
-        /// (K before P under trypsin|P) cancelled a genuine missed cleavage, and a wildcard P1 (StcE's "TX|T")
+        /// (K before P under trypsin, which does not cleave before proline) cancelled a genuine missed cleavage, and a wildcard P1 (StcE's "TX|T")
         /// made an acylated K count as blocked though StcE's specificity has nothing to do with lysine charge.
         /// Both emitted peptides reporting 0 missed cleavages that really had one.
         /// </summary>
@@ -867,8 +918,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// abolish. Stated by hand rather than derived, so the expectation does not share the code under test.
         /// </param>
         [Test]
-        [TestCase("trypsin|P", "AAAAAAAKPAAAAAKAAAAAARAAAAAA", "KR", TestName = "Reported MC is exact when a blocked K precedes P")]
-        [TestCase("trypsin|P", "KPAAAAKAAAAAAR", "KR", TestName = "Reported MC is exact for a blocked K before P at position one")]
+        [TestCase("trypsin", "AAAAAAAKPAAAAAKAAAAAARAAAAAA", "KR", TestName = "Reported MC is exact when a blocked K precedes P")]
+        [TestCase("trypsin", "KPAAAAKAAAAAAR", "KR", TestName = "Reported MC is exact for a blocked K before P at position one")]
         [TestCase("StcE", "AAAAAATKTAAAAAAAAKAAAA", "", TestName = "Reported MC is exact under a wildcard-P1 protease")]
         [TestCase("StcE-trypsin", "AAAAAATKTAAAAKAAAAAR", "KR", TestName = "Reported MC is exact where a wildcard and a literal motif share a site")]
         public static void ReportedMissedCleavages_EqualTheRealUnblockedSitesInsideThePeptide(

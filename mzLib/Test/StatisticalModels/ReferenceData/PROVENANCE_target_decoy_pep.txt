@@ -1,0 +1,8 @@
+generated_utc 2026-11-03
+python 3.13.11
+scikit-learn 1.8.0 (sklearn.isotonic.IsotonicRegression, increasing=True, with sample_weight)
+numpy 2.4.2 (numpy.random.default_rng(20261103))
+script make_target_decoy_pep_fixtures.py
+outputs target_decoy_pep_isotonic.tsv (value, weight, fitted), target_decoy_pep_search.tsv (score, decoy_fraction, pep)
+note scikit-learn is an independent implementation of weighted isotonic regression; the search fixture's PEP is
+     min(1, r / (1 - r)) of its fit to the decoy share of each distinct score, ranked best first, weighted by block size.
