@@ -19,7 +19,7 @@ public class EntrapmentReportTests
     private static readonly HashSet<string> NothingForbidden = new();
 
     private static IDigestionParams Tryptic =>
-        new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
+        new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
 
     private static readonly string[] Proteins =
     {
@@ -153,7 +153,7 @@ public class EntrapmentReportTests
 
         // Without these the numbers above cannot be interpreted or reproduced: the peptide
         // population depends on the enzyme and digestion settings as much as on the method.
-        Assert.That(report.Provenance.Enzyme, Is.EqualTo("trypsin/P"));
+        Assert.That(report.Provenance.Enzyme, Is.EqualTo("trypsin"));
         Assert.That(report.Provenance.Seed, Is.EqualTo(1));
         Assert.That(report.Provenance.FoldCount, Is.EqualTo(3));
         Assert.That(report.Provenance.MaxMissedCleavages, Is.EqualTo(2));
@@ -203,7 +203,7 @@ public class EntrapmentReportTests
             .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
 
         string[] comments = lines.Where(l => l.StartsWith("#")).ToArray();
-        Assert.That(comments.Any(l => l.Contains("trypsin/P")), Is.True);
+        Assert.That(comments.Any(l => l.Contains("trypsin")), Is.True);
         Assert.That(comments.Any(l => l.StartsWith("# seed")), Is.True);
 
         string header = lines.First(l => !l.StartsWith("#"));
@@ -355,7 +355,7 @@ public class EntrapmentReportTests
             .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
 
         // Provenance values, not merely the presence of a label.
-        Assert.That(lines, Does.Contain("# enzyme\ttrypsin/P"));
+        Assert.That(lines, Does.Contain("# enzyme\ttrypsin"));
         Assert.That(lines, Does.Contain("# seed\t1"));
         Assert.That(lines, Does.Contain("# maxMissedCleavages\t2"));
         Assert.That(lines, Does.Contain("# minPeptideLength\t7"));
@@ -392,8 +392,8 @@ public class EntrapmentReportTests
         // The index must hold only what a search could report. A key begins with the peptide's
         // length, so short peptides never collide with long ones and dropping them cannot change
         // how a searchable peptide resolves -- it only stops them being counted as ambiguous.
-        var lenient = new DigestionParams("trypsin/P", minPeptideLength: 1, maxMissedCleavages: 2);
-        var realistic = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
+        var lenient = new DigestionParams("trypsin", minPeptideLength: 1, maxMissedCleavages: 2);
+        var realistic = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
         var protein = new Protein(ShortPieceCollisions, "P00001");
 
         var withShort = new EntrapmentPairing(protein, lenient);
@@ -410,7 +410,7 @@ public class EntrapmentReportTests
     {
         // The denominator an ambiguity rate and an FDP estimator's r both need. It must exceed the
         // base-piece count, because a run of adjacent pieces is a peptide a search reports too.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
         var protein = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P00001");
 
         var pairing = new EntrapmentPairing(protein, digestion);
@@ -427,7 +427,7 @@ public class EntrapmentReportTests
     {
         // The count is the population an FDP estimator's r is over, so the oracle is digestion
         // itself: every distinct peptide a search would consider, M-cleaved forms included.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2,
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
             initiatorMethionineBehavior: initiatorMethionine);
         var protein = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P00001");
 
@@ -443,7 +443,7 @@ public class EntrapmentReportTests
         // Alexander-Sol, #1271: a search of an XML database also reports peptides at signal-peptide,
         // chain and propeptide boundaries, and a partner carries no truncation products, so those
         // can never pair. The count leaves them out; they must at least be named.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
         const string sequence = "MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK";
         var plain = new Protein(sequence, "P00001");
         // A chain beginning at residue 18 (mid-piece) opens peptides no cleavage site produces.
@@ -480,7 +480,7 @@ public class EntrapmentReportTests
     public void AMissLeavesTheOutParameterEmptyNotNull()
     {
         var pairing = new EntrapmentPairing(new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P00001"),
-            new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2));
+            new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2));
 
         Assert.That(pairing.TryResolve("WWWWWWWWK", out string targetPeptide), Is.False);
         Assert.That(targetPeptide, Is.Not.Null.And.Empty);
@@ -921,7 +921,7 @@ public class EntrapmentReportTests
     {
         // These are the values a consumer reads to regenerate the database, and none of them was
         // checked: the fold count could have been written as the seed.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 8, maxMissedCleavages: 1,
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 8, maxMissedCleavages: 1,
             maxPeptideLength: 50, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
         string[] lines = new EntrapmentReportBuilder(digestion, foldCount: 3, seed: 11,
                 entrapmentIdentifier: "ENTRAP")
@@ -929,7 +929,7 @@ public class EntrapmentReportTests
 
         Assert.That(lines, Does.Contain("# construction\t"
             + EntrapmentProteinGenerator.ConstructionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-        Assert.That(lines, Does.Contain("# enzyme\ttrypsin/P"));
+        Assert.That(lines, Does.Contain("# enzyme\ttrypsin"));
         Assert.That(lines, Does.Contain("# seed\t11"));
         Assert.That(lines, Does.Contain("# foldCount\t3"));
         Assert.That(lines, Does.Contain("# maxMissedCleavages\t1"));
@@ -1061,7 +1061,7 @@ public class EntrapmentReportTests
     public void TheBuilderRunsTheMassGroupComparisonItWasGiven()
     {
         // No test handed the builder mass groups, so a builder that never fed them would have passed.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 0);
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
         ModificationMotif.TryGetMotif("M", out ModificationMotif onM);
         var oxidation = new Modification(_originalId: "Oxidation", _modificationType: "Common Biological",
             _target: onM, _locationRestriction: "Anywhere.", _monoisotopicMass: 15.994915);
@@ -1089,7 +1089,7 @@ public class EntrapmentReportTests
         // Build() copied the foreign rows but handed out the builder's own strata, mass-group tallies
         // and exclusion sets, so a later Add changed a report that had already been built, and a
         // consumer could cast a "read-only" set back and change the builder.
-        var digestion = new DigestionParams("trypsin/P", minPeptideLength: 7, maxMissedCleavages: 2);
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
         var builder = new EntrapmentReportBuilder(digestion, 1, 1, EntrapmentReport.CountResidues("ST"),
             massGroups: new MassGroupIndex(Array.Empty<Modification>()));
         void AddOne(string sequence, string accession)
