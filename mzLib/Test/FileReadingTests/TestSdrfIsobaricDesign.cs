@@ -813,6 +813,14 @@ namespace Test.FileReadingTests
         // ---------------------------------------------------------------- output
 
         [Test]
+        public void TheTmtDesignFileNameIsTheOneMetaMorpheusLooksFor()
+        {
+            // MetaMorpheus finds a TMT design only under GlobalVariables.TmtExperimentalDesignFileName, so a
+            // caller that names the file from this constant (bridge, SDRF-B4) must get exactly that name.
+            Assert.That(SdrfIsobaricDesign.TmtDesignFileName, Is.EqualTo("TmtDesign.txt"));
+        }
+
+        [Test]
         public void WriteTmtDesignWritesOneRowPerFileAndChannelInReporterOrder()
         {
             var design = SdrfIsobaricDesign.Read(Document(
@@ -821,7 +829,9 @@ namespace Test.FileReadingTests
                 new Row("a.raw", "TMT127N", "S2", "A", "2", Fraction: "3", Techrep: "2")), ByColumn());
             Assert.That(design.Refusals, Is.Empty, design.Report());
 
-            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestSdrfIsobaricDesign_TmtDesign.txt");
+            string folder = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestSdrfIsobaricDesign_Write");
+            string path = Path.Combine(folder, SdrfIsobaricDesign.TmtDesignFileName);
+            Directory.CreateDirectory(folder);
             try
             {
                 design.WriteTmtDesign(path);
@@ -833,7 +843,7 @@ namespace Test.FileReadingTests
             }
             finally
             {
-                File.Delete(path);
+                Directory.Delete(folder, true);
             }
         }
 

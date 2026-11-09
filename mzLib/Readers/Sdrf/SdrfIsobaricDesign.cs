@@ -145,8 +145,16 @@ namespace Readers
         public const string ReferenceChannelColumn = "comment[reference channel]";
 
         /// <summary>
-        /// The header written by <see cref="WriteTmtDesign"/>: MetaMorpheus's <c>TmtDesign.txt</c> without
-        /// the optional <c>Sample Type</c> column, which MetaMorpheus reads as study sample when absent. The column is
+        /// The file name MetaMorpheus gives its TMT design, <c>TmtDesign.txt</c>. MetaMorpheus finds the
+        /// design only under this name (<c>GlobalVariables.TmtExperimentalDesignFileName</c>), in the folder
+        /// of the spectra files, so a caller of <see cref="WriteTmtDesign"/> names its path from this
+        /// constant rather than spelling it (bridge SDRF-B4).
+        /// </summary>
+        public const string TmtDesignFileName = "TmtDesign.txt";
+
+        /// <summary>
+        /// The header written by <see cref="WriteTmtDesign"/>: MetaMorpheus's <see cref="TmtDesignFileName"/>
+        /// without the optional <c>Sample Type</c> column, which MetaMorpheus reads as study sample when absent. The column is
         /// added, as <see cref="TmtDesignSampleTypeColumn"/>, only when a reference channel is marked.
         /// </summary>
         public const string TmtDesignHeader = "File\tPlex\tSample Name\tTMT Channel\tCondition\tBiological Replicate\tFraction\tTechnical Replicate";
@@ -243,12 +251,14 @@ namespace Readers
         }
 
         /// <summary>
-        /// Writes MetaMorpheus's <c>TmtDesign.txt</c>: one row per file and annotated channel, 1-based,
+        /// Writes MetaMorpheus's TMT design: one row per file and annotated channel, 1-based,
         /// channels in reporter m/z order (MAP-29). When a reference channel is marked, MetaMorpheus's
         /// <c>Sample Type</c> column is added (<c>reference</c> or <c>study sample</c>); otherwise the file is written
         /// without it, exactly as before. Throws when the design was refused, so a refusal can never leave a file
         /// behind for MetaMorpheus to find.
         /// </summary>
+        /// <param name="path">The file to write. MetaMorpheus reads it only when it is named
+        /// <see cref="TmtDesignFileName"/> and sits in the folder of the spectra files.</param>
         public void WriteTmtDesign(string path)
         {
             ThrowIfRefused();
