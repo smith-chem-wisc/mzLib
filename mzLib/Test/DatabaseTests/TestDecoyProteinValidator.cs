@@ -383,9 +383,9 @@ public class DecoySequenceValidatorTests
     [Test]
     public void CleavageSitePositions_HonourThePreventingResidue()
     {
-        // Restricted trypsin must not pin the K in "AKP", because that K is not a cleavage site.
-        var restricted = DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|");
-        Assert.That(DecoySequenceValidator.CleavageSitePositions("AKPCR", restricted).OrderBy(p => p),
+        // trypsin|P must not pin the K in "AKP", because that K is not a cleavage site.
+        var trypsinP = DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|");
+        Assert.That(DecoySequenceValidator.CleavageSitePositions("AKPCR", trypsinP).OrderBy(p => p),
             Is.EqualTo(new[] { 4 }));
     }
 

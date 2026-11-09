@@ -142,7 +142,7 @@ namespace Omics.Digestion
                     // Only the index actually read may be bounds-checked. Testing BOTH ends, as this did,
                     // abandons the prevention whenever the OTHER end of the sequence is out of range --
                     // so a cut-after motif at position 0 computed location - 1 = -1 and cut anyway, and
-                    // trypsin digested RPAAAAK into "R" + "PAAAAK", the exact R|P cleavage that entry
+                    // trypsin|P digested RPAAAAK into "R" + "PAAAAK", the exact R|P cleavage that entry
                     // exists to forbid. A cut-before motif has the mirror fault at the C-terminus.
                     int preventingIndex = CutIndex != 0
                         ? location + m + n
@@ -175,7 +175,7 @@ namespace Omics.Digestion
         /// residue, because they cut N-terminal to their recognition residue and sever nothing after it.
         /// </summary>
         /// <remarks>
-        /// Residue-level only: a preventing-cleavage rule (trypsin's "K[P]|") is deliberately not
+        /// Residue-level only: a preventing-cleavage rule (trypsin|P's "K[P]|") is deliberately not
         /// consulted, because that rule depends on the sequence context of a particular site and this
         /// question is about the protease alone; which sites are real is decided per protein from
         /// <see cref="DigestionAgent.GetDigestionSiteIndices"/>.

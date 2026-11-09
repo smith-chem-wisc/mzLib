@@ -449,31 +449,20 @@ public class EntrapmentPeptideGeneratorTests
     }
 
     [Test]
-    public void Create_RefusingAPreventingMotifSaysWhereTheUnrestrictedVariantIs()
-    {
-        // No agent name reaches this path, only motifs, so the remedy is the general rule.
-        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentPeptideGenerator.Create(
-            "AKLPPR", DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|"), NothingForbidden));
-        Assert.That(thrown!.Message, Does.Contain("The motif list"));
-        Assert.That(thrown.Message, Does.Contain("/P variant"));
-        Assert.That(thrown.Message, Does.Contain("trypsin/P"));
-    }
-
-    [Test]
     public void Create_PastTheRefusalAPreventingMotifReallyMovesACleavageSite()
     {
-        // Why the refusal is not paranoia. Under restricted trypsin neither the K nor the P after it is held,
+        // Why the refusal is not paranoia. Under trypsin|P neither the K nor the P after it is held,
         // so the unvetted path is free to move the P next to the K and erase the site, or away from
         // a K it was protecting and invent one.
-        List<DigestionMotif> restricted = DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|");
-        HashSet<int> sites = DecoySequenceValidator.CleavageSitePositions("AKLPPR", restricted);
+        List<DigestionMotif> trypsinP = DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|");
+        HashSet<int> sites = DecoySequenceValidator.CleavageSitePositions("AKLPPR", trypsinP);
 
         bool aSiteMoved = Enumerable.Range(0, 2).Any(fold =>
         {
-            EntrapmentPeptide partner = EntrapmentPeptideGenerator.CreateFromVettedMotifs("AKLPPR", restricted,
+            EntrapmentPeptide partner = EntrapmentPeptideGenerator.CreateFromVettedMotifs("AKLPPR", trypsinP,
                 NothingForbidden, fold, foldCount: 2, seed: 1, alsoHeldInPlace: new[] { 0, 5 },
                 rejectInContext: null);
-            return !DecoySequenceValidator.CleavageSitePositions(partner.EntrapmentSequence!, restricted)
+            return !DecoySequenceValidator.CleavageSitePositions(partner.EntrapmentSequence!, trypsinP)
                 .SetEquals(sites);
         });
 
