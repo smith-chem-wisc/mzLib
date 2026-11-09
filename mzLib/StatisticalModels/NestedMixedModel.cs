@@ -174,23 +174,43 @@ namespace StatisticalModels
             WeightValues = new double[features][];
             RobustIterationsValues = new int[features];
             RobustConvergedValues = new bool?[features];
+            RobustFellBackValues = new bool?[features];
         }
 
         internal double[]?[] WeightValues { get; }
         internal int[] RobustIterationsValues { get; }
         internal bool?[] RobustConvergedValues { get; }
+        internal bool?[] RobustFellBackValues { get; }
 
         /// <summary>
         /// The weight each observation of <paramref name="feature"/> carried in the final fit, in the problem's order: 1 when
-        /// the fit was not robust, the Huber weight when it was, NaN for a missing response. For a robust fit whose
-        /// reweighting did not finish (<see cref="FeatureFitStatus.NotConverged"/>), the weights of its last round. Null
-        /// when the feature was not fitted far enough to have weights.
+        /// the fit was not robust, the Huber weight when it was, NaN for a missing response. For a robust fit that fell back
+        /// to one round (<see cref="RobustFellBack"/>), the first round's weights; for one whose first round could not be
+        /// formed (<see cref="FeatureFitStatus.NotConverged"/>), the weights that round left. Null when the feature was not
+        /// fitted far enough to have weights.
         /// </summary>
         public IReadOnlyList<double>? Weights(int feature) => WeightValues[feature];
-        /// <summary>Reweighting rounds per feature; 0 when the fit was not robust.</summary>
+        /// <summary>
+        /// Reweighting rounds run per feature, counting a round that could not be formed; 0 when the fit was not robust. A
+        /// feature that fell back (<see cref="RobustFellBack"/>) shows the rounds run before it did, although its fit is
+        /// the first round's.
+        /// </summary>
         public IReadOnlyList<int> RobustIterations => RobustIterationsValues;
-        /// <summary>Whether reweighting converged within its round limit; null when the fit was not robust.</summary>
+        /// <summary>
+        /// Whether reweighting converged within its round limit; null when the fit was not robust. False for a feature that
+        /// fell back to one round (<see cref="RobustFellBack"/>), whose reweighting did not converge.
+        /// </summary>
         public IReadOnlyList<bool?> RobustConverged => RobustConvergedValues;
+        /// <summary>
+        /// Whether reweighting fell back to msqrob2's default of one round (QuantProject GR-22, amended 2026-11-03); null
+        /// when the fit was not robust. True when reweighting did not settle, because it reached its round limit or a later
+        /// round's weights or refit could not be formed: the feature is then fitted on its first round's weights, as msqrob2
+        /// with <c>maxitRob = 1</c>, and is an ordinary fit that enters moderation (<see cref="Status"/> is
+        /// <see cref="FeatureFitStatus.Fitted"/> unless its df cannot be computed). <see cref="RobustConverged"/> stays
+        /// false for it, so this flag is how a report counts such features. False when reweighting converged, or when even
+        /// its first round could not be formed (then <see cref="FeatureFitStatus.NotConverged"/>).
+        /// </summary>
+        public IReadOnlyList<bool?> RobustFellBack => RobustFellBackValues;
 
         internal double[] CoefficientValues { get; }
         internal double[] UnscaledValues { get; }
@@ -357,11 +377,13 @@ namespace StatisticalModels
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
     /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
-    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). A robust fit is also
-    /// <see cref="FeatureFitStatus.NotConverged"/> when reweighting does not converge within its round limit, when a
-    /// reweighted refit fails, or when the residuals' MAD is zero (more than half of them exactly 0), so that no Huber
-    /// weight can be formed; such a feature keeps its robust diagnostics and is left out of moderation. Output does not
-    /// depend on the thread count.
+    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Robust reweighting that does
+    /// not settle, because it reaches its round limit or a later round's refit fails or its residuals' MAD is zero, falls
+    /// back to msqrob2's default of one round and is fitted on the first round's weights
+    /// (<see cref="NestedMixedModelFit.RobustFellBack"/>). A robust fit is <see cref="FeatureFitStatus.NotConverged"/>
+    /// only when its first round cannot be formed: the first reweighted refit fails, or the unweighted fit's residuals
+    /// have a MAD of zero (more than half of them exactly 0), so that no Huber weight exists; such a feature keeps its
+    /// robust diagnostics and is left out of moderation. Output does not depend on the thread count.
     /// </para>
     /// </remarks>
     public static class NestedMixedModel
@@ -385,7 +407,9 @@ namespace StatisticalModels
         /// min(1, 1.345 / |r / MAD₀(r)|) on the response residuals r, MAD about zero — refitted until the penalised residual
         /// sum of squares changes by at most 1e-6 relative (msqrob2 stops after one round by default), then REML,
         /// Satterthwaite and moderation on the weighted model. Off by default here; QuantProject's differential framework
-        /// turns it on (GR-8). A feature whose reweighting cannot finish is <see cref="FeatureFitStatus.NotConverged"/>.
+        /// turns it on (GR-8). A feature whose reweighting does not settle within the round limit falls back to msqrob2's
+        /// default, one round, and is flagged (<see cref="NestedMixedModelFit.RobustFellBack"/>; GR-22 amended 2026-11-03);
+        /// one whose first round cannot be formed is <see cref="FeatureFitStatus.NotConverged"/>.
         /// </param>
         public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
             int maxThreads = -1, bool robust = false) =>
@@ -504,7 +528,9 @@ namespace StatisticalModels
             private const double RobustTolerance = 1e-6;
             /// <summary>
             /// The most reweighting rounds. msqrob2 defaults to 1; GR-22 iterates to convergence, which took 7-47 rounds on
-            /// the reference data (47 for one sample_only protein), so the limit is about twice the most seen.
+            /// the reference data (47 for one sample_only protein), so the limit is about twice the most seen. Reweighting
+            /// that has not settled by then falls back to msqrob2's one round (GR-22 amended 2026-11-03): some features with
+            /// few peptides and samples cycle and never settle.
             /// </summary>
             internal const int MaxRobustIterations = 100;
 
@@ -594,11 +620,14 @@ namespace StatisticalModels
                     // msqrob2 1.20.0's .robust_fitting, iterated to convergence (QuantProject GR-22): Huber weights from the
                     // response residuals scaled by their MAD about zero, refit, until the penalised residual sum of squares
                     // changes by at most RobustTolerance relative.
-                    // A feature whose reweighting cannot finish (round limit, failed refit, zero MAD) is NotConverged and
-                    // never reaches moderation, but keeps its rounds and last weights so it can be told from a plain fit.
+                    // Reweighting that does not settle (round limit; a later round's zero MAD or failed refit) falls back to
+                    // msqrob2's default of one round, the first round's weights and fit (GR-22 amended 2026-11-03), and is
+                    // flagged. Only a first round that cannot be formed leaves the feature NotConverged, out of moderation,
+                    // with its rounds and weights kept so it can be told from a plain fit.
                     double sseOld = best.R2;
                     int iteration = 0;
                     bool converged = false;
+                    (double[] Theta, Result Best, double[] Weights)? firstRound = null;
                     while (iteration < _maxRobustIterations)
                     {
                         iteration++;
@@ -610,16 +639,28 @@ namespace StatisticalModels
                         if (!result.Ok) break;
                         theta = next;
                         best = result;
+                        if (iteration == 1) firstRound = (next, result, (double[])_w.Clone());
                         if (Math.Abs(sseOld - best.R2) / sseOld <= RobustTolerance) { converged = true; break; }
                         sseOld = best.R2;
                     }
+                    bool fellBack = !converged && firstRound is not null;
+                    if (fellBack)
+                    {
+                        (theta, best, _w) = firstRound!.Value;
+                        BuildCrossProducts();
+                    }
                     fit.RobustIterationsValues[f] = iteration;
                     fit.RobustConvergedValues[f] = converged;
+                    fit.RobustFellBackValues[f] = fellBack;
                 }
                 var weights = Enumerable.Repeat(double.NaN, _problem.Response.Count).ToArray();
                 for (int i = 0; i < _m; i++) weights[rows[i]] = _w[i];
                 fit.WeightValues[f] = weights;
-                if (_robust && fit.RobustConvergedValues[f] != true) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
+                if (_robust && fit.RobustConvergedValues[f] != true && fit.RobustFellBackValues[f] != true)
+                {
+                    fit.StatusValues[f] = FeatureFitStatus.NotConverged;
+                    return;
+                }
                 double sigma2 = best.R2 / (_m - _p);
                 int p = _common;
                 for (int i = 0; i < p; i++)
