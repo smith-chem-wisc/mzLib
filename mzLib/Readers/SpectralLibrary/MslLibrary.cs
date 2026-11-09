@@ -1031,6 +1031,10 @@ public sealed class MslLibrary : IDisposable
 	///       never erases a known one: a replacement keeps the original entry's
 	///       <see cref="MslLibraryEntry.RetentionTime"/> and <see cref="MslLibraryEntry.RtIsCalibrated"/>,
 	///       and a novel entry stores NaN, which means "no retention time".
+	///       When one <c>(sequence, charge)</c> arrives more than once, the spectrum is the copy
+	///       with the most matched ions (on a tie, one with a real time), and the time is the real
+	///       time of the copy with the most ions among those that have one, so a time one copy
+	///       measured is not lost because another copy had more ions.
 	///       </para>
 	///     </description>
 	///   </item>
@@ -1133,18 +1137,31 @@ public sealed class MslLibrary : IDisposable
 		// ── Step 0: index incoming spectra by (FullSequence, ChargeState) ──────────
 		// We use a dictionary so both the regression pass and the merge pass are O(1) per lookup.
 		// When duplicates exist in newSpectra (same sequence+charge observed in multiple files)
-		// we keep the one with the most matched fragment ions — mirroring MetaMorpheus behaviour.
+		// we keep the one with the most matched fragment ions — mirroring MetaMorpheus behaviour;
+		// on a tie, a copy with a real observed time beats one without.
+		// The time is chosen separately from the spectrum: it is the real observed time of the
+		// copy with the most ions among the copies that have one. So a copy kept for its ions but
+		// lacking a time does not throw away a time another copy measured.
 		var incoming = new Dictionary<(string Sequence, int Charge), LibrarySpectrum>(
+			newSpectra.Count, SequenceChargeComparer.Instance);
+		var incomingTimes = new Dictionary<(string Sequence, int Charge), (double Minutes, int Ions)>(
 			newSpectra.Count, SequenceChargeComparer.Instance);
 
 		foreach (LibrarySpectrum s in newSpectra)
 		{
 			var key = (s.Sequence, s.ChargeState);
+			int ions = s.MatchedFragmentIons.Count;
+			bool timed = TryGetObservedMinutes(s, out double minutes);
+
 			if (!incoming.TryGetValue(key, out LibrarySpectrum? existing)
-				|| s.MatchedFragmentIons.Count > existing.MatchedFragmentIons.Count)
+				|| ions > existing.MatchedFragmentIons.Count
+				|| (ions == existing.MatchedFragmentIons.Count && timed && !TryGetObservedMinutes(existing, out _)))
 			{
 				incoming[key] = s;
 			}
+
+			if (timed && (!incomingTimes.TryGetValue(key, out var bestTime) || ions > bestTime.Ions))
+				incomingTimes[key] = (minutes, ions);
 		}
 
 		// ── Step 1: RT regression ─────────────────────────────────────────────
@@ -1164,10 +1181,10 @@ public sealed class MslLibrary : IDisposable
 			// Only a pair of real times is an anchor; a missing time must not pull the line.
 			if (TryGetEntry(key.Sequence, key.Charge, out MslLibraryEntry? libEntry)
 				&& libEntry is not null
-				&& TryGetObservedMinutes(spectrum, out double observedMinutes)
+				&& incomingTimes.TryGetValue(key, out var anchorTime)
 				&& double.IsFinite(libEntry.RetentionTime))
 			{
-				anchorsObservedRt.Add(observedMinutes);
+				anchorsObservedRt.Add(anchorTime.Minutes);
 				anchorsLibraryIrt.Add(libEntry.RetentionTime);
 				if (libEntry.RtIsCalibrated) anyAnchorInMinutes = true;
 				else anyAnchorOnIrt = true;
@@ -1222,9 +1239,9 @@ public sealed class MslLibrary : IDisposable
 				{
 					// The incoming spectrum has more matched ions — prefer it.
 					MslLibraryEntry replacement = MslLibraryEntry.FromLibrarySpectrum(newSpectrum)!;
-					if (TryGetObservedMinutes(newSpectrum, out double replacementMinutes))
+					if (incomingTimes.TryGetValue(key, out var replacementTime))
 					{
-						replacement.RetentionTime = NormaliseRt(replacementMinutes,
+						replacement.RetentionTime = NormaliseRt(replacementTime.Minutes,
 																  rtSlope, rtIntercept,
 																  rtNormalisationApplied);
 						// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
@@ -1276,9 +1293,9 @@ public sealed class MslLibrary : IDisposable
 				continue;
 
 			MslLibraryEntry novel = MslLibraryEntry.FromLibrarySpectrum(newSpectrum)!;
-			if (TryGetObservedMinutes(newSpectrum, out double novelMinutes))
+			if (incomingTimes.TryGetValue(key, out var novelTime))
 			{
-				novel.RetentionTime = NormaliseRt(novelMinutes,
+				novel.RetentionTime = NormaliseRt(novelTime.Minutes,
 														  rtSlope, rtIntercept,
 														  rtNormalisationApplied);
 				novel.RtIsCalibrated = rtNormalisationApplied ? anchorScaleIsMinutes : true;

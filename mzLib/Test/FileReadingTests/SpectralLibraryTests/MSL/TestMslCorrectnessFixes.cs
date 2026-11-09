@@ -717,4 +717,174 @@ public class TestMslCorrectnessFixes
 		Assert.That(model.IsExtrapolated(new RtMinutes(double.NaN)), Is.True);
 		Assert.That(model.ToIrt(new RtMinutes(15)).Value, Is.EqualTo(50.0).Within(1e-9), "A real time still maps.");
 	}
+
+	// ── Files written before this PR ─────────────────────────────────────────
+
+	/// <summary>
+	/// A file written by mzLib 1.0.597 (the NuGet package, before these fixes) reads as the property
+	/// docs promise. The fixture holds a named water loss written as -18.010565 (1.0.597's
+	/// convention), a Custom loss written as -123.4567 on purpose, and an exact 0.0 retention time.
+	/// 1.0.597 read them back as -18.010565, -123.4567 and 0.0.
+	/// <list type="bullet">
+	///   <item>The named code always meant a loss, and now reads as +18.010565.</item>
+	///   <item>A Custom value keeps its stored sign, so the -123.4567 now reads as a gain.</item>
+	///   <item>An exact 0.0 time reads as 0.0: an old file cannot say whether it meant "no time".</item>
+	/// </list>
+	/// </summary>
+	[TestCase(false)]
+	[TestCase(true)]
+	public void AFileWrittenBy1_0_597_ReadsAsTheDocsPromise(bool indexOnly)
+	{
+		string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests",
+			"SpectralLibraryTests", "SpectralLibraryData", "msl_written_by_1.0.597.msl");
+		using MslLibrary library = indexOnly ? MslLibrary.LoadIndexOnly(path) : MslLibrary.Load(path);
+
+		Assert.That(library.TryGetEntry("WATERLOSSK", 2, out MslLibraryEntry? water), Is.True);
+		MslFragmentIon waterLoss = water!.MatchedFragmentIons.Single();
+		Assert.That(waterLoss.NeutralLoss, Is.EqualTo(18.010565).Within(1e-9));
+		Assert.That(waterLoss.Annotation, Is.EqualTo("y4-18.0106"));
+		Assert.That(water.RetentionTime, Is.EqualTo(25.0));
+
+		Assert.That(library.TryGetEntry("CUSTOMLOSSK", 2, out MslLibraryEntry? custom), Is.True);
+		MslFragmentIon customLoss = custom!.MatchedFragmentIons.Single();
+		Assert.That(customLoss.NeutralLoss, Is.EqualTo(-123.4567));
+		Assert.That(customLoss.Annotation, Is.EqualTo("y4+123.4567"), "A negative Custom value now reads as a gain.");
+
+		Assert.That(library.TryGetEntry("ZEROTIMEK", 2, out MslLibraryEntry? zero), Is.True);
+		Assert.That(zero!.RetentionTime, Is.EqualTo(0.0), "An old exact 0.0 stays 0.0; it is not reread as NaN.");
+	}
+
+	// ── KeepLowestQValue: the two tie rules ──────────────────────────────────
+
+	/// <summary>
+	/// A NaN q-value never replaces a number, whichever file holds it: the copy with a q-value wins.
+	/// </summary>
+	[TestCase(true)]
+	[TestCase(false)]
+	public void Merge_KeepLowestQValue_ANaNQValueNeverReplacesANumber(bool nanInTheFirstFile)
+	{
+		string a = PathFor($"qnan_a_{nanInTheFirstFile}"), b = PathFor($"qnan_b_{nanInTheFirstFile}");
+		string output = PathFor($"qnan_out_{nanInTheFirstFile}");
+		MslWriter.Write(a, new[] { Entry("PEPTIDEK", 300.0, rt: 1f, qValue: nanInTheFirstFile ? float.NaN : 0.05f) });
+		MslWriter.Write(b, new[] { Entry("PEPTIDEK", 300.0, rt: 99f, qValue: nanInTheFirstFile ? 0.05f : float.NaN) });
+
+		MslMergeResult result = MslMerger.Merge(new[] { a, b }, output, MslMergeConflictPolicy.KeepLowestQValue);
+
+		Assert.That(result.OutputEntryCount, Is.EqualTo(1));
+		using MslLibrary merged = MslLibrary.Load(output);
+		MslLibraryEntry kept = merged.GetEntry(0, includeFragments: false)!;
+		Assert.That(kept.QValue, Is.EqualTo(0.05f));
+		Assert.That(kept.RetentionTime, Is.EqualTo(nanInTheFirstFile ? 99f : 1f));
+	}
+
+	/// <summary>
+	/// Equal q-values keep the earlier file's copy (the KeepFirst fallback), even when the later
+	/// copy has the lower m/z.
+	/// </summary>
+	[Test]
+	public void Merge_KeepLowestQValue_ATie_KeepsTheEarlierFilesCopy()
+	{
+		string a = PathFor("qtie_a"), b = PathFor("qtie_b"), output = PathFor("qtie_out");
+		MslWriter.Write(a, new[] { Entry("PEPTIDEK", 300.002, rt: 1f, qValue: 0.01f) });
+		MslWriter.Write(b, new[] { Entry("PEPTIDEK", 300.000, rt: 99f, qValue: 0.01f) });
+
+		MslMerger.Merge(new[] { a, b }, output, MslMergeConflictPolicy.KeepLowestQValue);
+
+		using MslLibrary merged = MslLibrary.Load(output);
+		Assert.That(merged.PrecursorCount, Is.EqualTo(1));
+		Assert.That(merged.GetEntry(0, includeFragments: false)!.RetentionTime, Is.EqualTo(1f));
+	}
+
+	// ── UpdateAndSave: one key arriving twice ────────────────────────────────
+
+	/// <summary>
+	/// When one key arrives twice, the copy with more ions supplies the spectrum, but a real time
+	/// measured by the other copy is kept. Before the fix the timeless copy won on ions and the
+	/// measured time was dropped (a novel entry got NaN, a replacement kept the old time).
+	/// </summary>
+	[TestCase(false)] // novel entry
+	[TestCase(true)]  // replacement
+	public void UpdateAndSave_AKeyTwice_KeepsTheMeasuredTime(bool replacesAnEntry)
+	{
+		// The replaced entry has no time, so it is not an anchor and the line stays iRT = 5 x minutes.
+		MslLibraryEntry[] extra = replacesAnEntry ? new[] { Entry("TWICEK", 420.0, rt: float.NaN) } : Array.Empty<MslLibraryEntry>();
+		using MslLibrary library = AnchorLibrary($"twice_{replacesAnEntry}", extra);
+
+		List<LibrarySpectrum> spectra = AnchorSpectra();
+		spectra.Add(Spectrum("TWICEK", 2, rt: 8.0, fragments: 2, precursorMz: 420.0));
+		spectra.Add(Spectrum("TWICEK", 2, rt: null, fragments: 4, precursorMz: 420.0));
+		string output = PathFor($"twice_out_{replacesAnEntry}");
+		MslUpdateResult result = library.UpdateAndSave(spectra, output);
+		Assert.That(result.RtNormalisationApplied, Is.True);
+
+		using MslLibrary updated = MslLibrary.Load(output);
+		Assert.That(updated.TryGetEntry("TWICEK", 2, out MslLibraryEntry? twice), Is.True);
+		Assert.That(twice!.MatchedFragmentIons, Has.Count.EqualTo(4), "The spectrum with more ions wins.");
+		Assert.That(twice.RetentionTime, Is.EqualTo(40.0).Within(1e-3), "8 minutes on the anchors' line (iRT = 5 x minutes).");
+	}
+
+	/// <summary>On a tie in ions, the copy with a real time supplies the spectrum and the time.</summary>
+	[Test]
+	public void UpdateAndSave_AKeyTwiceWithEqualIons_PrefersTheCopyWithATime()
+	{
+		using MslLibrary library = AnchorLibrary("twice_tie");
+		List<LibrarySpectrum> spectra = AnchorSpectra();
+		spectra.Add(Spectrum("TIEK", 2, rt: null, fragments: 3, precursorMz: 421.0));
+		spectra.Add(Spectrum("TIEK", 2, rt: 6.0, fragments: 3, precursorMz: 421.0));
+		string output = PathFor("twice_tie_out");
+		library.UpdateAndSave(spectra, output);
+
+		using MslLibrary updated = MslLibrary.Load(output);
+		Assert.That(updated.TryGetEntry("TIEK", 2, out MslLibraryEntry? tie), Is.True);
+		Assert.That(tie!.RetentionTime, Is.EqualTo(30.0).Within(1e-3));
+	}
+
+	// ── Argument checks ──────────────────────────────────────────────────────
+
+	/// <summary>A null entry is an ArgumentException naming its position, not a NullReferenceException.</summary>
+	[Test]
+	public void Write_ANullEntry_IsAnArgumentException()
+	{
+		string path = PathFor(nameof(Write_ANullEntry_IsAnArgumentException));
+		var entries = new MslLibraryEntry[] { Entry("PEPTIDEK", 300.0), null! };
+		Assert.That(() => MslWriter.Write(path, entries), Throws.ArgumentException.With.Message.Contains("entries[1]"));
+		Assert.That(() => MslWriter.WriteStreaming(path, entries), Throws.ArgumentException.With.Message.Contains("entries[1]"));
+		Assert.That(File.Exists(path), Is.False);
+	}
+
+	/// <summary>A precursor charge outside the stored 16-bit range is refused, not wrapped.</summary>
+	[TestCase(40_000)]
+	[TestCase(-40_000)]
+	public void Write_APrecursorChargeOutsideInt16_IsRefused(int charge)
+	{
+		string path = PathFor($"charge_{charge}");
+		var entry = Entry("PEPTIDEK", 300.0);
+		entry.ChargeState = charge;
+		Assert.That(() => MslWriter.Write(path, new[] { entry }), Throws.ArgumentException);
+		Assert.That(File.Exists(path), Is.False);
+	}
+
+	/// <summary>A non-finite calibration intercept is refused.</summary>
+	[TestCase(double.NaN)]
+	[TestCase(double.NegativeInfinity)]
+	public void WithCalibratedRetentionTimes_ANonFiniteIntercept_IsRefused(double intercept)
+	{
+		string path = PathFor($"intercept_{intercept}");
+		MslWriter.Write(path, new[] { Entry("PEPTIDEK", 300.0) });
+		using MslLibrary library = MslLibrary.Load(path);
+		Assert.That(() => library.WithCalibratedRetentionTimes(1.0, intercept), Throws.TypeOf<ArgumentOutOfRangeException>());
+	}
+
+	/// <summary>An unknown conflict policy is refused; no sources at all is refused.</summary>
+	[Test]
+	public void Merge_AnUnknownPolicy_OrNoSources_IsRefused()
+	{
+		string a = PathFor("policy_a"), output = PathFor("policy_out");
+		MslWriter.Write(a, new[] { Entry("PEPTIDEK", 300.0) });
+
+		Assert.That(() => MslMerger.Merge(new[] { a }, output, (MslMergeConflictPolicy)99),
+			Throws.TypeOf<ArgumentOutOfRangeException>());
+		Assert.That(() => MslMerger.Merge(Array.Empty<string>(), output), Throws.ArgumentException);
+		Assert.That(File.Exists(output), Is.False);
+	}
 }

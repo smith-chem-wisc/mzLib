@@ -71,6 +71,12 @@ public static class MslWriter
 	/// temp file is renamed to the final path so that a failed write never leaves a
 	/// partially written file at the destination.
 	///
+	/// The temp files are named <c>&lt;outputPath&gt;.&lt;token&gt;.tmp~</c> (and
+	/// <c>.zfrags~</c> when compressing), with a random token per call so that two writers
+	/// aimed at one path never share them. They are deleted when the call succeeds or throws.
+	/// A process killed mid-write leaves them behind, and since no later call reuses the name,
+	/// nothing removes them: delete stray <c>&lt;outputPath&gt;.*~</c> files by hand.
+	///
 	/// Fragment intensities are normalized per precursor before writing (max = 1.0).
 	/// Fragment records within each precursor are sorted by m/z ascending to support
 	/// binary search during scoring.
@@ -252,7 +258,10 @@ public static class MslWriter
 	/// O(TotalFragments × FragmentRecordSize) as in the non-streaming path.
 	///
 	/// The output file is written atomically: intermediate data goes to temp files, which
-	/// are renamed and deleted on completion or failure.
+	/// are renamed and deleted on completion or failure. They are named
+	/// <c>&lt;outputPath&gt;.&lt;token&gt;.frags~</c>, <c>.spill~</c>, <c>.tmp~</c> and
+	/// <c>.zfrags~</c>, with a random token per call; a process killed mid-write leaves them
+	/// behind, and nothing later removes them (see <see cref="Write"/>).
 	///
 	/// <para>
 	/// The files produced by this method are byte-for-byte identical to those produced by
