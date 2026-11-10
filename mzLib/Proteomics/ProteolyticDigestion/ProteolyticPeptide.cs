@@ -194,17 +194,14 @@ namespace Proteomics.ProteolyticDigestion
                 // cleavage the peptide genuinely has.
                 // Key k sits on parent residue OneBasedStartResidue + k - 2; the policy answers only for a
                 // residue that is a real site of this protease in this protein.
-                int oneBasedResidue = OneBasedStartResidue + positionAndMod.Key - 2;
-                if (!policy.Blocks(positionAndMod.Value, oneBasedResidue))
+                if (!policy.Blocks(positionAndMod.Value, OneBasedStartResidue + positionAndMod.Key - 2))
                 {
                     continue;
                 }
 
                 if (positionAndMod.Key == peptideLength + 1)
                 {
-                    // Blocked, but a modification that can also form after digestion (carbamylation) may sit
-                    // on a real C-terminus, so the drop asks the policy's at-a-cut question, not Blocks.
-                    cTerminalResidueBlocked = policy.RefusesAtCut(positionAndMod.Value, oneBasedResidue);
+                    cTerminalResidueBlocked = !CleavageBlockingModifications.MayFormAfterDigestion(positionAndMod.Value);
                 }
                 else if (positionAndMod.Key >= 2 && positionAndMod.Key <= peptideLength)
                 {

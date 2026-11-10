@@ -227,17 +227,5 @@ namespace Proteomics.ProteolyticDigestion
             && oneBasedResidue > 0 && oneBasedResidue < _chargeDirectedSites.Length
             && _chargeDirectedSites[oneBasedResidue]
             && CleavageBlockingModifications.BlocksCleavageBy(modification, _protease);
-
-        /// <summary>
-        /// True when a peptidoform whose C-terminal residue is one-based residue <paramref name="oneBasedResidue"/>
-        /// and carries <paramref name="modification"/> cannot have been produced by a cleavage there. That holds when
-        /// the modification <see cref="Blocks"/> that cleavage and cannot have formed after it
-        /// (<see cref="CleavageBlockingModifications.MayFormAfterDigestion"/>). This is the question that drops a
-        /// peptidoform ending at a cut; <see cref="Blocks"/> alone is the one the missed-cleavage discount asks. So a
-        /// carbamylated lysine is discounted inside a peptide and still allowed at its C-terminus.
-        /// </summary>
-        public bool RefusesAtCut(Modification modification, int oneBasedResidue) =>
-            Blocks(modification, oneBasedResidue)
-            && !CleavageBlockingModifications.MayFormAfterDigestion(modification);
     }
 }
