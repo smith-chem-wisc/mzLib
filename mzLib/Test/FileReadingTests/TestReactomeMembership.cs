@@ -311,6 +311,39 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Species_IdThatIsNotAStableId_CountsTowardTheTotal_AndIsDroppedUnderACode()
+        {
+            // 9 R-RNO and one id with no species prefix: 10 references, so the minimum is met only because the
+            // unprefixed id counts; RNO holds 9 of 10, so it is the code and the unprefixed id is dropped.
+            var proteins = Enumerable.Range(1, 9).Select(i => P($"Q{70000 + i}", Rat, Reactome($"R-RNO-{i}"))).ToList();
+            proteins.Add(P("Q70010", Rat, Reactome("REACT_1234")));
+            var annotation = new ReactomeAccessionAnnotation(proteins, DbSha);
+
+            Assert.That(annotation.SpeciesCodes, Is.EqualTo(new Dictionary<string, string> { ["NCBITaxon:10116"] = "RNO" }));
+            Assert.That(annotation.DroppedForeignReferences, Is.EqualTo(1));
+            Assert.That(annotation.Rows().Where(r => r.Accession == "Q70010"), Is.EqualTo(new[]
+            {
+                new ReactomeMembershipRow("Q70010", "NCBITaxon:10116", null, null, null, null, ReactomeMembershipStatus.NoReference)
+            }));
+        }
+
+        [Test]
+        public void Species_IdsThatAreNotStableIds_InTheMajority_AreNeverACode()
+        {
+            // 6 of 10 references have no species prefix. They lead, but "" can never be a code, so the organism is
+            // unvalidated and every reference is kept.
+            var proteins = Enumerable.Range(1, 6).Select(i => P($"Q{71000 + i}", Rat, Reactome($"REACT_{i}")))
+                .Concat(Enumerable.Range(1, 4).Select(i => P($"Q{71100 + i}", Rat, Reactome($"R-RNO-{i}"))))
+                .ToList();
+            var annotation = new ReactomeAccessionAnnotation(proteins, DbSha);
+
+            Assert.That(annotation.SpeciesCodes, Is.Empty);
+            Assert.That(annotation.UnvalidatedOrganisms, Is.EqualTo(new Dictionary<string, int> { ["NCBITaxon:10116"] = 10 }));
+            Assert.That(annotation.DroppedForeignReferences, Is.EqualTo(0));
+            Assert.That(annotation.Rows().Select(r => r.PathwayId), Does.Contain("REACT_1").And.Contain("R-RNO-1"));
+        }
+
+        [Test]
         public void Species_OrganismWithoutAnyReference_IsSpeciesNotCovered()
         {
             Assert.That(RowsOf("Q11111"), Is.EqualTo(new[]

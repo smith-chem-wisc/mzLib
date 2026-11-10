@@ -132,6 +132,34 @@ namespace Test.FileReadingTests
             Assert.Throws<ArgumentException>(() => ReactomeMembershipTsv.Write(new StringWriter(), annotation));
         }
 
+        [Test]
+        public void Writer_RefusesAnOrganismItsReaderWouldRefuse_BeforeWritingAnything()
+        {
+            // A taxon id that is not all digits becomes NCBITaxon:9606a, which Read refuses. P1 is valid and sorts
+            // first, so an empty output shows every row was checked before the first line was written.
+            var annotation = new ReactomeAccessionAnnotation(new[]
+            {
+                P("P1", Human, Reactome("R-HSA-1")),
+                P("P2", "9606a", Reactome("R-HSA-2")),
+            }, DbSha);
+            using var writer = new StringWriter();
+
+            var exception = Assert.Throws<ArgumentException>(() => ReactomeMembershipTsv.Write(writer, annotation));
+            Assert.That(exception.Message, Does.Contain("NCBITaxon:9606a"));
+            Assert.That(writer.ToString(), Is.Empty);
+        }
+
+        [Test]
+        public void Writer_RefusesAnEmptyAccession()
+        {
+            var annotation = new ReactomeAccessionAnnotation(new[] { P("", Human, Reactome("R-HSA-1")) }, DbSha);
+            using var writer = new StringWriter();
+
+            var exception = Assert.Throws<ArgumentException>(() => ReactomeMembershipTsv.Write(writer, annotation));
+            Assert.That(exception.Message, Does.Contain("accession is empty"));
+            Assert.That(writer.ToString(), Is.Empty);
+        }
+
         [TestCase("P1\tNCBITaxon:9606\tR-HSA-1\t\t\tfalse\tannotated_ish\n", "status 'annotated_ish'")]
         [TestCase("P1\tNCBITaxon:9606\t\t\t\t\tannotated\n", "carries no pathway")]
         [TestCase("P1\tNCBITaxon:9606\tR-HSA-1\t\t\tfalse\tno_reference\n", "carries a pathway")]
