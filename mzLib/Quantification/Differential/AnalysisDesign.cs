@@ -67,7 +67,7 @@ public sealed class AnalysisDesign
     /// A null-space loading (or a unit-length contrast's projection on it) below this counts as zero, both on the columns
     /// divided by their lengths.
     /// </summary>
-    private const double LoadingTolerance = 1e-8;
+    internal const double LoadingTolerance = 1e-8;
 
     private readonly double[,] _matrix;
     private readonly List<string> _columnTerms;
@@ -443,19 +443,28 @@ public sealed class AnalysisDesign
     }
 
     /// <summary>The terms a direction in the null space loads on: its entries above <see cref="LoadingTolerance"/> of its length.</summary>
-    private List<string> TermsAlong(Vector<double> direction)
+    private List<string> TermsAlong(Vector<double> direction) => TermsAlong(direction, _columnTerms);
+
+    /// <summary>
+    /// The terms a direction loads on, from each column's term: its entries above <see cref="LoadingTolerance"/> of its
+    /// length. Shared with <see cref="FeatureDesign"/>, which judges a feature's own columns by the same rule.
+    /// </summary>
+    internal static List<string> TermsAlong(Vector<double> direction, IReadOnlyList<string> columnTerms)
     {
         double length = direction.L2Norm();
         if (length <= LoadingTolerance) return new List<string>();
         return Enumerable.Range(0, direction.Count)
             .Where(j => Math.Abs(direction[j]) > LoadingTolerance * length)
-            .Select(j => _columnTerms[j])
+            .Select(j => columnTerms[j])
             .Distinct(StringComparer.Ordinal)
             .ToList();
     }
 
-    /// <summary>Left to right, each column kept unless it is redundant with those already kept, by LinearModel's own test.</summary>
-    private static int[] KeptColumns(double[,] matrix)
+    /// <summary>
+    /// Left to right, each column kept unless it is redundant with those already kept, by LinearModel's own test. Shared
+    /// with <see cref="FeatureDesign"/>.
+    /// </summary>
+    internal static int[] KeptColumns(double[,] matrix)
     {
         int n = matrix.GetLength(0), p = matrix.GetLength(1);
         var kept = new List<int>();
@@ -478,9 +487,9 @@ public sealed class AnalysisDesign
     /// An orthonormal basis of the null space of the columns divided by <paramref name="lengths"/>,
     /// <c>[column, direction]</c>: for each left-out column, its unit vector less its least-squares coefficients on the
     /// kept columns. Those directions are independent (each is 1 on its own left-out column and 0 on the others), and
-    /// for an exact redundancy they span the same space an SVD gives.
+    /// for an exact redundancy they span the same space an SVD gives. Shared with <see cref="FeatureDesign"/>.
     /// </summary>
-    private static Matrix<double> NullSpace(double[,] matrix, double[] lengths, IReadOnlyList<int> kept)
+    internal static Matrix<double> NullSpace(double[,] matrix, double[] lengths, IReadOnlyList<int> kept)
     {
         int p = matrix.GetLength(1);
         var x = Matrix<double>.Build.DenseOfArray(matrix);
