@@ -67,7 +67,8 @@ public readonly record struct IsobaricObservation(IsobaricIonRow Row, string Sam
 /// <b>Samples</b> are the design's (<see cref="AnalysisSample.FromExperimentalDesign"/>): one per sample channel of a plex,
 /// keyed by <see cref="AnalysisSample.IdFor"/>, ordered by id. A pooled reference channel and a channel the plex does not
 /// use hold no sample and no value here. A sample belongs to one plex, so a row has values only for the samples of its
-/// plex.
+/// plex. A plex with no sample channel (only pooled reference or unused channels, as a QC plex has) has no rows: its ions
+/// are left out before the few-channel rule, and a warning names the plex and how many ions it held.
 /// </para>
 /// <para>
 /// <b>Missing.</b> A reporter written as 0 was not measured: its cell is NaN with state
@@ -130,7 +131,10 @@ public sealed class IsobaricObservationTable
     /// <summary>The protein groups the producer described, by name.</summary>
     public IReadOnlyDictionary<string, ProteinGroupInfo> ProteinGroups { get; }
 
-    /// <summary>How many ions in plex runs were dropped for a reporter measured in at most 2 channels.</summary>
+    /// <summary>
+    /// How many ions in plex runs were dropped for a reporter measured in at most 2 channels. Ions of a plex with no sample
+    /// channel are not counted here; a warning counts them.
+    /// </summary>
     public int IonsWithFewChannels { get; }
 
     /// <summary>Things a reader should know that did not stop the build (e.g. groups the protein table does not describe).</summary>
@@ -227,11 +231,20 @@ public sealed class IsobaricObservationTable
         var log2 = new List<double[]>();
         int fewChannels = 0;
         var plexPositions = PlexPositions(samplePlex);
+        // A plex with no sample channel (a QC plex of pooled reference, say) has nowhere to put its ions' values.
+        var plexesWithoutSamples = new SortedSet<int>(files.Values.Select(f => f.Plex).Where(p => !plexPositions.ContainsKey(p)));
+        int ionsWithoutSamples = 0;
         foreach (var (key, chosen) in best
                      .OrderBy(b => b.Key.FullSequence, StringComparer.Ordinal)
                      .ThenBy(b => b.Key.Charge).ThenBy(b => b.Key.Plex).ThenBy(b => b.Key.TechnicalReplicate)
                      .Select(b => (b.Key, b.Value)))
         {
+            if (!plexPositions.TryGetValue(key.Plex, out var plex))
+            {
+                ionsWithoutSamples++;
+                continue;
+            }
+
             var intensities = chosen.Psm.ReporterIntensities;
             if (intensities.Count(v => v > 0) <= 2)
             {
@@ -239,7 +252,7 @@ public sealed class IsobaricObservationTable
                 continue;
             }
 
-            var (positions, count) = plexPositions[key.Plex];
+            var (positions, count) = plex;
             var values = Enumerable.Repeat(double.NaN, count).ToArray();
             for (int c = 0; c < intensities.Count; c++)
             {
@@ -253,6 +266,9 @@ public sealed class IsobaricObservationTable
         }
 
         var warnings = new List<string>();
+        if (plexesWithoutSamples.Count > 0)
+            warnings.Add($"{string.Join(", ", plexesWithoutSamples.Select(p => $"plex {p}"))}: no sample channel, only pooled " +
+                $"reference or unused channels, so {ionsWithoutSamples} ion(s) there are not in the table.");
         var undescribed = new SortedSet<string>(rows.SelectMany(r => r.Peptide.ProteinGroups)
             .Where(g => !groups.ContainsKey(g) && !string.Equals(g, ObservedPeptide.UndefinedProteinGroup, StringComparison.Ordinal)),
             StringComparer.Ordinal);

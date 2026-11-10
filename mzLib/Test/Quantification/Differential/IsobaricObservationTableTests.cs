@@ -133,6 +133,33 @@ public class IsobaricObservationTableTests
         Assert.That(table.Observations().Select(o => (o.SampleId, o.Log2Intensity)), Is.EqualTo(new[] { ("a2", 1.0), ("b2", 2.0) }));
     }
 
+    [TestCase(true, TestName = "APlexOfOnlyPooledReferenceChannelsIsLeftOutOfTheTableAndWarned")]
+    [TestCase(false, TestName = "APlexOfOnlyUnusedChannelsIsLeftOutOfTheTableAndWarned")]
+    public void APlexWithNoSampleChannelIsLeftOutOfTheTableAndWarned(bool reference)
+    {
+        // A QC plex searched beside a study plex: none of its three channels holds a sample.
+        ISampleInfo[] qc = new[] { "126", "127N", "127C" }
+            .Select(c => (ISampleInfo)Channel("qc", 2, c, reference ? "pool" : "", reference ? $"pool{c}" : null,
+                reference: reference))
+            .ToArray();
+        var table = Build(Design(Plex("f", 1), qc),
+            Psm("f", 1, "PEPTIDE", 2, 2, 4, 8, 16),
+            Psm("qc", 1, "PEPTIDE", 2, 5, 6, 7), // the same ion in the QC plex: left out
+            Psm("qc", 2, "QCONLY", 2, 5, 6, 7), // three reporters, but no sample to hold them: left out
+            Psm("qc", 3, "FEW", 2, 5, 0, 0)); // left out with its plex, not counted by the few-channel rule
+
+        Assert.That(table.Samples, Is.EqualTo(new[] { "a1", "b1" }));
+        Assert.That(table.Rows.Select(r => (r.Peptide.FullSequence, r.Plex)), Is.EqualTo(new[] { ("PEPTIDE", 1) }));
+        Assert.That(table.IonsWithFewChannels, Is.EqualTo(0));
+        Assert.That(table.SamplesOfPlex(2), Is.Empty);
+        Assert.That(table.Warnings.Single(w => w.Contains("plex 2")), Does.Contain("no sample channel").And.Contain("3 ion(s)"));
+        Assert.That(table.Observations().Select(o => (o.SampleId, o.Log2Intensity)), Is.EqualTo(new[] { ("a1", 1.0), ("b1", 2.0) }));
+
+        // Normalization reads the table without tripping on the QC plex.
+        var normalized = IsobaricNormalization.Apply(table, IsobaricNormalization.Measure(table));
+        Assert.That(normalized.Rows.Select(r => r.Plex), Is.EqualTo(new[] { 1 }));
+    }
+
     [Test]
     public void ATieGoesToTheEarlierFileThenTheLowerScanWhateverTheInputOrder()
     {
