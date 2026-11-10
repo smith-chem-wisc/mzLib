@@ -17,7 +17,9 @@ namespace StatisticalModels
         Sample,
         /// <summary>
         /// One random intercept per individual: <c>(1 | individual)</c>. Individuals were given but each has a single
-        /// sample among the feature's values, so a sample-within-individual intercept would be the same grouping.
+        /// sample among the feature's values, so a sample-within-individual intercept would be the same grouping; or, when
+        /// only estimable terms are fitted, the sample-within-individual term could not be estimated (e.g. one value per
+        /// sample) and was left out.
         /// </summary>
         Individual,
         /// <summary>
@@ -25,6 +27,12 @@ namespace StatisticalModels
         /// GR-6), so comparisons within and between individuals are both estimable.
         /// </summary>
         IndividualAndSample,
+        /// <summary>
+        /// No random intercept: only estimable terms were to be fitted (<see cref="NestedMixedModel.Fit"/>) and none of the
+        /// feature's is, so its fixed part is fitted alone by (weighted) least squares. σ² is the REML estimate, the residual
+        /// sum of squares over n − p, and every Satterthwaite df is the residual df n − p, as R's <c>lm</c>.
+        /// </summary>
+        None,
     }
 
     /// <summary>
@@ -401,7 +409,8 @@ namespace StatisticalModels
     /// <b>Not fittable.</b> Too few observations for the fixed effects (<see cref="FeatureFitStatus.TooFewObservations"/>);
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
-    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
+    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same), unless only estimable terms are fitted, when
+    /// such a term is left out instead (see <see cref="Fit"/>); a criterion that cannot be evaluated, or a
     /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Robust reweighting that does
     /// not settle, because it reaches its round limit or a later round's refit fails or its residuals' MAD is zero, falls
     /// back to msqrob2's default of one round and is fitted on the first round's weights
@@ -436,13 +445,23 @@ namespace StatisticalModels
         /// default, one round, and is flagged (<see cref="NestedMixedModelFit.RobustFellBack"/>; GR-22 amended 2026-11-03);
         /// one whose first round cannot be formed is <see cref="FeatureFitStatus.NotConverged"/>.
         /// </param>
+        /// <param name="estimableRandomTermsOnly">
+        /// Fit each feature with only the random terms its data can estimate (QuantProject STAT1 ruling 16), instead of
+        /// refusing it as <see cref="FeatureFitStatus.TooFewGroups"/>. A term is estimable by lme4's own two checks, which
+        /// refuse the model otherwise: at least 2 levels, and fewer levels than observations. The sample-within-individual
+        /// term is left out first (<see cref="RandomStructure.Individual"/>), then the individual
+        /// (<see cref="RandomStructure.Sample"/>, the sample within it), and with none left the fixed part is fitted alone
+        /// (<see cref="RandomStructure.None"/>). E.g. a TMT protein with one ion in each plex run has one value per channel
+        /// sample in each run, so only its individual (animal) term is estimable. Off by default: every feature then gets
+        /// its full structure or is refused, as lme4.
+        /// </param>
         public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
-            int maxThreads = -1, bool robust = false) =>
-            Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations);
+            int maxThreads = -1, bool robust = false, bool estimableRandomTermsOnly = false) =>
+            Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations, estimableRandomTermsOnly);
 
         /// <summary>As the public overload, with the reweighting round limit set (tests reach the limit with it).</summary>
         internal static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
-            int maxThreads, bool robust, int maxRobustIterations)
+            int maxThreads, bool robust, int maxRobustIterations, bool estimableRandomTermsOnly = false)
         {
             ArgumentNullException.ThrowIfNull(problems);
             ArgumentNullException.ThrowIfNull(commonNames);
@@ -460,7 +479,7 @@ namespace StatisticalModels
             Parallel.ForEach(Partitioner.Create(0, Math.Max(problems.Count, 1)), options, range =>
             {
                 for (int f = range.Item1; f < Math.Min(range.Item2, problems.Count); f++)
-                    new FeatureModel(problems[f], commonNames.Count, robust, maxRobustIterations).Fit(f, fit);
+                    new FeatureModel(problems[f], commonNames.Count, robust, maxRobustIterations, estimableRandomTermsOnly).Fit(f, fit);
             });
             return fit;
         }
@@ -647,6 +666,7 @@ namespace StatisticalModels
             private readonly int _common;
             private readonly bool _robust;
             private readonly int _maxRobustIterations;
+            private readonly bool _estimableOnly;
             private int _m, _p, _q;
             private int[] _termOfColumn = Array.Empty<int>();
             private Matrix<double> _ztz = null!, _ztx = null!, _xtx = null!, _x = null!;
@@ -655,12 +675,14 @@ namespace StatisticalModels
             private double[] _w = Array.Empty<double>();
             private double _sumLogW;
 
-            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust, int maxRobustIterations)
+            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust, int maxRobustIterations,
+                bool estimableOnly = false)
             {
                 _problem = problem;
                 _common = common;
                 _robust = robust;
                 _maxRobustIterations = maxRobustIterations;
+                _estimableOnly = estimableOnly;
             }
 
             public void Fit(int f, NestedMixedModelFit fit)
@@ -697,6 +719,31 @@ namespace StatisticalModels
                     {
                         terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
                         structure = RandomStructure.IndividualAndSample;
+                    }
+                }
+                if (_estimableOnly)
+                {
+                    // lme4's two checks (at least 2 levels, fewer levels than observations), applied per term: the inner term
+                    // goes first, then the individual; with none left the fixed part is fitted alone (STAT1 ruling 16).
+                    bool Estimable(string[] labels)
+                    {
+                        int levels = labels.Distinct(StringComparer.Ordinal).Count();
+                        return levels >= 2 && levels < _m;
+                    }
+                    if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[1]))
+                    {
+                        terms.RemoveAt(1);
+                        structure = RandomStructure.Individual;
+                    }
+                    else if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                    {
+                        terms.RemoveAt(0);
+                        structure = RandomStructure.Sample;
+                    }
+                    if (structure != RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                    {
+                        terms.Clear();
+                        structure = RandomStructure.None;
                     }
                 }
                 var columns = new List<int[]>(); // per term: column index (within Z) of each observation
@@ -780,10 +827,26 @@ namespace StatisticalModels
                 fit.ResidualVarianceValues[f] = sigma2;
                 fit.RemlValues[f] = best.Criterion;
                 if (structure == RandomStructure.Sample) fit.SampleVarianceValues[f] = theta[0] * theta[0] * sigma2;
-                else
+                else if (structure != RandomStructure.None)
                 {
                     fit.IndividualVarianceValues[f] = theta[0] * theta[0] * sigma2;
                     if (structure == RandomStructure.IndividualAndSample) fit.SampleVarianceValues[f] = theta[1] * theta[1] * sigma2;
+                }
+
+                if (structure == RandomStructure.None)
+                {
+                    // Least squares, φ = (σ): Cov(β) = σ²(X′WX)⁻¹, so ∂Cov/∂σ = 2σ(X′WX)⁻¹; the REML deviance
+                    // r²/σ² + (n − p)·log(2πσ²) + … has second derivative 4(n − p)/σ² at its optimum, so 2·H⁻¹ is
+                    // σ²/(2(n − p)), and every Satterthwaite df comes out as the residual df n − p, as lm's.
+                    double sigma = Math.Sqrt(sigma2);
+                    var jacobian = new double[p * p];
+                    for (int i = 0; i < p; i++)
+                        for (int j = 0; j < p; j++) jacobian[i * p + j] = 2 * sigma * best.AInverse![i, j];
+                    fit.Jacobians[f] = jacobian;
+                    fit.VarParCovariances[f] = new[] { sigma2 / (2.0 * (_m - _p)) };
+                    fit.StructureValues[f] = structure;
+                    fit.StatusValues[f] = FeatureFitStatus.Fitted;
+                    return;
                 }
 
                 // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
@@ -826,17 +889,20 @@ namespace StatisticalModels
             /// <summary>Weighted cross-products: Z′WZ, Z′WX, Z′Wy, X′WX, X′Wy, with W = diag(<see cref="_w"/>).</summary>
             private void BuildCrossProducts()
             {
-                _ztz = Matrix<double>.Build.Dense(_q, _q);
-                _ztx = Matrix<double>.Build.Dense(_q, _p);
-                _zty = Vector<double>.Build.Dense(_q);
-                for (int i = 0; i < _m; i++)
-                    foreach (var a in _columns)
-                    {
-                        int ca = a[i];
-                        _zty[ca] += _w[i] * _y[i];
-                        for (int j = 0; j < _p; j++) _ztx[ca, j] += _w[i] * _x[i, j];
-                        foreach (var b in _columns) _ztz[ca, b[i]] += _w[i];
-                    }
+                if (_q > 0)
+                {
+                    _ztz = Matrix<double>.Build.Dense(_q, _q);
+                    _ztx = Matrix<double>.Build.Dense(_q, _p);
+                    _zty = Vector<double>.Build.Dense(_q);
+                    for (int i = 0; i < _m; i++)
+                        foreach (var a in _columns)
+                        {
+                            int ca = a[i];
+                            _zty[ca] += _w[i] * _y[i];
+                            for (int j = 0; j < _p; j++) _ztx[ca, j] += _w[i] * _x[i, j];
+                            foreach (var b in _columns) _ztz[ca, b[i]] += _w[i];
+                        }
+                }
                 var wx = Matrix<double>.Build.Dense(_m, _p, (i, j) => _w[i] * _x[i, j]);
                 _xtx = wx.TransposeThisAndMultiply(_x);
                 _xty = wx.TransposeThisAndMultiply(_y);
@@ -859,6 +925,7 @@ namespace StatisticalModels
 
             private Result Evaluate(double[] theta)
             {
+                if (_q == 0) return EvaluateLeastSquares();
                 try
                 {
                     var lambda = Vector<double>.Build.Dense(_q, j => theta[_termOfColumn[j]]);
@@ -903,6 +970,32 @@ namespace StatisticalModels
                 }
             }
 
+            /// <summary>
+            /// <see cref="Evaluate"/> with no random term (<see cref="RandomStructure.None"/>): weighted least squares, and the
+            /// REML criterion of that model, so the same σ², deviance and derivative code applies.
+            /// </summary>
+            private Result EvaluateLeastSquares()
+            {
+                try
+                {
+                    var cholA = _xtx.Cholesky();
+                    var beta = cholA.Solve(_xty);
+                    var e = _y - _x * beta;
+                    double r2 = 0;
+                    for (int i = 0; i < _m; i++) r2 += _w[i] * e[i] * e[i];
+                    if (!(r2 > 0)) return default;
+                    int dfr = _m - _p;
+                    double criterion = cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr)) - _sumLogW;
+                    if (!double.IsFinite(criterion)) return default;
+                    return new Result(true, criterion, 0, cholA.DeterminantLn, r2, beta,
+                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)), null);
+                }
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+                {
+                    return default;
+                }
+            }
+
             private double Criterion(double[] theta)
             {
                 var r = Evaluate(theta);
@@ -938,6 +1031,7 @@ namespace StatisticalModels
             /// <summary>θ minimising the REML criterion; null when the simplex search did not converge.</summary>
             private double[]? Minimise(int k)
             {
+                if (k == 0) return Array.Empty<double>();
                 if (k == 1)
                 {
                     int bestI = 0;
