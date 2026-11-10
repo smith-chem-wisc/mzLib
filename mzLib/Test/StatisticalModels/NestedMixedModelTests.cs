@@ -81,6 +81,65 @@ public class NestedMixedModelTests
         Assert.That(fit.SatterthwaiteDf(0, new[] { 0.0, 1 }), Is.NaN);
     }
 
+    /// <summary>
+    /// With only estimable terms fitted (STAT1 ruling 16) the single-peptide protein is not refused: no term can be
+    /// estimated (8 samples, one value each), so it is fitted by least squares, with LinearModel's (R's lm's) coefficients,
+    /// standard errors and residual df.
+    /// </summary>
+    [Test]
+    public void WithOnlyEstimableTermsASinglePeptideProteinIsLeastSquares()
+    {
+        var problem = Problem(peptides: 1);
+        var fit = NestedMixedModel.Fit(new[] { problem }, Names, estimableRandomTermsOnly: true);
+
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.Structure[0], Is.EqualTo(RandomStructure.None));
+        Assert.That(fit.IndividualVariance[0], Is.NaN);
+        Assert.That(fit.SampleVariance[0], Is.NaN);
+        var y = new double[1, 8];
+        var x = new double[8, 2];
+        for (int i = 0; i < 8; i++)
+        {
+            y[0, i] = problem.Response[i];
+            for (int j = 0; j < 2; j++) x[i, j] = problem.Common[i, j];
+        }
+        var lm = LinearModel.Fit(y, x, Names);
+        Assert.That(fit.Coefficient(0, 1), Is.EqualTo(lm.Coefficient(0, 1)).Within(1e-12));
+        Assert.That(fit.ResidualVariance[0], Is.EqualTo(lm.Sigma[0] * lm.Sigma[0]).Within(1e-12));
+        Assert.That(Math.Sqrt(fit.UnscaledCovariance(0, 1, 1)), Is.EqualTo(lm.StdevUnscaled(0, 1)).Within(1e-12));
+        Assert.That(fit.SatterthwaiteDf(0, new[] { 0.0, 1 }), Is.EqualTo(lm.DfResidual[0]).Within(1e-9));
+    }
+
+    /// <summary>
+    /// Which terms stay (ruling 16, lme4's two checks): one value per sample with 2 samples per individual leaves the
+    /// individual term only; every sample in one individual leaves the sample term only; the default still refuses both.
+    /// </summary>
+    [Test]
+    public void WithOnlyEstimableTermsTheInnerTermGoesFirstThenTheIndividual()
+    {
+        var pairs = Problem(new string?[] { "a", "a", "b", "b", "c", "c", "d", "d" }, peptides: 1);
+        var oneIndividual = Problem(new string?[] { "a", "a", "a", "a", "a", "a", "a", "a" }, peptides: 2);
+
+        Assert.That(NestedMixedModel.Fit(new[] { pairs }, Names).Status[0], Is.EqualTo(FeatureFitStatus.TooFewGroups));
+        Assert.That(NestedMixedModel.Fit(new[] { oneIndividual }, Names).Status[0], Is.EqualTo(FeatureFitStatus.TooFewGroups));
+
+        var fit = NestedMixedModel.Fit(new[] { pairs, oneIndividual }, Names, estimableRandomTermsOnly: true);
+        Assert.That(fit.Status, Is.All.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.Structure[0], Is.EqualTo(RandomStructure.Individual));
+        Assert.That(fit.IndividualVariance[0], Is.Not.NaN);
+        Assert.That(fit.Structure[1], Is.EqualTo(RandomStructure.Sample));
+        Assert.That(fit.SampleVariance[1], Is.Not.NaN);
+        Assert.That(fit.IndividualVariance[1], Is.NaN);
+
+        // A protein whose full structure is estimable is fitted exactly as without the option.
+        var full = Problem(new string?[] { "a", "a", "b", "b", "c", "c", "d", "d" });
+        var plain = NestedMixedModel.Fit(new[] { full }, Names);
+        var estimable = NestedMixedModel.Fit(new[] { full }, Names, estimableRandomTermsOnly: true);
+        Assert.That(estimable.Structure[0], Is.EqualTo(RandomStructure.IndividualAndSample));
+        Assert.That(estimable.RemlCriterion[0], Is.EqualTo(plain.RemlCriterion[0]));
+        Assert.That(estimable.Coefficient(0, 1), Is.EqualTo(plain.Coefficient(0, 1)));
+    }
+
     [Test]
     public void ResultsDoNotDependOnThreadCount()
     {
