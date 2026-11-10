@@ -217,6 +217,7 @@ public static class DifferentialAnalysis
         private readonly List<DifferentialModelInfo> _models = new();
         private readonly List<DifferentialNormalizationInfo> _normalization = new();
         private readonly Dictionary<string, DifferentialContrastInfo> _contrastInfo = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<DifferentialGlobalShift>> _shifts = new(StringComparer.Ordinal);
         private readonly List<string> _designWarnings = new();
         private IsobaricObservationTable? _tmt;
         private IsobaricNormalizationResult? _tmtNormalization;
@@ -260,7 +261,8 @@ public static class DifferentialAnalysis
                 Inputs = _request.Inputs,
                 Settings = _request.Settings,
                 Strata = _strata,
-                Contrasts = _contrastInfo.Values.OrderBy(c => c.Id, StringComparer.Ordinal).ToList(),
+                Contrasts = _contrastInfo.Values.OrderBy(c => c.Id, StringComparer.Ordinal)
+                    .Select(c => _shifts.TryGetValue(c.Id, out var shifts) ? c with { GlobalShift = shifts } : c).ToList(),
                 Models = _models,
                 Normalization = _normalization,
                 DesignWarnings = _designWarnings.Distinct(StringComparer.Ordinal).ToList(),
@@ -277,6 +279,19 @@ public static class DifferentialAnalysis
             var contrasts = Contrasts(design);
             _designWarnings.AddRange(design.Warnings);
 
+            // The global shift of each two-sided contrast, on the values before normalization (GR-27, ruling 9).
+            var rawTable = _isobaric ? null : _request.Table!.ForSamples(sampleMap.Keys);
+            foreach (var c in contrasts)
+            {
+                var (numerator, denominator) = Sides(design, c.Contrast);
+                if (numerator is null || denominator is null) continue;
+                var shift = _isobaric
+                    ? GlobalShift.Isobaric(_request.IsobaricTable!, numerator, denominator, stratum)
+                    : GlobalShift.LabelFree(rawTable!, numerator, denominator, stratum, _basis);
+                if (!_shifts.TryGetValue(c.Contrast.Id, out var list)) _shifts[c.Contrast.Id] = list = new List<DifferentialGlobalShift>();
+                list.Add(shift);
+            }
+
             IReadOnlyDictionary<string, FeatureObservations> features;
             IReadOnlyDictionary<string, ProteinGroupInfo> groupInfo;
             List<string> candidates;
@@ -291,7 +306,7 @@ public static class DifferentialAnalysis
             }
             else
             {
-                var table = _request.Table!.ForSamples(sampleMap.Keys);
+                var table = rawTable!;
                 var normalized = table;
                 normalization = SharedPeptideNormalization.None;
                 if (_request.Settings.Normalization != SharedPeptideNormalization.None)

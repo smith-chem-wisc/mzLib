@@ -480,11 +480,14 @@ public sealed record DifferentialStratumInfo(string Stratum, IReadOnlyDictionary
 
 /// <summary>
 /// A contrast's global shift in one stratum and quant basis: how far its two sides sit apart overall, before
-/// normalization. Over the peptides with a value in every sample on both sides of the contrast in that stratum's table
-/// for that basis, each peptide's mean log2 intensity on the numerator side minus its mean on the denominator side,
-/// computed on intensities before normalization; <see cref="Value"/> is the median of those differences and
-/// <see cref="Peptides"/> how many peptides it used. With no such peptide, <see cref="Value"/> is NaN (written
-/// <c>null</c>) and <see cref="Peptides"/> is 0. <see cref="QuantBasis"/> is null for styles with no basis.
+/// normalization (GR-27; STAT1 M5b ruling 9). Over the peptides with a value in every sample on both sides of the contrast
+/// in that stratum's table for that basis, each peptide's mean log2 intensity on the numerator side minus its mean on the
+/// denominator side, computed on intensities before normalization; <see cref="Value"/> is the median of those differences
+/// and <see cref="Peptides"/> how many peptides it used. Peptides of a decoy, contaminant or entrapment group never count,
+/// and a sample with no value on any peptide that may count (a lost run) is left out of "every sample". For an isobaric
+/// table the difference is taken per ion within its plex run, between that run's channels on each side, and
+/// <see cref="Peptides"/> counts those ions. With no such peptide, <see cref="Value"/> is NaN (written <c>null</c>) and
+/// <see cref="Peptides"/> is 0. <see cref="QuantBasis"/> is null for styles with no basis.
 /// </summary>
 public sealed record DifferentialGlobalShift(string Stratum, string? QuantBasis, double Value, int Peptides);
 

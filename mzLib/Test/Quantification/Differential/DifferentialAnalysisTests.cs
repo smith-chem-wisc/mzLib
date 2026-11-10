@@ -28,7 +28,7 @@ public class DifferentialAnalysisTests
     private static double Gaussian(Random rng) =>
         Math.Sqrt(-2 * Math.Log(1 - rng.NextDouble())) * Math.Cos(2 * Math.PI * rng.NextDouble());
 
-    private static DifferentialRequest Request()
+    internal static DifferentialRequest Request()
     {
         var rng = new Random(20261110);
         var all = Ids;

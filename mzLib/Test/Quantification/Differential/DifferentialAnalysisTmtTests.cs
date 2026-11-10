@@ -70,6 +70,20 @@ public class DifferentialAnalysisTmtTests
         }, threads);
     }
 
+    /// <summary>
+    /// The global shift (ruling 9c) on the raw table: every ion of every plex run is valued in all six sample channels, so
+    /// all 824 count (103 proteins x 4 ions x 2 plexes), and with 100 of 103 proteins unchanged the median is near 0.
+    /// </summary>
+    [Test]
+    public void TheGlobalShiftIsTakenPerIonWithinItsPlexRun()
+    {
+        var shift = Run().Metadata.Contrasts.Single().GlobalShift!.Single();
+
+        Assert.That(shift.Peptides, Is.EqualTo(824));
+        Assert.That(shift.Value, Is.EqualTo(0).Within(0.05));
+        Assert.That(shift.QuantBasis, Is.Null);
+    }
+
     [Test]
     public void ModelARecoversTheEffectAcrossPlexesWithTheReferenceLeftOut()
     {
