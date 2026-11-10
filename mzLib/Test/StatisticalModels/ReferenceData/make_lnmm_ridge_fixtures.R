@@ -30,7 +30,8 @@
 #   lnmm_ridge_held.tsv    two more layouts like #1511's, trait estimates under the effect bound of 10: the exact ML fits
 #                          full, with b1 held at 0, and with b1 held at 10 (the ridge check).
 #   lnmm_ridge_glmer_lr.tsv likelihood-ratio statistics from lme4 (glmer, 25-point AGQ, ML) for make_lnmm_fixtures.R's
-#                          count-only features, the trait or x dropped. Reads that script's outputs from <out_dir>.
+#                          count-only features, the trait or x dropped, and the dropped fit's estimate (held_b0, the
+#                          kept term's held_b_kept, held_tau2). Reads that script's outputs from <out_dir>.
 #   lnmm_ridge_cells.tsv   one count's integral over e alone, log int N(e; 0, sigma^2) Binom(k; n, offset + e) de, for
 #                          counts of many trials (whose log integrand has one linear tail) and one-sided ones, sigma 0.5 to
 #                          5: by integrate() in pieces about the mode, rel.tol 1e-13, checked against a trapezoid with
@@ -240,8 +241,13 @@ for (li in seq_len(nrow(links_fx))) {
     for (term in c("trait", "x")) {
       ok <- !is.null(fits$full) && !is.null(fits[[term]]) && all(abs(fixef(fits$full) / link$b) <= 30)
       lr <- if (ok) 2 * (as.numeric(logLik(fits$full)) - as.numeric(logLik(fits[[term]]))) else NaN
+      # The dropped fit's estimate on mzLib's scale (logit = a + b (x' beta + u) + c depth): its intercept, the kept
+      # term's coefficient, and tau^2, so a test can evaluate mzLib's likelihood there instead of refitting.
+      dropped_fe <- if (ok) fixef(fits[[term]]) / link$b else c(NaN, NaN)
       lrs[[length(lrs) + 1]] <- data.frame(link = link$name, feature = f - 1, coefficient = term, lr = lr,
-                                           tau2_full = if (ok) (getME(fits$full, "theta") / link$b)^2 else NaN)
+                                           tau2_full = if (ok) (getME(fits$full, "theta") / link$b)^2 else NaN,
+                                           held_b0 = dropped_fe[[1]], held_b_kept = dropped_fe[[2]],
+                                           held_tau2 = if (ok) (getME(fits[[term]], "theta") / link$b)^2 else NaN)
     }
   }
 }

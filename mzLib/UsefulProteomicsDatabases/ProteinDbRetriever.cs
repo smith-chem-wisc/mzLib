@@ -193,19 +193,19 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The reviewed entries of a thinly curated organism are not a whole proteome. Rat (UP000002494) has
-        /// 8,228 reviewed entries but 21,471 genes; the gene-centric set holds one sequence for each of them —
-        /// the Swiss-Prot entry where there is one (8,213), a TrEMBL entry where there is not (13,258) — out of
-        /// the 52,824 entries in the complete proteome. A search against the reviewed entries alone cannot
-        /// identify the other 13,000 genes; a search against the complete proteome scatters each gene's
-        /// peptides across several near-identical entries.
+        /// The reviewed entries of a thinly curated organism are not a whole proteome. In release 2026_04 rat
+        /// (UP000002494) has 8,235 reviewed entries but 21,416 genes; the gene-centric set holds one sequence for
+        /// each of them — the Swiss-Prot entry where there is one (8,220), a TrEMBL entry where there is not
+        /// (13,196) — out of the 52,831 entries in the complete proteome. A search against the reviewed entries
+        /// alone cannot identify the other 13,000 genes; a search against the complete proteome scatters each
+        /// gene's peptides across several near-identical entries.
         /// </para>
         /// <para>
-        /// <see cref="GeneCentric.yes"/> adds UniProt's <c>is_gene_centric:true</c> clause to the same query, so
-        /// it combines with <paramref name="reviewed"/>: with <see cref="Reviewed.all"/> it is the canonical
-        /// proteome (rat 21,471, human 20,652, mouse 21,860 in release 2026_03, each exactly the FTP file's
-        /// entries); with <see cref="Reviewed.yes"/> it is the Swiss-Prot part of that set. The file name gains
-        /// "_genecentric" so the set is never mistaken on disk for the reviewed or complete download.
+        /// <see cref="GeneCentric.yes"/> adds UniProt's <c>proteome_canonical:&lt;id&gt;</c> clause to the same
+        /// query, so it combines with <paramref name="reviewed"/>: with <see cref="Reviewed.all"/> it is the
+        /// canonical proteome (rat 21,416, human 20,652, mouse 21,872 in release 2026_04, each the geneCount UniProt
+        /// reports for that proteome); with <see cref="Reviewed.yes"/> it is the Swiss-Prot part of that set. The
+        /// file name gains "_genecentric" so the set is never mistaken on disk for the reviewed or complete download.
         /// </para>
         /// </remarks>
         /// <param name="geneCentric">Whether to keep only the gene-centric (one protein per gene) entries.</param>
@@ -281,8 +281,10 @@ namespace UsefulProteomicsDatabases
             string query = Uri.EscapeDataString(proteomeID);
             if (reviewed != Reviewed.all)
                 query += "+AND+reviewed:" + (reviewed == Reviewed.yes ? "true" : "false");
+            // proteome_canonical names the proteome whose canonical set is wanted. The field this used before,
+            // is_gene_centric, stopped being accepted around release 2026_04 and now answers 400.
             if (geneCentric == GeneCentric.yes)
-                query += "+AND+is_gene_centric:true";
+                query += "+AND+proteome_canonical:" + Uri.EscapeDataString(proteomeID);
 
             // The isoform fragment is kept verbatim, separator and all: UniProt's parameter is
             // "includeIsoform=", so "includeIsoforms:" has always been ignored. Spelling it correctly would
@@ -890,7 +892,7 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Whether to keep only a proteome's gene-centric entries — one protein per gene, UniProt's
-        /// <c>is_gene_centric</c> — the canonical set of a reference proteome. A filter that combines with
+        /// <c>proteome_canonical</c> — the canonical set of a reference proteome. A filter that combines with
         /// <see cref="Reviewed"/>, not a fourth review status.
         /// </summary>
         public enum GeneCentric

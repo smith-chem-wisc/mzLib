@@ -50,36 +50,62 @@ public class ReferenceComparisonLogitNormalTests
     private static string[] Groups => ReadTsv("lnmm_groups.tsv").Rows.Select(r => r[0]).ToArray();
 
     /// <summary>
-    /// The fixture features the required run fits. Counted: the τ² = 0 boundary feature; the largest τ², where more than
-    /// half the groups take the panel rule (identity 4 and 5, link 10); and a feature that fails when the u rule is
-    /// centred on the prior instead of the joint mode (identity 4, link 1; of every feature, identity 1 and 4 and link 1
-    /// and 7 fail, so the subset catches that mutation in the same cases). Scatter: the one whose σ² is on its boundary, one with a
-    /// large σ², and one with a large τ² whose groups take the panel rule (12 and 19 are left out as the slowest, at four
-    /// to nine times the median feature). Every feature took about 15 of the
-    /// build job's 30 minutes (Debug, with coverage, on 4 cores), so the every-feature cases are explicit: run them
-    /// locally (dotnet test --filter TestCategory=EveryFeature) before a push that changes the model.
+    /// The fixture features the required run fits. Counted: a τ² = 0 boundary feature (identity 3, on the boundary under
+    /// ML and REML; link 0); the largest τ², where more than half the groups take the panel rule (identity 4, link 10);
+    /// and a feature that fails when the u rule is centred on the prior instead of the joint mode (identity 4, link 1; of
+    /// every feature, identity 1 and 4 and link 1 and 7 fail, so the subset catches that mutation in the same cases).
+    /// Scatter: the one whose σ² is on its boundary (4), one with a large σ² (16; 2 has about the same σ² at twice the
+    /// cost, and 12 and 19 are the slowest, at four to nine times the median feature), and one with a large τ² whose
+    /// groups take the panel rule (14). Features in one fit run in parallel, so the slowest sets the time: identity 0 and
+    /// 5 (the same roles as 3 and 4) were left out for that. Every feature took about 15 of the build job's minutes
+    /// (Debug, with coverage, on 4 cores), so the every-feature cases are explicit: run them locally
+    /// (dotnet test --filter TestCategory=EveryFeature) before a push that changes the model.
     /// </summary>
     private static readonly Dictionary<string, int[]> RequiredFeatures = new()
     {
-        ["counted_identity"] = new[] { 0, 4, 5 },
+        ["counted_identity"] = new[] { 3, 4 },
         ["counted_link"] = new[] { 0, 1, 10 },
-        ["scatter"] = new[] { 2, 4, 14 },
+        ["scatter"] = new[] { 4, 14, 16 },
+    };
+
+    /// <summary>
+    /// Where the REML case of <see cref="WithEverySampleCountedItMatchesGlmerQuadrature"/> fits fewer features than
+    /// <see cref="RequiredFeatures"/>: link 10 (the panel rule through the link) is the slowest there, at about twice the
+    /// others; the ML case keeps it, and identity 4 takes the panel rule under REML.
+    /// </summary>
+    private static readonly Dictionary<string, int[]> RequiredRemlFeatures = new()
+    {
+        ["counted_link"] = new[] { 0, 1 },
     };
 
     private const string EveryFeatureCategory = "EveryFeature";
     private const string EveryFeatureReason = "Every fixture feature, about 15 minutes in CI; run locally before a push that changes the model.";
 
     /// <summary>
-    /// The counts of one fixture ("NaN" = no count), and an all-missing measured matrix of the same shape: every feature,
-    /// or only <see cref="RequiredFeatures"/>. Features are fitted independently, so fitting a subset changes none of
-    /// their fits. Features[i] is the fixture feature on row i.
+    /// The fixture feature on which the required run's likelihood-ratio tests run end to end, per counted fixture. Each
+    /// has its full fit's τ² on the boundary, so the held fits start there and must leave it: identity 3 (the trait's held
+    /// τ² is 0.24, x's stays at 0; both LRs about 6.2) and link 15 (held τ² 0.81 and 1.19; LRs 3.4 and 12.2, the
+    /// fixture's largest). Of the features like that, they are the cheapest to fit (four to five seconds each on a desktop,
+    /// against eleven for identity 0). Every fixture feature's statistic is checked at glmer's estimates
+    /// (<see cref="AtGlmersEstimatesTheLikelihoodRatioIsGlmers"/>).
     /// </summary>
-    private static (BinomialCount?[,] Counts, double[,] Unmeasured, int[] Features) Counts(string label, bool everyFeature)
+    private static readonly Dictionary<string, int[]> LikelihoodRatioFeatures = new()
+    {
+        ["counted_identity"] = new[] { 3 },
+        ["counted_link"] = new[] { 15 },
+    };
+
+    /// <summary>
+    /// The counts of one fixture ("NaN" = no count), and an all-missing measured matrix of the same shape: every feature,
+    /// or only <paramref name="subset"/> (by default <see cref="RequiredFeatures"/>). Features are fitted independently, so
+    /// fitting a subset changes none of their fits. Features[i] is the fixture feature on row i.
+    /// </summary>
+    private static (BinomialCount?[,] Counts, double[,] Unmeasured, int[] Features) Counts(string label, bool everyFeature, int[]? subset = null)
     {
         var k = Matrix($"lnmm_{label}_successes.tsv");
         var n = Matrix($"lnmm_{label}_trials.tsv");
         int samples = k.GetLength(1);
-        var features = everyFeature ? Enumerable.Range(0, k.GetLength(0)).ToArray() : RequiredFeatures[label];
+        var features = everyFeature ? Enumerable.Range(0, k.GetLength(0)).ToArray() : subset ?? RequiredFeatures[label];
         var counts = new BinomialCount?[features.Length, samples];
         var unmeasured = new double[features.Length, samples];
         for (int i = 0; i < features.Length; i++)
@@ -182,7 +208,9 @@ public class ReferenceComparisonLogitNormalTests
         var link = new DetectionLink(l["a"], l["b"], l["c"]);
         var depthMatrix = Matrix("lnmm_counted_depth.tsv");
         var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
-        var (counts, unmeasured, features) = Counts($"counted_{linkName}", everyFeature);
+        string label = $"counted_{linkName}";
+        var (counts, unmeasured, features) = Counts(label, everyFeature,
+            estimator == VarianceEstimator.Reml && RequiredRemlFeatures.TryGetValue(label, out var remlSubset) ? remlSubset : null);
         var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
         // The estimates only; the likelihood-ratio tests are WithEverySampleCountedTheLikelihoodRatioMatchesGlmer's.
         var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given, estimator: estimator,
@@ -332,7 +360,10 @@ public class ReferenceComparisonLogitNormalTests
     /// <summary>
     /// #1511's layouts, ML with σ² given: the fit lands on the exact maximum. Before, the u rule's error put layout A's
     /// fit at τ² 233 (exact 142) and called layout B Separated, though its maximum exists. The ridge is flat (ℓ falls by
-    /// 0.05 from τ 12 to 16), so β and τ² are compared to 1e-3 relatively and ℓ to 1e-7.
+    /// 0.05 from τ 12 to 16), so β and τ² are compared to 1e-3 relatively and ℓ to 1e-7. The reported ℓ is also the one
+    /// at the reported estimate: the τ = 0 probe after the variance search moved the warm start, and the final β could
+    /// then climb another local maximum (on layout A, ℓ −8.4142 was reported with β1 = 22.87, while that ℓ belonged to
+    /// β1 = 29.58).
     /// </summary>
     [TestCase("A")]
     [TestCase("B")]
@@ -347,6 +378,12 @@ public class ReferenceComparisonLogitNormalTests
         Assert.That(fit.GroupVariance[0], Is.EqualTo(r["tau2"]).Within(1e-3 * r["tau2"]));
         Assert.That(fit.Coefficient(0, 0), Is.EqualTo(r["b0"]).Within(1e-3 * Math.Abs(r["b0"])));
         Assert.That(fit.Coefficient(0, 1), Is.EqualTo(r["b1"]).Within(1e-3 * Math.Abs(r["b1"])));
+
+        int n = y.GetLength(1);
+        double at = LogitNormalMixedModel.LogLikelihoodAt(Enumerable.Range(0, n).Select(s => y[0, s]).ToArray(), Enumerable.Range(0, n).Select(s => counts[0, s]).ToArray(),
+            design, groups, DetectionLink.Identity, new[] { fit.Coefficient(0, 0), fit.Coefficient(0, 1) }, fit.GroupVariance[0], fit.ResidualVariance[0]);
+        Assert.That(double.IsFinite(at), Is.True);
+        Assert.That(fit.LogLikelihood[0], Is.EqualTo(at).Within(1e-7), "the reported ℓ is the one at the reported estimate");
     }
 
     /// <summary>
@@ -375,17 +412,20 @@ public class ReferenceComparisonLogitNormalTests
     /// read against F(1, 6); and the trait is unbounded (its estimate is past an effect of 10 logits, with the likelihood
     /// still within 1 of its maximum by β1 = 48), so β and its SE are NaN and the p-value stands. Under REML too: REML
     /// has no maximum here (its criterion rises with τ until β passes SeparationLimit), and the ML fits carry the tests.
-    /// Before, ML reported p = 0.013 (A) or Separated (B), and REML p = 0.037 and 0.025.
+    /// Before, ML reported p = 0.013 (A) or Separated (B), and REML p = 0.037 and 0.025. REML takes the same path on
+    /// both layouts (no maximum, so the ML fit carries the tests), so it is run on A only, and only the trait is tested
+    /// (the intercept's test would be another ML fit, which nothing here reads). A under REML makes the same ML fits as A
+    /// under ML (the estimate from the same start, and the trait held at 0), so A's statistic and p are checked there;
+    /// ML's own route to Unbounded (the estimate past the bound) is B's, and A's ML estimate is
+    /// <see cref="NearOneSidedLayoutsFitToTheExactMaximum"/>'s.
     /// </summary>
-    [TestCase("A", VarianceEstimator.MaximumLikelihood)]
     [TestCase("A", VarianceEstimator.Reml)]
     [TestCase("B", VarianceEstimator.MaximumLikelihood)]
-    [TestCase("B", VarianceEstimator.Reml)]
     public void NearOneSidedLayoutsAreUnboundedWithALikelihoodRatioP(string which, VarianceEstimator estimator)
     {
         var (y, counts, design, groups, r) = RidgeLayout(which);
         var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, DetectionLink.Identity, residualVariance: new[] { r["sigma2"] },
-            estimator: estimator);
+            estimator: estimator, testedCoefficients: new[] { "c1" });
         double lr = 2 * (r["loglik"] - r["null_loglik"]);
         Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Unbounded));
         Assert.That(fit.IsUnbounded(0, 1), Is.True);
@@ -403,6 +443,8 @@ public class ReferenceComparisonLogitNormalTests
     /// The ridge check, against exact fits (make_lnmm_ridge_fixtures.R, lnmm_ridge_held.tsv), on two layouts like #1511's
     /// whose trait estimates (5.1 and 3.3) are under the effect bound of 10 logits: held at 10, D's likelihood is still
     /// inside the 95% region (LR below F(1, 6)'s 5.99), so D is unbounded; E's is not, so E is fitted, with its estimate.
+    /// Only the trait is tested, so these fits also show that an untested coefficient of a feature with counts has no
+    /// likelihood ratio and no p-value (its Wald test is the one #1511 showed can mislead), and keeps its estimate.
     /// </summary>
     [TestCase("D", true)]
     [TestCase("E", false)]
@@ -432,10 +474,15 @@ public class ReferenceComparisonLogitNormalTests
         Assert.That(fit.LikelihoodRatio(0, 1), Is.EqualTo(2 * (r["loglik"] - r["null_loglik"])).Within(2e-6));
         Assert.That(fit.IsUnbounded(0, 1), Is.EqualTo(unbounded));
         Assert.That(fit.Status[0], Is.EqualTo(unbounded ? FeatureFitStatus.Unbounded : FeatureFitStatus.Fitted));
+        Assert.That(fit.LikelihoodRatio(0, 0), Is.NaN, "the intercept is not tested");
+        Assert.That(fit.PValue(0, 0), Is.NaN, "the intercept is not tested");
+        Assert.That(double.IsFinite(fit.Coefficient(0, 0)), Is.True, "an untested coefficient keeps its estimate");
+        Assert.That(double.IsFinite(fit.PValue(0, 1)), Is.True);
         if (unbounded) Assert.That(fit.Coefficient(0, 1), Is.NaN);
         else
         {
             Assert.That(fit.Coefficient(0, 1), Is.EqualTo(r["b1"]).Within(1e-3 * Math.Abs(r["b1"])));
+            Assert.That(double.IsFinite(fit.StandardError(0, 1)), Is.True);
             Assert.That(fit.LogLikelihood[0], Is.EqualTo(r["loglik"]).Within(1e-6));
         }
     }
@@ -444,8 +491,10 @@ public class ReferenceComparisonLogitNormalTests
     /// The likelihood-ratio statistic against lme4: make_lnmm_fixtures.R's count-only features, glmer at 25-point AGQ with
     /// the trait or the covariate x dropped (lnmm_ridge_glmer_lr.tsv). Only the fits where glmer's quadrature is exact
     /// ("fitted" in lnmm_counted_fit.tsv) are compared; σ² is given tiny here and absent in glmer, which moves ℓ by about
-    /// 1e-6. No coefficient there is unbounded: these are ordinary features. The required run fits
-    /// <see cref="RequiredFeatures"/>; the explicit cases fit every feature.
+    /// 1e-6. No coefficient there is unbounded: these are ordinary features. Each feature is five fits (the estimate,
+    /// and each coefficient held at 0 and at the effect bound), so the required run fits one feature per fixture end to
+    /// end (<see cref="LikelihoodRatioFeatures"/>) and checks the rest at glmer's estimates
+    /// (<see cref="AtGlmersEstimatesTheLikelihoodRatioIsGlmers"/>); the explicit cases fit every feature.
     /// </summary>
     [TestCase("identity", false)]
     [TestCase("link", false)]
@@ -457,7 +506,7 @@ public class ReferenceComparisonLogitNormalTests
         var link = new DetectionLink(l["a"], l["b"], l["c"]);
         var depthMatrix = Matrix("lnmm_counted_depth.tsv");
         var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
-        var (counts, unmeasured, features) = Counts($"counted_{linkName}", everyFeature);
+        var (counts, unmeasured, features) = Counts($"counted_{linkName}", everyFeature, LikelihoodRatioFeatures[$"counted_{linkName}"]);
         var given = Enumerable.Repeat(TinyResidualVariance, counts.GetLength(0)).ToArray();
         var fit = LogitNormalMixedModel.Fit(unmeasured, counts, Design, Groups, link, depth: depth, residualVariance: given,
             estimator: VarianceEstimator.MaximumLikelihood, coefficientNames: new[] { "intercept", "trait", "x" }, testedCoefficients: new[] { "trait", "x" });
@@ -474,5 +523,91 @@ public class ReferenceComparisonLogitNormalTests
             compared++;
         }
         Assert.That(compared, Is.GreaterThanOrEqualTo(2 * (features.Length - (everyFeature ? 2 : 0))), "both coefficients of (nearly) every feature");
+    }
+
+    /// <summary>
+    /// The design without column <paramref name="dropped"/>.
+    /// </summary>
+    private static double[,] WithoutColumn(double[,] design, int dropped)
+    {
+        int n = design.GetLength(0), p = design.GetLength(1);
+        var held = new double[n, p - 1];
+        for (int s = 0; s < n; s++)
+            for (int j = 0, c = 0; j < p; j++)
+                if (j != dropped) held[s, c++] = design[s, j];
+        return held;
+    }
+
+    /// <summary>
+    /// The largest Newton step H⁻¹g at an estimate, in units of the coefficients' standard errors √(H⁻¹)ⱼⱼ: how far the
+    /// estimate is from the β that maximizes ℓ at its variances, on the scale of its own uncertainty.
+    /// </summary>
+    private static double NewtonStepInSe(double[] gradient, double[,] negativeHessian)
+    {
+        var h = MathNet.Numerics.LinearAlgebra.Matrix<double>.Build.DenseOfArray(negativeHessian);
+        var inverse = h.Inverse();
+        var step = inverse * MathNet.Numerics.LinearAlgebra.Vector<double>.Build.DenseOfArray(gradient);
+        return Enumerable.Range(0, gradient.Length).Max(j => Math.Abs(step[j]) / Math.Sqrt(inverse[j, j]));
+    }
+
+    /// <summary>
+    /// Every fixture feature where glmer's quadrature is exact, both coefficients, without our search: our ℓ at glmer's
+    /// full estimate (lnmm_counted_fit.tsv) is glmer's ℓ; our ℓ there less our ℓ at glmer's estimate with the
+    /// coefficient dropped (lnmm_ridge_glmer_lr.tsv) is glmer's likelihood-ratio statistic; and both estimates maximize
+    /// our ℓ in β at their variances (the Newton step is a small fraction of an SE). That is our likelihood at R's answer,
+    /// at a few evaluations per feature. That our search finds that answer is
+    /// <see cref="WithEverySampleCountedTheLikelihoodRatioMatchesGlmer"/>'s, end to end. σ² is given tiny here and absent
+    /// in glmer, which moves ℓ by about 1e-6.
+    /// </summary>
+    [TestCase("identity")]
+    [TestCase("link")]
+    public void AtGlmersEstimatesTheLikelihoodRatioIsGlmers(string linkName)
+    {
+        var l = Rows("lnmm_counted_links.tsv", r => r.Text("name") == linkName).Single();
+        var link = new DetectionLink(l["a"], l["b"], l["c"]);
+        var depthMatrix = Matrix("lnmm_counted_depth.tsv");
+        var depth = Enumerable.Range(0, depthMatrix.GetLength(0)).Select(i => depthMatrix[i, 0]).ToArray();
+        var k = Matrix($"lnmm_counted_{linkName}_successes.tsv");
+        var trials = Matrix($"lnmm_counted_{linkName}_trials.tsv");
+        var design = Design;
+        var groups = Groups;
+        int samples = k.GetLength(1);
+        var unmeasured = Enumerable.Repeat(double.NaN, samples).ToArray();
+        var full = Rows("lnmm_counted_fit.tsv", r => r.Text("link") == linkName && r.Text("method") == "ML" && r.Text("status") == "fitted")
+            .ToDictionary(r => r.Feature);
+        var coefficient = new Dictionary<string, int> { ["trait"] = 1, ["x"] = 2 };
+
+        int compared = 0;
+        double worstLogLik = 0, worstLr = 0, worstStep = 0;
+        foreach (var r in Rows("lnmm_ridge_glmer_lr.tsv", r => r.Text("link") == linkName && full.ContainsKey(r.Feature)))
+        {
+            int f = r.Feature;
+            var counts = Enumerable.Range(0, samples)
+                .Select(s => double.IsNaN(k[f, s]) ? (BinomialCount?)null : new BinomialCount((int)k[f, s], (int)trials[f, s])).ToArray();
+            var fr = full[f];
+            var gradient = new double[3];
+            var h = new double[3, 3];
+            double atFull = LogitNormalMixedModel.LogLikelihoodAt(unmeasured, counts, design, groups, link, new[] { fr["b0"], fr["b1"], fr["b2"] },
+                fr["tau2"], TinyResidualVariance, depth, gradient, h);
+            double fullStep = NewtonStepInSe(gradient, h);
+
+            var heldGradient = new double[2];
+            var heldH = new double[2, 2];
+            double atHeld = LogitNormalMixedModel.LogLikelihoodAt(unmeasured, counts, WithoutColumn(design, coefficient[r.Text("coefficient")]), groups, link,
+                new[] { r["held_b0"], r["held_b_kept"] }, r["held_tau2"], TinyResidualVariance, depth, heldGradient, heldH);
+            double heldStep = NewtonStepInSe(heldGradient, heldH);
+
+            string what = $"{linkName} feature {f} {r.Text("coefficient")}";
+            Assert.That(double.IsFinite(atFull) && double.IsFinite(atHeld), Is.True, what);
+            Assert.That(Math.Abs(atFull - fr["loglik"]), Is.LessThan(1e-5), $"{what}: ℓ {atFull:R} vs glmer's {fr["loglik"]:R}");
+            Assert.That(Math.Abs(2 * (atFull - atHeld) - r["lr"]), Is.LessThan(2e-5), $"{what}: LR {2 * (atFull - atHeld):R} vs glmer's {r["lr"]:R}");
+            Assert.That(Math.Max(fullStep, heldStep), Is.LessThan(1e-3), $"{what}: Newton step {fullStep:G3} SE (full), {heldStep:G3} SE (held)");
+            worstLogLik = Math.Max(worstLogLik, Math.Abs(atFull - fr["loglik"]));
+            worstLr = Math.Max(worstLr, Math.Abs(2 * (atFull - atHeld) - r["lr"]));
+            worstStep = Math.Max(worstStep, Math.Max(fullStep, heldStep));
+            compared++;
+        }
+        TestContext.Out.WriteLine($"{linkName}: {compared} statistics; worst |Δℓ| {worstLogLik:G3}, |ΔLR| {worstLr:G3}, Newton step {worstStep:G3} SE");
+        Assert.That(compared, Is.EqualTo(2 * full.Count), "both coefficients of every feature glmer fits exactly");
     }
 }
