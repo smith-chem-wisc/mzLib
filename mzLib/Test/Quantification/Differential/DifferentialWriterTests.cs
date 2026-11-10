@@ -489,6 +489,10 @@ public class DifferentialWriterTests
         AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Trended = true } } } }, "trended");
         AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Variance = null } } } }, "variance");
         AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Estimator = "lowess" } } } }, "'lowess'");
+        // No prior (df 0, STAT1 M5b ruling 5) carries no variance, and only then may a constant prior lack one.
+        var noPrior = m with { Models = new[] { model with { Prior = model.Prior! with { Df = 0, Variance = null, Features = 2 } } } };
+        Assert.DoesNotThrow(() => DifferentialMetadataWriter.ToBytes(noPrior, Array.Empty<DifferentialResult>()));
+        AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Df = 0 } } } }, "no prior (df 0)");
     }
 
     [Test]

@@ -92,14 +92,48 @@ public static class DifferentialDecisionRules
     /// <summary>Random terms the feature's data cannot estimate were left out of its model (ruling 16).</summary>
     public const string RandomTermsDropped = "random_terms_dropped";
 
-    private static readonly HashSet<string> All = new(StringComparer.Ordinal)
+    /// <summary>The settings that applied to the whole analysis (ruling 14): one analysis-scope line.</summary>
+    public const string Settings = "settings";
+
+    /// <summary>
+    /// Every rule id with the STAT1 M5b ruling it follows and what it does in plain words, in the order the decisions file
+    /// and the report list them (<c>DEF-DIFF-DECISIONS</c>).
+    /// </summary>
+    public static IReadOnlyList<(string Rule, int Ruling, string Words)> All { get; } = new[]
     {
-        RowSet, DesignContrast, NoUniquePeptides, AbsentSide, MinPerSide, ReducedDesign, FeatureNotEstimable,
-        SinglePeptide, FitOutcome, RobustFellBack, NoPrior, MeansNotEstimable, RandomTermsDropped,
+        (Settings, 14, "the settings that applied to the whole analysis"),
+        (RowSet, 12, "protein groups left out of the results: decoys, contaminants, entrapment groups, groups the protein table does not describe, and groups above 1% protein q"),
+        (DesignContrast, 2, "a comparison the stratum's design cannot estimate or run: every row of it carries that status"),
+        (NoUniquePeptides, 6, "a protein group with no usable unique peptide (unique to the group and valued in at least 2 samples): no fit"),
+        (AbsentSide, 1, "a comparison one side of which has no value for the protein: reported absent, with no number"),
+        (MinPerSide, 14, "a comparison with fewer samples with a value on a side than the settings ask: below support, no number"),
+        (ReducedDesign, 1, "a protein fitted on the design columns its own values can estimate (a group, batch or level it lacks left out)"),
+        (FeatureNotEstimable, 2, "a comparison the protein's own values cannot separate: not estimable"),
+        (RandomTermsDropped, 16, "random terms the protein's values cannot estimate left out of its model, down to least squares"),
+        (SinglePeptide, 6, "a protein with one usable peptide: tested with the moderated t-test"),
+        (FitOutcome, 2, "a fit that gave no usable result: not converged, or too little data for its variance"),
+        (RobustFellBack, 8, "robust reweighting that did not settle: the protein fitted on its first round's weights"),
+        (NoPrior, 5, "fewer than 3 proteins fitted in one moderation: no variance prior, each keeps its own variance and df"),
+        (MeansNotEstimable, 3, "model means the protein's values cannot give at the stratum's proportions: left empty, the effect reported"),
     };
 
     /// <summary>Whether <paramref name="rule"/> is one of these ids.</summary>
-    public static bool IsValid(string rule) => All.Contains(rule);
+    public static bool IsValid(string rule) => Index(rule) < All.Count;
+
+    /// <summary>The rule's position in <see cref="All"/>; past the end for an unknown id.</summary>
+    public static int Index(string rule)
+    {
+        for (int i = 0; i < All.Count; i++)
+            if (All[i].Rule == rule) return i;
+        return All.Count;
+    }
+
+    /// <summary>The ruling a rule follows, as the decisions file writes it (<c>M5b-14</c>); empty for an unknown id.</summary>
+    public static string Ruling(string rule)
+    {
+        int i = Index(rule);
+        return i < All.Count ? string.Create(CultureInfo.InvariantCulture, $"M5b-{All[i].Ruling}") : "";
+    }
 }
 
 /// <summary>The fixed strings the runner writes (DATA-DEFINITIONS <c>DEF-DIFF-*</c>; STAT1 M5b ruling 10).</summary>
@@ -156,8 +190,15 @@ public sealed class DifferentialAnalysisResult
     public IReadOnlyList<DifferentialResult> Rows { get; }
     /// <summary>Everything constant across the rows.</summary>
     public DifferentialMetadata Metadata { get; }
-    /// <summary>Every place a rule changed what happened (R-DECISIONS).</summary>
+    /// <summary>Every place a rule changed what happened (R-DECISIONS), in <see cref="DifferentialDecisionWriter.Order"/>.</summary>
     public IReadOnlyList<DifferentialDecision> Decisions { get; }
+
+    /// <summary>
+    /// Writes the results table, its metadata and the decisions file into <paramref name="directory"/>, all three or none
+    /// (<see cref="DifferentialResultWriter.Write(string, IEnumerable{DifferentialResult}, DifferentialMetadata, IEnumerable{DifferentialDecision})"/>),
+    /// and returns the results file's path.
+    /// </summary>
+    public string Write(string directory) => DifferentialResultWriter.Write(directory, Rows, Metadata, Decisions);
 }
 
 /// <summary>
@@ -276,7 +317,20 @@ public static class DifferentialAnalysis
                 Normalization = _normalization,
                 DesignWarnings = _designWarnings.Distinct(StringComparer.Ordinal).ToList(),
             };
-            return new DifferentialAnalysisResult(DifferentialResultWriter.Order(rows), metadata, _decisions);
+            _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.Settings, DifferentialDecisionWriter.AnalysisStratum,
+                null, null, null, SettingsFacts(spec), "applied to every stratum"));
+            return new DifferentialAnalysisResult(DifferentialResultWriter.Order(rows), metadata, DifferentialDecisionWriter.Order(_decisions));
+        }
+
+        /// <summary>The analysis-scope settings line (ruling 14), in plain words.</summary>
+        private string SettingsFacts(DesignSpec spec)
+        {
+            var s = _request.Settings;
+            return string.Create(CultureInfo.InvariantCulture,
+                $"method {s.Method}; robust weighting {(s.Robust ? "on (moderated_t rows are not reweighted)" : "off")}; " +
+                $"normalization {s.Normalization}, reference-set floor {s.NormalizationFloor}; at least {s.MinimumSamplesPerSide} " +
+                $"samples with a value per side; interval level {s.CiLevel}; batch {(spec.FitBatch ? "fitted" : "not fitted")}" +
+                $"{(_isobaric ? " (each ion's plex run is a fixed effect)" : "")}; random terms: only those each protein's values can estimate");
         }
 
         // ---- one stratum ----

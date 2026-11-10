@@ -1,0 +1,15 @@
+analysis_id	scope	ruling	rule	stratum	quant_basis	feature_id	contrast_id	facts	effect
+9ec7d8b013f7c87a	analysis	M5b-14	settings					method moderated; robust weighting on (moderated_t rows are not reweighted); normalization none, reference-set floor 100; at least 2 samples with a value per side; interval level 0.95; batch fitted; random terms: only those each protein's values can estimate	applied to every stratum
+9ec7d8b013f7c87a	stratum	M5b-12	row_set	all	msms_only			above_1pct_q 1; decoy 1	left out of the row set: no rows
+9ec7d8b013f7c87a	stratum	M5b-5	no_prior	all	msms_only			2 feature(s) fitted (moderated_t)	no variance prior: each keeps its own variance and df
+9ec7d8b013f7c87a	feature	M5b-1	reduced_design	all	msms_only	P2		kept 2 of 3 design columns and 2 of 2 nuisance columns	fitted on the columns its observations estimate
+9ec7d8b013f7c87a	feature_contrast	M5b-1	absent_side	all	msms_only	P2	c2	samples with a value: numerator 0, denominator 3	reported absent_in_numerator, no number
+9ec7d8b013f7c87a	feature_contrast	M5b-1	absent_side	all	msms_only	P2	c3	samples with a value: numerator 0, denominator 3	reported absent_in_numerator, no number
+9ec7d8b013f7c87a	feature	M5b-1	reduced_design	all	msms_only	P3		kept 2 of 3 design columns and 2 of 2 nuisance columns	fitted on the columns its observations estimate
+9ec7d8b013f7c87a	feature_contrast	M5b-1	absent_side	all	msms_only	P3	c1	samples with a value: numerator 3, denominator 0	reported absent_in_denominator, no number
+9ec7d8b013f7c87a	feature_contrast	M5b-1	absent_side	all	msms_only	P3	c2	samples with a value: numerator 3, denominator 0	reported absent_in_denominator, no number
+9ec7d8b013f7c87a	feature	M5b-6	single_peptide	all	msms_only	P4		one usable peptide	tested with the moderated t-test (fitted_single_peptide)
+9ec7d8b013f7c87a	feature_contrast	M5b-6	no_unique_peptides	all	msms_only	P5	c1	no peptide unique to the group	no fit
+9ec7d8b013f7c87a	feature_contrast	M5b-6	no_unique_peptides	all	msms_only	P5	c2	no peptide unique to the group	no fit
+9ec7d8b013f7c87a	feature_contrast	M5b-6	no_unique_peptides	all	msms_only	P5	c3	no peptide unique to the group	no fit
+9ec7d8b013f7c87a	feature	M5b-6	single_peptide	all	msms_only	P6		one usable peptide	tested with the moderated t-test (fitted_single_peptide)
