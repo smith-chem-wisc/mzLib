@@ -150,6 +150,57 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(modification.BlocksCleavage, Is.False);
         }
 
+        /// <summary>
+        /// Lysine acylations that the shipped unimod.xml carries, every one classified "Post-translational" on K
+        /// at "Anywhere", under titles no earlier stem reached. Most arrived with the 2026-02 Unimod refresh
+        /// (records 2072 and 2108-2121); Gluratylation, 3-phosphoglyceryl and Phosphogluconoylation shipped
+        /// before it. Each is an amide on the epsilon-amine, which removes the charge trypsin needs, exactly as
+        /// acetyl does. "Gluratylation" is Unimod's own misspelling of glutarylation (record 1848), which the
+        /// "glutaryl" stem therefore misses; "Isovaleryl" and "Pentanoyl" are isomeric C5 acyls.
+        /// </summary>
+        [Test]
+        [TestCase("Isovaleryl")]
+        [TestCase("Pentanoyl")]
+        [TestCase("Hexanoyl")]
+        [TestCase("Tiglyl")]
+        [TestCase("3-methylglutaconyl")]
+        [TestCase("Gluratylation")]
+        [TestCase("Pyruvoyl")]
+        [TestCase("Glyoxylyl")]
+        [TestCase("Itaconyl")]
+        [TestCase("Glyceroyl")]
+        [TestCase("3-phosphoglyceryl")]
+        [TestCase("Phosphogluconoylation")]
+        public static void AUnimodLysineAcylationNoEarlierStemReached_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// Two more ubiquitin-like isopeptide remnants that unimod.xml ships on K. UFM1 ends in Val-Gly, so its
+        /// tryptic remnant ("ValGly", record 2119, "UFMylation residue") ends in VG and the Gly-Gly token rule
+        /// misses it. Pup, the prokaryotic ubiquitin-like protein, leaves Gly-Gly-Glu ("pupylation", record
+        /// 1264, "addition of GGE"), named by the modifier the way the SUMO entries are.
+        /// </summary>
+        [Test]
+        [TestCase("ValGly")]
+        [TestCase("pupylation")]
+        public static void AUbiquitinLikeRemnantThatDoesNotEndInGlyGly_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// unimod.xml also ships "PyruvicAcidIminyl" on K, an imine on the epsilon-amine rather than an amide, and
+        /// it has never classified as blocking. Whether an imine blocks is a separate question; this pins only
+        /// that the pyruvoyl stem names the amide and is not shortened to "pyruv", which would decide it silently.
+        /// </summary>
+        [Test]
+        public static void PyruvicAcidIminyl_IsNotReachedByThePyruvoylStem()
+        {
+            Assert.That(MakeKModification("PyruvicAcidIminyl").BlocksCleavage, Is.False);
+        }
+
         [Test]
         public static void Digestion_PeptidoformEndingInBlockedLysine_IsDroppedWhenRespected()
         {

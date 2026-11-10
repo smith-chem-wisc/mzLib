@@ -17,7 +17,23 @@ namespace Readers
         IReadOnlyList<string> SearchedWithoutRow,
         IReadOnlyList<string> DroppedDataFiles,
         IReadOnlyList<string> Ambiguous,
-        IReadOnlyList<string> SharedStem);
+        IReadOnlyList<string> SharedStem)
+    {
+        /// <summary>
+        /// The line of the input SDRF each row of <see cref="Document"/> came from, in <c>Document.Results</c> order, by mzLib's
+        /// file line convention (<see cref="SdrfValidationMessage.LineNumber"/>: the header is line 1, the first row line 2). So a
+        /// report on the restricted document can name the line in the file the user has open. Empty when the record was built
+        /// directly rather than by <see cref="SdrfSearchScope.Restrict"/>.
+        /// </summary>
+        public IReadOnlyList<int> SourceLines { get; init; } = Array.Empty<int>();
+
+        /// <summary>
+        /// How many rows of the input SDRF the join set aside, because the search read no file of theirs. A wholly blank line is not
+        /// a row. A row naming no file counts here although <see cref="DroppedDataFiles"/> cannot list it, so a reader can say that
+        /// a gap in replicate or fraction numbers may be a sample that was not searched.
+        /// </summary>
+        public int RowsSetAside { get; init; }
+    }
 
     /// <summary>
     /// Restricts an SDRF -- deposited, improved or drafted -- to the files ONE SEARCH read (sdrf D36): the
@@ -88,10 +104,14 @@ namespace Readers
 
             var kept = new List<SdrfRow>();
             var dropped = new List<string>();
+            var sourceLines = new List<int>();
+            int rowsSetAside = 0;
+            int line = 1; // the header's
             // stem -> the distinct acquired names of the rows it kept, in row order
             var joined = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var row in sdrf.Results)
             {
+                line++;
                 var cells = row.Cells.Concat(Enumerable.Repeat("", Math.Max(0, header.Count - row.Cells.Count))).ToList();
                 string acquired = cells[dataFile];
                 string stem = SdrfFileNamePattern.AcquiredStem(acquired);
@@ -105,6 +125,7 @@ namespace Readers
                 if (!readerOf.TryGetValue(stem, out var reader))
                 {
                     if (!string.IsNullOrWhiteSpace(acquired) && !dropped.Contains(acquired, StringComparer.OrdinalIgnoreCase)) dropped.Add(acquired);
+                    if (cells.Any(c => !string.IsNullOrWhiteSpace(c))) rowsSetAside++;
                     continue;
                 }
                 if (!joined.TryGetValue(stem, out var names)) joined[stem] = names = new List<string>();
@@ -117,11 +138,16 @@ namespace Readers
                     if (i == dataFile) outCells.Add(reader);
                 }
                 kept.Add(new SdrfRow(sdrfHeader, outCells));
+                sourceLines.Add(line);
             }
 
             var withoutRow = bySearched.Where(g => !joined.ContainsKey(g.Key)).Select(g => FileName(g.First())).ToList();
             var sharedStem = joined.Where(j => j.Value.Count > 1).Select(j => $"{readerOf[j.Key]}: {string.Join(", ", j.Value)}").ToList();
-            return new SdrfSearchScoping(new SdrfDocument(sdrfHeader, kept), withoutRow, dropped, ambiguous, sharedStem);
+            return new SdrfSearchScoping(new SdrfDocument(sdrfHeader, kept), withoutRow, dropped, ambiguous, sharedStem)
+            {
+                SourceLines = sourceLines,
+                RowsSetAside = rowsSetAside
+            };
         }
 
         private static string AcquiredStem(string searched, IReadOnlyDictionary<string, string>? acquiredNameOf)
