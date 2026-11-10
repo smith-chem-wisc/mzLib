@@ -161,6 +161,12 @@ namespace SampleEvidenceModel
               cell type, cell line, sex, age, developmental stage, individual, strain, genotype, treatment, compound,
               dose, time, biological replicate, phenotype, or "comment[fraction identifier]",
               "comment[technical replicate]", or "factor value[<name>]" for the variable the study compares.
+            - treatment and compound: only what was done to the living sample or organism because the study asks what it does:
+              a drug, stimulus, diet, surgery, stress or a changed temperature. A step done to get the sample measured is not a
+              treatment, even on living cells: digestion, reduction, alkylation, labelling (biotin for proximity labelling,
+              azidonorleucine for metabolic labelling), enrichment, pulldown, extraction, cross-linking. Make no treatment or
+              compound claim for such a step. If the study compares such steps with each other, claim the step as
+              "factor value[<name>]".
             - value: age as 45Y, 9M, 8W or 3D; sex as male or female; replicate and fraction numbers as whole numbers
               from 1; anything else as the text writes it.
             - Do not repeat what the rule-based reader already found; add what is missing and correct nothing silently.
