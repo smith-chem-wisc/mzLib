@@ -128,6 +128,12 @@ public sealed class AnalysisDesign
     /// </summary>
     public IReadOnlyList<string> ColumnNames { get; }
 
+    /// <summary>
+    /// Each column's term, in column order: <c>intercept</c>, a factor's name, <c>batch</c>, a covariate's name, or
+    /// <c>a:b</c> for an interaction. The runner reads which columns a tested term spans from it (STAT1 M5b ruling 7).
+    /// </summary>
+    internal IReadOnlyList<string> ColumnTerms => _columnTerms;
+
     /// <summary>A copy of the design matrix, <c>[sample, column]</c>, in the layout <c>LinearModel.Fit</c> takes.</summary>
     public double[,] Matrix => (double[,])_matrix.Clone();
 
