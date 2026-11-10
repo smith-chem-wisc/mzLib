@@ -43,7 +43,9 @@ namespace Readers
         FlashLFQQuantifiedPeptide,
         MetaMorpheusQuantifiedTranscriptGroups,
         FlashLFQQuantifiedOligo,
-        DiaNnReportParquet
+        DiaNnReportParquet,
+        DiaPrecursorTsv,
+        DiaPeptideTsv
     }
 
     public static class SupportedFileTypeExtensions
@@ -111,6 +113,9 @@ namespace Readers
                 // As with DiaNnReport, only the conventional name WriteResults would use: the report is
                 // recognized by its columns, whatever it is called.
                 SupportedFileType.DiaNnReportParquet => "report.parquet",
+                // MetaMorpheus's DIA precursor and peptide tables, recognized by the names MetaMorpheus gives them
+                SupportedFileType.DiaPrecursorTsv => "AllDiaPrecursors.tsv",
+                SupportedFileType.DiaPeptideTsv => "AllDiaPeptides.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -196,6 +201,10 @@ namespace Readers
                         return SupportedFileType.Tsv_Dinosaur;
                     if(filePath.EndsWith(SupportedFileType.Sdrf.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Sdrf;
+                    if (filePath.EndsWith(SupportedFileType.DiaPrecursorTsv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.DiaPrecursorTsv;
+                    if (filePath.EndsWith(SupportedFileType.DiaPeptideTsv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.DiaPeptideTsv;
 
                         // these tsv cases are just .tsv and need an extra step to determine the type
                         // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -334,6 +343,8 @@ namespace Readers
                 SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups => typeof(TranscriptGroupFromTsvFile),
                 SupportedFileType.FlashLFQQuantifiedOligo => typeof(QuantifiedOligoFile),
                 SupportedFileType.DiaNnReportParquet => typeof(DiaNnParquetReportFile),
+                SupportedFileType.DiaPrecursorTsv => typeof(DiaPrecursorFile),
+                SupportedFileType.DiaPeptideTsv => typeof(DiaPeptideFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
