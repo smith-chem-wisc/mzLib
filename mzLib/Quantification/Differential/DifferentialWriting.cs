@@ -452,6 +452,16 @@ public sealed record DifferentialSettings
     public string? NormalizationOverride { get; init; }
     /// <summary>A random seed, if any part of the analysis used one.</summary>
     public int? Seed { get; init; }
+    /// <summary>
+    /// The fewest samples with a value each side of a two-level comparison needs (GR-4; STAT1 M5b ruling 14), at least 2;
+    /// fewer gives <c>below_support:min_&lt;n&gt;_per_side</c>.
+    /// </summary>
+    public int MinimumSamplesPerSide { get; init; } = 2;
+    /// <summary>
+    /// The floor on the shared-peptide normalization's reference sets (GR-25; STAT1 M5b ruling 14), at least 1; below it
+    /// no sample is shifted.
+    /// </summary>
+    public int NormalizationFloor { get; init; } = SharedPeptideNormalization.DefaultMinimumPeptides;
 }
 
 /// <summary>A contrast a stratum could not run, and why.</summary>
@@ -880,6 +890,8 @@ public static class DifferentialMetadataWriter
         w.WriteString("normalization", s.Normalization);
         Optional(w, "normalization_override", s.NormalizationOverride);
         if (s.Seed is { } seed) w.WriteNumber("seed", seed);
+        w.WriteNumber("minimum_samples_per_side", s.MinimumSamplesPerSide);
+        w.WriteNumber("normalization_floor", s.NormalizationFloor);
         w.WriteEndObject();
     }
 

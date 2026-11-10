@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 using Quantification.Differential;
 
@@ -229,6 +230,30 @@ public class DifferentialAnalysisTests
         Assert.That(dropped.FeatureId, Is.EqualTo("SPLIT"));
         Assert.That(dropped.Facts, Does.Contain("(1|sample)").And.Contain("9 value(s)"));
         Assert.That(dropped.Effect, Does.Contain("no random term"));
+    }
+
+    /// <summary>
+    /// Ruling 14: the fewest samples per side is a setting (default 2), named in the status, written into the metadata and
+    /// so into the analysis id. With 4, every comparison of these 3-sample groups is below support. Fewer than 2 is refused.
+    /// </summary>
+    [Test]
+    public void TheMinimumSamplesPerSideIsASetting()
+    {
+        var request = Request();
+        var standard = DifferentialAnalysis.Run(request, maxThreads: 1);
+        var four = DifferentialAnalysis.Run(request with { Settings = request.Settings with { MinimumSamplesPerSide = 4 } }, maxThreads: 1);
+
+        Assert.That(Row(standard, "P1", "c1").Status, Is.EqualTo(DifferentialStatus.Fitted));
+        Assert.That(Row(four, "P1", "c1").Status, Is.EqualTo(DifferentialStatus.BelowSupport("min_4_per_side")));
+        Assert.That(four.Rows.Where(r => r.FeatureId == "P1").Select(r => r.Status), Is.All.EqualTo("below_support:min_4_per_side"));
+        Assert.That(four.Decisions.Any(d => d.Rule == DifferentialDecisionRules.MinPerSide && d.FeatureId == "P1"), Is.True);
+        Assert.That(four.Metadata.AnalysisId, Is.Not.EqualTo(standard.Metadata.AnalysisId));
+        Assert.That(Encoding.UTF8.GetString(DifferentialMetadataWriter.ToBytes(four.Metadata, four.Rows)),
+            Does.Contain("\"minimum_samples_per_side\": 4").And.Contain("\"normalization_floor\": 100"));
+        Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(
+            request with { Settings = request.Settings with { MinimumSamplesPerSide = 1 } }, maxThreads: 1));
+        Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(
+            request with { Settings = request.Settings with { NormalizationFloor = 0 } }, maxThreads: 1));
     }
 
     [Test]

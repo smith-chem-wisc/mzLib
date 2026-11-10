@@ -1,6 +1,6 @@
 {
   "definition_version": "DEF-DIFF v1",
-  "analysis_id": "adc8979a883969aa",
+  "analysis_id": "f0276d430c1a7002",
   "software": [
     {
       "name": "mzLib",
@@ -29,7 +29,9 @@
     "method": "moderated",
     "robust": true,
     "normalization": "shared_peptide_median",
-    "seed": 42
+    "seed": 42,
+    "minimum_samples_per_side": 2,
+    "normalization_floor": 100
   },
   "columns": [
     {

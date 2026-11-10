@@ -73,8 +73,8 @@ public static class DifferentialDecisionRules
     public const string NoUniquePeptides = "no_unique_peptides";
     /// <summary>A side with no value (ruling 1, ruling 2 step 3).</summary>
     public const string AbsentSide = "absent_side";
-    /// <summary>Fewer than 2 samples with a value on a side (ruling 2 step 4).</summary>
-    public const string MinTwoPerSide = "min_2_per_side";
+    /// <summary>Fewer samples with a value on a side than the settings ask (ruling 2 step 4; default 2).</summary>
+    public const string MinPerSide = "min_per_side";
     /// <summary>The feature was fitted on a reduced design (ruling 1).</summary>
     public const string ReducedDesign = "reduced_design";
     /// <summary>The feature's own data cannot separate a contrast (ruling 2 step 5).</summary>
@@ -94,7 +94,7 @@ public static class DifferentialDecisionRules
 
     private static readonly HashSet<string> All = new(StringComparer.Ordinal)
     {
-        RowSet, DesignContrast, NoUniquePeptides, AbsentSide, MinTwoPerSide, ReducedDesign, FeatureNotEstimable,
+        RowSet, DesignContrast, NoUniquePeptides, AbsentSide, MinPerSide, ReducedDesign, FeatureNotEstimable,
         SinglePeptide, FitOutcome, RobustFellBack, NoPrior, MeansNotEstimable, RandomTermsDropped,
     };
 
@@ -133,8 +133,10 @@ public static class DifferentialConstants
     public const string Adjustment = "benjamini_hochberg";
     /// <summary>Support rule: no usable unique peptide.</summary>
     public const string NoUniquePeptides = "no_unique_peptides";
-    /// <summary>Support rule: fewer than 2 samples with a value on a side.</summary>
+    /// <summary>Support rule: fewer than 2 samples with a value on a side (the default).</summary>
     public const string MinTwoPerSide = "min_2_per_side";
+    /// <summary>Support rule: fewer than <paramref name="samples"/> samples with a value on a side.</summary>
+    public static string MinPerSide(int samples) => string.Create(CultureInfo.InvariantCulture, $"min_{samples}_per_side");
     /// <summary>Support rule: too little data for the variance (ruling 2 step 6).</summary>
     public const string TooFewObservations = "too_few_observations";
 }
@@ -200,6 +202,11 @@ public static class DifferentialAnalysis
             throw new ArgumentException(
                 $"Sample '{request.Samples.First(s => s.Individual is null).SampleId}' has no individual, but others do; an " +
                 "individual is needed on every sample or none.", nameof(request));
+        if (request.Settings.MinimumSamplesPerSide < 2)
+            throw new ArgumentException($"MinimumSamplesPerSide is {request.Settings.MinimumSamplesPerSide}; a comparison needs at least 2 " +
+                "samples with a value on each side to have a variance.", nameof(request));
+        if (request.Settings.NormalizationFloor < 1)
+            throw new ArgumentException($"NormalizationFloor is {request.Settings.NormalizationFloor}; it must be at least 1.", nameof(request));
 
         return new Analysis(request, maxThreads).Execute();
     }
@@ -313,7 +320,7 @@ public static class DifferentialAnalysis
                 normalization = SharedPeptideNormalization.None;
                 if (_request.Settings.Normalization != SharedPeptideNormalization.None)
                 {
-                    var measured = SharedPeptideNormalization.Measure(table);
+                    var measured = SharedPeptideNormalization.Measure(table, _request.Settings.NormalizationFloor);
                     normalized = SharedPeptideNormalization.Apply(table, measured);
                     normalization = measured.Setting;
                     _normalization.Add(new DifferentialNormalizationInfo(stratum, _basis, measured.Setting,
@@ -467,11 +474,12 @@ public static class DifferentialAnalysis
                     detail = $"samples with a value: numerator {n}, denominator {d}";
                     Decide(DifferentialDecisionRules.AbsentSide, design.Stratum, group, c.Id, detail, $"reported {status}, no number");
                 }
-                else if (counts.Numerator is int n2 && counts.Denominator is int d2 && (n2 < 2 || d2 < 2))
+                else if (counts.Numerator is int n2 && counts.Denominator is int d2
+                         && (n2 < _request.Settings.MinimumSamplesPerSide || d2 < _request.Settings.MinimumSamplesPerSide))
                 {
-                    status = DifferentialStatus.BelowSupport(DifferentialConstants.MinTwoPerSide);
+                    status = DifferentialStatus.BelowSupport(DifferentialConstants.MinPerSide(_request.Settings.MinimumSamplesPerSide));
                     detail = $"samples with a value: numerator {n2}, denominator {d2}";
-                    Decide(DifferentialDecisionRules.MinTwoPerSide, design.Stratum, group, c.Id, detail, "no number");
+                    Decide(DifferentialDecisionRules.MinPerSide, design.Stratum, group, c.Id, detail, "no number");
                 }
                 else
                 {

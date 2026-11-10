@@ -136,6 +136,37 @@ public class GlobalShiftTests
     [Test]
     public void TheShiftIsMeasuredBeforeNormalization()
     {
+        var request = LoadedRequest();
+
+        var result = DifferentialAnalysis.Run(request, maxThreads: 1);
+
+        Assert.That(result.Metadata.Normalization.Single().Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedian));
+        Assert.That(result.Rows.Where(r => r.Status == DifferentialStatus.Fitted).Select(r => r.Log2Effect!.Value),
+            Is.All.EqualTo(0).Within(0.05), "normalization took B's loading out");
+        var shift = result.Metadata.Contrasts.Single().GlobalShift!.Single();
+        Assert.That(shift.Value, Is.EqualTo(1).Within(0.05));
+        Assert.That(shift.Peptides, Is.EqualTo(120));
+    }
+
+    /// <summary>
+    /// The normalization floor is a setting (GR-25, ruling 14; default 100): with 200, the 120 shared peptides are too few,
+    /// no sample is shifted, and B's loading stays in every effect.
+    /// </summary>
+    [Test]
+    public void TheNormalizationFloorIsASetting()
+    {
+        var request = LoadedRequest();
+
+        var result = DifferentialAnalysis.Run(request with { Settings = request.Settings with { NormalizationFloor = 200 } }, maxThreads: 1);
+
+        Assert.That(result.Metadata.Normalization.Single().Setting, Is.EqualTo(SharedPeptideNormalization.None));
+        Assert.That(result.Rows.Where(r => r.Status == DifferentialStatus.Fitted).Select(r => r.Log2Effect!.Value),
+            Is.All.EqualTo(1).Within(0.05));
+    }
+
+    /// <summary>B loaded 1 log2 higher than A on every one of 120 peptides of 40 proteins, three samples a side.</summary>
+    private static DifferentialRequest LoadedRequest()
+    {
         var rng = new Random(11);
         string[] ids = { "a1", "a2", "a3", "b1", "b2", "b3" };
         var peptides = new List<PeptideRunValues>();
@@ -155,14 +186,6 @@ public class GlobalShiftTests
             Spec = new DesignSpec { Factors = new[] { new FactorSpec("group", "A") } },
             Contrasts = new[] { DifferentialContrastRequest.Between("group", "B", "A") },
         };
-
-        var result = DifferentialAnalysis.Run(request, maxThreads: 1);
-
-        Assert.That(result.Metadata.Normalization.Single().Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedian));
-        Assert.That(result.Rows.Where(r => r.Status == DifferentialStatus.Fitted).Select(r => r.Log2Effect!.Value),
-            Is.All.EqualTo(0).Within(0.05), "normalization took B's loading out");
-        var shift = result.Metadata.Contrasts.Single().GlobalShift!.Single();
-        Assert.That(shift.Value, Is.EqualTo(1).Within(0.05));
-        Assert.That(shift.Peptides, Is.EqualTo(120));
+        return request;
     }
 }
