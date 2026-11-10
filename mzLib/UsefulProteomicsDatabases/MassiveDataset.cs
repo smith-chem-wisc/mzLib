@@ -137,22 +137,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="requested">The accession asked for, for the message.</param>
         internal static MassiveDataset FromProxi(byte[] body, string requested)
         {
-            JObject record;
-            try
-            {
-                using var reader = new JsonTextReader(new StringReader(DecodeProxiBody(body)))
-                {
-                    // Values are kept as the strings MassIVE sent: a date-shaped one must not come back reformatted.
-                    DateParseHandling = DateParseHandling.None,
-                    FloatParseHandling = FloatParseHandling.Decimal,
-                };
-                record = JToken.ReadFrom(reader) as JObject;
-            }
-            catch (JsonReaderException e)
-            {
-                throw new MzLibException($"MassIVE's PROXI record for '{requested}' is not valid JSON.", e);
-            }
-
+            JObject record = ParseProxiJson(body, $"MassIVE's PROXI record for '{requested}'") as JObject;
             if (record == null)
                 throw new MzLibException($"MassIVE's PROXI answer for '{requested}' is not a dataset record.");
 
@@ -161,11 +146,7 @@ namespace UsefulProteomicsDatabases
             if (massiveAccession == null)
                 throw new MzLibException($"MassIVE's PROXI record for '{requested}' carries no MassIVE identifier ({MassiveIdentifierAccession}).");
 
-            string title = Stated(record["title"]);
-            bool titleHadPrefix = title != null && title.StartsWith(TitlePrefix, StringComparison.Ordinal);
-            if (titleHadPrefix)
-                title = title.Substring(TitlePrefix.Length);
-
+            (string title, bool titleHadPrefix) = TitleOf(record["title"]);
             List<JObject> links = Terms(record["datasetLink"]).ToList();
 
             return new MassiveDataset
@@ -179,26 +160,73 @@ namespace UsefulProteomicsDatabases
                     .Where(t => Accession(t) == KeywordAccession)
                     .Select(t => Stated(t["value"]))
                     .Where(v => v != null)),
-                Species = ListOf(record["species"], field => Groups(field)
-                    .Select(g => new MassiveSpecies(ValueOf(g, TaxIdAccession), ValueOf(g, ScientificNameAccession), ValueOf(g, CommonNameAccession)))
-                    .Where(s => s.TaxId != null || s.ScientificName != null || s.CommonName != null)),
-                Instruments = ListOf(record["instruments"], field => Terms(field)
-                    .Where(t => Accession(t) != InstrumentModelAccession || Stated(t["value"]) != null)
-                    .Select(ToCvParam)),
+                Species = SpeciesOf(record["species"]),
+                Instruments = InstrumentsOf(record["instruments"]),
                 Modifications = ListOf(record["modifications"], field => Terms(field).Select(ToCvParam)),
-                Publications = ListOf(record["publications"], field => Groups(field)
-                    .Select(g => new MassivePublication(ValueOf(g, PubMedAccession), ValueOf(g, DoiAccession), ValueOf(g, ReferenceAccession)))
-                    .Where(p => p.PubMedId != null || p.Doi != null || p.Reference != null)),
+                Publications = PublicationsOf(record["publications"]),
                 DatasetUri = ValueOf(links, DatasetUriAccession),
                 FtpLocation = FtpPathOf(ValueOf(links, FtpLocationAccession)),
             };
+        }
+
+        /// <summary>The MSV and PXD a PROXI <c>accession</c> field names; the MSV is null when it names none.</summary>
+        internal static (string Msv, string Pxd) AccessionsOf(JToken field)
+        {
+            List<JObject> identifiers = Terms(field).ToList();
+            return (ValueOf(identifiers, MassiveIdentifierAccession), ValueOf(identifiers, ProteomeXchangeAccession));
+        }
+
+        /// <summary>A PROXI <c>species</c> field: one entry per group, a group whose every value is unstated left out.</summary>
+        internal static IReadOnlyList<MassiveSpecies> SpeciesOf(JToken field) => ListOf(field, f => Groups(f)
+            .Select(g => new MassiveSpecies(ValueOf(g, TaxIdAccession), ValueOf(g, ScientificNameAccession), ValueOf(g, CommonNameAccession)))
+            .Where(s => s.TaxId != null || s.ScientificName != null || s.CommonName != null));
+
+        /// <summary>A PROXI <c>instruments</c> field: the generic "instrument model" term kept only when it names one.</summary>
+        internal static IReadOnlyList<CvParam> InstrumentsOf(JToken field) => ListOf(field, f => Terms(f)
+            .Where(t => Accession(t) != InstrumentModelAccession || Stated(t["value"]) != null)
+            .Select(ToCvParam));
+
+        /// <summary>A PROXI <c>publications</c> field: one entry per group; "no associated manuscript" gives none.</summary>
+        internal static IReadOnlyList<MassivePublication> PublicationsOf(JToken field) => ListOf(field, f => Groups(f)
+            .Select(g => new MassivePublication(ValueOf(g, PubMedAccession), ValueOf(g, DoiAccession), ValueOf(g, ReferenceAccession)))
+            .Where(p => p.PubMedId != null || p.Doi != null || p.Reference != null));
+
+        /// <summary>
+        /// Reads a PROXI body (decoded as <see cref="DecodeProxiBody"/> decodes it) as JSON, keeping every value as the
+        /// string MassIVE sent: a date-shaped one must not come back reformatted. Not JSON is an <see cref="MzLibException"/>.
+        /// </summary>
+        /// <param name="body">The response bytes.</param>
+        /// <param name="described">What the body is, for the message, e.g. "MassIVE's PROXI record for 'MSV000096226'".</param>
+        internal static JToken ParseProxiJson(byte[] body, string described)
+        {
+            try
+            {
+                using var reader = new JsonTextReader(new StringReader(DecodeProxiBody(body)))
+                {
+                    DateParseHandling = DateParseHandling.None,
+                    FloatParseHandling = FloatParseHandling.Decimal,
+                };
+                return JToken.ReadFrom(reader);
+            }
+            catch (JsonReaderException e)
+            {
+                throw new MzLibException($"{described} is not valid JSON.", e);
+            }
+        }
+
+        /// <summary>A title under the null rule, with a leading "Title: " cut; the flag says whether it was.</summary>
+        internal static (string Title, bool HadPrefix) TitleOf(JToken token)
+        {
+            string title = Stated(token);
+            bool hadPrefix = title != null && title.StartsWith(TitlePrefix, StringComparison.Ordinal);
+            return (hadPrefix ? title.Substring(TitlePrefix.Length) : title, hadPrefix);
         }
 
         /// <summary>
         /// A string value under the null rule: null for a missing token, JSON null, or the string "null"; otherwise
         /// the value as sent, an empty string included.
         /// </summary>
-        private static string Stated(JToken token)
+        internal static string Stated(JToken token)
         {
             if (token == null || token.Type is JTokenType.Null or JTokenType.Undefined)
                 return null;
@@ -207,11 +235,11 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>A list field under the null rule: null when not stated, else the items <paramref name="read"/> gives.</summary>
-        private static IReadOnlyList<T> ListOf<T>(JToken field, Func<JToken, IEnumerable<T>> read) =>
+        internal static IReadOnlyList<T> ListOf<T>(JToken field, Func<JToken, IEnumerable<T>> read) =>
             field == null || field.Type is JTokenType.Null or JTokenType.Undefined ? null : read(field).ToList();
 
         /// <summary>The terms of a field that holds one term or a list of terms; groups inside it are flattened.</summary>
-        private static IEnumerable<JObject> Terms(JToken field) => field switch
+        internal static IEnumerable<JObject> Terms(JToken field) => field switch
         {
             JObject term => new[] { term },
             JArray items => items.SelectMany(Terms),
@@ -223,20 +251,20 @@ namespace UsefulProteomicsDatabases
         /// bare terms (71 of 121 records give their publications as one bare term, "no associated manuscript"); each
         /// bare term is then a group of its own.
         /// </summary>
-        private static IEnumerable<List<JObject>> Groups(JToken field) => field switch
+        internal static IEnumerable<List<JObject>> Groups(JToken field) => field switch
         {
             JObject term => new[] { new List<JObject> { term } },
             JArray items => items.Select(item => Terms(item).ToList()).Where(g => g.Count > 0),
             _ => Enumerable.Empty<List<JObject>>(),
         };
 
-        private static string Accession(JObject term) => (string)term["accession"];
+        internal static string Accession(JObject term) => (string)term["accession"];
 
         /// <summary>The stated value of the first term in <paramref name="terms"/> with <paramref name="accession"/>, else null.</summary>
-        private static string ValueOf(IEnumerable<JObject> terms, string accession) =>
+        internal static string ValueOf(IEnumerable<JObject> terms, string accession) =>
             terms.Where(t => Accession(t) == accession).Select(t => Stated(t["value"])).FirstOrDefault(v => v != null);
 
-        private static CvParam ToCvParam(JObject term) => new(
+        internal static CvParam ToCvParam(JObject term) => new(
             (string)term["cvLabel"] ?? string.Empty,
             Accession(term) ?? string.Empty,
             (string)term["name"] ?? string.Empty,
