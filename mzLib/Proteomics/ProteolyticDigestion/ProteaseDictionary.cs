@@ -496,13 +496,7 @@ namespace Proteomics.ProteolyticDigestion
             string[] psiMsAccessionAliases = { "psi-ms accession", "psi-ms accession number" };
             string[] psiMsNameAliases = { "psi-ms name" };
             string[] cleavageModAliases = { "cleavage modification", "cleavage mass shifts" };
-
-            // OPTIONAL and aliased, on purpose. A new REQUIRED column would break every custom
-            // proteases.tsv already in the wild, because those files were written before this column
-            // existed and have no value for it. Read through GetFieldValue, which returns empty for a
-            // column the file does not have, so an older file keeps loading unchanged and its proteases
-            // simply declare no requirement.
-            string[] cleavageRequirementAliases = { "cleavage requirement", "required modification" };
+            string[] cleavageRequirementAliases = { "cleavage requirement" };
 
             foreach (string line in lines)
             {
@@ -547,21 +541,12 @@ namespace Proteomics.ProteolyticDigestion
                 string psiMsAccessionNumber = GetFieldValue(fields, columnIndices, psiMsAccessionAliases);
                 string psiMsName = GetFieldValue(fields, columnIndices, psiMsNameAliases);
                 string proteaseModDetails = GetFieldValue(fields, columnIndices, cleavageModAliases);
-                string cleavageRequirementField = GetFieldValue(fields, columnIndices, cleavageRequirementAliases);
-
-                List<CleavageRequirement> cleavageRequirements = CleavageRequirementParser.ParseAll(cleavageRequirementField);
 
                 var motifList = DigestionMotif.ParseDigestionMotifsFromString(motifField);
-
-                // The requirement is declared once per protease and applies to every motif that protease
-                // has, which is what the enzymology describes: StcE's four motifs (TXT, TXS, SXT, SXS)
-                // are one rule written four ways, and all four need the glycan at P2. A composite entry
-                // like StcE-trypsin is the case that makes this worth stating -- there the tryptic motifs
-                // must NOT inherit it, which is handled below by only attaching it to motifs whose
-                // recognition sequence can actually carry the constrained residue.
-                if (cleavageRequirements.Count > 0)
+                var requirements = CleavageRequirement.ParseAll(GetFieldValue(fields, columnIndices, cleavageRequirementAliases));
+                if (requirements.Count > 0)
                 {
-                    motifList = AttachCleavageRequirements(motifList, cleavageRequirements);
+                    motifList = WithCleavageRequirements(motifList, requirements);
                 }
                 var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), specificityField, true);
 
@@ -617,6 +602,18 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
+        // In a co-digest (StcE-trypsin) the requirement belongs only to the motifs that reach its subsite, not to K| or R|.
+        private static List<DigestionMotif> WithCleavageRequirements(List<DigestionMotif> motifs, List<CleavageRequirement> requirements)
+        {
+            bool Reaches(DigestionMotif motif) => requirements.Any(r =>
+                (r.IsPrimeSide ? motif.PrimeSubsite(r.Subsite) : motif.NonPrimeSubsite(r.Subsite)) != '\0');
+            bool anyReaches = motifs.Any(Reaches);
+            return motifs.Select(m => anyReaches && !Reaches(m)
+                    ? m
+                    : new DigestionMotif(m.InducingCleavage, m.PreventingCleavage, m.CutIndex, m.ExcludeFromWildcard, requirements))
+                .ToList();
+        }
+
         private static string GetFieldValue(
             string[] fields,
             Dictionary<string, int> columnIndices,
@@ -628,76 +625,6 @@ namespace Proteomics.ProteolyticDigestion
                     return fields[index].Trim();
             }
             return string.Empty;
-        }
-
-        /// <summary>
-        /// Gives each motif the conditions the protease declares, skipping the motifs a composite entry
-        /// means to leave alone.
-        /// </summary>
-        /// <remarks>
-        /// <para>The file declares conditions once per protease, with no syntax saying which motif each
-        /// belongs to, so which motifs they apply to is inferred from whether a motif's recognition
-        /// sequence REACHES the subsite named. That is what keeps a composite honest: StcE-trypsin's four
-        /// StcE motifs (TXT, TXS, SXT, SXS) span P2 and take the glycan rule, while its two tryptic motifs
-        /// (K, R) do not span it and are left untouched -- if they inherited it, trypsin would need a
-        /// glycan and would be switched off inside the composite.</para>
-        ///
-        /// <para>A condition can legitimately address a subsite OUTSIDE the recognition sequence: IMPa's
-        /// "no glycan at P1" constrains the residue before a motif that is only "T". So once a motif is
-        /// known to be governed -- it reaches at least one declared subsite -- it takes ALL the declared
-        /// conditions, which is what keeps IMPa's required-P1' and forbidden-P1 rules together.</para>
-        ///
-        /// <para>If NO motif reaches any declared subsite the protease is not a composite and the rules
-        /// simply apply to all of it. Without that fallback a protease whose only condition addresses a
-        /// residue outside every motif -- "cleave after K unless P1' is glycosylated" -- would silently
-        /// lose its rule and over-digest, which is the failure this whole feature exists to prevent.</para>
-        /// </remarks>
-        private static List<DigestionMotif> AttachCleavageRequirements(List<DigestionMotif> motifs,
-            List<CleavageRequirement> requirements)
-        {
-            var governed = new bool[motifs.Count];
-            bool anyMotifGoverned = false;
-
-            for (int i = 0; i < motifs.Count; i++)
-            {
-                foreach (CleavageRequirement requirement in requirements)
-                {
-                    // Only a REQUIRED condition decides whether a motif belongs to this enzyme.
-                    // A FORBIDDEN one is useless for the question and actively misleading: P1 of
-                    // any cut-after motif is its own recognition residue, so IMPa's "no glycan at
-                    // P1" reaches trypsin's K and R, and letting that count handed the tryptic
-                    // motifs the glycan REQUIREMENT as well -- which needs a glycan to cut after
-                    // Lys and switches trypsin off inside the composite. A forbidden condition
-                    // rides along on motifs that are already governed.
-                    if (requirement.IsForbidden)
-                    {
-                        continue;
-                    }
-
-                    char constrainedSubsite = requirement.IsPrimeSide
-                        ? motifs[i].PrimeSubsite(requirement.Subsite)
-                        : motifs[i].NonPrimeSubsite(requirement.Subsite);
-
-                    if (constrainedSubsite != '\0')
-                    {
-                        governed[i] = true;
-                        anyMotifGoverned = true;
-                        break;
-                    }
-                }
-            }
-
-            var withRequirements = new List<DigestionMotif>(motifs.Count);
-            for (int i = 0; i < motifs.Count; i++)
-            {
-                DigestionMotif motif = motifs[i];
-                withRequirements.Add(governed[i] || !anyMotifGoverned
-                    ? new DigestionMotif(motif.InducingCleavage, motif.PreventingCleavage, motif.CutIndex,
-                        motif.ExcludeFromWildcard, requirements)
-                    : motif);
-            }
-
-            return withRequirements;
         }
 
         private static Protease CreateProtease(

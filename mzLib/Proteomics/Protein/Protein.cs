@@ -496,29 +496,8 @@ namespace Proteomics
             // MetaMorpheus defaults an ungated slack would enumerate at 4 missed cleavages instead of 2 --
             // roughly 1.7x the unmodified peptides before modification combinatorics, carried into the
             // fragment index -- in searches where nothing configured can block anything.
-            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications, this);
-
-            // The promoting correction is the mirror of the blocking one above, and needs the opposite
-            // treatment. Blocking REMOVES a site the sequence had, so the replacement peptide is LONGER
-            // and has to be bought with generation slack. Promoting removes a site the sequence never
-            // really had, so the replacement is just the ordinary peptide between the sites that remain --
-            // provided the impossible sites never enter the enumeration, which is what the feasibility
-            // filter inside DigestionAgent.FullDigestion does.
-            //
-            // There is deliberately NO "can anything satisfy the requirement" gate here, and the absence
-            // is load-bearing. It would be the natural mirror of the blocking gate, but the two
-            // corrections are not symmetric: a blocking modification that is not configured cannot remove
-            // a site the sequence really has, whereas a promoting requirement that nothing can satisfy
-            // means the protease genuinely has no site to cut. Adding the gate makes a glycoprotease
-            // digest a bare protein, which is exactly what the published unglycosylated controls say does
-            // not happen (truth-set STCE-03, IMPA-12, OGPA-07). Returning almost nothing is the correct
-            // enzymology; see RespectCleavagePromotingModifications for the precondition that implies.
-            bool respectCleavageRequirements = digestionParameters.RespectCleavagePromotingModifications
-                && searchModeType == CleavageSpecificity.Full
-                && digestionParameters.Protease.HasCleavageRequirement;
-            List<Modification> configuredModifications = respectCleavageRequirements
-                ? variableModifications.Concat(allKnownFixedModifications).ToList()
-                : null;
+            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications, this,
+                allKnownFixedModifications);
 
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
                 this,
@@ -530,8 +509,7 @@ namespace Proteomics
                 digestionParameters.FragmentationTerminus,
                 digestionParameters.SearchModeType,
                 topDownTruncationSearch,
-                respectCleavageRequirements,
-                configuredModifications);
+                cleavageBlockingPolicy.CleavageSites);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {

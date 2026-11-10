@@ -16,8 +16,7 @@ namespace Proteomics.ProteolyticDigestion
             int maxModificationIsoforms = 1024, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Variable,
             int maxModsForPeptides = 2, CleavageSpecificity searchModeType = CleavageSpecificity.Full, FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
             bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false,
-            bool respectCleavageBlockingModifications = false,
-            bool respectCleavagePromotingModifications = false)
+            bool respectCleavageBlockingModifications = false, bool respectCleavagePromotingModifications = false)
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
@@ -125,47 +124,9 @@ namespace Proteomics.ProteolyticDigestion
         public bool RespectCleavageBlockingModifications { get; private set; }
 
         /// <summary>
-        /// When set, digestion honours a protease whose motif REQUIRES a modification at one of its
-        /// subsites -- a glycoprotease. A peptidoform whose cut is not justified by the required
-        /// glycan is dropped, because the protease could not have made that cut. Default false, which
-        /// reproduces the historical (modification-blind) digestion exactly.
+        /// When true, a protease with a cleavage requirement (StcE: an O-glycan at P2) cuts only where the requirement is met.
+        /// Full-specificity searches only. With nothing able to carry the glycan, such a protease cuts nowhere.
         /// </summary>
-        /// <remarks>
-        /// <para><b>PRECONDITION: the glycan must be somewhere digestion can see it.</b> The requirement
-        /// is evaluated against the modifications available at digestion time -- those the database
-        /// annotates on the protein, and those the search configures as fixed or variable. Either source
-        /// will do, and they are both consulted. But if NEITHER carries a modification that can satisfy
-        /// the requirement, then no cut anywhere is justified and the protein comes back essentially
-        /// undigested.</para>
-        ///
-        /// <para>That is the correct answer, not a defect: StcE, OpeRATOR and IMPa demonstrably do not
-        /// cleave unglycosylated substrate, and returning the intact substrate is what the published
-        /// unglycosylated controls describe. It does mean the flag must not be set by a workflow that
-        /// resolves the glycan AFTER identification rather than placing it at digestion -- a glyco search,
-        /// where the glycan enters as a precursor-mass offset and is localized against fragment ions, has
-        /// no glycan in the digestion's view at all and would simply lose its peptides. For that workflow
-        /// the requirement has to constrain localization instead, which this flag does not do.</para>
-        ///
-        /// <para>The mirror of <see cref="RespectCleavageBlockingModifications"/>, and gated the same way:
-        /// full-specificity searches only. The two corrections move in opposite directions. Blocking
-        /// removes a site the bare sequence had, so it needs generation SLACK to reach the read-through
-        /// peptide that replaces what it drops. Promoting works in two stages instead. The first removes
-        /// sites at which the required modification could never be present, before enumeration, and needs
-        /// no slack: the read-through across a site that is not a site is just the ordinary peptide
-        /// between the sites that remain. The second refines OCCUPANCY per peptidoform: a cut that is
-        /// feasible but unoccupied in a given peptidoform is dropped, and that one DOES need slack, because
-        /// the read-through across the unoccupied site spans one more site than the caller's budget
-        /// (truth-set case STCE-08; DigestionAgent.FullDigestion adds it). Note that the two corrections are
-        /// NOT symmetric in one further respect: an unconfigured blocking modification cannot
-        /// remove a site the sequence really has, whereas an unsatisfiable promoting requirement means
-        /// there is genuinely no site -- which is why this flag has no "nothing configured, go inert"
-        /// escape and must not be given one.</para>
-        ///
-        /// Scope: like its sibling, this applies to full-specificity searches only. A semi or
-        /// nonspecific search is left exactly as it was. There the peptide's termini are not all
-        /// protease cuts, and dropping a peptidoform whose length-driven terminus happens to sit at an
-        /// unglycosylated motif would remove a peptide the search should still see.
-        /// </remarks>
         public bool RespectCleavagePromotingModifications { get; private set; }
 
         #region Properties overridden by more generic interface
@@ -252,8 +213,7 @@ namespace Proteomics.ProteolyticDigestion
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinLength + "," + MaxLength + ","
                    + MaxModificationIsoforms + "," + MaxMods + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
                    + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide + ","
-                   + RespectCleavageBlockingModifications + ","
-                   + RespectCleavagePromotingModifications;
+                   + RespectCleavageBlockingModifications + "," + RespectCleavagePromotingModifications;
         }
 
         public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
