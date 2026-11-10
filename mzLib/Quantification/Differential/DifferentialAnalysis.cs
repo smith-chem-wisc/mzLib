@@ -89,11 +89,13 @@ public static class DifferentialDecisionRules
     public const string NoPrior = "no_prior";
     /// <summary>A fitted row whose estimated marginal means the feature's data cannot give at the stratum's proportions (ruling 3).</summary>
     public const string MeansNotEstimable = "means_not_estimable";
+    /// <summary>Random terms the feature's data cannot estimate were left out of its model (ruling 16).</summary>
+    public const string RandomTermsDropped = "random_terms_dropped";
 
     private static readonly HashSet<string> All = new(StringComparer.Ordinal)
     {
         RowSet, DesignContrast, NoUniquePeptides, AbsentSide, MinTwoPerSide, ReducedDesign, FeatureNotEstimable,
-        SinglePeptide, FitOutcome, RobustFellBack, NoPrior, MeansNotEstimable,
+        SinglePeptide, FitOutcome, RobustFellBack, NoPrior, MeansNotEstimable, RandomTermsDropped,
     };
 
     /// <summary>Whether <paramref name="rule"/> is one of these ids.</summary>
@@ -548,13 +550,22 @@ public static class DifferentialAnalysis
                 var first = members[0].Design!;
                 var names = first.KeptCommon.Select(j => design.ColumnNames[j]).ToArray();
                 var problems = members.Select(p => Problem(p)).ToList();
-                var fit = NestedMixedModel.Fit(problems, names, _maxThreads, _request.Settings.Robust);
+                // Only the random terms each feature's data can estimate (ruling 16): lme4's checks, else the term is left out.
+                var fit = NestedMixedModel.Fit(problems, names, _maxThreads, _request.Settings.Robust, estimableRandomTermsOnly: true);
                 var weights = PartContrasts(first, estimable);
                 var rows = first.VarianceDfRows(tested);
                 for (int i = 0; i < members.Count; i++)
                 {
                     members[i].MixedFit = fit;
                     members[i].Index = i;
+                    var full = FullStructure(members[i].Values!);
+                    if (fit.Structure[i] is { } kept && kept != full)
+                        Decide(DifferentialDecisionRules.RandomTermsDropped, design.Stratum, members[i].Group, null,
+                            $"{RandomTerms(full)} cannot all be estimated from its {fit.Observed[i]} value(s) (lme4's checks: a term " +
+                            "needs at least 2 levels and fewer levels than values)",
+                            kept == RandomStructure.None
+                                ? "fitted with no random term: the fixed part by least squares, residual df"
+                                : $"fitted with {RandomTerms(kept)} only");
                     if (fit.RobustFellBack[i] == true)
                         Decide(DifferentialDecisionRules.RobustFellBack, design.Stratum, members[i].Group, null,
                             $"robust reweighting did not settle within {fit.RobustIterations[i]} round(s)",
@@ -615,6 +626,32 @@ public static class DifferentialAnalysis
             }
 
             foreach (var plan in plans) Rows(design, plan, normalization);
+        }
+
+        /// <summary>The random structure a feature's labels call for before any term is left out (ruling 13).</summary>
+        private static RandomStructure FullStructure(FeatureObservations values)
+        {
+            if (values.Values.All(v => v.RandomIndividual is null)) return RandomStructure.Sample;
+            return values.Values.GroupBy(v => v.RandomIndividual, StringComparer.Ordinal)
+                .Any(g => g.Select(v => v.RandomSample).Distinct(StringComparer.Ordinal).Count() > 1)
+                ? RandomStructure.IndividualAndSample
+                : RandomStructure.Individual;
+        }
+
+        /// <summary>A structure's random terms as the model's formula names them (<see cref="Formula"/>).</summary>
+        private string RandomTerms(RandomStructure structure)
+        {
+            bool individuals = _request.Samples.Any(s => s.Individual is not null);
+            (string outer, string inner) = _isobaric
+                ? (individuals ? ("individual", "sample") : ("sample", "run"))
+                : ("individual", "sample");
+            return structure switch
+            {
+                RandomStructure.IndividualAndSample => $"(1|{outer}/{inner})",
+                RandomStructure.Individual => $"(1|{outer})",
+                RandomStructure.Sample => _isobaric || individuals ? $"(1|{outer}:{inner})" : "(1|sample)",
+                _ => "no random term",
+            };
         }
 
         private static NestedMixedModelProblem Problem(FeaturePlan plan)
@@ -735,7 +772,9 @@ public static class DifferentialAnalysis
                     CiLevel = fitted ? _request.Settings.CiLevel : null,
                     Statistic = fitted ? result!.T[f] : null,
                     Df = fitted ? result!.DfTotal[f] : null,
-                    DfMethod = fitted ? (single ? DifferentialConstants.DfResidual : DifferentialConstants.DfSatterthwaite) : null,
+                    DfMethod = fitted
+                        ? (single || plan.MixedFit!.Structure[f] == RandomStructure.None ? DifferentialConstants.DfResidual : DifferentialConstants.DfSatterthwaite)
+                        : null,
                     PValue = fitted ? result!.PValue[f] : null,
                     AdjustmentMethod = fitted ? DifferentialConstants.Adjustment : null,
                     NSamplesNumerator = pc.Counts.Numerator,

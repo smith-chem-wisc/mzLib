@@ -195,6 +195,42 @@ public class DifferentialAnalysisTests
         Assert.That(plain.Rows.Where(r => r.Status == DifferentialStatus.Fitted).Select(r => r.Robust), Is.All.EqualTo(false));
     }
 
+    /// <summary>
+    /// Ruling 16: a protein with two peptides but one value per sample (X in s1, s2, s4, s7; Y in the rest) cannot have its
+    /// sample term estimated, so it is fitted with no random term (least squares, residual df) instead of being refused,
+    /// with the same prior as the other mixed-model rows, and the decisions record says so.
+    /// </summary>
+    [Test]
+    public void AProteinWithOneValuePerSampleIsFittedWithoutItsSampleTerm()
+    {
+        var request = Request();
+        var rng = new Random(5);
+        var peptides = new List<PeptideRunValues>
+        {
+            Peptide(rng, "SPLITX", "SPLIT", 0, new[] { "s1", "s2", "s4", "s7" }),
+            Peptide(rng, "SPLITY", "SPLIT", 0.5, new[] { "s3", "s5", "s6", "s8", "s9" }),
+        };
+        var runs = Ids.Select(s => new ObservationRun(s, s)).ToList();
+        var table = ObservationTable.Build(runs, runs.Select(r => r.FileName),
+            request.Table!.Peptides.Select((pep, p) => new PeptideRunValues(pep.FullSequence, pep.BaseSequence, pep.ProteinGroups,
+                Ids.Select((id, s) => (id, v: request.Table.Log2Intensity(p, s))).Where(t => !double.IsNaN(t.v))
+                    .ToDictionary(t => t.id, t => new RunValue(Math.Pow(2, t.v), ObservationState.Quantified)))).Concat(peptides),
+            request.Table.ProteinGroups.Values.Append(new ProteinGroupInfo("SPLIT", 0, false, false)), QuantBasis.MsmsOnly);
+
+        var result = DifferentialAnalysis.Run(request with { Table = table }, maxThreads: 1);
+
+        var split = result.Rows.Where(r => r.FeatureId == "SPLIT").ToList();
+        Assert.That(split.Select(r => r.Status), Is.All.EqualTo(DifferentialStatus.Fitted));
+        Assert.That(split.Select(r => r.ModelUsed), Is.All.EqualTo(DifferentialConstants.MixedModel));
+        Assert.That(split.Select(r => r.DfMethod), Is.All.EqualTo(DifferentialConstants.DfResidual));
+        Assert.That(Row(result, "SPLIT", "c2").Log2Effect, Is.EqualTo(2).Within(0.2));
+        Assert.That(Row(result, "P1", "c1").DfMethod, Is.EqualTo(DifferentialConstants.DfSatterthwaite));
+        var dropped = result.Decisions.Single(d => d.Rule == DifferentialDecisionRules.RandomTermsDropped);
+        Assert.That(dropped.FeatureId, Is.EqualTo("SPLIT"));
+        Assert.That(dropped.Facts, Does.Contain("(1|sample)").And.Contain("9 value(s)"));
+        Assert.That(dropped.Effect, Does.Contain("no random term"));
+    }
+
     [Test]
     public void TheRowsPassTheWritersValidationAndOneFamilyCoversBothModels()
     {
