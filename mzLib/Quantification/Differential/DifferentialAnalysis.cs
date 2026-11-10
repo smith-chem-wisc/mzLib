@@ -155,6 +155,11 @@ public static class DifferentialConstants
     public const string Method = "moderated";
     /// <summary>The peptide-level mixed model.</summary>
     public const string MixedModel = "peptide_mixed_model";
+    /// <summary>
+    /// The peptide model fitted with fewer random terms than the protein's labels call for, because its values cannot
+    /// estimate them (ruling 16), moderated in its own family (ruling 17).
+    /// </summary>
+    public const string MixedModelReduced = "peptide_mixed_model_reduced";
     /// <summary>The moderated t-test, for one usable peptide.</summary>
     public const string ModeratedT = "moderated_t";
     /// <summary>The mixed model's df.</summary>
@@ -598,21 +603,41 @@ public static class DifferentialAnalysis
             int[] tested, string normalization)
         {
             var toFit = plans.Where(p => p.Design is not null && p.Contrasts.Any(c => c.Status is null)).ToList();
-            var mixed = toFit.Where(p => p.Values!.NuisanceLevels.Count > 1).GroupBy(p => p.Design!.CommonKey, StringComparer.Ordinal)
-                .OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
+            // Ruling 17: a protein whose values cannot estimate every random term its labels call for (ruling 16) is moderated
+            // in a family of its own; the model says which, before fitting, from the code Fit uses.
+            foreach (var p in toFit.Where(p => p.Values!.NuisanceLevels.Count > 1))
+            {
+                p.Problem = Problem(p);
+                var estimableStructure = NestedMixedModel.StructureOf(p.Problem, estimableRandomTermsOnly: true);
+                p.Reduced = estimableStructure is not null && estimableStructure != NestedMixedModel.StructureOf(p.Problem);
+            }
             var single = toFit.Where(p => p.Values!.NuisanceLevels.Count == 1).GroupBy(p => p.Design!.CommonKey, StringComparer.Ordinal)
                 .OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
             var estimable = contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable).Select(c => c.Contrast).ToList();
 
-            // Mixed model per kept-column group, one pooled moderation.
+            // Mixed model per family (ruling 17) and kept-column group, one pooled moderation per family.
+            foreach (bool reduced in new[] { false, true })
+                FitMixedFamily(design, toFit.Where(p => p.Values!.NuisanceLevels.Count > 1 && p.Reduced == reduced).ToList(),
+                    estimable, tested, reduced ? DifferentialConstants.MixedModelReduced : DifferentialConstants.MixedModel);
+
+            // One usable level: the moderated t-test, its own pooled prior.
+            FitSinglePeptideFamily(design, single, estimable);
+
+            foreach (var plan in plans) Rows(design, plan, normalization);
+        }
+
+        /// <summary>One family of peptide-model features: fits per kept-column group, then one pooled moderation and prior.</summary>
+        private void FitMixedFamily(AnalysisDesign design, List<FeaturePlan> family, List<Contrast> estimable, int[] tested, string model)
+        {
+            var groups = family.GroupBy(p => p.Design!.CommonKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
             var mixedParts = new List<MixedModelModerationPart>();
             var mixedMembers = new List<List<FeaturePlan>>();
-            foreach (var g in mixed)
+            foreach (var g in groups)
             {
                 var members = g.ToList();
                 var first = members[0].Design!;
                 var names = first.KeptCommon.Select(j => design.ColumnNames[j]).ToArray();
-                var problems = members.Select(p => Problem(p)).ToList();
+                var problems = members.Select(p => p.Problem!).ToList();
                 // Only the random terms each feature's data can estimate (ruling 16): lme4's checks, else the term is left out.
                 var fit = NestedMixedModel.Fit(problems, names, _maxThreads, _request.Settings.Robust, estimableRandomTermsOnly: true);
                 var weights = PartContrasts(first, estimable);
@@ -647,10 +672,13 @@ public static class DifferentialAnalysis
                 var moderated = NestedMixedModel.ModerateContrasts(mixedParts, _request.Settings.CiLevel);
                 for (int part = 0; part < moderated.Count; part++)
                     foreach (var p in mixedMembers[part]) p.Moderated = moderated[part];
-                Prior(design, moderated, DifferentialConstants.MixedModel, mixedParts.Sum(m => m.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                Prior(design, moderated, model, mixedParts.Sum(m => m.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
             }
+        }
 
-            // One usable level: the moderated t-test, its own pooled prior.
+        /// <summary>The one-usable-peptide family (ruling 6): the moderated t-test per kept-column group, its own prior.</summary>
+        private void FitSinglePeptideFamily(AnalysisDesign design, List<IGrouping<string, FeaturePlan>> single, List<Contrast> estimable)
+        {
             var linearParts = new List<LinearModelModerationPart>();
             var linearMembers = new List<List<FeaturePlan>>();
             var sampleIds = design.Samples.Select(s => s.SampleId).ToList();
@@ -687,8 +715,6 @@ public static class DifferentialAnalysis
                     foreach (var p in linearMembers[part]) p.Moderated = moderated[part];
                 Prior(design, moderated, DifferentialConstants.ModeratedT, linearParts.Sum(l => l.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
             }
-
-            foreach (var plan in plans) Rows(design, plan, normalization);
         }
 
         /// <summary>
@@ -790,9 +816,12 @@ public static class DifferentialAnalysis
                     Decide(DifferentialDecisionRules.NoPrior, design.Stratum, null, null, $"{fitted} feature(s) fitted ({model})",
                         "no variance prior: each keeps its own variance and df");
             }
-            bool mixedModel = model == DifferentialConstants.MixedModel;
+            bool mixedModel = model != DifferentialConstants.ModeratedT;
+            string formula = Formula(design, mixedModel);
+            if (model == DifferentialConstants.MixedModelReduced)
+                formula += ", with only the random terms each protein's values can estimate (down to none)";
             _models.Add(new DifferentialModelInfo(design.Stratum, _basis, DifferentialConstants.Method, model, DifferentialConstants.Grain,
-                Formula(design, mixedModel), true, mixedModel ? DifferentialConstants.DfSatterthwaite : DifferentialConstants.DfResidual,
+                formula, true, mixedModel ? DifferentialConstants.DfSatterthwaite : DifferentialConstants.DfResidual,
                 mixedModel && _request.Settings.Robust ? DifferentialConstants.RobustRule : null, prior));
         }
 
@@ -888,7 +917,8 @@ public static class DifferentialAnalysis
                     StatusDetail = fitted ? null : detail,
                     Method = DifferentialConstants.Method,
                     ModelUsed = values is null || values.NuisanceLevels.Count == 0 ? null
-                        : single ? DifferentialConstants.ModeratedT : DifferentialConstants.MixedModel,
+                        : single ? DifferentialConstants.ModeratedT
+                        : plan.Reduced ? DifferentialConstants.MixedModelReduced : DifferentialConstants.MixedModel,
                     Robust = values is null || values.NuisanceLevels.Count == 0 ? null : !single && _request.Settings.Robust,
                     RobustFellBack = fitted && !single && _request.Settings.Robust ? plan.MixedFit!.RobustFellBack[f] : null,
                     Normalization = normalization,
@@ -1002,6 +1032,10 @@ public static class DifferentialAnalysis
         public double[,]? CommonRows { get; set; }
         public NestedMixedModelFit? MixedFit { get; set; }
         public LinearModelFit? LinearFit { get; set; }
+        /// <summary>The peptide-model problem, built once before fitting.</summary>
+        public NestedMixedModelProblem? Problem { get; set; }
+        /// <summary>Fitted with fewer random terms than its labels call for: its own moderation family (ruling 17).</summary>
+        public bool Reduced { get; set; }
         public IReadOnlyList<ModeratedContrast>? Moderated { get; set; }
         public int Index { get; set; }
         public bool NoVarianceDf { get; set; }

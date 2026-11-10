@@ -20,7 +20,8 @@
 #     groups it has; the sample term only when lme4's checks allow it (2 <= levels < values), else lm (ruling 16);
 #   1 usable peptide: lm(y ~ group) on its per-sample values (ruling 6);
 #   a comparison is answered when both groups have at least 2 samples with a value (rulings 1, 2);
-#   moderation per family (peptide model; t-test), squeezeVar(legacy = TRUE); variance df = the joint Satterthwaite
+#   moderation per family (peptide model with its sample term; peptide model by lm, ruling 17; t-test), squeezeVar(legacy
+#     = TRUE); variance df = the joint Satterthwaite
 #     F df of the group terms (anova DenDF) or the residual df; contrast df = its own Satterthwaite (or residual) df + d0,
 #     capped at the sum of the family's variance df; fewer than 3 fitted in a family: no prior (ruling 5);
 #   means: emmeans, equal weight over peptides (ruling 3); Benjamini-Hochberg per (stratum, comparison) over both
@@ -125,10 +126,11 @@ for (tissue in c("brain", "liver")) {
       out[[cid]] <- data.frame(contrast = cid, est = est, se = se, cdf = df, mean_num = mean_of[[cc[1]]], mean_den = mean_of[[cc[2]]])
     }
     if (length(out) == 0) next
-    fits[[p]] <- list(family = if (single) "t" else "mixed", s2 = sigma(m)^2, vdf = vdf, rows = do.call(rbind, out),
+    fits[[p]] <- list(family = if (single) "t" else if (kind == "lm") "reduced" else "mixed", s2 = sigma(m)^2, vdf = vdf,
+                      rows = do.call(rbind, out),
                       kind = kind)
   }
-  for (family in c("mixed", "t")) {
+  for (family in c("mixed", "reduced", "t")) {
     members <- names(fits)[sapply(fits, function(f) f$family == family)]
     s2 <- sapply(fits[members], `[[`, "s2"); vdf <- sapply(fits[members], `[[`, "vdf")
     if (length(members) >= 3) {

@@ -207,8 +207,8 @@ public class DifferentialAnalysisTests
 
     /// <summary>
     /// Ruling 16: a protein with two peptides but one value per sample (X in s1, s2, s4, s7; Y in the rest) cannot have its
-    /// sample term estimated, so it is fitted with no random term (least squares, residual df) instead of being refused,
-    /// with the same prior as the other mixed-model rows, and the decisions record says so.
+    /// sample term estimated, so it is fitted with no random term (least squares, residual df) instead of being refused, and
+    /// the decisions record says so. It is moderated in a family of its own (ruling 17): alone there, it has no prior.
     /// </summary>
     [Test]
     public void AProteinWithOneValuePerSampleIsFittedWithoutItsSampleTerm()
@@ -231,7 +231,13 @@ public class DifferentialAnalysisTests
 
         var split = result.Rows.Where(r => r.FeatureId == "SPLIT").ToList();
         Assert.That(split.Select(r => r.Status), Is.All.EqualTo(DifferentialStatus.Fitted));
-        Assert.That(split.Select(r => r.ModelUsed), Is.All.EqualTo(DifferentialConstants.MixedModel));
+        Assert.That(split.Select(r => r.ModelUsed), Is.All.EqualTo(DifferentialConstants.MixedModelReduced));
+        Assert.That(Row(result, "P1", "c1").ModelUsed, Is.EqualTo(DifferentialConstants.MixedModel));
+        var reducedModel = result.Metadata.Models.Single(m => m.ModelUsed == DifferentialConstants.MixedModelReduced);
+        Assert.That(reducedModel.Prior!.Df, Is.EqualTo(0), "one protein in the family: no prior (ruling 5)");
+        Assert.That(reducedModel.Formula, Does.Contain("only the random terms each protein's values can estimate"));
+        Assert.That(result.Metadata.Models.Single(m => m.ModelUsed == DifferentialConstants.MixedModel).Prior!.Features, Is.EqualTo(3),
+            "P1, P2 and P3, not SPLIT");
         Assert.That(split.Select(r => r.DfMethod), Is.All.EqualTo(DifferentialConstants.DfResidual));
         Assert.That(Row(result, "SPLIT", "c2").Log2Effect, Is.EqualTo(2).Within(0.2));
         Assert.That(Row(result, "P1", "c1").DfMethod, Is.EqualTo(DifferentialConstants.DfSatterthwaite));
