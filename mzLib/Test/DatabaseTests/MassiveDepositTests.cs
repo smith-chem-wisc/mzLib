@@ -250,6 +250,58 @@ public class MassiveDepositTests
         Assert.That(file.IsDesignTableCandidate(), Is.EqualTo(candidate));
     }
 
+    [TestCase("MSV000090777", 27, 1)]
+    [TestCase("MSV000092529", 1, 0)]
+    [TestCase("MSV000096226", 2, 0)]
+    [TestCase("MSV000093798", 0, 0)]
+    [TestCase("MSV000098930", 0, 0)]
+    [TestCase("MSV000080763", 0, 0)]
+    [TestCase("MSV000103504", 0, 0)]
+    public void SpectronautOutput_InRealListings(string msv, int analyses, int libraries)
+    {
+        List<MassiveFile> listing = Listing(msv);
+        List<MassiveFile> output = listing.WhereSpectronautOutput().ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.Count(f => f.FileName.EndsWith(".sne")), Is.EqualTo(analyses));
+            Assert.That(output.Count(f => f.FileName.EndsWith(".kit")), Is.EqualTo(libraries));
+            Assert.That(output, Has.Count.EqualTo(analyses + libraries));
+            Assert.That(listing.HasSpectronautOutput(), Is.EqualTo(analyses + libraries > 0));
+        });
+    }
+
+    [Test]
+    public void SpectronautOutput_InAnyCollection_AsAging037Found()
+    {
+        // MSV000090777's library sits under library/, as aging's four datasets keep theirs; one of MSV000096226's
+        // analyses sits under raw/, so the rule does not look at the collection.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Listing("MSV000090777").WhereSpectronautOutput().Single(f => f.FileName.EndsWith(".kit")).Path,
+                Is.EqualTo("library/Spectral_Library/2022_0513_SSL2_DDA_Zeno_120min_spectral_library.kit"));
+            Assert.That(Listing("MSV000096226").WhereSpectronautOutput().Select(f => f.Collection), Is.EquivalentTo(new[] { "raw", "search" }));
+        });
+    }
+
+    [TestCase("search/x.sne", true)]
+    [TestCase("library/X.KIT", true)]
+    [TestCase("search/x.sne.zip", false)]
+    [TestCase("search/x_Report.tsv", false)]
+    [TestCase("raw/x.raw", false)]
+    public void SpectronautOutput_ByName(string path, bool expected)
+    {
+        Assert.That(File_(path).IsSpectronautOutput(), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void SpectronautOutput_ALinkIsNot_AndNullsAreRefused()
+    {
+        Assert.That(new MassiveFile("MSV000000001", "/v01/MSV000000001", "x.sne", null, isLink: true).IsSpectronautOutput(), Is.False);
+        Assert.Throws<ArgumentNullException>(() => ((MassiveFile)null!).IsSpectronautOutput());
+        Assert.Throws<ArgumentNullException>(() => ((IEnumerable<MassiveFile>)null!).HasSpectronautOutput());
+    }
+
     [Test]
     public void NameRules_ALinkIsNeither()
     {
