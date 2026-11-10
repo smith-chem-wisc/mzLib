@@ -250,6 +250,27 @@ namespace Test.FileReadingTests
             Assert.That(skipped.Rows().Select(r => r.GoId), Is.EqualTo(new[] { Nucleus }));
         }
 
+        [Test]
+        public void Accession_EntrapmentOtherThanForeign_IsATermlessRow_ForeignKeepsItsOwn()
+        {
+            // go D39: a shuffled partner's references were copied from its target, so they are ignored -- an id the
+            // release lacks included, which therefore neither refuses the database nor counts as unresolved.
+            var annotation = new GoAccessionAnnotation(_go, new[]
+            {
+                P("P04406", Go(Nucleus)),
+                P("Random_P04406_f0", Go(Nucleus), Go("GO:9999999")),
+                new Protein("PEPTIDEK", "X1", isEntrapment: true, databaseReferences: new List<DatabaseReference> { Go(Nucleus) }),
+                P("Random_foreign_Q99999", Go(Gapdh)),
+            }, DbSha);
+
+            var rows = annotation.Rows();
+            Assert.That(rows.Where(r => r.Accession == "Random_P04406_f0").Select(r => r.GoId), Is.EqualTo(new string[] { null }));
+            Assert.That(rows.Where(r => r.Accession == "X1").Select(r => r.GoId), Is.EqualTo(new string[] { null }));
+            Assert.That(rows.Where(r => r.Accession == "Random_foreign_Q99999").Select(r => r.GoId), Is.EqualTo(new[] { Gapdh }));
+            Assert.That(rows.Where(r => r.Accession == "P04406").Select(r => r.GoId), Is.EqualTo(new[] { Nucleus }));
+            Assert.That(annotation.UnresolvedGoIds, Is.Empty);
+        }
+
         // ---- round trips ----
 
         private string WriteFile(string name, Action<TextWriter> write)

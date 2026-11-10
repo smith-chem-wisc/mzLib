@@ -156,6 +156,16 @@ namespace StatisticalModels
     /// </remarks>
     public static class MixedModel
     {
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+            FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups, FeatureFitStatus.VarianceRatioAtLimit,
+        });
+
         /// <summary>Fits one design and one grouping against every feature (row) of <paramref name="responses"/>.</summary>
         /// <param name="responses">[feature, sample]. Any non-finite value is missing and omitted.</param>
         /// <param name="design">[sample, coefficient]. Must be finite and of full column rank.</param>
