@@ -605,7 +605,7 @@ namespace Readers
                 mzAnalyzer: GetMassAnalyzerType(filter.MassAnalyzer),
                 totalIonCurrent: spectrum.SumOfAllY,
                 injectionTime: ionInjectionTime,
-                noiseData: null, //TODO: implement reading noise data. it's unused right now, so it's just left as null
+                noiseData: GetNoiseData(rawFile, scanNumber),
                 nativeId: nativeId,
                 selectedIonMz: isolationMz,
                 selectedIonChargeStateGuess: selectedIonChargeState,
@@ -618,6 +618,33 @@ namespace Readers
                 hcdEnergy: HcdEnergy,
                 scanDescription: scanDescript, 
                 compensationVoltage: compensationVoltage);
+        }
+
+        /// <summary>
+        /// The scan's sampled noise table (<see cref="MsDataScan.NoiseData"/>): the noise and baseline Thermo records
+        /// at a few dozen m/z across an Orbitrap scan (40 per scan in the files measured), from which it interpolates
+        /// each centroid's noise. Read whole, so the peak filtering in <see cref="GetSpectrum"/> cannot misalign it.
+        /// Null for a scan with no table (ion-trap scans have none) or when the file cannot give one, as for the
+        /// other optional values this reader reads.
+        /// </summary>
+        private static double[,] GetNoiseData(IRawDataPlus rawFile, int scanNumber)
+        {
+            try
+            {
+                var points = rawFile.GetAdvancedPacketData(scanNumber)?.NoiseData;
+                if (points == null || points.Length == 0)
+                {
+                    return null;
+                }
+                return MsDataScan.CreateNoiseData(
+                    points.Select(p => (double)p.Mass).ToArray(),
+                    points.Select(p => (double)p.Noise).ToArray(),
+                    points.Select(p => (double)p.Baseline).ToArray());
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams,

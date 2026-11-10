@@ -270,6 +270,10 @@ public static class SiteOccupancyCalculator
     /// Quantified when any run is; otherwise Floor when the modified form was identified in some run and the site
     /// was covered in some run; otherwise CountOnly when identified; otherwise NotDetected.
     /// <see cref="SiteRunOccupancy.UnmodifiedQuantified"/> is true when it is true in any run.
+    /// <see cref="SiteRunOccupancy.CoveringPeptidoforms"/> and <see cref="SiteRunOccupancy.ModifiedPeptidoforms"/> are
+    /// summed over the runs when every run has them (else null): a peptidoform seen in two fractions counts twice, so
+    /// they are an upper bound; the per-sample <see cref="Calculate(IEnumerable{PeptidoformObservation}, IReadOnlyDictionary{string, string}, Func{string, bool}?)"/>
+    /// counts distinct peptidoforms. A cell of a state this method does not know is refused, never combined as a bound.
     /// </para>
     /// <para>
     /// As with the observations, map only fractions together, never technical replicates.
@@ -293,6 +297,8 @@ public static class SiteOccupancyCalculator
             if (c is null) throw new ArgumentException("An occupancy cell is null.", nameof(occupancy));
             if (!seen.Add((c.Site, c.Run)))
                 throw new ArgumentException($"{c.Site.Key} appears twice in {c.Run}; supply one cell per (site, run).", nameof(occupancy));
+            if (!Enum.IsDefined(c.State))
+                throw new ArgumentException($"{c.Site.Key} in {c.Run} has an unknown state {c.State}; it would be combined as a bound.", nameof(occupancy));
             if (c.State == OccupancyState.Quantified && !(double.IsFinite(c.CoveringIntensity) && c.CoveringIntensity > 0))
                 throw new ArgumentException(
                     $"{c.Site.Key} in {c.Run} is Quantified but its covering intensity is {c.CoveringIntensity}; its fraction cannot be weighted.",
@@ -313,7 +319,12 @@ public static class SiteOccupancyCalculator
                 : identified && covering > 0 ? OccupancyState.Floor
                 : identified ? OccupancyState.CountOnly
                 : OccupancyState.NotDetected;
-            result.Add(new SiteRunOccupancy(g.Key.Site, g.Key.sample, state, modified, covering, g.Any(c => c.UnmodifiedQuantified)));
+            bool counted = g.All(c => c.CoveringPeptidoforms.HasValue && c.ModifiedPeptidoforms.HasValue);
+            result.Add(new SiteRunOccupancy(g.Key.Site, g.Key.sample, state, modified, covering, g.Any(c => c.UnmodifiedQuantified))
+            {
+                CoveringPeptidoforms = counted ? g.Sum(c => c.CoveringPeptidoforms!.Value) : null,
+                ModifiedPeptidoforms = counted ? g.Sum(c => c.ModifiedPeptidoforms!.Value) : null,
+            });
         }
         return result;
     }
