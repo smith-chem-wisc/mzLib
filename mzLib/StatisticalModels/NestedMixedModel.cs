@@ -459,6 +459,28 @@ namespace StatisticalModels
             int maxThreads = -1, bool robust = false, bool estimableRandomTermsOnly = false) =>
             Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations, estimableRandomTermsOnly);
 
+        /// <summary>
+        /// The random structure <see cref="Fit"/> gives <paramref name="problem"/>'s observations with a finite response,
+        /// with or without <paramref name="estimableRandomTermsOnly"/>, before anything is fitted; null when it has no
+        /// observation, or when a term it needs cannot be estimated (fewer than 2 levels or as many levels as observations),
+        /// so that <see cref="Fit"/> reports <see cref="FeatureFitStatus.TooFewGroups"/>. A caller compares the two to tell
+        /// a feature fitted with fewer random terms than its labels call for (QuantProject STAT1 ruling 17 moderates
+        /// such features in a family of their own).
+        /// </summary>
+        public static RandomStructure? StructureOf(NestedMixedModelProblem problem, bool estimableRandomTermsOnly = false)
+        {
+            ArgumentNullException.ThrowIfNull(problem);
+            var rows = Enumerable.Range(0, problem.Response.Count).Where(i => double.IsFinite(problem.Response[i])).ToArray();
+            if (rows.Length == 0) return null;
+            var (structure, terms) = FeatureModel.ChooseStructure(problem, rows, estimableRandomTermsOnly);
+            foreach (var t in terms)
+            {
+                int levels = t.Distinct(StringComparer.Ordinal).Count();
+                if (levels < 2 || levels >= rows.Length) return null;
+            }
+            return structure;
+        }
+
         /// <summary>As the public overload, with the reweighting round limit set (tests reach the limit with it).</summary>
         internal static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
             int maxThreads, bool robust, int maxRobustIterations, bool estimableRandomTermsOnly = false)
@@ -699,53 +721,7 @@ namespace StatisticalModels
                 if (!LinearModel.IsFullRank(x)) { fit.StatusValues[f] = FeatureFitStatus.RankDeficient; return; }
                 var y = Vector<double>.Build.Dense(_m, i => _problem.Response[rows[i]]);
 
-                // Random terms: individual and/or sample (within individual), levels in ordinal order.
-                var sample = rows.Select(i => _problem.Sample[i]).ToArray();
-                var terms = new List<string[]>();
-                RandomStructure structure;
-                if (_problem.Individual is null)
-                {
-                    terms.Add(sample);
-                    structure = RandomStructure.Sample;
-                }
-                else
-                {
-                    var individual = rows.Select(i => _problem.Individual[i]!).ToArray();
-                    bool oneSampleEach = individual.Zip(sample).GroupBy(t => t.First, StringComparer.Ordinal)
-                        .All(g => g.Select(t => t.Second).Distinct(StringComparer.Ordinal).Count() == 1);
-                    terms.Add(individual);
-                    structure = RandomStructure.Individual;
-                    if (!oneSampleEach)
-                    {
-                        terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
-                        structure = RandomStructure.IndividualAndSample;
-                    }
-                }
-                if (_estimableOnly)
-                {
-                    // lme4's two checks (at least 2 levels, fewer levels than observations), applied per term: the inner term
-                    // goes first, then the individual; with none left the fixed part is fitted alone (STAT1 ruling 16).
-                    bool Estimable(string[] labels)
-                    {
-                        int levels = labels.Distinct(StringComparer.Ordinal).Count();
-                        return levels >= 2 && levels < _m;
-                    }
-                    if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[1]))
-                    {
-                        terms.RemoveAt(1);
-                        structure = RandomStructure.Individual;
-                    }
-                    else if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[0]))
-                    {
-                        terms.RemoveAt(0);
-                        structure = RandomStructure.Sample;
-                    }
-                    if (structure != RandomStructure.IndividualAndSample && !Estimable(terms[0]))
-                    {
-                        terms.Clear();
-                        structure = RandomStructure.None;
-                    }
-                }
+                var (structure, terms) = ChooseStructure(_problem, rows, _estimableOnly);
                 var columns = new List<int[]>(); // per term: column index (within Z) of each observation
                 var termOfColumn = new List<int>();
                 int q = 0;
@@ -880,6 +856,61 @@ namespace StatisticalModels
                 for (int i = 0; i < nuisanceCoefficients.Length; i++) nuisanceCoefficients[i] = best.Beta![_common + i];
                 fit.NuisanceValues[f] = nuisanceCoefficients;
                 fit.StatusValues[f] = FeatureFitStatus.Fitted;
+            }
+
+            /// <summary>
+            /// The random terms of a problem's observations <paramref name="rows"/>, as labels per observation, and their
+            /// structure: individual and/or sample (within individual). With <paramref name="estimableOnly"/>, a term that
+            /// fails lme4's two checks (at least 2 levels, fewer levels than observations) is left out, the inner term
+            /// first, then the individual; with none left, <see cref="RandomStructure.None"/> (STAT1 ruling 16).
+            /// </summary>
+            internal static (RandomStructure Structure, List<string[]> Terms) ChooseStructure(NestedMixedModelProblem problem,
+                int[] rows, bool estimableOnly)
+            {
+                var sample = rows.Select(i => problem.Sample[i]).ToArray();
+                var terms = new List<string[]>();
+                RandomStructure structure;
+                if (problem.Individual is null)
+                {
+                    terms.Add(sample);
+                    structure = RandomStructure.Sample;
+                }
+                else
+                {
+                    var individual = rows.Select(i => problem.Individual[i]!).ToArray();
+                    bool oneSampleEach = individual.Zip(sample).GroupBy(t => t.First, StringComparer.Ordinal)
+                        .All(g => g.Select(t => t.Second).Distinct(StringComparer.Ordinal).Count() == 1);
+                    terms.Add(individual);
+                    structure = RandomStructure.Individual;
+                    if (!oneSampleEach)
+                    {
+                        terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
+                        structure = RandomStructure.IndividualAndSample;
+                    }
+                }
+                if (!estimableOnly) return (structure, terms);
+                int m = rows.Length;
+                bool Estimable(string[] labels)
+                {
+                    int levels = labels.Distinct(StringComparer.Ordinal).Count();
+                    return levels >= 2 && levels < m;
+                }
+                if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[1]))
+                {
+                    terms.RemoveAt(1);
+                    structure = RandomStructure.Individual;
+                }
+                else if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                {
+                    terms.RemoveAt(0);
+                    structure = RandomStructure.Sample;
+                }
+                if (structure != RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                {
+                    terms.Clear();
+                    structure = RandomStructure.None;
+                }
+                return (structure, terms);
             }
 
             private readonly record struct Result(bool Ok, double Criterion, double LogDetL, double LogDetRx, double R2,

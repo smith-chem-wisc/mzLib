@@ -140,6 +140,31 @@ public class NestedMixedModelTests
         Assert.That(estimable.Coefficient(0, 1), Is.EqualTo(plain.Coefficient(0, 1)));
     }
 
+    /// <summary>
+    /// StructureOf (STAT1 ruling 17) says, before fitting and from the same code, what Fit will fit: the structure, or null
+    /// where Fit reports TooFewGroups; with and without the estimable-terms option.
+    /// </summary>
+    [Test]
+    public void StructureOfSaysWhatFitWillFit()
+    {
+        var problems = new[]
+        {
+            Problem(), Problem(new string?[] { "a", "a", "b", "b", "c", "c", "d", "d" }),
+            Problem(new string?[] { "a", "b", "c", "d", "e", "f", "g", "h" }), Problem(peptides: 1),
+            Problem(new string?[] { "a", "a", "b", "b", "c", "c", "d", "d" }, peptides: 1),
+            Problem(new string?[] { "a", "a", "a", "a", "a", "a", "a", "a" }),
+        };
+        foreach (bool estimable in new[] { false, true })
+        {
+            var fit = NestedMixedModel.Fit(problems, Names, estimableRandomTermsOnly: estimable);
+            for (int f = 0; f < problems.Length; f++)
+                Assert.That(NestedMixedModel.StructureOf(problems[f], estimable),
+                    Is.EqualTo(fit.Status[f] == FeatureFitStatus.TooFewGroups ? null : fit.Structure[f]), $"problem {f}, estimable {estimable}");
+        }
+        Assert.That(NestedMixedModel.StructureOf(Problem(peptides: 1)), Is.Null);
+        Assert.That(NestedMixedModel.StructureOf(Problem(peptides: 1), estimableRandomTermsOnly: true), Is.EqualTo(RandomStructure.None));
+    }
+
     [Test]
     public void ResultsDoNotDependOnThreadCount()
     {
