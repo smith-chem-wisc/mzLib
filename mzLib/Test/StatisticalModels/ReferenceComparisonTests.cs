@@ -68,10 +68,13 @@ public class ReferenceComparisonTests
     }
 
     /// <param name="firstFeatures">Fit only the first this many features (all when null).</param>
-    private static LinearModelFit FitReferenceData(int? firstFeatures = null)
+    /// <param name="responsesFile">The responses fixture, one row per feature.</param>
+    /// <param name="designFile">The design fixture, one row per sample.</param>
+    private static LinearModelFit FitReferenceData(int? firstFeatures = null, string responsesFile = "limma_responses.tsv",
+        string designFile = "limma_design.tsv")
     {
-        var (_, responseRows) = ReadTsv("limma_responses.tsv");
-        var (designHeader, designRows) = ReadTsv("limma_design.tsv");
+        var (_, responseRows) = ReadTsv(responsesFile);
+        var (designHeader, designRows) = ReadTsv(designFile);
         int features = firstFeatures ?? responseRows.Count, samples = designRows.Count, p = designHeader.Length;
         var responses = new double[features, samples];
         for (int f = 0; f < features; f++)
@@ -148,6 +151,41 @@ public class ReferenceComparisonTests
         AssertClose(test.DfTotal, Expected("df_total"), "df.total");
         AssertClose(test.T, Expected("t_age"), "t");
         AssertClose(test.PValue, Expected("p_age"), "p.value");
+    }
+
+    /// <summary>
+    /// When the feature variances spread no more than sampling explains, the prior's degrees of freedom are infinite
+    /// and every feature takes the prior variance. Without a trend, limma (since January 2017) sets that variance to
+    /// the mean of the features' variances; its earlier versions returned exp(mean(e)), the limit of the finite-df
+    /// formula, which is larger (here 0.0419 against 0.0392). make_infinite_prior_fixtures.R; R is not run here.
+    /// </summary>
+    [Test]
+    public void AnInfinitePriorDfTakesTheMeanVarianceAsLimmaDoes()
+    {
+        var fit = FitReferenceData(null, "limma_infinite_prior_responses.tsv", "limma_infinite_prior_design.tsv");
+        var test = EmpiricalBayes.Moderate(fit, "group", trend: false);
+        const string file = "limma_infinite_prior_ebayes.tsv";
+
+        Assert.That(test.Prior.Df, Is.EqualTo(double.PositiveInfinity));
+        AssertClose(test.Prior.Scale, Column(file, "s2_prior"), "s2.prior");
+        AssertClose(test.PosteriorVariance, Column(file, "s2_post"), "s2.post");
+        AssertClose(test.DfTotal, Column(file, "df_total"), "df.total");
+        AssertClose(test.T, Column(file, "t_group"), "t");
+        AssertClose(test.PValue, Column(file, "p_group"), "p.value");
+    }
+
+    /// <summary>
+    /// The same rule on the prior alone: three variances 0.10, 0.11 and 0.105 on 4 df spread less than sampling
+    /// explains, so limma 3.68.5's squeezeVar(legacy = TRUE) gives df.prior = Inf and var.prior = 0.105, their mean;
+    /// the pre-2017 limit exp(mean(e)) is 0.1375, 31% higher. With a trend the limit stays exp(fitted), as limma's.
+    /// </summary>
+    [Test]
+    public void AnInfinitePriorDfWithoutATrendIsTheMeanOfTheVariances()
+    {
+        var prior = EmpiricalBayes.FitPrior(new[] { 0.10, 0.11, 0.105 }, new[] { 4.0, 4.0, 4.0 });
+
+        Assert.That(prior.Df, Is.EqualTo(double.PositiveInfinity));
+        AssertClose(prior.Scale, new[] { 0.105, 0.105, 0.105 }, "s2.prior");
     }
 
     [Test]

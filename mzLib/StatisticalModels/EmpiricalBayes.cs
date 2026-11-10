@@ -53,7 +53,8 @@ namespace StatisticalModels
         public VariancePriorEstimator Estimator { get; }
 
         /// <summary>Prior degrees of freedom d0. Positive infinity when the observed variances are no more
-        /// dispersed than sampling alone explains, in which case every feature takes the prior variance. Zero with fewer
+        /// dispersed than sampling alone explains, in which case every feature takes the prior variance: without a
+        /// trend, the mean of the features' variances, as limma's (since 2017). Zero with fewer
         /// than 3 features, as in limma: no prior is fitted and each feature keeps its own variance.</summary>
         public double Df { get; }
 
@@ -336,9 +337,16 @@ namespace StatisticalModels
 
             double excess = residualVariance - use.Average(i => Polygamma.Trigamma(df[i] / 2));
             double d0 = excess > 0 ? 2 * Polygamma.TrigammaInverse(excess) : double.PositiveInfinity;
+            // An infinite d0 without a trend takes the plain mean of the (floored) variances, the maximum-likelihood
+            // scale in that case, as limma's fitFDist has since January 2017 (s20 <- mean(x)); limma before that
+            // returned exp(mean), the limit of the finite-d0 formula, which is larger. With a trend limma keeps the
+            // fitted trend, exp(mean), and so does this.
+            double pooled = double.IsPositiveInfinity(d0) && covariate == null
+                ? use.Average(i => Math.Max(variances[i], floor))
+                : double.NaN;
             for (int k = 0; k < use.Length; k++)
                 scale[use[k]] = double.IsPositiveInfinity(d0)
-                    ? Math.Exp(mean[k])
+                    ? covariate == null ? pooled : Math.Exp(mean[k])
                     : Math.Exp(mean[k] + SpecialFunctions.DiGamma(d0 / 2) - Math.Log(d0 / 2));
 
             return new VariancePrior(d0, scale, covariate != null, basis);
