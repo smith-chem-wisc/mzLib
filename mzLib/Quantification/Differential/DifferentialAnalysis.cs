@@ -245,7 +245,10 @@ public static class DifferentialAnalysis
             }
             else _designWarnings.AddRange(_request.Table!.Warnings);
 
-            foreach (var design in AnalysisDesign.ByStratum(_request.Samples, _request.Spec))
+            // Model A's ion-in-run terms absorb every plex run's level, so plex is never also a batch column for an isobaric
+            // table (ruling 14, as corrected 2026-11-10); a label-free design keeps DesignSpec's FitBatch.
+            var spec = _isobaric ? _request.Spec with { FitBatch = false } : _request.Spec;
+            foreach (var design in AnalysisDesign.ByStratum(_request.Samples, spec))
                 Stratum(design);
 
             var rows = Adjust(_rows);
