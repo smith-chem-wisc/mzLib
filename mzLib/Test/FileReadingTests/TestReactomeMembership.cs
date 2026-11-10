@@ -369,6 +369,26 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void DuplicateAccession_FirstTaxonAndFirstDisplayedIsoformWin()
+        {
+            // D21 (4): of an accession's copies, the first NCBI taxon and the first displayed isoform win. The second
+            // copy's taxon would make the rows mouse, and its displayed isoform would make P88888-2 an other isoform.
+            var proteins = new[]
+            {
+                Displaying("P88888", "P88888-2", Human, Reactome("R-HSA-8001", "P88888-2")),
+                Displaying("P88888", "P88888-3", Mouse, Reactome("R-HSA-8002")),
+            };
+
+            var rows = new ReactomeAccessionAnnotation(proteins, DbSha).Rows();
+
+            Assert.That(rows, Is.EqualTo(new[]
+            {
+                new ReactomeMembershipRow("P88888", "NCBITaxon:9606", "R-HSA-8001", "P88888-2", "P88888", false, ReactomeMembershipStatus.Annotated),
+                new ReactomeMembershipRow("P88888", "NCBITaxon:9606", "R-HSA-8002", null, null, false, ReactomeMembershipStatus.Annotated),
+            }));
+        }
+
+        [Test]
         public void Decoys_AreSkipped()
         {
             var annotation = Build();
@@ -387,6 +407,18 @@ namespace Test.FileReadingTests
                 .ThenBy(r => r.Molecule ?? "", StringComparer.Ordinal);
 
             Assert.That(rows, Is.EqualTo(ordered));
+        }
+
+        [Test]
+        public void Rows_IsoformRowsOfOnePathway_AreInMoleculeOrder()
+        {
+            // UniProt may list one pathway's molecules in any order; the rows follow the documented order, so a written
+            // table is the same bytes whatever the XML's order.
+            var proteins = new[] { P("P99999", Human, Reactome("R-HSA-9001", "P99999-3"), Reactome("R-HSA-9001", "P99999-2")) };
+
+            var rows = new ReactomeAccessionAnnotation(proteins, DbSha).Rows();
+
+            Assert.That(rows.Select(r => r.Molecule), Is.EqualTo(new[] { "P99999-2", "P99999-3" }));
         }
 
         [TestCase(null)]

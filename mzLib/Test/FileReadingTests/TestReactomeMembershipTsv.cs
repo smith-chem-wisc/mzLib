@@ -133,6 +133,27 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Writer_RefusesASeparatorInAPathwayId()
+        {
+            var annotation = new ReactomeAccessionAnnotation(new[] { P("P1", Human, Reactome("R-HSA-1\t2")) }, DbSha);
+
+            var exception = Assert.Throws<ArgumentException>(() => ReactomeMembershipTsv.Write(new StringWriter(), annotation));
+            Assert.That(exception.Message, Does.Contain("'pathway_id'"));
+        }
+
+        [Test]
+        public void Writer_RefusesASeparatorInADisplayedIsoformMolecule()
+        {
+            // The molecule is the displayed isoform, so sequence_accession is the entry's own: only the molecule check
+            // can catch the tab.
+            var annotation = new ReactomeAccessionAnnotation(
+                new[] { Displaying("P1", "P1-2\tx", Human, Reactome("R-HSA-1", "P1-2\tx")) }, DbSha);
+
+            var exception = Assert.Throws<ArgumentException>(() => ReactomeMembershipTsv.Write(new StringWriter(), annotation));
+            Assert.That(exception.Message, Does.Contain("'molecule'"));
+        }
+
+        [Test]
         public void Writer_RefusesAnOrganismItsReaderWouldRefuse_BeforeWritingAnything()
         {
             // A taxon id that is not all digits becomes NCBITaxon:9606a, which Read refuses. P1 is valid and sorts
