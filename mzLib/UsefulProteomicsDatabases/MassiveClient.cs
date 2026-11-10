@@ -51,9 +51,10 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// The base address of ProteomeCentral's PROXI service, asked only to name the repository that hosts a
-        /// ProteomeXchange accession MassIVE does not know.
+        /// ProteomeXchange accession MassIVE does not know. Internal: ProteomeCentral is a service of its own, and its
+        /// address is not this client's to publish.
         /// </summary>
-        public const string ProteomeCentralProxiBaseAddress = "https://proteomecentral.proteomexchange.org/api/proxi/v0.1/";
+        internal const string ProteomeCentralProxiBaseAddress = "https://proteomecentral.proteomexchange.org/api/proxi/v0.1/";
 
         /// <summary>
         /// MassIVE's FTP server. Every record names <c>ftp://massive.ucsd.edu/...</c> as its FTP location, but that host
