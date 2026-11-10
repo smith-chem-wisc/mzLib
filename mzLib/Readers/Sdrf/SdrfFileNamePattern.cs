@@ -540,10 +540,34 @@ namespace Readers
                 names.Select(n => new SdrfFileNameReading(n, n, Array.Empty<string>(), null, null, null, null, null, false)).ToList(),
                 reason);
 
+        /// <summary>
+        /// The file name of a path written with either separator, on any platform: the text after the last <c>/</c>
+        /// or <c>\</c>, trimmed. An SDRF, and a search's record of what it read, carry paths written on other
+        /// machines: a MetaMorpheus search on Windows records <c>D:\search\X-calib.mzML</c>, and that output is read
+        /// on Linux. <see cref="Path.GetFileName(string)"/> splits only the running platform's separator, so on
+        /// Linux it returned that whole string as the name (bridge SDRF-B5). The one rule for every SDRF reader.
+        /// </summary>
+        internal static string FileName(string path)
+        {
+            string p = path.Trim().TrimEnd('/', '\\');
+            int cut = Math.Max(p.LastIndexOf('/'), p.LastIndexOf('\\'));
+            return cut >= 0 ? p[(cut + 1)..] : p;
+        }
+
+        /// <summary>
+        /// The stem of the file a derivative was made from: <see cref="Stem"/> with the suffixes MetaMorpheus adds
+        /// (<c>-calib</c>, <c>-averaged</c>, in any order and number) removed, ignoring case. <c>X-calib-averaged.mzML</c>
+        /// and <c>X.raw</c> are both <c>X</c>. The suffix rule of <see cref="SdrfSearchScope"/>'s join (MAP-12).
+        /// </summary>
+        internal static string AcquiredStem(string path) => DerivativeSuffix.Replace(Stem(path), "");
+
+        private static readonly Regex DerivativeSuffix =
+            new(@"(?:-calib|-averaged)+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         /// <summary>The file name without its folder or its data-file extensions.</summary>
         internal static string Stem(string fileName)
         {
-            string stem = Path.GetFileName(fileName.Trim().TrimEnd('/', '\\'));
+            string stem = FileName(fileName);
             foreach (string ext in DataExtensions)
                 if (stem.Length > ext.Length && stem.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
                 {
