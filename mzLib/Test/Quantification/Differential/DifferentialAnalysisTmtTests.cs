@@ -91,6 +91,7 @@ public class DifferentialAnalysisTmtTests
         var model = result.Metadata.Models.Single();
         Assert.That(model.Formula, Does.Contain("ion_in_run").And.Contain("(1|sample/run)"));
         Assert.That(model.Formula, Does.Not.Contain("batch"), "plex is never a batch column for model A");
+        Assert.That(model.Prior!.Variance, Is.Not.Null.And.GreaterThan(0), "the prior variance, from whichever part has a fit");
         Assert.That(result.Metadata.Normalization.Single().Setting, Is.EqualTo(IsobaricNormalization.GlobalChannelMedian));
     }
 

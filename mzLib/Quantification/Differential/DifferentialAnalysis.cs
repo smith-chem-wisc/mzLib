@@ -624,7 +624,8 @@ public static class DifferentialAnalysis
             DifferentialPriorInfo? prior = null;
             if (any is not null)
             {
-                var finite = any.Prior.Scale.Where(double.IsFinite).ToList();
+                // From any part: the first part's first contrast can hold no fitted feature, and every part shares one prior.
+                var finite = moderated.SelectMany(m => m).SelectMany(c => c.Prior.Scale).Where(double.IsFinite).ToList();
                 double? variance = finite.Count > 0 ? finite[0] : null;
                 prior = new DifferentialPriorInfo(DifferentialPriorInfo.MomentsLegacy, any.Prior.Df, false,
                     any.Prior.Df == 0 ? null : variance, fitted);
