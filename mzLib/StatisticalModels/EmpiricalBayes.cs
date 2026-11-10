@@ -338,9 +338,9 @@ namespace StatisticalModels
             double excess = residualVariance - use.Average(i => Polygamma.Trigamma(df[i] / 2));
             double d0 = excess > 0 ? 2 * Polygamma.TrigammaInverse(excess) : double.PositiveInfinity;
             // An infinite d0 without a trend takes the plain mean of the (floored) variances, the maximum-likelihood
-            // scale in that case, as limma's fitFDist has since January 2017 (s20 <- mean(x)); limma before that
-            // returned exp(mean), the limit of the finite-d0 formula, which is larger. With a trend limma keeps the
-            // fitted trend, exp(mean), and so does this.
+            // scale in that case, as limma's fitFDist has since limma 3.32.0 (2017; s20 <- mean(x)); limma before
+            // that returned exp(mean), the limit of the finite-d0 formula, usually a little larger. With a trend limma
+            // keeps the fitted trend, exp(mean), and so does this.
             double pooled = double.IsPositiveInfinity(d0) && covariate == null
                 ? use.Average(i => Math.Max(variances[i], floor))
                 : double.NaN;

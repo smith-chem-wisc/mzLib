@@ -155,7 +155,7 @@ public class ReferenceComparisonTests
 
     /// <summary>
     /// When the feature variances spread no more than sampling explains, the prior's degrees of freedom are infinite
-    /// and every feature takes the prior variance. Without a trend, limma (since January 2017) sets that variance to
+    /// and every feature takes the prior variance. Without a trend, limma (since 3.32.0, 2017) sets that variance to
     /// the mean of the features' variances; its earlier versions returned exp(mean(e)), the limit of the finite-df
     /// formula, which is larger (here 0.0419 against 0.0392). make_infinite_prior_fixtures.R; R is not run here.
     /// </summary>

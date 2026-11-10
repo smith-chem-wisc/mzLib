@@ -1,7 +1,7 @@
 # Reference outputs for the variance prior when its degrees of freedom are infinite and there is no trend: the
 # feature variances spread no more than sampling explains, so every feature takes the prior variance. limma's
 # fitFDist then sets the prior variance to the mean of the (zero-floored) variances, s20 <- mean(x); limma before
-# January 2017 returned the limiting value of the finite-df formula, exp(mean(e)), which is larger.
+# 3.32.0 (2017) returned the limiting value of the finite-df formula, exp(mean(e)), usually a little larger.
 #
 #   Rscript make_infinite_prior_fixtures.R <out_dir>
 #
