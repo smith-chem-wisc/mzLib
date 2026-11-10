@@ -280,6 +280,12 @@ namespace UsefulProteomicsDatabases
         /// dataset comes back, 2026-10-18 and 2026-11-10), so it is never sent. "zebrafish" found 67 datasets, as many
         /// as MassIVE's website reports, and 48 of them had no PXD.
         /// <para>
+        /// It matches inside words and reaches descriptions: "aging" also returned 49 datasets whose only match is
+        /// "imaging" (aging's survey, 2026-11-10). Check whole words yourself when that matters. A hit holds what the
+        /// search row states (no description, keywords or modifications); <see cref="GetDatasetAsync"/> gives the
+        /// full record, one request per dataset.
+        /// </para>
+        /// <para>
         /// Every page is fetched; <paramref name="pageSize"/> only sets how many datasets each request asks for. The
         /// search ends at a short page, or at MassIVE's 404 "No data found", which it sends for a page past the last
         /// one and for a search with no match: so no match is an empty list, not an exception. A dataset served twice

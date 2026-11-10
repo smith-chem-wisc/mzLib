@@ -256,6 +256,9 @@ public class MassiveSearchTests
             Assert.That(first.Species, Is.EqualTo("Danio rerio"));
             Assert.That(first.Sdrf, Is.Null);
             Assert.That(first.AnnounceDate, Is.EqualTo("2026-04-28"));
+            Assert.That(first.PublicationText, Is.EqualTo("no publication"));
+            Assert.That(first.PubMedIds, Is.Not.Null.And.Empty, "stated as none, not unstated");
+            Assert.That(first.Dois, Is.Not.Null.And.Empty);
             Assert.That(typeof(ProteomeCentralDataset).GetProperties().Any(p => p.Name.Contains("Lab")), Is.False);
             Assert.That(hits.SelectMany(h => typeof(ProteomeCentralDataset).GetProperties().Select(p => p.GetValue(h) as string))
                 .Any(v => v != null && v.Contains("Redacted Lab Head")), Is.False);
@@ -395,6 +398,121 @@ public class MassiveSearchTests
         client.Dispose();
         client.Dispose();
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client.SearchDatasetsAsync("x"));
+    }
+
+    [Test]
+    public async Task Central_PublicationCells_GiveTheirPubMedIdsAndDois()
+    {
+        // The four kinds of cell ProteomeCentral sent on 2026-11-10, verbatim (search "aging", species "Homo sapiens").
+        var cells = new JToken[]
+        {
+            "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/42311858\" target=\"_blank\">Wu et al. (2026)</a>",
+            "<a href=\"https://doi.org/10.1016/j.mcpro.2026.101658\" target=\"_blank\">10.1016/j.mcpro.2026.101658</a>; <a href=\"https://www.ncbi.nlm.nih.gov/pubmed/42722293\" target=\"_blank\">Gon et al. (2026)</a>",
+            "Dataset with its publication pending",
+            JValue.CreateNull(),
+        };
+        var answer = new JObject
+        {
+            ["result_set"] = new JObject { ["datasets_title_list"] = new JArray("dataset identifier", "publications") },
+            ["datasets"] = new JArray(cells.Select((c, i) => new JArray($"PXD00000{i}", c))),
+        };
+        using ProteomeCentralClient client = Central(new Handler(_ => Body(answer.ToString())));
+
+        IReadOnlyList<ProteomeCentralDataset> hits = await client.SearchDatasetsAsync("aging", pageSize: 10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hits[0].PubMedIds, Is.EqualTo(new[] { "42311858" }));
+            Assert.That(hits[0].Dois, Is.Empty);
+            Assert.That(hits[0].PublicationText, Is.EqualTo("Wu et al. (2026)"));
+            Assert.That(hits[1].Dois, Is.EqualTo(new[] { "10.1016/j.mcpro.2026.101658" }));
+            Assert.That(hits[1].PubMedIds, Is.EqualTo(new[] { "42722293" }));
+            Assert.That(hits[2].PubMedIds, Is.Not.Null.And.Empty);
+            Assert.That(hits[2].PublicationText, Is.EqualTo("Dataset with its publication pending"));
+            Assert.That(hits[3].PubMedIds, Is.Null, "no cell at all: unstated");
+            Assert.That(hits[3].Dois, Is.Null);
+            Assert.That(hits[3].PublicationText, Is.Null);
+        });
+    }
+
+    [TestCase("9606")]
+    [TestCase("NCBITaxon:9606")]
+    [TestCase(" taxid:10090 ")]
+    public void Central_SpeciesAsATaxonomyId_IsRefused_ItWouldMatchNothing(string species)
+    {
+        var handler = new Handler(_ => ProteomeCentralPage(4));
+        using ProteomeCentralClient client = Central(handler);
+
+        var e = Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.SearchDatasetsAsync("x", new ProteomeCentralSearchFilter { Species = species }));
+
+        Assert.That(e!.Message, Does.Contain("by name"));
+        Assert.That(handler.Requests, Is.Empty);
+    }
+
+    // ---- the merged list ---------------------------------------------------------------------------------------
+
+    private static List<ProteomeCentralDataset> CentralFixtureRows() =>
+        Enumerable.Range(1, 3)
+            .SelectMany(p => ProteomeCentralClient.ReadPage(Encoding.UTF8.GetString(Fixture($"proteomecentral_search_zebrafish_massive_p{p}.200.json")), "fixture"))
+            .ToList();
+
+    private static List<MassiveDatasetSearchResult> MassiveFixtureRows() =>
+        Enumerable.Range(1, 3)
+            .SelectMany(p => JArray.Parse(Encoding.UTF8.GetString(Fixture($"massive_search_zebrafish_p{p}.200.json"))))
+            .Select(row => MassiveDatasetSearchResult.FromProxi((JObject)row))
+            .ToList();
+
+    [Test]
+    public void Merge_RealSearches_EachDatasetOnce_WithWhichSearchFoundIt()
+    {
+        List<ProteomeCentralDataset> central = CentralFixtureRows();
+        List<MassiveDatasetSearchResult> massive = MassiveFixtureRows();
+        var centralPxds = central.Select(c => c.Accession).ToHashSet();
+        int joined = massive.Count(m => m.PxdAccession != null && centralPxds.Contains(m.PxdAccession));
+
+        IReadOnlyList<RepositorySearchHit> hits = RepositorySearch.Merge(central, massive);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(central, Has.Count.EqualTo(11));
+            Assert.That(massive, Has.Count.EqualTo(67));
+            Assert.That(hits, Has.Count.EqualTo(11 + 67 - joined));
+            Assert.That(hits.Take(11).Select(h => h.PxdAccession), Is.EqualTo(central.Select(c => c.Accession)), "ProteomeCentral's order first");
+            Assert.That(hits.Count(h => h.FoundByProteomeCentral && h.FoundByMassive), Is.EqualTo(joined));
+            Assert.That(hits.Where(h => h.FoundByMassive).All(h => h.MassiveAccession != null), Is.True);
+            Assert.That(hits.Count(h => h.FoundByMassive && h.PxdAccession == null), Is.EqualTo(48), "MassIVE-only datasets, keyed by MSV");
+            Assert.That(hits.Select(h => h.PxdAccession ?? h.MassiveAccession).Distinct().Count(), Is.EqualTo(hits.Count));
+        });
+        TestContext.Out.WriteLine($"zebrafish: ProteomeCentral (MassIVE) 11, MassIVE 67, both {joined}, merged {hits.Count}");
+    }
+
+    [Test]
+    public void Merge_EdgeCases()
+    {
+        var central = new[] { new ProteomeCentralDataset { Accession = "PXD000001", Title = "c" }, new ProteomeCentralDataset { Accession = "PXD000001", Title = "dup" } };
+        var massive = new[]
+        {
+            new MassiveDatasetSearchResult { MassiveAccession = "MSV000000001", PxdAccession = "PXD000001", Title = "m1" },
+            new MassiveDatasetSearchResult { MassiveAccession = "MSV000000002", PxdAccession = "PXD000001", Title = "m2" },
+            new MassiveDatasetSearchResult { MassiveAccession = "MSV000000003", PxdAccession = "PXD000009", Title = "m3" },
+            new MassiveDatasetSearchResult { MassiveAccession = "MSV000000004", PxdAccession = "PXD000009", Title = "m4" },
+            new MassiveDatasetSearchResult { MassiveAccession = "MSV000000003", Title = "repeat" },
+        };
+
+        IReadOnlyList<RepositorySearchHit> hits = RepositorySearch.Merge(central, massive);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hits.Select(h => h.ToString()), Is.EqualTo(new[]
+            {
+                "PXD000001 [proteomecentral+massive]: c",
+                "PXD000009 [massive]: m3",
+            }), "a PXD is joined once, by its first MassIVE row; a repeated MSV adds nothing");
+            Assert.That(hits[0].MassiveAccession, Is.EqualTo("MSV000000001"));
+            Assert.That(RepositorySearch.Merge(null, null), Is.Empty);
+            Assert.That(RepositorySearch.Merge(central, null).Single().ToString(), Is.EqualTo("PXD000001 [proteomecentral]: c"));
+        });
     }
 
     [Test]

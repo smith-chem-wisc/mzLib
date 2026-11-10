@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MzLibUtil;
@@ -104,6 +105,12 @@ namespace UsefulProteomicsDatabases
         /// Every page is fetched; <paramref name="pageSize"/> only sets how many datasets each request asks for. The
         /// search ends at a page shorter than asked for (an empty one included), so a total ProteomeCentral understates
         /// cannot cut it short. A dataset served twice as the catalogue moves is kept once, by its PXD.
+        /// </para>
+        /// <para>
+        /// The keyword matches titles and submitter keywords, not descriptions (aging's survey, 2026-11-10). Its
+        /// <c>resultType=full</c> returns the same rows, so a description or modifications need the dataset's own record:
+        /// <see cref="MassiveClient.GetDatasetAsync"/> or <see cref="PrideArchiveClient.GetProjectAsync"/>. To combine
+        /// this search with MassIVE's, see <see cref="RepositorySearch.Merge"/>.
         /// </para>
         /// </remarks>
         /// <param name="keyword">The text to search for; may be null or blank when <paramref name="filter"/> sets a value.</param>
@@ -227,13 +234,38 @@ namespace UsefulProteomicsDatabases
                     Sdrf = Cell(SdrfColumn),
                     Files = Cell(FilesColumn),
                     Instrument = Cell(InstrumentColumn),
-                    Publications = Cell(PublicationsColumn),
+                    PublicationText = PublicationTextOf(Cell(PublicationsColumn)),
+                    PubMedIds = LinkedIds(Cell(PublicationsColumn), PubMedLink),
+                    Dois = LinkedIds(Cell(PublicationsColumn), DoiLink),
                     AnnounceDate = Cell(AnnounceDateColumn),
                     Keywords = Cell(KeywordsColumn),
                 });
             }
             return rows;
         }
+
+        // The publications cell is HTML (measured 2026-11-10): '<a href="https://www.ncbi.nlm.nih.gov/pubmed/42311858"
+        // ...>Wu et al. (2026)</a>', '<a href="https://doi.org/10.1016/j.mcpro.2026.101658" ...>', "no publication", or
+        // "Dataset with its publication pending".
+        private static readonly Regex Href = new("href=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static readonly Regex PubMedLink = new(@"(?:ncbi\.nlm\.nih\.gov/pubmed/|pubmed\.ncbi\.nlm\.nih\.gov/)(\d+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static readonly Regex DoiLink = new(@"doi\.org/(10\.[^\s?#]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static readonly Regex Tag = new("<[^>]*>", RegexOptions.CultureInvariant);
+
+        /// <summary>The ids <paramref name="pattern"/> finds in a cell's links, in order, once each; empty for none; null for no cell.</summary>
+        private static IReadOnlyList<string> LinkedIds(string cell, Regex pattern) =>
+            cell == null
+                ? null
+                : Href.Matches(cell)
+                    .Select(href => pattern.Match(Uri.UnescapeDataString(href.Groups[1].Value)))
+                    .Where(m => m.Success)
+                    .Select(m => m.Groups[1].Value.TrimEnd('.', ',', ';'))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+        /// <summary>A cell's text with its markup removed ("Wu et al. (2026)", "no publication"), or null for no cell.</summary>
+        private static string PublicationTextOf(string cell) =>
+            cell == null ? null : Regex.Replace(Tag.Replace(cell, string.Empty), @"\s+", " ").Trim();
 
         /// <summary>Releases the <see cref="HttpClient"/> when this client created it.</summary>
         public void Dispose()
@@ -273,8 +305,20 @@ namespace UsefulProteomicsDatabases
         /// <summary>The instruments (several are comma-separated).</summary>
         public string Instrument { get; init; }
 
-        /// <summary>The publications cell, e.g. "no publication".</summary>
-        public string Publications { get; init; }
+        /// <summary>
+        /// The PubMed IDs the publications cell links to, in order. Empty when it states none ("no publication", or
+        /// "Dataset with its publication pending"); null when the row has no publications cell.
+        /// </summary>
+        public IReadOnlyList<string> PubMedIds { get; init; }
+
+        /// <summary>The DOIs the publications cell links to, in order; empty or null as <see cref="PubMedIds"/>.</summary>
+        public IReadOnlyList<string> Dois { get; init; }
+
+        /// <summary>
+        /// The publications cell as text, its links' markup removed: "Wu et al. (2026)", "no publication", "Dataset with
+        /// its publication pending". Null when the row has no publications cell.
+        /// </summary>
+        public string PublicationText { get; init; }
 
         /// <summary>The announce date, e.g. "2026-04-28".</summary>
         public string AnnounceDate { get; init; }
@@ -296,7 +340,11 @@ namespace UsefulProteomicsDatabases
         /// <summary>The hosting repository, e.g. "PRIDE" or "MassIVE".</summary>
         public string Repository { get; init; }
 
-        /// <summary>The species, e.g. "Homo sapiens" or "Saccharomyces cerevisiae (Bakers yeast)".</summary>
+        /// <summary>
+        /// The species, by ProteomeCentral's name for it, e.g. "Homo sapiens" or "Saccharomyces cerevisiae (Bakers yeast)".
+        /// A taxonomy ID is refused: ProteomeCentral answers <c>species=9606</c> (or <c>NCBITaxon:9606</c>) with nothing
+        /// at all, against 27,887 datasets for "Homo sapiens" (2026-11-10). MassIVE's own search takes the taxonomy ID.
+        /// </summary>
         public string Species { get; init; }
 
         /// <summary>The instrument, e.g. "Q Exactive".</summary>
@@ -314,7 +362,9 @@ namespace UsefulProteomicsDatabases
         /// <summary>The file-count bucket, e.g. "0", "1-5", "6-10", "11-20".</summary>
         public string Files { get; init; }
 
-        /// <summary>The parameters to send, in a fixed order; a blank value is refused.</summary>
+        private static readonly Regex TaxonomyId = new(@"^(?:NCBITaxon:|taxid:)?\d+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        /// <summary>The parameters to send, in a fixed order; a blank value, or a taxonomy ID for the species, is refused.</summary>
         internal IReadOnlyList<(string Name, string Value)> Parameters()
         {
             var parameters = new List<(string, string)>();
@@ -326,6 +376,11 @@ namespace UsefulProteomicsDatabases
                     throw new ArgumentException($"The ProteomeCentral '{name}' filter is blank; leave it null to leave it unset.", name);
                 parameters.Add((name, value));
             }
+
+            if (Species != null && TaxonomyId.IsMatch(Species.Trim()))
+                throw new ArgumentException(
+                    $"ProteomeCentral filters species by name (e.g. \"Homo sapiens\"); the taxonomy ID '{Species}' would match nothing.",
+                    nameof(Species));
 
             Add("repository", Repository);
             Add("species", Species);
