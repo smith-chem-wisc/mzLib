@@ -793,7 +793,7 @@ namespace Proteomics.ProteolyticDigestion
                     totalLengthDifference += variant.VariantSequence.Length - variant.OriginalSequence.Length;
                 }
 
-                // the bond the variant sits beside: before the peptide's first residue, or after its last
+                // the bond beside the peptide that the variant touches
                 int? oneBasedBondInVariant = null;
                 if (appliedVariation.OneBasedEndPosition == (OneBasedStartResidueInProtein - 1))
                 {
@@ -804,18 +804,14 @@ namespace Proteomics.ProteolyticDigestion
                     oneBasedBondInVariant = OneBasedEndResidueInProtein;
                 }
 
-                // the variant is identified when it creates the cleavage that makes the peptide: one the protease makes in the
-                // variant protein and not at the same bond of the original. The protease's whole rule decides -- a preventing
-                // residue, a motif longer than one residue, a cut inside the motif -- not the one residue beside the bond.
-                // A stop gain ends the variant protein at the peptide, which is a cleavage; a bond at or past the original
-                // protein's end is its terminus, so a stop loss there identifies nothing.
+                // identified when the protease cuts that bond in the variant protein but not in the original
                 if (oneBasedBondInVariant.HasValue)
                 {
                     string originalSequence = Protein.NonVariantProtein.BaseSequence;
                     int oneBasedBondInOriginal = Math.Clamp(oneBasedBondInVariant.Value - totalLengthDifference, 0, originalSequence.Length);
                     DigestionAgent agent = DigestionParams.DigestionAgent;
-                    identifies = agent.IsDigestionSite(Protein.BaseSequence, oneBasedBondInVariant.Value)
-                        && !agent.IsDigestionSite(originalSequence, oneBasedBondInOriginal);
+                    identifies = agent.GetDigestionSiteIndices(Protein.BaseSequence).Contains(oneBasedBondInVariant.Value)
+                        && !agent.GetDigestionSiteIndices(originalSequence).Contains(oneBasedBondInOriginal);
                 }
             }
 
