@@ -993,15 +993,19 @@ namespace StatisticalModels
             private const int SimplexEvaluations = 4000;
 
             /// <summary>
-            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ); θ is clamped at 0 inside the
-            /// criterion and a θ the criterion cannot be evaluated at counts as the worst value. Null when the search has not
-            /// converged within <see cref="SimplexEvaluations"/>.
+            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ). The criterion is taken at |θ|:
+            /// it depends on each θ only through θ², so a component and its negative are the same model. Reflecting keeps the
+            /// surface smooth across θ = 0, where clamping at 0 made every negative θ equal to the boundary: a flat region in
+            /// which the simplex could see equal values at all its vertices and stop on the boundary with a worse criterion
+            /// than an interior optimum beside it (two real proteins, ReferenceComparisonNestedLmmTests). A θ the criterion
+            /// cannot be evaluated at counts as the worst value. Null when the search has not converged within
+            /// <see cref="SimplexEvaluations"/>.
             /// </summary>
             private double[]? NelderMead(double[] start)
             {
                 double F(Vector<double> v)
                 {
-                    double c = Criterion(v.Select(z => Math.Max(0, z)).ToArray());
+                    double c = Criterion(v.Select(Math.Abs).ToArray());
                     return double.IsFinite(c) ? c : double.MaxValue;
                 }
                 var step = Vector<double>.Build.Dense(start.Length, i => Math.Max(0.1, 0.2 * start[i]));
@@ -1009,7 +1013,7 @@ namespace StatisticalModels
                 {
                     var result = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(F), Vector<double>.Build.DenseOfArray(start),
                         step, SimplexTolerance, SimplexEvaluations);
-                    return result.MinimizingPoint.Select(z => Math.Max(0, z)).ToArray();
+                    return result.MinimizingPoint.Select(Math.Abs).ToArray();
                 }
                 catch (MaximumIterationsException)
                 {
