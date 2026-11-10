@@ -1,0 +1,25 @@
+R-GGA-353377	DNA repair	Gallus gallus
+R-GGA-1670466	DNA replication and repair	Gallus gallus
+R-GGA-353371	Double strand break repair	Gallus gallus
+R-GGA-353295	Homologous recombination repair	Gallus gallus
+R-GGA-351470	Homologous recombination repair (HRR) of replication-independent double-strand breaks	Gallus gallus
+R-HSA-1643685	Disease	Homo sapiens
+R-HSA-5602358	Diseases associated with the TLR signaling cascade	Homo sapiens
+R-HSA-5260271	Diseases of Immune System	Homo sapiens
+R-HSA-8978868	Fatty acid metabolism	Homo sapiens
+R-HSA-109582	Hemostasis	Homo sapiens
+R-HSA-354192	Integrin signaling	Homo sapiens
+R-HSA-1430728	Metabolism	Homo sapiens
+R-HSA-556833	Metabolism of lipids	Homo sapiens
+R-HSA-77289	Mitochondrial Fatty Acid Beta-Oxidation	Homo sapiens
+R-HSA-76009	Platelet Aggregation (Plug Formation)	Homo sapiens
+R-HSA-76002	Platelet activation, signaling and aggregation	Homo sapiens
+R-HSA-162582	Signal Transduction	Homo sapiens
+R-MMU-8978868	Fatty acid metabolism	Mus musculus
+R-MMU-1430728	Metabolism	Mus musculus
+R-MMU-556833	Metabolism of lipids	Mus musculus
+R-MMU-77289	Mitochondrial Fatty Acid Beta-Oxidation	Mus musculus
+R-RNO-8978868	Fatty acid metabolism	Rattus norvegicus
+R-RNO-1430728	Metabolism	Rattus norvegicus
+R-RNO-556833	Metabolism of lipids	Rattus norvegicus
+R-RNO-77289	Mitochondrial Fatty Acid Beta-Oxidation	Rattus norvegicus

@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -55,6 +54,9 @@ namespace UsefulProteomicsDatabases
         private readonly HttpClient _httpClient;
         private readonly bool _ownsHttpClient;
         private bool _disposed;
+
+        // Retries, timeouts, stall deadline and resumable transfer, shared with the other repository clients.
+        private readonly DownloadEngine _engine;
 
         /// <summary>
         /// A hard upper bound on the number of pages fetched, guarding against a misbehaving server that
@@ -107,27 +109,16 @@ namespace UsefulProteomicsDatabases
         /// is detected without waiting minutes for it.
         /// </para>
         /// </remarks>
-        public TimeSpan BodyStallTimeout { get; init; } = TimeSpan.FromMinutes(2);
+        public TimeSpan BodyStallTimeout { get => _engine.BodyStallTimeout; init => _engine.BodyStallTimeout = value; }
 
         /// <summary>
-        /// The wait before each retry of a transient failure: 5 s, 20 s, then 60 s, so a failure that persists
-        /// gives up after about 85 s of backoff. See <see cref="WithRetryAsync{T}"/> for what counts as transient.
+        /// How many times a transient failure is retried after the first attempt (3, after 5 s, 20 s and 60 s; see
+        /// <see cref="DownloadEngine.RetryBackoff"/>). Tests set 0 to pin a single attempt.
         /// </summary>
-        /// <remarks>
-        /// Deliberately internal. mzLib has no public retry policy anywhere, and nobody has asked for one;
-        /// a knob can be published later, but a published one cannot be taken back.
-        /// </remarks>
-        private static readonly TimeSpan[] RetryBackoff =
-            { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60) };
-
-        /// <summary>The longest <c>Retry-After</c> a 429 or 503 is allowed to make a retry wait.</summary>
-        private static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(60);
-
-        /// <summary>How many times a transient failure is retried after the first attempt. Tests set 0 to pin a single attempt.</summary>
-        internal int MaxRetries { get; init; } = RetryBackoff.Length;
+        internal int MaxRetries { get => _engine.MaxRetries; init => _engine.MaxRetries = value; }
 
         /// <summary>Waits out a backoff. Tests replace it to record the schedule instead of sleeping through it.</summary>
-        internal Func<TimeSpan, CancellationToken, Task> RetryDelay { get; init; } = Task.Delay;
+        internal Func<TimeSpan, CancellationToken, Task> RetryDelay { get => _engine.RetryDelay; init => _engine.RetryDelay = value; }
 
         /// <summary>Creates a client with its own <see cref="HttpClient"/> pointed at the PRIDE Archive API.</summary>
         public PrideArchiveClient()
@@ -152,7 +143,17 @@ namespace UsefulProteomicsDatabases
             _ownsHttpClient = ownsHttpClient;
             if (_httpClient.BaseAddress == null)
                 _httpClient.BaseAddress = new Uri(DefaultBaseAddress);
+            _engine = new DownloadEngine(_httpClient, "PRIDE", IsFtpHostRateLimit);
         }
+
+        /// <summary>
+        /// PRIDE's own transient status, on top of the shared verdict (<see cref="DownloadEngine.IsTransient"/>): a 403
+        /// from the FTP host, because EBI answers rate limiting there with 403 rather than 429. On the REST host a 403
+        /// is a real refusal, and retrying it would only delay the answer by 85 s.
+        /// </summary>
+        private static bool IsFtpHostRateLimit(HttpStatusCode status, string host) =>
+            status == HttpStatusCode.Forbidden
+            && string.Equals(host, PrideArchiveExtensions.PrideFtpHost, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Returns the manifest of files belonging to a PRIDE Archive project. All pages are fetched
@@ -285,11 +286,11 @@ namespace UsefulProteomicsDatabases
                 throw new MzLibException(
                     $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUri}'; the listing may be cyclic.");
 
-            List<(string RawHref, string SizeText)> rows = await WithRetryAsync(async () =>
+            List<(string RawHref, string SizeText)> rows = await _engine.WithRetryAsync(async () =>
             {
-                using HttpResponseMessage response = await GetAsync(directoryUri.AbsoluteUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage response = await _engine.GetAsync(directoryUri.AbsoluteUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
-                    throw StatusFailure(response,
+                    throw DownloadEngine.StatusFailure(response,
                         $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.");
 
                 string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -466,9 +467,9 @@ namespace UsefulProteomicsDatabases
             // This endpoint shares the v3 BaseAddress, so a relative URI resolves correctly (unlike PROXI,
             // which sits under a different path root and needs an absolute URI).
             string requestUri = $"projects/{Uri.EscapeDataString(accession)}";
-            using HttpResponseMessage response = await WithRetryAsync(async () =>
+            using HttpResponseMessage response = await _engine.WithRetryAsync(async () =>
             {
-                HttpResponseMessage attempt = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+                HttpResponseMessage attempt = await _engine.GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
 
                 // 404 is the ONE expected "no" and is reported as a value, so it is let through here and never
                 // retried. It is checked before the general status guard so that every other failure still throws.
@@ -476,9 +477,9 @@ namespace UsefulProteomicsDatabases
                     return attempt;
 
                 using (attempt)
-                    throw StatusFailure(attempt,
+                    throw DownloadEngine.StatusFailure(attempt,
                         $"PRIDE Archive request failed with status {(int)attempt.StatusCode} {attempt.ReasonPhrase} for '{requestUri}'.");
-            }, HostOf(requestUri), cancellationToken).ConfigureAwait(false);
+            }, _engine.HostOf(requestUri), cancellationToken).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return (false, null);
@@ -558,7 +559,7 @@ namespace UsefulProteomicsDatabases
             // "Accept: application/json" with 406.
             string requestUri = $"files/checksum/{Uri.EscapeDataString(accession)}";
             string body;
-            using (HttpResponseMessage response = await GetSuccessAsync(requestUri,
+            using (HttpResponseMessage response = await _engine.GetSuccessAsync(requestUri,
                        r => $"PRIDE Archive request failed with status {(int)r.StatusCode} {r.ReasonPhrase} for '{requestUri}'.",
                        cancellationToken).ConfigureAwait(false))
                 body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -803,6 +804,15 @@ namespace UsefulProteomicsDatabases
         /// (<c>&lt;Error&gt;&lt;Code&gt;</c>, 2026-10-08), which a size check cannot see. A resumed transfer is read
         /// once more at the end, because its start arrived in an earlier attempt.
         /// <para>
+        /// An attempt that brings EBI's error text stops at the read that brought it, instead of downloading the
+        /// rest of a file that can only fail, and is downloaded again from its first byte. Without the MD5 that is
+        /// any <c>&lt;Error&gt;&lt;Code&gt;</c>. With it, only EBI's exact opening,
+        /// <c>&lt;Error&gt;&lt;Code&gt;ConnectionClosedException&lt;/Code&gt;</c>, which every one of the 62 error texts
+        /// recorded from 2026-10-08 to 2026-10-12 begins with: a file's own bytes could hold the short marker, and the
+        /// MD5 would pass them, but none has a reason to hold EBI's whole opening. Such a file would be refused as it
+        /// downloads.
+        /// </para>
+        /// <para>
         /// With <paramref name="overwrite"/> false, an existing destination file is kept only if it passes the size
         /// check, and the MD5 when <paramref name="verifyMd5"/> is true (reading it again, which takes seconds for a
         /// multi-gigabyte raw file). It is not scanned. One that fails (a truncated copy from an older tool, say) is
@@ -843,7 +853,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">As for the overload without a checksum, or <paramref name="expected"/> is for a different file name.</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only) and must be downloaded.</exception>
         /// <exception cref="HttpRequestException">As for the overload without a checksum.</exception>
-        /// <exception cref="MzLibException">On every attempt, the downloaded file's size differed from <paramref name="expected"/>, or its MD5 did when <paramref name="verifyMd5"/> is true, or (without the MD5) it held EBI's error text. The message, the last attempt's, names the file and host, never the URL.</exception>
+        /// <exception cref="MzLibException">On every attempt, the downloaded file's size differed from <paramref name="expected"/>, or its MD5 did when <paramref name="verifyMd5"/> is true, or it held EBI's error text (any <c>&lt;Error&gt;&lt;Code&gt;</c> without the MD5; EBI's exact opening with it). The message, the last attempt's, names the file and host, never the URL.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
         public Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
             PrideFileChecksum expected, bool overwrite = true, bool verifyMd5 = false,
@@ -889,23 +899,24 @@ namespace UsefulProteomicsDatabases
                 return destinationPath;
 
             string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
-            string described = DescribeDownload(url, safeFileName);
+            string described = DownloadEngine.DescribeDownload(url, safeFileName);
 
             Directory.CreateDirectory(destinationDirectory);
 
             string partialPath = destinationPath + ".partial";
             string validatorPath = partialPath + ValidatorSuffix;
-            string host = HostOf(url);
+            string host = _engine.HostOf(url);
 
             // A .partial left by an earlier call is resumable with the validator it was started under, or, with none,
             // when the whole file's MD5 is checked at the end. Without either, nothing proves the bytes on disk are
             // the start of the file the server holds now.
             bool md5ChecksSplice = expected != null && verifyMd5;
+            DownloadDigest digest = expected != null ? new DownloadDigest(verifyMd5) : null;
             var transfer = new ResumableTransfer
             {
-                Validator = ReadValidator(partialPath, validatorPath, keepUnvalidated: md5ChecksSplice),
+                Validator = DownloadEngine.ReadValidator(partialPath, validatorPath, keepUnvalidated: md5ChecksSplice),
                 ResumableWithoutValidator = md5ChecksSplice,
-                Digest = expected != null ? new DownloadDigest(verifyMd5) : null
+                Inspector = digest
             };
 
             try
@@ -917,17 +928,26 @@ namespace UsefulProteomicsDatabases
                 if (expected != null && transfer.CanResume && File.Exists(partialPath)
                     && new FileInfo(partialPath).Length == expected.SizeBytes)
                 {
-                    transfer.Digest.Invalidate();
-                    complete = await ContentMismatchAsync(partialPath, expected, verifyMd5, transfer.Digest, cancellationToken).ConfigureAwait(false) == null;
+                    digest.Invalidate();
+                    complete = await ContentMismatchAsync(partialPath, expected, verifyMd5, digest, cancellationToken).ConfigureAwait(false) == null;
                     if (!complete)
                         Discard(partialPath, validatorPath, transfer);
                 }
 
                 if (!complete)
                 {
-                    await WithRetryAsync(async () =>
+                    await _engine.WithRetryAsync(async () =>
                     {
-                        await DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken).ConfigureAwait(false);
+                        try
+                        {
+                            await _engine.DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (ContentMismatchException)
+                        {
+                            // Stopped at EBI's error text: the bytes on disk are what is wrong, so they are never resumed.
+                            Discard(partialPath, validatorPath, transfer);
+                            throw;
+                        }
                         if (expected == null)
                             return true;
 
@@ -936,7 +956,7 @@ namespace UsefulProteomicsDatabases
                         // their full size with its own storage error text in place of some of their bytes, and a
                         // fresh download of the same file usually comes out right (measured 2026-10-08).
                         cancellationToken.ThrowIfCancellationRequested();
-                        string mismatch = await ContentMismatchAsync(partialPath, expected, verifyMd5, transfer.Digest, cancellationToken).ConfigureAwait(false);
+                        string mismatch = await ContentMismatchAsync(partialPath, expected, verifyMd5, digest, cancellationToken).ConfigureAwait(false);
                         if (mismatch != null)
                         {
                             // Never resumed: the bytes on disk are what is wrong.
@@ -948,17 +968,17 @@ namespace UsefulProteomicsDatabases
                 }
 
                 File.Move(partialPath, destinationPath, overwrite: true);
-                DeleteQuietly(validatorPath);
+                DownloadEngine.DeleteQuietly(validatorPath);
             }
             catch (ContentMismatchException e)
             {
                 // Every attempt came back wrong, so this is no longer an outage worth waiting out: PRIDE's file and
                 // PRIDE's own list disagree. Nothing is kept; the partial went with the attempt that failed.
-                DeleteQuietly(partialPath);
-                DeleteQuietly(validatorPath);
+                DownloadEngine.DeleteQuietly(partialPath);
+                DownloadEngine.DeleteQuietly(validatorPath);
                 throw new MzLibException(e.Message, e);
             }
-            catch (HttpRequestException e) when (IsTransient(e, host) && transfer.CanResume && File.Exists(partialPath))
+            catch (HttpRequestException e) when (_engine.IsTransient(e, host) && transfer.CanResume && File.Exists(partialPath))
             {
                 // Kept on purpose: EBI failed, not the file, and the validator beside it (or the MD5 still to be
                 // checked) lets the next call ask only for the bytes that are missing instead of paying for the
@@ -977,13 +997,13 @@ namespace UsefulProteomicsDatabases
             {
                 // Anything else -- a refusal, a broken contract, the caller's disk, bytes that can never be
                 // resumed -- gives no reason to keep the partial bytes, so neither they nor their validator survive.
-                DeleteQuietly(partialPath);
-                DeleteQuietly(validatorPath);
+                DownloadEngine.DeleteQuietly(partialPath);
+                DownloadEngine.DeleteQuietly(validatorPath);
                 throw;
             }
             finally
             {
-                transfer.Digest?.Dispose();
+                digest?.Dispose();
             }
 
             return destinationPath;
@@ -1051,13 +1071,14 @@ namespace UsefulProteomicsDatabases
                     : $"has MD5 {md5} where PRIDE's checksum list records {expected.Md5}";
             }
 
-            return digest.ServerErrorAt >= 0
-                ? $"holds a server error response (\"<Error><Code>\") at byte {digest.ServerErrorAt}, written into the file in place of its own bytes"
-                : null;
+            return digest.ServerErrorAt >= 0 ? ServerErrorMismatch(digest.ServerErrorAt) : null;
         }
 
         private static string SizeMismatch(long length, PrideFileChecksum expected) =>
             $"came to {length} bytes where PRIDE's checksum list records {expected.SizeBytes}";
+
+        private static string ServerErrorMismatch(long offset) =>
+            $"holds a server error response (\"<Error><Code>\") at byte {offset}, written into the file in place of its own bytes";
 
         /// <summary>
         /// Deletes a partial whose bytes are wrong, with its validator, so the next attempt starts from zero instead
@@ -1065,36 +1086,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private static void Discard(string partialPath, string validatorPath, ResumableTransfer transfer)
         {
-            DeleteQuietly(partialPath);
-            DeleteQuietly(validatorPath);
+            DownloadEngine.DeleteQuietly(partialPath);
+            DownloadEngine.DeleteQuietly(validatorPath);
             transfer.Validator = null;
         }
-
-        /// <summary>What one download carries from a failed attempt into the next.</summary>
-        private sealed class ResumableTransfer
-        {
-            /// <summary>The validator the partial bytes were served under, or null when there is none.</summary>
-            public RangeConditionHeaderValue Validator { get; set; }
-
-            /// <summary>
-            /// Whether the partial bytes may be resumed with no validator: only when the whole file's MD5 is checked
-            /// at the end, which a splice of two versions of the file fails.
-            /// </summary>
-            public bool ResumableWithoutValidator { get; init; }
-
-            /// <summary>Whether the partial bytes may be resumed at all.</summary>
-            public bool CanResume => Validator != null || ResumableWithoutValidator;
-
-            /// <summary>The check run over the bytes as they arrive, or null when there is nothing to check them against.</summary>
-            public DownloadDigest Digest { get; init; }
-        }
-
-        /// <summary>
-        /// A downloaded file is not the attempt's failure but its content's: wrong size, wrong MD5, or EBI's error text
-        /// inside it. It has no status, so <see cref="WithRetryAsync{T}"/> treats it as transient and downloads the file
-        /// again from zero; once the retries are spent it becomes an <see cref="MzLibException"/>.
-        /// </summary>
-        private sealed class ContentMismatchException(string message) : HttpRequestException(message);
 
         /// <summary>
         /// The MD5 of a download, or a scan of it for <see cref="ServerErrorMarker"/>, taken in the same pass that
@@ -1107,29 +1102,48 @@ namespace UsefulProteomicsDatabases
         /// over HTTPS and Aspera alike, while every client reported success (PXReprise, 2026-10-07/08; 15 damaged
         /// copies kept). A size check cannot see it. The MD5 can, when the caller asks for it; the scan catches it
         /// without one. A raw file has no reason to hold that text.
+        /// <para>
+        /// With the MD5 the bytes are scanned too, but only for <see cref="EbiErrorOpening"/>, so that a damaged
+        /// attempt can be stopped as soon as the text arrives instead of at the end, when the MD5 fails.
+        /// </para>
         /// </remarks>
-        internal sealed class DownloadDigest : IDisposable
+        internal sealed class DownloadDigest : IDownloadInspector, IDisposable
         {
             /// <summary>The start of every error response EBI's storage wrote into served files.</summary>
             internal static readonly byte[] ServerErrorMarker = "<Error><Code>"u8.ToArray();
 
+            /// <summary>
+            /// EBI's exact opening: all 62 error texts recorded from 2026-10-08 to 2026-10-12 (PXReprise's 25 and the
+            /// Globus trial's 37) begin with it. Scanned for when the MD5 is taken, where the short marker alone could
+            /// be a file's own bytes that the MD5 would pass.
+            /// </summary>
+            internal static readonly byte[] EbiErrorOpening = "<Error><Code>ConnectionClosedException</Code>"u8.ToArray();
+
             private readonly bool _verifyMd5;
-            private readonly byte[] _tail = new byte[ServerErrorMarker.Length - 1];
+            private readonly byte[] _marker;
+            private readonly byte[] _tail;
             private IncrementalHash _md5;
             private int _tailLength;
             private long _length;
 
-            /// <param name="verifyMd5">Take the MD5; otherwise scan for <see cref="ServerErrorMarker"/>.</param>
+            /// <param name="verifyMd5">
+            /// Take the MD5 and scan for <see cref="EbiErrorOpening"/>; otherwise scan for <see cref="ServerErrorMarker"/>.
+            /// </param>
             internal DownloadDigest(bool verifyMd5)
             {
                 _verifyMd5 = verifyMd5;
+                _marker = verifyMd5 ? EbiErrorOpening : ServerErrorMarker;
+                _tail = new byte[_marker.Length - 1];
                 Reset();
             }
 
             /// <summary>Whether every byte of the file went through <see cref="Append"/> since the last <see cref="Reset"/>.</summary>
             internal bool SawWholeFile { get; private set; }
 
-            /// <summary>The offset of the first <see cref="ServerErrorMarker"/> seen, or -1.</summary>
+            /// <summary>
+            /// The offset in the file of the first marker seen (<see cref="EbiErrorOpening"/> with the MD5, else
+            /// <see cref="ServerErrorMarker"/>), or -1.
+            /// </summary>
             internal long ServerErrorAt { get; private set; }
 
             /// <summary>Starts over, for a file that is about to arrive from its first byte.</summary>
@@ -1146,17 +1160,42 @@ namespace UsefulProteomicsDatabases
             /// <summary>Marks the file as not seen whole (its start is already on disk), so it must be read again to be checked.</summary>
             internal void Invalidate() => SawWholeFile = false;
 
+            /// <summary>
+            /// Continues a resumed transfer whose bytes resume at <paramref name="offset"/> in the file. Its start is on
+            /// disk, not in this stream, so the file must be read again to be checked; a marker seen from here on is
+            /// still reported at its offset in the file. When this digest saw the start itself (an earlier attempt of
+            /// the same call), the bytes carried over from it still count, so a marker cut by the drop is found.
+            /// </summary>
+            internal void ContinueAt(long offset)
+            {
+                SawWholeFile = false;
+                if (offset != _length)
+                {
+                    // The start came from an earlier call and was never seen here: nothing carries over from it.
+                    _length = offset;
+                    _tailLength = 0;
+                }
+            }
+
             /// <summary>Takes in the next bytes of the file, in order.</summary>
             internal void Append(ReadOnlySpan<byte> data)
             {
-                if (_md5 != null)
-                    _md5.AppendData(data);
-                else if (ServerErrorAt < 0)
+                _md5?.AppendData(data);
+                if (ServerErrorAt < 0)
                     Scan(data);
                 _length += data.Length;
             }
 
             public void Dispose() => _md5?.Dispose();
+
+            void IDownloadInspector.Reset() => Reset();
+
+            void IDownloadInspector.ContinueAt(long offset) => ContinueAt(offset);
+
+            void IDownloadInspector.Append(ReadOnlySpan<byte> data) => Append(data);
+
+            /// <summary>EBI's error text, once it has arrived: the attempt can only fail from there.</summary>
+            string IDownloadInspector.StopReason => ServerErrorAt >= 0 ? ServerErrorMismatch(ServerErrorAt) : null;
 
             /// <summary>The MD5 of everything appended, as lowercase hex.</summary>
             internal string Md5Hex() => Convert.ToHexString(_md5.GetHashAndReset()).ToLowerInvariant();
@@ -1172,14 +1211,14 @@ namespace UsefulProteomicsDatabases
                 _tail.AsSpan(0, _tailLength).CopyTo(seam);
                 int head = Math.Min(carry, data.Length);
                 data[..head].CopyTo(seam[_tailLength..]);
-                int at = seam[..(_tailLength + head)].IndexOf(ServerErrorMarker);
+                int at = seam[..(_tailLength + head)].IndexOf(_marker);
                 if (at >= 0)
                 {
                     ServerErrorAt = _length - _tailLength + at;
                     return;
                 }
 
-                at = data.IndexOf(ServerErrorMarker);
+                at = data.IndexOf(_marker);
                 if (at >= 0)
                 {
                     ServerErrorAt = _length + at;
@@ -1202,420 +1241,155 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// One download attempt into <paramref name="partialPath"/>: a ranged request when the partial can be
-        /// resumed, else a full one. Returns once the partial holds the complete file.
+        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered, and checks
+        /// each one against PRIDE's checksum list. This is the convenience over <see cref="GetProjectFilesAsync"/>,
+        /// <see cref="GetFileChecksumsAsync"/> and <see cref="DownloadFileAsync(PrideArchiveFile, string, PrideFileChecksum, bool, bool, CancellationToken)"/>:
+        /// it fetches the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
         /// </summary>
         /// <remarks>
-        /// Bytes are appended only to a <c>206</c> whose <c>Content-Range</c> starts exactly where the partial
-        /// ends, sent under <c>If-Range</c> so the server answers with the whole file instead if it has changed.
-        /// With no validator there is no <c>If-Range</c>; the request is sent only when the MD5 checked afterwards
-        /// will catch a changed file instead.
-        /// Any other answer to a ranged request -- a <c>200</c>, a <c>206</c> starting elsewhere, a <c>416</c> --
-        /// starts the file again from zero. The guarantee is that no truncated or spliced file is ever moved
-        /// into place, not that no <c>.partial</c> is ever left behind.
-        /// </remarks>
-        private async Task<bool> DownloadOnceAsync(string url, string described, string partialPath,
-            string validatorPath, ResumableTransfer transfer, CancellationToken cancellationToken)
-        {
-            long resumeFrom = transfer.CanResume && File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0;
-
-            HttpResponseMessage response = await SendDownloadRequestAsync(url, described, resumeFrom, transfer.Validator, cancellationToken).ConfigureAwait(false);
-            try
-            {
-                bool resumed = resumeFrom > 0
-                    && response.StatusCode == HttpStatusCode.PartialContent
-                    && response.Content.Headers.ContentRange?.From == resumeFrom;
-
-                if (resumeFrom > 0 && !resumed
-                    && response.StatusCode is HttpStatusCode.PartialContent or HttpStatusCode.RequestedRangeNotSatisfiable)
-                {
-                    // A 206 for some other range, or a 416, cannot be spliced onto what is on disk, and its body
-                    // is not the whole file either. Ask again for the whole file.
-                    response.Dispose();
-                    resumeFrom = 0;
-                    response = await SendDownloadRequestAsync(url, described, 0, null, cancellationToken).ConfigureAwait(false);
-                }
-
-                if (!response.IsSuccessStatusCode)
-                    throw StatusFailure(response,
-                        $"PRIDE download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for {described}.");
-
-                long? expectedLength;
-                if (resumed)
-                {
-                    expectedLength = response.Content.Headers.ContentRange.Length;
-                    transfer.Digest?.Invalidate(); // the start of the file is on disk, not in this stream
-                }
-                else
-                {
-                    // A fresh start: whatever is on disk is discarded, and the validator is the new response's.
-                    expectedLength = response.Content.Headers.ContentLength;
-                    transfer.Validator = ValidatorOf(response);
-                    WriteValidator(validatorPath, transfer.Validator);
-                    transfer.Digest?.Reset();
-                }
-
-                using (var fileStream = new FileStream(partialPath, resumed ? FileMode.Append : FileMode.Create,
-                           FileAccess.Write, FileShare.None))
-                using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
-                    // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
-                    await CopyUntilStalledAsync(httpStream, fileStream, described, transfer.Digest, cancellationToken).ConfigureAwait(false);
-                }
-
-                long actualLength = new FileInfo(partialPath).Length;
-                if (expectedLength.HasValue && actualLength != expectedLength.Value)
-                {
-                    // The body ended cleanly but the file is not the size the server said it was. These bytes are
-                    // not trusted for a resume either, so they go, and a retry starts from zero.
-                    DeleteQuietly(partialPath);
-                    DeleteQuietly(validatorPath);
-                    transfer.Validator = null;
-                    throw new HttpRequestException(
-                        $"The PRIDE download of {described} came to {actualLength} bytes where the server announced {expectedLength.Value}.");
-                }
-
-                return true;
-            }
-            finally
-            {
-                response.Dispose();
-            }
-        }
-
-        /// <summary>
-        /// Sends the download GET. A positive <paramref name="resumeFrom"/> asks for the rest of the file only,
-        /// and, given a <paramref name="validator"/>, only if the file still matches it.
-        /// </summary>
-        private Task<HttpResponseMessage> SendDownloadRequestAsync(string url, string described, long resumeFrom,
-            RangeConditionHeaderValue validator, CancellationToken cancellationToken)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            if (resumeFrom > 0)
-            {
-                request.Headers.Range = new RangeHeaderValue(resumeFrom, null);
-                if (validator != null)
-                    request.Headers.IfRange = validator;
-            }
-
-            return SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken, described);
-        }
-
-        /// <summary>
-        /// The validator to resume a response's body under: its strong <c>ETag</c>, else its <c>Last-Modified</c>,
-        /// else null. A weak ETag is not allowed in <c>If-Range</c>.
-        /// </summary>
-        /// <remarks>
-        /// With no validator the bytes are resumed only when the whole file's MD5 is checked afterwards, not even
-        /// within this call otherwise: a <c>Range</c> request with no <c>If-Range</c> could splice two versions of
-        /// a file together, and only the MD5 would see it. PRIDE's public FTP host sends both validators. Its
-        /// Globus HTTPS host sends neither, though it accepts <c>Range</c> (measured 2026-10-18), and neither does
-        /// its reviewer-token route (measured 2026-09-29). There a download restarts from zero after a failure
-        /// unless its MD5 is checked.
-        /// </remarks>
-        private static RangeConditionHeaderValue ValidatorOf(HttpResponseMessage response)
-        {
-            if (response.Headers.ETag is { IsWeak: false } etag)
-                return new RangeConditionHeaderValue(etag);
-            if (response.Content.Headers.LastModified is DateTimeOffset lastModified)
-                return new RangeConditionHeaderValue(lastModified);
-            return null;
-        }
-
-        /// <summary>
-        /// Reads the validator a <c>.partial</c> was started under. An orphan -- a partial with no readable
-        /// validator, or a validator with no partial -- is deleted, because it can never be resumed. With
-        /// <paramref name="keepUnvalidated"/>, a partial with no validator is kept: the MD5 checked at the end of
-        /// the download is what vouches for it then.
-        /// </summary>
-        private static RangeConditionHeaderValue ReadValidator(string partialPath, string validatorPath, bool keepUnvalidated)
-        {
-            RangeConditionHeaderValue validator = null;
-            try
-            {
-                if (File.Exists(partialPath) && File.Exists(validatorPath))
-                    RangeConditionHeaderValue.TryParse(File.ReadAllText(validatorPath).Trim(), out validator);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-
-            if (validator == null)
-            {
-                if (!keepUnvalidated)
-                    DeleteQuietly(partialPath);
-                DeleteQuietly(validatorPath);
-            }
-            return validator;
-        }
-
-        /// <summary>Records <paramref name="validator"/> beside the partial, or removes a stale record when there is none.</summary>
-        private static void WriteValidator(string validatorPath, RangeConditionHeaderValue validator)
-        {
-            if (validator == null)
-                DeleteQuietly(validatorPath);
-            else
-                File.WriteAllText(validatorPath, validator.ToString());
-        }
-
-        /// <summary>
-        /// Deletes a scratch file if it is there. Cleanup must never replace the exception that caused it: on
-        /// Windows a locked file makes Delete throw, and ProteinDbRetriever.WriteResponseToFile guards the same way.
-        /// </summary>
-        private static void DeleteQuietly(string path)
-        {
-            try
-            {
-                if (File.Exists(path))
-                    File.Delete(path);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-
-        /// <summary>
-        /// Sends a GET, reporting <see cref="HttpClient.Timeout"/> expiring as the transport failure it is.
-        /// </summary>
-        /// <remarks>
-        /// When the client's own timeout fires, <see cref="HttpClient"/> throws a
-        /// <see cref="TaskCanceledException"/> -- the same type a caller's cancellation produces -- so an EBI
-        /// that never answers escaped the documented contract (and <c>ExternalServiceTestHelper</c>, which
-        /// skips only on transport failures). HttpClient marks its own timeout with an inner
-        /// <see cref="TimeoutException"/>, so only that is converted; a caller's cancellation, through the token or
-        /// through <see cref="HttpClient.CancelPendingRequests"/> on an injected client, is not.
-        /// </remarks>
-        /// <param name="requestUri">The URI to fetch.</param>
-        /// <param name="completionOption">When the returned task completes.</param>
-        /// <param name="cancellationToken">The caller's token; its cancellation is never converted.</param>
-        /// <param name="described">How the request is named in the message; defaults to the URI itself.</param>
-        private Task<HttpResponseMessage> GetAsync(string requestUri, HttpCompletionOption completionOption,
-            CancellationToken cancellationToken, string described = null) =>
-            SendAsync(new HttpRequestMessage(HttpMethod.Get, requestUri), completionOption, cancellationToken,
-                described ?? $"'{requestUri}'");
-
-        /// <summary>
-        /// <see cref="GetAsync"/> for a request that carries headers of its own (a resumed download's
-        /// <c>Range</c>). Takes ownership of <paramref name="request"/>.
-        /// </summary>
-        private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, HttpCompletionOption completionOption,
-            CancellationToken cancellationToken, string described)
-        {
-            using (request)
-            {
-                try
-                {
-                    return await _httpClient.SendAsync(request, completionOption, cancellationToken).ConfigureAwait(false);
-                }
-                catch (TaskCanceledException e) when (e.InnerException is TimeoutException)
-                {
-                    throw new HttpRequestException(
-                        $"PRIDE did not respond within {_httpClient.Timeout} for {described}.", e);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Fetches <paramref name="requestUri"/> in full, retrying transient failures, and returns the response
-        /// only once it has a success status. Any other status throws, worded by <paramref name="describeFailure"/>.
-        /// </summary>
-        private Task<HttpResponseMessage> GetSuccessAsync(string requestUri,
-            Func<HttpResponseMessage, string> describeFailure, CancellationToken cancellationToken) =>
-            WithRetryAsync(async () =>
-            {
-                HttpResponseMessage response = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-                if (response.IsSuccessStatusCode)
-                    return response;
-
-                using (response)
-                    throw StatusFailure(response, describeFailure(response));
-            }, HostOf(requestUri), cancellationToken);
-
-        /// <summary>
-        /// The exception for a non-success status: an <see cref="HttpRequestException"/> carrying the status,
-        /// plus the server's <c>Retry-After</c> when it sent one, for <see cref="WithRetryAsync{T}"/> to honour.
-        /// </summary>
-        private static HttpRequestException StatusFailure(HttpResponseMessage response, string message)
-        {
-            var exception = new HttpRequestException(message, null, response.StatusCode);
-            TimeSpan? retryAfter = response.Headers.RetryAfter?.Delta
-                ?? (response.Headers.RetryAfter?.Date is DateTimeOffset date ? date - DateTimeOffset.UtcNow : null);
-            if (retryAfter.HasValue)
-                exception.Data[RetryAfterKey] = retryAfter.Value;
-            return exception;
-        }
-
-        private const string RetryAfterKey = "PrideArchiveClient.RetryAfter";
-
-        /// <summary>
-        /// Runs <paramref name="attempt"/>, retrying it up to <see cref="MaxRetries"/> times while it fails
-        /// transiently, and lets the last failure propagate unchanged: same type, same
-        /// <see cref="HttpRequestException.StatusCode"/>, same message.
-        /// </summary>
-        /// <remarks>
-        /// PR-A made every transport failure an <see cref="HttpRequestException"/>, so the decision is made on
-        /// the exception alone. One with no status is a transport failure (a timeout, a dropped or stalled
-        /// body) and is always transient. One with a status is transient for 408, 429 and every 5xx -- and for
-        /// 403 on the FTP host only, because EBI answers rate limiting there with 403 rather than 429. On the
-        /// REST host a 403 is a real refusal, and retrying it would only delay the answer by 85 s.
         /// <para>
-        /// Never retried: a <see cref="MzLibException"/> (PRIDE answered, and broke its contract, which a
-        /// second ask will not mend), a write-side <see cref="IOException"/> (the caller's disk) and the
-        /// caller's cancellation, which also ends a backoff in progress.
+        /// A selected file with a row in <see cref="GetFileChecksumsAsync"/> is downloaded through the checked
+        /// overload, without the MD5: its size is checked and its bytes are scanned for EBI's error text, which
+        /// EBI wrote into about a third of large transfers on 2026-10-07/08 at the announced size. A file with no
+        /// row (PRIDE's own <c>generated/</c> files, say) cannot be checked and is downloaded as
+        /// <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/> does, unchecked. The
+        /// checksum list is fetched once, and only when the selection is not empty.
+        /// </para>
+        /// <para>
+        /// The list is read before any file is downloaded, so a list that cannot be read (its request still fails
+        /// after the retries, or PRIDE answers with a list <see cref="GetFileChecksumsAsync"/> refuses) fails the
+        /// call with nothing downloaded. It does not fall back to unchecked downloads: a broken list taken as an
+        /// empty one would turn "PRIDE's list is broken" into "nothing to check", which is why that method reads
+        /// the list strictly.
+        /// </para>
+        /// <para>
+        /// Without the MD5 the scan is the only check of a file's bytes, so any <c>&lt;Error&gt;&lt;Code&gt;</c>
+        /// counts as EBI's error text. A listed file whose own bytes hold it (a log quoting a storage error, say)
+        /// is refused on every attempt, and, as after any failure here, the files after it are not downloaded.
+        /// Download it with the MD5,
+        /// <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, bool, CancellationToken)"/>
+        /// with <c>verifyMd5: true</c>, where its MD5 decides instead.
+        /// </para>
+        /// <para>
+        /// A filter that matches no file is a valid answer, not an error: the result is empty and no file is
+        /// downloaded. To name the files instead, and have a name the project does not hold refused before any
+        /// download, use <see cref="DownloadProjectFilesByNameAsync"/>.
         /// </para>
         /// </remarks>
-        /// <param name="attempt">One complete attempt, from sending the request to checking the status.</param>
-        /// <param name="host">The host the request goes to; decides whether a 403 is transient.</param>
-        /// <param name="cancellationToken">Cancels the attempt and any backoff.</param>
-        private async Task<T> WithRetryAsync<T>(Func<Task<T>> attempt, string host, CancellationToken cancellationToken)
-        {
-            for (int retry = 0; ; retry++)
-            {
-                try
-                {
-                    return await attempt().ConfigureAwait(false);
-                }
-                catch (HttpRequestException e) when (retry < MaxRetries && IsTransient(e, host))
-                {
-                    await RetryDelay(BackoffFor(retry, e), cancellationToken).ConfigureAwait(false);
-                }
-            }
-        }
-
-        /// <summary>Whether <see cref="WithRetryAsync{T}"/> would retry <paramref name="exception"/> against <paramref name="host"/>.</summary>
-        private static bool IsTransient(HttpRequestException exception, string host)
-        {
-            if (exception.StatusCode is not HttpStatusCode status)
-                return true;
-
-            int code = (int)status;
-            return status == HttpStatusCode.RequestTimeout
-                || status == HttpStatusCode.TooManyRequests
-                || code >= 500
-                || (status == HttpStatusCode.Forbidden
-                    && string.Equals(host, PrideArchiveExtensions.PrideFtpHost, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
-        /// The wait before retry <paramref name="retry"/> (zero-based): the server's <c>Retry-After</c> on a
-        /// 429 or 503, capped at <see cref="MaxRetryAfter"/>, else the fixed backoff.
-        /// </summary>
-        private static TimeSpan BackoffFor(int retry, HttpRequestException exception)
-        {
-            if (exception.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable
-                && exception.Data[RetryAfterKey] is TimeSpan retryAfter)
-            {
-                if (retryAfter < TimeSpan.Zero)
-                    return TimeSpan.Zero;
-                return retryAfter > MaxRetryAfter ? MaxRetryAfter : retryAfter;
-            }
-
-            return RetryBackoff[Math.Min(retry, RetryBackoff.Length - 1)];
-        }
-
-        /// <summary>The host a request URI goes to, resolving a relative one against the client's base address.</summary>
-        private string HostOf(string requestUri) =>
-            Uri.TryCreate(requestUri, UriKind.Absolute, out Uri absolute)
-                ? absolute.Host
-                : _httpClient.BaseAddress?.Host ?? string.Empty;
-
-        /// <summary>
-        /// Names a download for an exception message by its file name and host only -- never the URL itself.
-        /// </summary>
-        /// <remarks>
-        /// A download URL can carry a credential: PRIDE's reviewer-token route hands out hrefs whose query
-        /// string IS the token. An exception message ends up in logs, CI output and pasted issues, so the URL
-        /// never goes into one. The public route's URLs are harmless, but a rule that holds only for harmless
-        /// URLs is not a rule.
-        /// </remarks>
-        internal static string DescribeDownload(string url, string fileName)
-        {
-            string host = Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ? uri.Host : "an unparseable URL";
-            return $"'{fileName}' from {host}";
-        }
-
-        /// <summary>
-        /// Copies <paramref name="source"/> to <paramref name="destination"/>, giving up if no bytes arrive
-        /// for <see cref="BodyStallTimeout"/>. Each read gets a FRESH window, so a transfer that keeps
-        /// delivering data runs as long as it needs to and only an actual stoppage ends it.
-        /// </summary>
-        /// <remarks>
-        /// The stall window is linked to <paramref name="cancellationToken"/> so a caller's cancellation is
-        /// still honoured immediately, but the two are told apart afterwards: only a window that fired on
-        /// its own becomes an <see cref="HttpRequestException"/>. A caller who cancels gets the
-        /// <see cref="OperationCanceledException"/> they asked for, because reporting that as a transport
-        /// failure would make <c>ExternalServiceTestHelper</c> skip a test that was deliberately cancelled.
-        /// </remarks>
-        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string described,
-            DownloadDigest digest, CancellationToken cancellationToken)
-        {
-            byte[] buffer = new byte[81920];
-            while (true)
-            {
-                int read;
-                using (var stallWindow = new CancellationTokenSource(BodyStallTimeout))
-                using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stallWindow.Token))
-                {
-                    try
-                    {
-                        read = await source.ReadAsync(buffer.AsMemory(), linked.Token).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException e) when (stallWindow.IsCancellationRequested
-                                                               && !cancellationToken.IsCancellationRequested)
-                    {
-                        throw new HttpRequestException(
-                            $"The PRIDE response body for {described} delivered nothing for {BodyStallTimeout}.", e);
-                    }
-                    catch (IOException e)
-                    {
-                        // A connection EBI drops mid-body arrives here as an IOException (HttpIOException on
-                        // .NET 10, "The response ended prematurely"), not as the HttpRequestException the
-                        // contract promises -- so a caller catching "try again later" missed the phase where a
-                        // large download actually breaks, and a live test reddened instead of skipping. Only
-                        // the READ is wrapped: a failure writing the local file is the caller's disk, not an
-                        // outage, and stays an IOException.
-                        throw new HttpRequestException(
-                            $"The PRIDE response body for {described} ended before the download completed.", e);
-                    }
-                }
-
-                if (read == 0)
-                    return;
-
-                digest?.Append(buffer.AsSpan(0, read));
-                await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        /// <summary>
-        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered. This is
-        /// the convenience over <see cref="GetProjectFilesAsync"/> + <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/>: it fetches
-        /// the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
-        /// </summary>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
         /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
         /// <param name="filter">
         /// An optional predicate selecting which files to download (e.g. by category or extension — see
         /// <see cref="PrideArchiveExtensions"/>). When null, every file in the manifest is downloaded.
         /// </param>
-        /// <param name="overwrite">Passed through to <see cref="DownloadFileAsync(PrideArchiveFile, string, bool, CancellationToken)"/>; default true.</param>
+        /// <param name="overwrite">
+        /// Passed through to each download; default true. With false, an existing file that has a checksum row is
+        /// kept only if it passes the size check, as the checked overload describes.
+        /// </param>
         /// <param name="cancellationToken">Cancels between and during file downloads.</param>
         /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
         /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
-        /// <exception cref="HttpRequestException">The manifest request or a download returned a non-success status.</exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        /// <exception cref="MzLibException">PRIDE's checksum list could not be read, or a file failed its checks on every attempt.</exception>
+        public Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
+            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default) =>
+            DownloadProjectFilesAsync(accession, destinationDirectory, filter, overwrite, verifyMd5: false, cancellationToken);
+
+        /// <summary>
+        /// As <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, CancellationToken)"/>,
+        /// and with <paramref name="verifyMd5"/> true each file that has a checksum row is also checked against its
+        /// MD5, which reads it once more as it arrives.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="filter">An optional predicate selecting which files to download. When null, every file in the manifest is downloaded.</param>
+        /// <param name="overwrite">Passed through to each download.</param>
+        /// <param name="verifyMd5">Also check each file's MD5, where it has a checksum row.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
+        /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        /// <exception cref="MzLibException">PRIDE's checksum list could not be read, or a file failed its checks on every attempt.</exception>
         public async Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
-            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default)
+            Func<PrideArchiveFile, bool> filter, bool overwrite, bool verifyMd5, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(destinationDirectory))
                 throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
 
             List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
-            IEnumerable<PrideArchiveFile> selected = filter == null ? files : files.Where(filter);
+            List<PrideArchiveFile> selected = filter == null ? files : files.Where(filter).ToList();
+            return await DownloadCheckedAsync(accession, destinationDirectory, selected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false);
+        }
 
+        /// <summary>
+        /// Downloads the named files of a project to <paramref name="destinationDirectory"/>, checked as
+        /// <see cref="DownloadProjectFilesAsync(string, string, Func{PrideArchiveFile, bool}, bool, bool, CancellationToken)"/>
+        /// checks them. Every name is looked up in the manifest first, so a name the project does not hold is
+        /// refused before any file is downloaded.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="fileNames">
+        /// The bare file names to download, as <see cref="PrideArchiveFile.FileName"/> gives them (ordinal,
+        /// case-sensitive). A name given twice is downloaded once.
+        /// </param>
+        /// <param name="overwrite">Passed through to each download; default true.</param>
+        /// <param name="verifyMd5">Also check each file's MD5, where it has a checksum row; default false.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Never empty.</returns>
+        /// <exception cref="ArgumentException">
+        /// The accession or destination directory is blank, or <paramref name="fileNames"/> is null, empty, or
+        /// holds a blank name. No request is made.
+        /// </exception>
+        /// <exception cref="MzLibException">
+        /// A name is not in the project's manifest (the message names every one), and nothing was downloaded; or
+        /// PRIDE's checksum list could not be read, or a file failed its checks on every attempt.
+        /// </exception>
+        /// <exception cref="HttpRequestException">The manifest request, the checksum list or a download returned a non-success status.</exception>
+        public async Task<IReadOnlyList<string>> DownloadProjectFilesByNameAsync(string accession, string destinationDirectory,
+            IReadOnlyCollection<string> fileNames, bool overwrite = true, bool verifyMd5 = false,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
+            if (fileNames == null || fileNames.Count == 0)
+                throw new ArgumentException("At least one file name is required.", nameof(fileNames));
+            if (fileNames.Any(string.IsNullOrWhiteSpace))
+                throw new ArgumentException("A file name is blank.", nameof(fileNames));
+
+            List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var wanted = new HashSet<string>(fileNames, StringComparer.Ordinal);
+            var missing = wanted.Except(files.Select(f => f.FileName), StringComparer.Ordinal).ToList();
+            if (missing.Count > 0)
+                throw new MzLibException(
+                    $"{missing.Count} of the {wanted.Count} file names given are not in PRIDE project '{accession}', so nothing was downloaded: {string.Join(", ", missing.Select(n => $"'{n}'"))}.");
+
+            List<PrideArchiveFile> selected = files.Where(f => wanted.Contains(f.FileName)).ToList();
+            return await DownloadCheckedAsync(accession, destinationDirectory, selected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Downloads <paramref name="selected"/> in turn, each through the checked overload when PRIDE's checksum
+        /// list has its row, else unchecked. The list is fetched once, and not at all for an empty selection.
+        /// </summary>
+        private async Task<IReadOnlyList<string>> DownloadCheckedAsync(string accession, string destinationDirectory,
+            List<PrideArchiveFile> selected, bool overwrite, bool verifyMd5, CancellationToken cancellationToken)
+        {
             var downloadedPaths = new List<string>();
+            if (selected.Count == 0)
+                return downloadedPaths;
+
+            IReadOnlyDictionary<string, PrideFileChecksum> checksums =
+                await GetFileChecksumsAsync(accession, cancellationToken).ConfigureAwait(false);
             foreach (PrideArchiveFile file in selected)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                downloadedPaths.Add(await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false));
+                string path = file.FileName != null && checksums.TryGetValue(file.FileName, out PrideFileChecksum expected)
+                    ? await DownloadFileAsync(file, destinationDirectory, expected, overwrite, verifyMd5, cancellationToken).ConfigureAwait(false)
+                    : await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false);
+                downloadedPaths.Add(path);
             }
             return downloadedPaths;
         }
@@ -1650,7 +1424,7 @@ namespace UsefulProteomicsDatabases
             // GetProjectFilesAsync pattern) would resolve to the wrong path. An absolute PROXI URI overrides the
             // client's BaseAddress. resultType=full asks PROXI for the peak arrays, not just the metadata.
             string requestUri = $"{DefaultProxiBaseAddress}spectra?usi={Uri.EscapeDataString(usi)}&resultType=full";
-            using HttpResponseMessage response = await GetSuccessAsync(requestUri,
+            using HttpResponseMessage response = await _engine.GetSuccessAsync(requestUri,
                 r => $"PRIDE PROXI request failed with status {(int)r.StatusCode} {r.ReasonPhrase} for '{requestUri}'.",
                 cancellationToken).ConfigureAwait(false);
 
@@ -1759,7 +1533,7 @@ namespace UsefulProteomicsDatabases
                 // Only this page's request is retried, never the fetch: restarting would re-read pages
                 // already held and widen the live-index drift window SearchProjectsAsync's dedup absorbs.
                 // About 6% of search requests stall for ~93 s, so without this one slow page lost the lot.
-                using HttpResponseMessage response = await GetSuccessAsync(requestUri,
+                using HttpResponseMessage response = await _engine.GetSuccessAsync(requestUri,
                     r => $"PRIDE Archive request failed with status {(int)r.StatusCode} {r.ReasonPhrase} for '{requestUri}'.",
                     cancellationToken).ConfigureAwait(false);
 
