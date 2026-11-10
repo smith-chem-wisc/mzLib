@@ -22,6 +22,21 @@ namespace Test.FileReadingTests
     [ExcludeFromCodeCoverage]
     public class TestModelEvidenceReader
     {
+        [Test]
+        public void TheModelIsToldWhatCountsAsATreatment()
+        {
+            // sdrf D64. In a 193-deposit run with no definition, about 12 of 58 model-sourced treatment cells named a step that
+            // serves the measurement: biotin, azidonorleucine, a pulldown, an NaCl extraction.
+            string prompt = System.Text.RegularExpressions.Regex.Replace(ModelEvidenceReader.SystemPrompt, @"\s+", " ");
+
+            Assert.That(prompt, Does.Contain("done to the living sample or organism because the study asks what it does"));
+            Assert.That(prompt, Does.Contain("a drug, stimulus, diet, surgery, stress or a changed temperature"));
+            Assert.That(prompt, Does.Contain("A step done to get the sample measured is not a treatment, even on living cells"));
+            foreach (var step in new[] { "digestion", "reduction", "alkylation", "labelling", "enrichment", "pulldown", "extraction", "cross-linking" })
+                Assert.That(prompt, Does.Contain(step));
+            Assert.That(prompt, Does.Contain("If the study compares such steps with each other"), "there the step is the variable");
+        }
+
         private static PublicationInput Input() => new(
             "PXD060431",
             "Human heart proteomes from HFpEF patients and non-failing donors.",

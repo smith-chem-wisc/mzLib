@@ -673,11 +673,11 @@ public class ProteinDbRetrieverTests
     /// </summary>
     [Test]
     [TestCase(ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all,
-        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+is_gene_centric:true&format=list&size=0",
-        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+is_gene_centric:true&compressed=false&format=xml")]
+        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+proteome_canonical:UP000002494&format=list&size=0",
+        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+proteome_canonical:UP000002494&compressed=false&format=xml")]
     [TestCase(ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes,
-        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+reviewed:true+AND+is_gene_centric:true&format=list&size=0",
-        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+reviewed:true+AND+is_gene_centric:true&compressed=false&format=fasta&includeIsoforms:false")]
+        "https://rest.uniprot.org/uniprotkb/search?query=UP000002494+AND+reviewed:true+AND+proteome_canonical:UP000002494&format=list&size=0",
+        "https://rest.uniprot.org/uniprotkb/stream?query=UP000002494+AND+reviewed:true+AND+proteome_canonical:UP000002494&compressed=false&format=fasta&includeIsoforms:false")]
     public void RetrieveProteome_GeneCentric_AddsTheClauseToBothRequests(ProteinDbRetriever.ProteomeFormat format,
         ProteinDbRetriever.Reviewed reviewed, string expectedCountUrl, string expectedDownloadUrl)
     {
@@ -705,7 +705,7 @@ public class ProteinDbRetrieverTests
             ProteinDbRetriever.GeneCentric.no, new HttpClient(withNo));
 
         Assert.That(withNo.RequestedUris, Is.EqualTo(without.RequestedUris));
-        Assert.That(withNo.RequestedUris, Has.All.Not.Contains("is_gene_centric"));
+        Assert.That(withNo.RequestedUris, Has.All.Not.Contains("proteome_canonical"));
     }
 
     /// <summary>The gene-centric set is its own file, never written over the reviewed or complete download.</summary>
