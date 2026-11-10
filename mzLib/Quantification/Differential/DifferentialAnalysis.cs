@@ -268,6 +268,7 @@ public static class DifferentialAnalysis
         private readonly List<DifferentialNormalizationInfo> _normalization = new();
         private readonly Dictionary<string, DifferentialContrastInfo> _contrastInfo = new(StringComparer.Ordinal);
         private readonly Dictionary<string, List<DifferentialGlobalShift>> _shifts = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _designSha256 = new(StringComparer.Ordinal);
         private readonly List<string> _designWarnings = new();
         private IsobaricObservationTable? _tmt;
         private IsobaricNormalizationResult? _tmtNormalization;
@@ -690,6 +691,45 @@ public static class DifferentialAnalysis
             foreach (var plan in plans) Rows(design, plan, normalization);
         }
 
+        /// <summary>
+        /// <c>covariates_fitted</c> (DEF-DIFF-COLUMNS): every term of the feature's own fit besides the comparison's own
+        /// factor (or covariate) and the intercept, in design order, then the random terms its fit kept, marked
+        /// <c>(random)</c>; null when there is none.
+        /// </summary>
+        private string? CovariatesFitted(AnalysisDesign design, FeaturePlan plan, Contrast c, bool single)
+        {
+            var own = new HashSet<string>(Enumerable.Range(0, c.Weights.Count).Where(j => c.Weights[j] != 0)
+                .Select(j => design.ColumnTerms[j]), StringComparer.Ordinal);
+            var terms = plan.Design!.KeptCommon.Select(j => design.ColumnTerms[j])
+                .Where(t => t != "intercept" && !own.Contains(t)).Distinct(StringComparer.Ordinal).ToList();
+            if (!single && plan.MixedFit!.Structure[plan.Index] is { } structure)
+                terms.AddRange(RandomTermNames(structure).Select(t => t + "(random)"));
+            return terms.Count == 0 ? null : string.Join(";", terms);
+        }
+
+        /// <summary>
+        /// The outer and inner random terms' names in the formula's words (<see cref="Formula"/>): an isobaric table without
+        /// individuals has the channel's sample and the run within it; otherwise the individual and the sample.
+        /// </summary>
+        private (string Outer, string Inner, bool Individuals) RandomNames()
+        {
+            bool individuals = _request.Samples.Any(s => s.Individual is not null);
+            return _isobaric && !individuals ? ("sample", "run", false) : ("individual", "sample", individuals);
+        }
+
+        /// <summary>A structure's random terms, outer first, as <see cref="RandomTerms"/> names them.</summary>
+        private IEnumerable<string> RandomTermNames(RandomStructure structure)
+        {
+            var (outer, inner, individuals) = RandomNames();
+            return structure switch
+            {
+                RandomStructure.IndividualAndSample => new[] { outer, inner },
+                RandomStructure.Individual => new[] { outer },
+                RandomStructure.Sample => new[] { _isobaric || individuals ? inner : "sample" },
+                _ => Array.Empty<string>(),
+            };
+        }
+
         /// <summary>The random structure a feature's labels call for before any term is left out (ruling 13).</summary>
         private static RandomStructure FullStructure(FeatureObservations values)
         {
@@ -703,10 +743,7 @@ public static class DifferentialAnalysis
         /// <summary>A structure's random terms as the model's formula names them (<see cref="Formula"/>).</summary>
         private string RandomTerms(RandomStructure structure)
         {
-            bool individuals = _request.Samples.Any(s => s.Individual is not null);
-            (string outer, string inner) = _isobaric
-                ? (individuals ? ("individual", "sample") : ("sample", "run"))
-                : ("individual", "sample");
+            var (outer, inner, individuals) = RandomNames();
             return structure switch
             {
                 RandomStructure.IndividualAndSample => $"(1|{outer}/{inner})",
@@ -773,6 +810,7 @@ public static class DifferentialAnalysis
 
         private void Rows(AnalysisDesign design, FeaturePlan plan, string normalization)
         {
+            string designSha256 = _designSha256.TryGetValue(design.Stratum, out var known) ? known : _designSha256[design.Stratum] = design.Sha256();
             foreach (var pc in plan.Contrasts)
             {
                 var c = pc.Contrast;
@@ -854,6 +892,8 @@ public static class DifferentialAnalysis
                     Robust = values is null || values.NuisanceLevels.Count == 0 ? null : !single && _request.Settings.Robust,
                     RobustFellBack = fitted && !single && _request.Settings.Robust ? plan.MixedFit!.RobustFellBack[f] : null,
                     Normalization = normalization,
+                    CovariatesFitted = fitted ? CovariatesFitted(design, plan, c, single) : null,
+                    DesignSha256 = designSha256,
                     MethodVersion = DifferentialConstants.MethodVersion,
                 };
                 _rows.Add(row);

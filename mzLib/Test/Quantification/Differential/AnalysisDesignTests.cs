@@ -83,6 +83,36 @@ public class AnalysisDesignTests
         Assert.That(design.MeanWeights(null), Is.Null);
     }
 
+    /// <summary>
+    /// design_sha256 (ruling 10): the same samples and model give the same hash whatever order the samples come in and in
+    /// any culture; a different level, individual or stratum gives another.
+    /// </summary>
+    [Test]
+    public void TheDesignHashDependsOnTheModelAndSamplesOnly()
+    {
+        var samples = new[] { S("s1", ("g", "A")), S("s2", ("g", "A")), S("s3", ("g", "B")), S("s4", ("g", "B")) };
+        var spec = Spec(("g", "A"));
+        string hash = AnalysisDesign.Create(samples, spec).Sha256();
+
+        Assert.That(hash, Does.Match("^[0-9a-f]{64}$"));
+        Assert.That(AnalysisDesign.Create(samples.Reverse(), spec).Sha256(), Is.EqualTo(hash));
+        var culture = System.Threading.Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            Assert.That(AnalysisDesign.Create(samples, spec).Sha256(), Is.EqualTo(hash));
+        }
+        finally
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = culture;
+        }
+        var moved = new[] { S("s1", ("g", "A")), S("s2", ("g", "B")), S("s3", ("g", "B")), S("s4", ("g", "B")) };
+        Assert.That(AnalysisDesign.Create(moved, spec).Sha256(), Is.Not.EqualTo(hash));
+        var paired = samples.Select((s, i) => s with { Individual = $"m{i % 2}" }).ToArray();
+        Assert.That(AnalysisDesign.Create(paired, spec).Sha256(), Is.Not.EqualTo(hash));
+        Assert.That(AnalysisDesign.Create(samples, spec, "tissue=liver").Sha256(), Is.Not.EqualTo(hash));
+    }
+
     [Test]
     public void BatchAndCovariateColumnsAreNamed()
     {

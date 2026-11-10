@@ -105,6 +105,13 @@ public class DifferentialAnalysisTests
         // P5: only a shared peptide.
         Assert.That(Row(result, "P5", "c1").Status, Is.EqualTo(DifferentialStatus.BelowSupport(DifferentialConstants.NoUniquePeptides)));
         Assert.That(Row(result, "P5", "c1").Log2Effect, Is.Null);
+
+        // covariates_fitted: the group is the comparison's own factor, so a full peptide model shows its random sample term
+        // only; the t-test row and a row with no fit show nothing. design_sha256: one stratum, one hash, on every row.
+        Assert.That(Row(result, "P1", "c1").CovariatesFitted, Is.EqualTo("sample(random)"));
+        Assert.That(Row(result, "P4", "c2").CovariatesFitted, Is.Null);
+        Assert.That(Row(result, "P5", "c1").CovariatesFitted, Is.Null);
+        Assert.That(result.Rows.Select(r => r.DesignSha256).Distinct().Single(), Does.Match("^[0-9a-f]{64}$"));
     }
 
     /// <summary>
@@ -173,6 +180,8 @@ public class DifferentialAnalysisTests
             Is.EquivalentTo(new[] { ("ONLYB1", "c1"), ("ONLYB1", "c2"), ("ONLYB1", "c3") }));
         Assert.That(recorded[0].Facts, Does.Contain("batch=b2"));
         Assert.That(result.Rows.Where(r => r.FeatureId == "FULL1"), Is.All.Matches<DifferentialResult>(r => r.MeanNumerator is not null));
+        Assert.That(result.Rows.Where(r => r.FeatureId == "FULL1").Select(r => r.CovariatesFitted), Is.All.EqualTo("batch;sample(random)"));
+        Assert.That(only.Select(r => r.CovariatesFitted), Is.All.EqualTo("sample(random)"), "batch left out of its own fit");
     }
 
     /// <summary>
@@ -230,6 +239,7 @@ public class DifferentialAnalysisTests
         Assert.That(dropped.FeatureId, Is.EqualTo("SPLIT"));
         Assert.That(dropped.Facts, Does.Contain("(1|sample)").And.Contain("9 value(s)"));
         Assert.That(dropped.Effect, Does.Contain("no random term"));
+        Assert.That(split.Select(r => r.CovariatesFitted), Is.All.Null, "no term besides the group, no random term");
     }
 
     /// <summary>

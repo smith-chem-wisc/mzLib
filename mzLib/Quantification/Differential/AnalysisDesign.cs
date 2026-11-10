@@ -390,6 +390,27 @@ public sealed class AnalysisDesign
         return new Contrast(label, label, weights, $"{factor}={numerator}", $"{factor}={denominator}");
     }
 
+    /// <summary>
+    /// The sha256 of this design (lower-case hex; <c>design_sha256</c>, STAT1 M5b ruling 10) over a canonical text: the
+    /// stratum, the column names, then each sample in row order (ordinal by id) with its individual and its row of the
+    /// matrix, numbers in round-trip invariant form, fields joined by tabs, lines by <c>\n</c>. Two designs that fit the same
+    /// model to the same samples give the same hash on any machine and culture.
+    /// </summary>
+    internal string Sha256()
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append(Stratum).Append('\n').Append(string.Join('\t', ColumnNames)).Append('\n');
+        for (int i = 0; i < Samples.Count; i++)
+        {
+            text.Append(Samples[i].SampleId).Append('\t').Append(Samples[i].Individual ?? "");
+            for (int j = 0; j < ColumnNames.Count; j++)
+                text.Append('\t').Append(_matrix[i, j].ToString("R", CultureInfo.InvariantCulture));
+            text.Append('\n');
+        }
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text.ToString())))
+            .ToLowerInvariant();
+    }
+
     private static string BetweenLabel(string factor, string numerator, string denominator) =>
         $"{factor}={numerator} vs {factor}={denominator}";
 
