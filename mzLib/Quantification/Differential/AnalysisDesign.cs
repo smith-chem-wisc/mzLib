@@ -393,6 +393,55 @@ public sealed class AnalysisDesign
     private static string BetweenLabel(string factor, string numerator, string denominator) =>
         $"{factor}={numerator} vs {factor}={denominator}";
 
+    /// <summary>
+    /// The weights on the design's columns that give one side of a <see cref="Between"/> contrast's estimated marginal mean
+    /// (STAT1 M5b ruling 3, <c>DEF-DIFF-EFFECT</c>): every sample's row with the factor set to that level, averaged over the
+    /// stratum's samples with equal weight, so each other factor, the batch and each covariate enters at its stratum
+    /// proportion or mean. A factor that interacts with this one is set to its baseline instead, where <see cref="Between"/>
+    /// takes the effect, so the numerator's weights minus the denominator's are the contrast's weights exactly.
+    /// </summary>
+    /// <param name="side">A contrast's <see cref="Contrast.Numerator"/> or <see cref="Contrast.Denominator"/>
+    /// (<c>factor=level</c>).</param>
+    /// <returns>The weights, or null when <paramref name="side"/> names no level of a factor of the model.</returns>
+    internal double[]? MeanWeights(string? side)
+    {
+        if (side is null) return null;
+        var f = _factors.FirstOrDefault(x => side.StartsWith(x.Name + "=", StringComparison.Ordinal)
+                                              && x.Levels.Contains(side[(x.Name.Length + 1)..], StringComparer.Ordinal));
+        if (f is null) return null;
+        string level = side[(f.Name.Length + 1)..];
+        // The factors this one interacts with sit at their baseline: their own columns and every interaction column that
+        // involves them or this factor are 0 in each sample's row.
+        var atBaseline = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var a in _factors)
+            foreach (var b in _factors)
+            {
+                if (!_columnTerms.Contains($"{a.Name}:{b.Name}")) continue;
+                if (a.Name == f.Name) atBaseline.Add(b.Name);
+                if (b.Name == f.Name) atBaseline.Add(a.Name);
+            }
+        var zeroTerms = new HashSet<string>(atBaseline, StringComparer.Ordinal);
+        foreach (var a in _factors)
+            foreach (var b in _factors)
+                if (a.Name == f.Name || b.Name == f.Name || atBaseline.Contains(a.Name) || atBaseline.Contains(b.Name))
+                    zeroTerms.Add($"{a.Name}:{b.Name}");
+
+        int n = Samples.Count, p = ColumnNames.Count;
+        var weights = new double[p];
+        for (int j = 0; j < p; j++)
+        {
+            if (_columnTerms[j] == f.Name)
+                weights[j] = ColumnNames[j] == $"{f.Name}={level}" ? 1 : 0;
+            else if (!zeroTerms.Contains(_columnTerms[j]))
+            {
+                double sum = 0;
+                for (int i = 0; i < n; i++) sum += _matrix[i, j];
+                weights[j] = sum / n;
+            }
+        }
+        return weights;
+    }
+
     /// <summary>The slope of a covariate, per its scaled unit, other terms held fixed.</summary>
     public Contrast Slope(string covariate)
     {

@@ -115,11 +115,27 @@ internal sealed class FeatureDesign
     /// </summary>
     public string Estimability(IReadOnlyList<double> commonWeights)
     {
-        var unseen = Unseen(commonWeights, out double length);
+        var unseen = Unseen(commonWeights, null, out double length);
         if (unseen is null || unseen.L2Norm() <= AnalysisDesign.LoadingTolerance * length) return AnalysisDesign.Estimable;
         return AnalysisDesign.TermsAlong(unseen / length, _terms).Count > 1
             ? AnalysisDesign.NotEstimableConfounded
             : AnalysisDesign.NotEstimableRankDeficient;
+    }
+
+    /// <summary>
+    /// Whether a function of the coefficients, given by weights on the stratum's columns and on the feature's nuisance
+    /// columns, can be estimated from this feature's observations, by the same null-space rule as <see cref="Estimability"/>.
+    /// An estimated marginal mean (ruling 3) puts weight on the nuisance columns; with a column of another factor the
+    /// feature never saw (a batch it is missing from), a mean at the stratum's proportions cannot be estimated.
+    /// </summary>
+    public bool IsEstimable(IReadOnlyList<double> commonWeights, IReadOnlyList<double> nuisanceWeights)
+    {
+        ArgumentNullException.ThrowIfNull(nuisanceWeights);
+        if (nuisanceWeights.Count != NuisanceCount)
+            throw new ArgumentException($"There are {nuisanceWeights.Count} nuisance weights but the feature has {NuisanceCount} " +
+                "nuisance columns.", nameof(nuisanceWeights));
+        var unseen = Unseen(commonWeights, nuisanceWeights, out double length);
+        return unseen is null || unseen.L2Norm() <= AnalysisDesign.LoadingTolerance * length;
     }
 
     /// <summary>An estimable contrast's weights on <see cref="KeptCommon"/> (the left-out coefficients taken as 0).</summary>
@@ -145,11 +161,12 @@ internal sealed class FeatureDesign
             .ToArray();
     }
 
-    private Vector<double>? Unseen(IReadOnlyList<double> commonWeights, out double length)
+    private Vector<double>? Unseen(IReadOnlyList<double> commonWeights, IReadOnlyList<double>? nuisanceWeights, out double length)
     {
         Check(commonWeights);
         int width = CommonCount + NuisanceCount;
-        var c = Vector<double>.Build.Dense(width, j => j < CommonCount ? commonWeights[j] / _lengths[j] : 0);
+        var c = Vector<double>.Build.Dense(width, j => (j < CommonCount ? commonWeights[j]
+            : nuisanceWeights?[j - CommonCount] ?? 0) / _lengths[j]);
         length = c.L2Norm();
         return _nullProjector is null ? null : _nullProjector * c;
     }

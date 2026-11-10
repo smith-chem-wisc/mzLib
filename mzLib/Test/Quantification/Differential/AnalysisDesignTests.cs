@@ -36,6 +36,53 @@ public class AnalysisDesignTests
             { "intercept", "age_group=old", "treatment=drug", "age_group=old:treatment=drug" }));
     }
 
+    /// <summary>
+    /// A model mean (ruling 3, DEF-DIFF-EFFECT): the level's own column set, every other factor, the batch and a covariate
+    /// at the stratum's proportion or mean (each sample counted once), and the two sides' difference is the contrast.
+    /// </summary>
+    [Test]
+    public void AMeanSetsItsLevelAndAveragesEverythingElseOverTheStratum()
+    {
+        var levels = new[] { ("A", "F", "b1", 30.0), ("A", "M", "b1", 40), ("A", "F", "b2", 50), ("B", "M", "b1", 60),
+            ("B", "M", "b2", 35), ("B", "F", "b2", 45) };
+        var samples = levels.Select((l, i) => S($"s{i + 1}", ("condition", l.Item1), ("sex", l.Item2)) with
+        {
+            Batch = l.Item3,
+            Covariates = new Dictionary<string, double> { ["age"] = l.Item4 },
+        }).ToList();
+        var spec = Spec(("condition", "A"), ("sex", "F")) with { Covariates = new[] { new CovariateSpec("age", "years", Centre: 40) } };
+        var design = AnalysisDesign.Create(samples, spec);
+        Assert.That(design.ColumnNames, Is.EqualTo(new[] { "intercept", "condition=B", "sex=M", "batch=b2", "age (per years)" }));
+
+        var b = design.MeanWeights("condition=B")!;
+        var a = design.MeanWeights("condition=A")!;
+        double ageMean = (30.0 + 40 + 50 + 60 + 35 + 45) / 6 - 40;
+        Assert.That(b, Is.EqualTo(new[] { 1, 1, 0.5, 0.5, ageMean }).Within(1e-12));
+        Assert.That(a, Is.EqualTo(new[] { 1, 0, 0.5, 0.5, ageMean }).Within(1e-12));
+        Assert.That(b.Zip(a, (x, y) => x - y), Is.EqualTo(design.Between("condition", "B", "A").Weights).Within(1e-12));
+        Assert.That(design.MeanWeights("sex=M")!, Is.EqualTo(new[] { 1, 0.5, 1, 0.5, ageMean }).Within(1e-12));
+    }
+
+    /// <summary>
+    /// With condition x sex in the model, a condition contrast is its effect at sex's baseline (F), so a condition mean is
+    /// taken there too: sex and the interaction weigh 0, and the difference is still the contrast.
+    /// </summary>
+    [Test]
+    public void WithAnInteractionAMeanIsTakenAtThePartnerFactorsBaseline()
+    {
+        var samples = new[] { ("A", "F"), ("A", "M"), ("A", "M"), ("B", "F"), ("B", "M"), ("B", "F") }
+            .Select((l, i) => S($"s{i + 1}", ("condition", l.Item1), ("sex", l.Item2))).ToList();
+        var design = AnalysisDesign.Create(samples, Spec(("condition", "A"), ("sex", "F")) with { Interactions = new[] { ("condition", "sex") } });
+        Assert.That(design.ColumnNames, Is.EqualTo(new[] { "intercept", "condition=B", "sex=M", "condition=B:sex=M" }));
+
+        Assert.That(design.MeanWeights("condition=B"), Is.EqualTo(new[] { 1.0, 1, 0, 0 }));
+        Assert.That(design.MeanWeights("condition=A"), Is.EqualTo(new[] { 1.0, 0, 0, 0 }));
+        Assert.That(design.MeanWeights("sex=M"), Is.EqualTo(new[] { 1.0, 0, 1, 0 }));
+        Assert.That(design.MeanWeights("condition=C"), Is.Null);
+        Assert.That(design.MeanWeights("age=1"), Is.Null);
+        Assert.That(design.MeanWeights(null), Is.Null);
+    }
+
     [Test]
     public void BatchAndCovariateColumnsAreNamed()
     {

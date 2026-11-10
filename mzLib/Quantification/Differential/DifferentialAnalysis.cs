@@ -87,11 +87,13 @@ public static class DifferentialDecisionRules
     public const string RobustFellBack = "robust_fell_back";
     /// <summary>Fewer than 3 features fitted in a moderation: no prior (ruling 5).</summary>
     public const string NoPrior = "no_prior";
+    /// <summary>A fitted row whose estimated marginal means the feature's data cannot give at the stratum's proportions (ruling 3).</summary>
+    public const string MeansNotEstimable = "means_not_estimable";
 
     private static readonly HashSet<string> All = new(StringComparer.Ordinal)
     {
         RowSet, DesignContrast, NoUniquePeptides, AbsentSide, MinTwoPerSide, ReducedDesign, FeatureNotEstimable,
-        SinglePeptide, FitOutcome, RobustFellBack, NoPrior,
+        SinglePeptide, FitOutcome, RobustFellBack, NoPrior, MeansNotEstimable,
     };
 
     /// <summary>Whether <paramref name="rule"/> is one of these ids.</summary>
@@ -682,6 +684,7 @@ public static class DifferentialAnalysis
                 bool fitted = DifferentialStatus.IsFitted(status);
                 int f = plan.Index;
                 var values = plan.Values;
+                var (meanNumerator, meanDenominator) = fitted ? Means(design, plan, c, single) : (null, null);
                 var row = new DifferentialResult
                 {
                     DefinitionId = DifferentialConstants.DefinitionId,
@@ -703,6 +706,8 @@ public static class DifferentialAnalysis
                     CovariateUnit = c.CovariateUnit,
                     CovariateScale = c.CovariateScale,
                     Log2Effect = fitted ? result!.Estimate[f] : null,
+                    MeanNumerator = meanNumerator,
+                    MeanDenominator = meanDenominator,
                     NaturalEffect = fitted ? Math.Pow(2, result!.Estimate[f]) : null,
                     NaturalUnit = fitted ? (c.CovariateUnit is null ? "ratio" : "ratio_per_" + c.CovariateUnit.Replace(' ', '_')) : null,
                     StandardError = fitted ? result!.StandardError[f] : null,
@@ -732,6 +737,47 @@ public static class DifferentialAnalysis
                 };
                 _rows.Add(row);
             }
+        }
+
+        /// <summary>
+        /// A fitted between-levels row's estimated marginal means (ruling 3, <c>DEF-DIFF-EFFECT</c>): each side's
+        /// <see cref="AnalysisDesign.MeanWeights"/> on the feature's kept coefficients plus an equal share of every peptide's
+        /// offset (the reference peptide's is 0), so their difference is the row's effect. Nulls for a slope, and, recorded,
+        /// when the feature's own data cannot give a mean at the stratum's proportions (a batch or a level of another factor
+        /// it was never seen in).
+        /// </summary>
+        private (double? Numerator, double? Denominator) Means(AnalysisDesign design, FeaturePlan plan, Contrast c, bool single)
+        {
+            var numerator = design.MeanWeights(c.Numerator);
+            var denominator = design.MeanWeights(c.Denominator);
+            if (c.Covariate is not null || numerator is null || denominator is null
+                || (!single && plan.MixedFit!.NuisanceCoefficients(plan.Index) is null)) return (null, null);
+            var d = plan.Design!;
+            var share = Enumerable.Repeat(1.0 / plan.Values!.NuisanceLevels.Count, d.NuisanceCount).ToArray();
+            if (!d.IsEstimable(numerator, share) || !d.IsEstimable(denominator, share))
+            {
+                var unseen = Enumerable.Range(0, design.ColumnNames.Count)
+                    .Where(j => !d.KeptCommon.Contains(j) && (numerator[j] != 0 || denominator[j] != 0))
+                    .Select(j => design.ColumnNames[j]);
+                Decide(DifferentialDecisionRules.MeansNotEstimable, design.Stratum, plan.Group, c.Id,
+                    $"the stratum's average over {string.Join(", ", unseen)}, which the feature's data do not inform",
+                    "mean_numerator and mean_denominator left empty; the effect is reported");
+                return (null, null);
+            }
+            return (Mean(plan, d, numerator, share, single), Mean(plan, d, denominator, share, single));
+        }
+
+        private static double Mean(FeaturePlan plan, FeatureDesign d, double[] common, double[] share, bool single)
+        {
+            double sum = 0;
+            for (int k = 0; k < d.KeptCommon.Count; k++)
+                sum += common[d.KeptCommon[k]] * (single ? plan.LinearFit!.Coefficient(plan.Index, k) : plan.MixedFit!.Coefficient(plan.Index, k));
+            if (!single)
+            {
+                var offsets = plan.MixedFit!.NuisanceCoefficients(plan.Index)!;
+                for (int k = 0; k < d.KeptNuisance.Count; k++) sum += share[d.KeptNuisance[k]] * offsets[k];
+            }
+            return sum;
         }
 
         /// <summary>Benjamini–Hochberg once per family over both models' fitted rows (ruling 4), and the family sizes.</summary>

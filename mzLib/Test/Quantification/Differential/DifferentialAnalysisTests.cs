@@ -106,6 +106,74 @@ public class DifferentialAnalysisTests
         Assert.That(Row(result, "P5", "c1").Log2Effect, Is.Null);
     }
 
+    /// <summary>
+    /// Model means (ruling 3): each side's estimated mean averages the protein's peptides with equal weight, so P1 (peptides
+    /// at +0, +0.5 and +1 over 20; groups at 0, +1 and +2) has means near 20.5, 21.5 and 22.5, P3 with its reference absent
+    /// still has C near 22.5 and B near 21.5, and the one-peptide P4 near 20 and 22. On every fitted row the numerator mean
+    /// minus the denominator mean is the effect; a row with no fit has no means.
+    /// </summary>
+    [Test]
+    public void TheMeansAverageThePeptidesAndTheirDifferenceIsTheEffect()
+    {
+        var result = DifferentialAnalysis.Run(Request(), maxThreads: 1);
+
+        var fitted = result.Rows.Where(r => DifferentialStatus.IsFitted(r.Status)).ToList();
+        Assert.That(fitted, Has.Count.GreaterThan(5));
+        foreach (var r in fitted)
+            Assert.That(r.MeanNumerator!.Value - r.MeanDenominator!.Value, Is.EqualTo(r.Log2Effect!.Value).Within(1e-9),
+                $"{r.FeatureId} {r.ContrastId}");
+        Assert.That(result.Rows.Where(r => !DifferentialStatus.IsFitted(r.Status)),
+            Is.All.Matches<DifferentialResult>(r => r.MeanNumerator is null && r.MeanDenominator is null));
+
+        Assert.That(Row(result, "P1", "c1").MeanNumerator, Is.EqualTo(21.5).Within(0.1));
+        Assert.That(Row(result, "P1", "c1").MeanDenominator, Is.EqualTo(20.5).Within(0.1));
+        Assert.That(Row(result, "P1", "c2").MeanNumerator, Is.EqualTo(22.5).Within(0.1));
+        Assert.That(Row(result, "P3", "c3").MeanNumerator, Is.EqualTo(22.5).Within(0.1));
+        Assert.That(Row(result, "P3", "c3").MeanDenominator, Is.EqualTo(21.5).Within(0.1));
+        Assert.That(Row(result, "P4", "c2").MeanNumerator, Is.EqualTo(22).Within(0.1));
+        Assert.That(Row(result, "P4", "c2").MeanDenominator, Is.EqualTo(20).Within(0.1));
+    }
+
+    /// <summary>
+    /// A protein never seen in batch b2 still compares its groups (batch b2 is dropped from its design, ruling 1), but a mean
+    /// at the stratum's batch proportions cannot come from its data: both means are left empty, the effect is reported,
+    /// and the decisions record says so for each of its contrasts. A protein seen in both batches has its means.
+    /// </summary>
+    [Test]
+    public void AProteinMissingFromABatchKeepsItsEffectAndItsEmptyMeansAreRecorded()
+    {
+        var rng = new Random(7);
+        string BatchOf(string id) => Array.IndexOf(Ids, id) % 3 == 0 ? "b2" : "b1";
+        var inB1 = Ids.Where(s => BatchOf(s) == "b1").ToArray();
+        var peptides = new List<PeptideRunValues>();
+        foreach (var protein in new[] { "FULL1", "FULL2" })
+            for (int k = 0; k < 3; k++) peptides.Add(Peptide(rng, $"{protein}PEP{k}", protein, k * 0.5, Ids));
+        for (int k = 0; k < 3; k++) peptides.Add(Peptide(rng, $"ONLYB1PEP{k}", "ONLYB1", k * 0.5, inB1));
+        var groups = new[] { "FULL1", "FULL2", "ONLYB1" }.Select(g => new ProteinGroupInfo(g, 0, false, false)).ToArray();
+        var runs = Ids.Select(s => new ObservationRun(s, s)).ToList();
+        var request = Request() with
+        {
+            Table = ObservationTable.Build(runs, runs.Select(r => r.FileName), peptides, groups, QuantBasis.MsmsOnly),
+            Samples = Ids.Select(s => new AnalysisSample(s)
+            {
+                Factors = new Dictionary<string, string> { ["group"] = GroupOf(s) },
+                Batch = BatchOf(s),
+            }).ToList(),
+        };
+
+        var result = DifferentialAnalysis.Run(request, maxThreads: 1);
+
+        var only = result.Rows.Where(r => r.FeatureId == "ONLYB1").ToList();
+        Assert.That(only.Select(r => r.Status), Is.All.EqualTo(DifferentialStatus.Fitted));
+        Assert.That(only.Select(r => r.Log2Effect), Is.All.Not.Null);
+        Assert.That(only, Is.All.Matches<DifferentialResult>(r => r.MeanNumerator is null && r.MeanDenominator is null));
+        var recorded = result.Decisions.Where(d => d.Rule == DifferentialDecisionRules.MeansNotEstimable).ToList();
+        Assert.That(recorded.Select(d => (d.FeatureId, d.ContrastId)),
+            Is.EquivalentTo(new[] { ("ONLYB1", "c1"), ("ONLYB1", "c2"), ("ONLYB1", "c3") }));
+        Assert.That(recorded[0].Facts, Does.Contain("batch=b2"));
+        Assert.That(result.Rows.Where(r => r.FeatureId == "FULL1"), Is.All.Matches<DifferentialResult>(r => r.MeanNumerator is not null));
+    }
+
     [Test]
     public void TheRowsPassTheWritersValidationAndOneFamilyCoversBothModels()
     {

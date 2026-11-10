@@ -99,6 +99,42 @@ public class FeatureDesignTests
         Assert.That(design.VarianceDfRows(new[] { 1 }), Is.EqualTo(new[] { new[] { 0.0, 1 } }));
     }
 
+    /// <summary>
+    /// A model mean at the stratum's proportions (ruling 3) needs every column it puts weight on: with batch b2 never seen,
+    /// the group contrast is estimable but a mean that averages over both batches is not; over batch b1 alone it is.
+    /// </summary>
+    [Test]
+    public void AMeanOverABatchTheFeatureNeverSawCannotBeEstimated()
+    {
+        var design = FeatureDesign.Build(new[,] { { 1.0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 1, 1, 0 } }, null,
+            new[] { "intercept", "group", "batch" });
+
+        Assert.That(design.IsEstimable(new[] { 0.0, 1, 0 }, Array.Empty<double>()), Is.True);
+        Assert.That(design.IsEstimable(new[] { 1.0, 1, 0.5 }, Array.Empty<double>()), Is.False);
+        Assert.That(design.IsEstimable(new[] { 1.0, 1, 0 }, Array.Empty<double>()), Is.True);
+    }
+
+    /// <summary>
+    /// A mean averages the peptides' offsets with equal weight. pep2 seen only in group B is aliased with B: B's mean over
+    /// both peptides cannot be estimated, nor B against A; with pep2 also seen in A, both can.
+    /// </summary>
+    [Test]
+    public void AMeanOverPeptidesNeedsEachPeptideSeparableFromTheGroups()
+    {
+        var common = new[,] { { 1.0, 0 }, { 1, 0 }, { 1, 1 }, { 1, 1 } };
+        var confounded = FeatureDesign.Build(common, new double[,] { { 0 }, { 0 }, { 1 }, { 1 } }, new[] { "intercept", "group" });
+        var shared = FeatureDesign.Build(common, new double[,] { { 0 }, { 1 }, { 1 }, { 1 } }, new[] { "intercept", "group" });
+
+        Assert.That(confounded.IsEstimable(new[] { 1.0, 1 }, new[] { 0.5 }), Is.False);
+        // What pep2 measures in B (its whole weight on pep2) is B's own observations, so it is estimable; the same
+        // without the peptide's weight is not.
+        Assert.That(confounded.IsEstimable(new[] { 1.0, 1 }, new[] { 1.0 }), Is.True);
+        Assert.That(confounded.IsEstimable(new[] { 1.0, 1 }, new[] { 0.0 }), Is.False);
+        Assert.That(shared.IsEstimable(new[] { 1.0, 1 }, new[] { 0.5 }), Is.True);
+        Assert.That(shared.IsEstimable(new[] { 1.0, 0 }, new[] { 0.5 }), Is.True);
+        Assert.Throws<ArgumentException>(() => shared.IsEstimable(new[] { 1.0, 0 }, Array.Empty<double>()));
+    }
+
     [Test]
     public void ATwoLevelFactorWithItsReferenceAbsentHasNoEstimableDirection()
     {
