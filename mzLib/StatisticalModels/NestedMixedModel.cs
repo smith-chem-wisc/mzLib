@@ -833,41 +833,40 @@ namespace StatisticalModels
                     if (structure == RandomStructure.IndividualAndSample) fit.SampleVarianceValues[f] = theta[1] * theta[1] * sigma2;
                 }
 
+                double[] jac, a2;
                 if (structure == RandomStructure.None)
                 {
                     // Least squares, φ = (σ): Cov(β) = σ²(X′WX)⁻¹, so ∂Cov/∂σ = 2σ(X′WX)⁻¹; the REML deviance
                     // r²/σ² + (n − p)·log(2πσ²) + … has second derivative 4(n − p)/σ² at its optimum, so 2·H⁻¹ is
                     // σ²/(2(n − p)), and every Satterthwaite df comes out as the residual df n − p, as lm's.
                     double sigma = Math.Sqrt(sigma2);
-                    var jacobian = new double[p * p];
+                    jac = new double[p * p];
                     for (int i = 0; i < p; i++)
-                        for (int j = 0; j < p; j++) jacobian[i * p + j] = 2 * sigma * best.AInverse![i, j];
-                    fit.Jacobians[f] = jacobian;
-                    fit.VarParCovariances[f] = new[] { sigma2 / (2.0 * (_m - _p)) };
-                    fit.StructureValues[f] = structure;
-                    fit.StatusValues[f] = FeatureFitStatus.Fitted;
-                    return;
+                        for (int j = 0; j < p; j++) jac[i * p + j] = 2 * sigma * best.AInverse![i, j];
+                    a2 = new[] { sigma2 / (2.0 * (_m - _p)) };
                 }
-
-                // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
-                int k = theta.Length + 1;
-                var phi = theta.Append(Math.Sqrt(sigma2)).ToArray();
-                var h = Richardson.Hessian(DevianceInPhi, phi);
-                var evd = Matrix<double>.Build.DenseOfArray(h).Evd(Symmetricity.Symmetric);
-                var a2 = new double[k * k];
-                for (int e = 0; e < k; e++)
+                else
                 {
-                    double lambda = evd.EigenValues[e].Real;
-                    if (!(lambda > 1e-8)) continue;
-                    var v = evd.EigenVectors.Column(e);
-                    for (int i = 0; i < k; i++)
-                        for (int j = 0; j < k; j++) a2[i * k + j] += 2 * v[i] * v[j] / lambda;
-                }
-                var jac = new double[k * p * p];
-                for (int t = 0; t < k; t++)
-                {
-                    var d = Richardson.Derivative(CovarianceInPhi, phi, t);
-                    Array.Copy(d, 0, jac, t * p * p, p * p);
+                    // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
+                    int k = theta.Length + 1;
+                    var phi = theta.Append(Math.Sqrt(sigma2)).ToArray();
+                    var h = Richardson.Hessian(DevianceInPhi, phi);
+                    var evd = Matrix<double>.Build.DenseOfArray(h).Evd(Symmetricity.Symmetric);
+                    a2 = new double[k * k];
+                    for (int e = 0; e < k; e++)
+                    {
+                        double lambda = evd.EigenValues[e].Real;
+                        if (!(lambda > 1e-8)) continue;
+                        var v = evd.EigenVectors.Column(e);
+                        for (int i = 0; i < k; i++)
+                            for (int j = 0; j < k; j++) a2[i * k + j] += 2 * v[i] * v[j] / lambda;
+                    }
+                    jac = new double[k * p * p];
+                    for (int t = 0; t < k; t++)
+                    {
+                        var d = Richardson.Derivative(CovarianceInPhi, phi, t);
+                        Array.Copy(d, 0, jac, t * p * p, p * p);
+                    }
                 }
                 if (jac.Any(z => !double.IsFinite(z)) || a2.Any(z => !double.IsFinite(z)))
                 {
