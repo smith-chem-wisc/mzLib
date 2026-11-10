@@ -23,7 +23,10 @@ namespace Test.Quantification.Differential;
 [ExcludeFromCodeCoverage]
 public class DifferentialWriterTests
 {
-    /// <summary>The 56 columns of DEF-DIFF-COLUMNS v1 (DATA-DEFINITIONS v3.7), machine and readable names, in order.</summary>
+    /// <summary>
+    /// The 57 columns of DEF-DIFF-COLUMNS v1 (DATA-DEFINITIONS v3.7, with v3.21's <c>robust_fell_back</c> after <c>robust</c>),
+    /// machine and readable names, in order.
+    /// </summary>
     private static readonly (string Machine, string Human)[] Contract =
     {
         ("definition_id", "Definition ID"), ("analysis_id", "Analysis ID"), ("quant_style", "Quantification Style"),
@@ -45,7 +48,7 @@ public class DifferentialWriterTests
         ("n_samples_with_value", "Samples With Value"), ("n_samples_total", "Samples In Contrast"), ("n_peptides", "Peptides"),
         ("n_observations", "Peptide-Sample Values"), ("n_mbr_values", "MBR Values"),
         ("status", "Status"), ("status_detail", "Status Detail"), ("method", "Method"), ("model_used", "Model Used"),
-        ("robust", "Robust Weighting"), ("normalization", "Normalization"), ("covariates_fitted", "Covariates Fitted"),
+        ("robust", "Robust Weighting"), ("robust_fell_back", "Robust Fell Back"), ("normalization", "Normalization"), ("covariates_fitted", "Covariates Fitted"),
         ("design_sha256", "Design SHA-256"), ("method_version", "Method Version"),
     };
 
@@ -63,7 +66,7 @@ public class DifferentialWriterTests
         PValue = 0.03, PAdjusted = 0.06, AdjustmentMethod = "benjamini_hochberg", FamilySize = familySize,
         NSamplesNumerator = 6, NSamplesDenominator = 6, NSamplesWithValue = 12, NSamplesTotal = 12, NPeptides = 4,
         NObservations = 44, NMbrValues = 0, Status = DifferentialStatus.Fitted, Method = "moderated",
-        ModelUsed = "peptide_mixed_model", Robust = true, Normalization = "shared_peptide_median",
+        ModelUsed = "peptide_mixed_model", Robust = true, RobustFellBack = false, Normalization = "shared_peptide_median",
         CovariatesFitted = "sex;individual(random);sample(random)", DesignSha256 = new string('a', 64), MethodVersion = "diff-1.0",
     };
 
@@ -71,7 +74,8 @@ public class DifferentialWriterTests
     {
         Log2Effect = null, NaturalEffect = null, MeanNumerator = null, MeanDenominator = null, StandardError = null, CiLow = null,
         CiHigh = null, CiLevel = null, Statistic = null, Df = null, DfMethod = null, PValue = null, PAdjusted = null,
-        AdjustmentMethod = null, FamilySize = null, NaturalUnit = null, Status = status, StatusDetail = "counts 0 vs 6",
+        AdjustmentMethod = null, FamilySize = null, NaturalUnit = null, RobustFellBack = null, Status = status,
+        StatusDetail = "counts 0 vs 6",
         NSamplesNumerator = 0,
     };
 
@@ -97,10 +101,30 @@ public class DifferentialWriterTests
     {
         var all = DifferentialColumns.All;
         Assert.That(all.Select(c => (c.MachineName, c.HumanName)), Is.EqualTo(Contract));
-        Assert.That(all.Select(c => c.MachineName).Distinct().Count(), Is.EqualTo(56));
-        Assert.That(all.Select(c => c.HumanName).Distinct().Count(), Is.EqualTo(56));
+        Assert.That(all.Select(c => c.MachineName).Distinct().Count(), Is.EqualTo(57));
+        Assert.That(all.Select(c => c.HumanName).Distinct().Count(), Is.EqualTo(57));
         Assert.That(all.Select(c => c.Group).Distinct(),
             Is.EqualTo(new[] { "Identity", "Contrast", "Effect", "Confidence", "Evidence", "Status" }));
+    }
+
+    /// <summary>
+    /// <c>robust_fell_back</c> (DATA-DEFINITIONS v3.21): only a robust fit can fall back, so a value on a row whose
+    /// <c>robust</c> is not true is refused; like every fitted-only cell it is empty on an evidence-only row.
+    /// </summary>
+    [Test]
+    public void RobustFellBackNeedsARobustFittedRow()
+    {
+        var m = DifferentialHeaderStyle.Machine;
+        Assert.DoesNotThrow(() => WriteToString(new[] { Fitted("P1") with { RobustFellBack = true } }, m));
+        Assert.DoesNotThrow(() => WriteToString(new[] { Fitted("P1") with { Robust = false, RobustFellBack = null } }, m));
+        var notRobust = Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1") with { Robust = false } }, m));
+        Assert.That(notRobust!.Message, Does.Contain("robust_fell_back").And.Contain("robust is not true"));
+        Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1") with { Robust = null, RobustFellBack = true } }, m));
+        var evidence = Assert.Throws<ArgumentException>(() => WriteToString(
+            new[] { EvidenceOnly("P2", DifferentialStatus.NotConverged) with { RobustFellBack = false } }, m));
+        Assert.That(evidence!.Message, Does.Contain("robust_fell_back"));
+        Assert.That(RowsByFeature(WriteToString(new[] { Fitted("P1") with { RobustFellBack = true } }, m))["P1"]["robust_fell_back"],
+            Is.EqualTo("true"));
     }
 
     [TestCase(DifferentialHeaderStyle.Machine)]
@@ -113,7 +137,7 @@ public class DifferentialWriterTests
         Assert.That(lines[0].Split('\t'), Is.EqualTo(expected));
         Assert.That(lines.Length, Is.EqualTo(4), "header, two rows, and the empty string after the final newline");
         Assert.That(lines[3], Is.Empty, "the file ends with a newline");
-        Assert.That(lines.Take(3).All(l => l.Split('\t').Length == 56));
+        Assert.That(lines.Take(3).All(l => l.Split('\t').Length == 57));
         Assert.That(text, Does.Not.Contain("\r"));
     }
 
@@ -149,6 +173,7 @@ public class DifferentialWriterTests
         var row = Fitted("P1") with
         {
             FeatureAccessions = new[] { "Q9", "A1", "M5" }, Genes = new string?[] { "GENEQ", null, "GENEM" }, Robust = false,
+            RobustFellBack = null,
         };
         var cells = Row(WriteToString(new[] { row }, DifferentialHeaderStyle.Machine), 0);
         Assert.That(cells["feature_accessions"], Is.EqualTo("A1;M5;Q9"), "ordinal-sorted");
@@ -321,7 +346,7 @@ public class DifferentialWriterTests
         Assert.That(root.GetProperty("definition_version").GetString(), Is.EqualTo("DEF-DIFF v1"));
         Assert.That(root.GetProperty("analysis_id").GetString(), Is.EqualTo(m.AnalysisId));
         var columns = root.GetProperty("columns").EnumerateArray().ToList();
-        Assert.That(columns, Has.Count.EqualTo(56));
+        Assert.That(columns, Has.Count.EqualTo(57));
         Assert.That(columns[0].GetProperty("machine").GetString(), Is.EqualTo("definition_id"));
         Assert.That(columns[0].GetProperty("human").GetString(), Is.EqualTo("Definition ID"));
         Assert.That(root.GetProperty("row_count").GetProperty("total").GetInt32(), Is.EqualTo(2));
@@ -564,7 +589,7 @@ public class DifferentialWriterTests
                     AnalysisId = analysis, EffectType = "abundance_log2_slope", ContrastLabel = "age (per decade)", Numerator = null,
                     Denominator = null, Covariate = "age", CovariateUnit = "decade", CovariateScale = "years/10, centred at 50 years",
                     NaturalUnit = "ratio_per_decade", MeanNumerator = null, MeanDenominator = null, NSamplesNumerator = null,
-                    NSamplesDenominator = null,
+                    NSamplesDenominator = null, RobustFellBack = true,
                 });
             }
         return rows;

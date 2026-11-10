@@ -293,6 +293,11 @@
       "group": "Status"
     },
     {
+      "machine": "robust_fell_back",
+      "human": "Robust Fell Back",
+      "group": "Status"
+    },
+    {
       "machine": "normalization",
       "human": "Normalization",
       "group": "Status"

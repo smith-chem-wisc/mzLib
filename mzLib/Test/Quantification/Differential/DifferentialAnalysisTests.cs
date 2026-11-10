@@ -174,6 +174,27 @@ public class DifferentialAnalysisTests
         Assert.That(result.Rows.Where(r => r.FeatureId == "FULL1"), Is.All.Matches<DifferentialResult>(r => r.MeanNumerator is not null));
     }
 
+    /// <summary>
+    /// robust_fell_back (ruling 8, DATA-DEFINITIONS v3.21): a robust mixed-model row says whether its reweighting settled
+    /// (here every one did: false); a moderated_t row is never reweighted and an evidence-only row has no fit, so both leave
+    /// it empty; with robust weighting off no row carries it.
+    /// </summary>
+    [Test]
+    public void RobustFellBackIsSetOnRobustMixedModelRowsOnly()
+    {
+        var result = DifferentialAnalysis.Run(Request(), maxThreads: 1);
+
+        var mixed = result.Rows.Where(r => r.Status == DifferentialStatus.Fitted).ToList();
+        Assert.That(mixed, Is.Not.Empty);
+        Assert.That(mixed.Select(r => r.RobustFellBack), Is.All.EqualTo(false));
+        Assert.That(result.Rows.Where(r => r.Status != DifferentialStatus.Fitted).Select(r => r.RobustFellBack), Is.All.Null);
+        Assert.That(result.Decisions.Any(d => d.Rule == DifferentialDecisionRules.RobustFellBack), Is.False);
+
+        var plain = DifferentialAnalysis.Run(Request() with { Settings = Request().Settings with { Robust = false } }, maxThreads: 1);
+        Assert.That(plain.Rows.Select(r => r.RobustFellBack), Is.All.Null);
+        Assert.That(plain.Rows.Where(r => r.Status == DifferentialStatus.Fitted).Select(r => r.Robust), Is.All.EqualTo(false));
+    }
+
     [Test]
     public void TheRowsPassTheWritersValidationAndOneFamilyCoversBothModels()
     {

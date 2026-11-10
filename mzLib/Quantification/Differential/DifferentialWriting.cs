@@ -141,6 +141,7 @@ public static class DifferentialColumns
         E("method", "Method", "Status", r => r.Method),
         E("model_used", "Model Used", "Status", r => r.ModelUsed),
         E("robust", "Robust Weighting", "Status", r => r.Robust is { } b ? (b ? "true" : "false") : null),
+        E("robust_fell_back", "Robust Fell Back", "Status", r => r.RobustFellBack is { } b ? (b ? "true" : "false") : null),
         E("normalization", "Normalization", "Status", r => r.Normalization),
         E("covariates_fitted", "Covariates Fitted", "Status", r => r.CovariatesFitted),
         E("design_sha256", "Design SHA-256", "Status", r => r.DesignSha256),
@@ -367,6 +368,9 @@ public static class DifferentialResultWriter
                         $"{at} is '{r.Status}', an evidence-only status, but sets {string.Join(", ", set)}; those cells must be empty.",
                         nameof(rows));
             }
+            if (r.RobustFellBack is not null && r.Robust != true)
+                throw new ArgumentException($"{at} sets robust_fell_back, but robust is not true: only a robust fit can fall back.",
+                    nameof(rows));
             if (!keys.Add((r.AnalysisId, r.Stratum, r.FeatureId, r.ContrastId, r.QuantBasis ?? "", r.Method)))
                 throw new ArgumentException($"{at} appears twice for quant basis '{r.QuantBasis}' and method '{r.Method}'.", nameof(rows));
             _ = DifferentialColumns.SortedMembers(r).ToList();
@@ -417,6 +421,7 @@ public static class DifferentialResultWriter
         yield return ("p_adjusted", Finite(r.PAdjusted));
         yield return ("adjustment_method", r.AdjustmentMethod is not null);
         yield return ("family_size", r.FamilySize is not null);
+        yield return ("robust_fell_back", r.RobustFellBack is not null);
         yield return ("pep", Finite(r.Pep));
         yield return ("bayesian_fdr", Finite(r.BayesianFdr));
         yield return ("bayes_factor", Finite(r.BayesFactor));

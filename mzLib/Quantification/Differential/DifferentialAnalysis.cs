@@ -540,6 +540,10 @@ public static class DifferentialAnalysis
                 {
                     members[i].MixedFit = fit;
                     members[i].Index = i;
+                    if (fit.RobustFellBack[i] == true)
+                        Decide(DifferentialDecisionRules.RobustFellBack, design.Stratum, members[i].Group, null,
+                            $"robust reweighting did not settle within {fit.RobustIterations[i]} round(s)",
+                            "fitted on the first round's weights (one round, as msqrob2 maxitRob = 1); robust_fell_back = true");
                 }
                 if (rows.Count == 0)
                 {
@@ -732,6 +736,7 @@ public static class DifferentialAnalysis
                     ModelUsed = values is null || values.NuisanceLevels.Count == 0 ? null
                         : single ? DifferentialConstants.ModeratedT : DifferentialConstants.MixedModel,
                     Robust = values is null || values.NuisanceLevels.Count == 0 ? null : !single && _request.Settings.Robust,
+                    RobustFellBack = fitted && !single && _request.Settings.Robust ? plan.MixedFit!.RobustFellBack[f] : null,
                     Normalization = normalization,
                     MethodVersion = DifferentialConstants.MethodVersion,
                 };
