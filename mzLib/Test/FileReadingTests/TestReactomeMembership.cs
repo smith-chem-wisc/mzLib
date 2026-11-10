@@ -186,6 +186,24 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Inheritance_IsoformWhoseOnlyReferencesAreForeign_DoesNotInherit()
+        {
+            // D21 (1): "no Reactome reference of its own" is read before the species filter. P70000-2's one reference
+            // is a foreign id the filter drops, so it inherits nothing from P70000 and reads no_reference.
+            var proteins = Enumerable.Range(1, 10).Select(i => P($"Q{72000 + i}", Human, Reactome($"R-HSA-{i}"))).ToList();
+            proteins.Add(P("P70000", Human, Reactome("R-HSA-100")));
+            proteins.Add(P("P70000-2", Human, Reactome("R-MMU-5")));
+            var annotation = new ReactomeAccessionAnnotation(proteins, DbSha);
+
+            Assert.That(annotation.SpeciesCodes["NCBITaxon:9606"], Is.EqualTo("HSA"));
+            Assert.That(annotation.DroppedForeignReferences, Is.EqualTo(1));
+            Assert.That(annotation.Rows().Where(r => r.Accession == "P70000-2"), Is.EqualTo(new[]
+            {
+                new ReactomeMembershipRow("P70000-2", "NCBITaxon:9606", null, null, null, null, ReactomeMembershipStatus.NoReference)
+            }));
+        }
+
+        [Test]
         public void Inheritance_AppliedVariantIsNotAnIsoform_KeepsItsOwnRowsUninherited()
         {
             Assert.That(PathwaysOf("P11111_A20T"), Is.EqualTo(new[] { "R-HSA-1001", "R-HSA-1002" }));
