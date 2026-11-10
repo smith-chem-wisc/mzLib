@@ -130,38 +130,19 @@ internal sealed class FeatureDesign
     }
 
     /// <summary>
-    /// The variance-df rows of a feature (ruling 7): a basis of the span of <paramref name="testedColumns"/> that this
-    /// feature can estimate, as weights on <see cref="KeptCommon"/>. The unit vectors of the tested columns when every
-    /// column was kept; empty when no tested direction is estimable. Never the tested rows restricted to the kept columns
-    /// one by one, nor projected: with a reference level absent, only differences between the present levels are
-    /// estimable, and a projection would mix the intercept in.
+    /// The variance-df rows of a feature (ruling 7): the unit vector of each of <paramref name="testedColumns"/> that was
+    /// kept, as weights on <see cref="KeptCommon"/>, so the joint test is of the reduced fit's own coefficients for the
+    /// tested terms, as lme4 tests them when it drops the same columns (it keeps columns left to right too). With every
+    /// column kept they are the tested columns' unit vectors; empty when no tested column was kept. A kept coefficient of a
+    /// reduced fit is the fit's own parameter (with a reference level absent, the present levels against the last present
+    /// one), never read as a contrast: contrasts come only through <see cref="KeptWeights"/> after <see cref="Estimability"/>.
     /// </summary>
     public IReadOnlyList<double[]> VarianceDfRows(IReadOnlyList<int> testedColumns)
     {
         ArgumentNullException.ThrowIfNull(testedColumns);
-        int t = testedColumns.Count;
-        if (t == 0) return Array.Empty<double[]>();
-        if (_nullProjector is null)
-            return testedColumns.Select(j => KeptCommon.Select(k => k == j ? 1.0 : 0.0).ToArray()).ToArray();
-
-        // v = sum_a a_s e_{tested s} is estimable iff P (v / lengths) = 0; the a solving it span the estimable directions.
-        int width = CommonCount + NuisanceCount;
-        var a = Matrix<double>.Build.Dense(width, t, (i, s) => _nullProjector[i, testedColumns[s]] / _lengths[testedColumns[s]]);
-        var svd = a.Svd(true);
-        double largest = svd.S.Count > 0 ? svd.S.Maximum() : 0;
-        double tolerance = AnalysisDesign.LoadingTolerance * Math.Max(1, largest);
-        var rows = new List<double[]>();
-        for (int s = 0; s < t; s++)
-        {
-            double singular = s < svd.S.Count ? svd.S[s] : 0;
-            if (singular > tolerance) continue;
-            var direction = svd.VT.Row(s);
-            var full = new double[CommonCount];
-            for (int k = 0; k < t; k++) full[testedColumns[k]] = direction[k];
-            var kept = KeptWeights(full);
-            if (kept.Any(w => Math.Abs(w) > AnalysisDesign.LoadingTolerance)) rows.Add(kept);
-        }
-        return rows;
+        return testedColumns.Where(j => KeptCommon.Contains(j))
+            .Select(j => KeptCommon.Select(k => k == j ? 1.0 : 0.0).ToArray())
+            .ToArray();
     }
 
     private Vector<double>? Unseen(IReadOnlyList<double> commonWeights, out double length)
