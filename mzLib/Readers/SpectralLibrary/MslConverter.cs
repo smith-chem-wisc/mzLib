@@ -122,10 +122,9 @@ public static class MslConverter
 	/// </para>
 	///
 	/// <para>
-	/// Duplicate sequence/charge keys within <paramref name="spectra"/> are handled by the
-	/// <see cref="MslIndex"/> LRU cache: the last entry with a given key wins in the
-	/// sequence/charge dictionary, consistent with how the binary reader handles duplicates
-	/// in a file.
+	/// Duplicate sequence/charge keys within <paramref name="spectra"/> are all kept as
+	/// entries. <see cref="MslLibrary.TryGetEntry"/> returns one of them, the copy that comes
+	/// first in ascending precursor m/z order, as it does for duplicates in a file.
 	/// </para>
 	/// </summary>
 	/// <param name="spectra">
@@ -140,6 +139,9 @@ public static class MslConverter
 	/// <exception cref="ArgumentNullException">
 	///   <paramref name="spectra"/> is null.
 	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   A spectrum cannot be converted (null, empty sequence, charge or m/z not positive).
+	/// </exception>
 	public static MslLibrary FromMspLibrarySpectra(IReadOnlyList<LibrarySpectrum> spectra)
 	{
 		ArgumentNullException.ThrowIfNull(spectra);
@@ -148,8 +150,8 @@ public static class MslConverter
 		// FromLibrarySpectrum handles modification notation, fragment ion conversion,
 		// and neutral-loss classification.
 		var entries = new List<MslLibraryEntry>(spectra.Count);
-		foreach (LibrarySpectrum spectrum in spectra)
-			entries.Add(MslLibraryEntry.FromLibrarySpectrum(spectrum));
+		for (int i = 0; i < spectra.Count; i++)
+			entries.Add(MslWriter.ConvertForWrite(spectra[i], i, nameof(spectra)));
 
 		// Build a synthetic header that correctly describes the in-memory content.
 		// Byte-offset fields are meaningless for a file-less library; they are zeroed.
