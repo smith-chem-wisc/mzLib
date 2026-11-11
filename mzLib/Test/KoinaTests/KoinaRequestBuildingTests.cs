@@ -367,8 +367,8 @@ namespace Test.KoinaTests
             var kept = new Ms2PipCidTmtProbe().Clean(labelled, out var keptApi, out _);
             var stripped = new Ms2PipCidTmtProbe(SequenceConversionHandlingMode.UsePrimarySequence).Clean(labelled, out var strippedApi, out var warning);
 
-            Assert.That(kept, Is.EqualTo("[UNIMOD:737]-PEPTIDEK"));
-            Assert.That(keptApi, Is.EqualTo(kept));
+            Assert.That(kept, Is.EqualTo(labelled));
+            Assert.That(keptApi, Is.EqualTo("[UNIMOD:737]-PEPTIDEK"));
             Assert.That(stripped, Is.EqualTo("PEPTIDEK"));
             Assert.That(strippedApi, Is.EqualTo("PEPTIDEK"));
             Assert.That(warning?.Message, Does.Contain("modifications were removed"));
