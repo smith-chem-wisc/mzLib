@@ -1,4 +1,5 @@
 using MassSpectrometry;
+using Microsoft.Win32.SafeHandles;
 using NUnit.Framework;
 using Omics.Fragmentation;
 using Omics.SpectralMatch.MslSpectralLibrary;
@@ -6,6 +7,7 @@ using Readers.SpectralLibrary;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -398,5 +400,96 @@ public sealed class TestMslReadFragments
 
 		AssertSameFragment(new MslFragmentValue(ion), ion, "from ion");
 		Assert.That(() => new MslFragmentValue(null!), Throws.ArgumentNullException);
+	}
+
+	// ── Guards below MslLibrary ────────────────────────────────────────────────
+	// MslLibrary refuses a disposed or out-of-range read before the data layer runs, so these
+	// tests call the data layer and the record readers directly.
+
+	[TestCase(true)]
+	[TestCase(false)]
+	public void DataLayer_RefusesReadsAfterDispose(bool memoryMapFragments)
+	{
+		MslLibraryData raw = MslReader.LoadIndexOnly(_path, memoryMapFragments);
+		raw.Dispose();
+		var buffer = new MslFragmentValue[ManyFragments];
+
+		Assert.That(() => raw.ReadFragments(0, buffer), Throws.TypeOf<ObjectDisposedException>());
+	}
+
+	[TestCase(true)]
+	[TestCase(false)]
+	public void DataLayer_RefusesAnOutOfRangeIndex(bool memoryMapFragments)
+	{
+		using MslLibraryData raw = MslReader.LoadIndexOnly(_path, memoryMapFragments);
+		var buffer = new MslFragmentValue[ManyFragments];
+
+		foreach (int bad in new[] { -1, raw.Count })
+		{
+			Assert.That(() => raw.GetFragmentCount(bad), Throws.TypeOf<ArgumentOutOfRangeException>());
+			Assert.That(() => raw.ReadFragments(bad, buffer), Throws.TypeOf<ArgumentOutOfRangeException>());
+		}
+	}
+
+	[Test]
+	public void MappedRecordRead_PastTheEndOfTheFile_Throws()
+	{
+		long length = new FileInfo(_path).Length;
+		using var map = MemoryMappedFile.CreateFromFile(_path, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
+		using MemoryMappedViewAccessor view = map.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+		var records = new MslFragmentRecord[2];
+
+		Assert.That(() => MslReader.ReadFragmentRecordsAt(view, length, length - MslFormat.FragmentRecordSize, records),
+			Throws.TypeOf<EndOfStreamException>());
+		Assert.That(() => MslReader.ReadFragmentRecordsAt(view, length, -1, records),
+			Throws.TypeOf<EndOfStreamException>());
+	}
+
+	[Test]
+	public void PositionalRecordRead_PastTheEndOfTheFile_Throws()
+	{
+		long length = new FileInfo(_path).Length;
+		using SafeFileHandle handle = File.OpenHandle(_path, FileMode.Open, FileAccess.Read, FileShare.Read);
+		var records = new MslFragmentRecord[2];
+
+		// One record is left before the end: the first read returns it, the next returns nothing
+		Assert.That(() => MslReader.ReadFragmentRecordsAt(handle, length - MslFormat.FragmentRecordSize, records),
+			Throws.TypeOf<EndOfStreamException>());
+	}
+
+	/// <summary>
+	/// A custom loss whose table index is missing from the file's table decodes as no loss, as
+	/// GetEntry's decoder does (a defensive fallback; a well-formed file never has one).
+	/// </summary>
+	[TestCase((short)0)]
+	[TestCase((short)99)]
+	public void CustomLossIndexOutsideTheTable_DecodesAsNoLoss(short tableIndex)
+	{
+		var record = new MslFragmentRecord
+		{
+			Mz = 300f,
+			Intensity = 1f,
+			ProductType = (short)ProductType.y,
+			SecondaryProductType = -1,
+			FragmentNumber = 3,
+			ResiduePosition = tableIndex,
+			Charge = 1,
+			Flags = MslFormat.EncodeFragmentFlags(false, false, MslFormat.NeutralLossCode.Custom, false)
+		};
+
+		MslFragmentValue value = MslReader.ToFragmentValue(in record, new[] { 0.0, CustomLossA });
+
+		Assert.That(value.NeutralLoss, Is.Zero);
+		Assert.That(value.ResiduePosition, Is.Zero);
+	}
+
+	[Test]
+	public void FullLoadEntryWithNoFragmentList_ReadsZero()
+	{
+		using MslLibrary lib = MslLibrary.Load(_path);
+		lib.GetEntry(3)!.MatchedFragmentIons = null!; // full load returns the stored entry itself
+
+		Assert.That(lib.GetFragmentCount(3), Is.Zero);
+		Assert.That(lib.ReadFragments(3, Span<MslFragmentValue>.Empty), Is.Zero);
 	}
 }
