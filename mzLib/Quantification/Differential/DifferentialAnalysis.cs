@@ -87,7 +87,13 @@ public static class DifferentialDecisionRules
     public const string RobustFellBack = "robust_fell_back";
     /// <summary>Fewer than 3 features fitted in a moderation: no prior (ruling 5).</summary>
     public const string NoPrior = "no_prior";
-    /// <summary>A fitted row whose estimated marginal means the feature's data cannot give at the stratum's proportions (ruling 3).</summary>
+    /// <summary>
+    /// A fitted row whose estimated marginal means the feature's data cannot give at the stratum's proportions, averaged
+    /// instead over the stratum's samples in the levels the feature was measured in (ruling 18).
+    /// </summary>
+    public const string MeansOverSeenLevels = "means_over_seen_levels";
+    /// <summary>A fitted row whose estimated marginal means the feature's data cannot give even over the levels it was
+    /// measured in (rulings 3, 18): left empty.</summary>
     public const string MeansNotEstimable = "means_not_estimable";
     /// <summary>Random terms the feature's data cannot estimate were left out of its model (ruling 16).</summary>
     public const string RandomTermsDropped = "random_terms_dropped";
@@ -114,7 +120,8 @@ public static class DifferentialDecisionRules
         (FitOutcome, 2, "a fit that gave no usable result: not converged, or too little data for its variance"),
         (RobustFellBack, 8, "robust reweighting that did not settle: the protein fitted on its first round's weights"),
         (NoPrior, 5, "fewer than 3 proteins fitted in one moderation: no variance prior, each keeps its own variance and df"),
-        (MeansNotEstimable, 3, "model means the protein's values cannot give at the stratum's proportions: left empty, the effect reported"),
+        (MeansOverSeenLevels, 18, "model means the protein's values cannot give at the stratum's proportions: averaged over the samples in the batches and levels it was measured in, the effect unchanged"),
+        (MeansNotEstimable, 3, "model means the protein's values cannot give even over the batches and levels it was measured in: left empty, the effect reported"),
     };
 
     /// <summary>Whether <paramref name="rule"/> is one of these ids.</summary>
@@ -932,10 +939,12 @@ public static class DifferentialAnalysis
 
         /// <summary>
         /// A fitted between-levels row's estimated marginal means (ruling 3, <c>DEF-DIFF-EFFECT</c>): each side's
-        /// <see cref="AnalysisDesign.MeanWeights"/> on the feature's kept coefficients plus an equal share of every peptide's
-        /// offset (the reference peptide's is 0), so their difference is the row's effect. Nulls for a slope, and, recorded,
-        /// when the feature's own data cannot give a mean at the stratum's proportions (a batch or a level of another factor
-        /// it was never seen in).
+        /// <see cref="AnalysisDesign.MeanWeights(string?)"/> on the feature's kept coefficients plus an equal share of every peptide's
+        /// offset (the reference peptide's is 0), so their difference is the row's effect. Nulls for a slope. When the
+        /// feature's own data cannot give a mean at the stratum's proportions (a batch or a level of another factor it was
+        /// never measured in), both means are averaged over the stratum's samples in the levels it was measured in, recorded
+        /// (ruling 18), as R's emmeans does after fitting the feature on its own values; left empty, recorded, only when even
+        /// that cannot be estimated.
         /// </summary>
         private (double? Numerator, double? Denominator) Means(AnalysisDesign design, FeaturePlan plan, Contrast c, bool single)
         {
@@ -945,17 +954,45 @@ public static class DifferentialAnalysis
                 || (!single && plan.MixedFit!.NuisanceCoefficients(plan.Index) is null)) return (null, null);
             var d = plan.Design!;
             var share = Enumerable.Repeat(1.0 / plan.Values!.NuisanceLevels.Count, d.NuisanceCount).ToArray();
-            if (!d.IsEstimable(numerator, share) || !d.IsEstimable(denominator, share))
+            if (d.IsEstimable(numerator, share) && d.IsEstimable(denominator, share))
+                return (Mean(plan, d, numerator, share, single), Mean(plan, d, denominator, share, single));
+
+            var seen = SeenLevels(design, plan.Values);
+            var seenNumerator = design.MeanWeights(c.Numerator, seen, out var leftOut);
+            var seenDenominator = design.MeanWeights(c.Denominator, seen, out _);
+            if (leftOut.Count > 0 && seenNumerator is not null && seenDenominator is not null
+                && d.IsEstimable(seenNumerator, share) && d.IsEstimable(seenDenominator, share))
             {
-                var unseen = Enumerable.Range(0, design.ColumnNames.Count)
-                    .Where(j => !d.KeptCommon.Contains(j) && (numerator[j] != 0 || denominator[j] != 0))
-                    .Select(j => design.ColumnNames[j]);
-                Decide(DifferentialDecisionRules.MeansNotEstimable, design.Stratum, plan.Group, c.Id,
-                    $"the stratum's average over {string.Join(", ", unseen)}, which the feature's data do not inform",
-                    "mean_numerator and mean_denominator left empty; the effect is reported");
-                return (null, null);
+                Decide(DifferentialDecisionRules.MeansOverSeenLevels, design.Stratum, plan.Group, c.Id,
+                    $"no value in {string.Join(", ", leftOut)}",
+                    "mean_numerator and mean_denominator averaged over the stratum's other samples; the effect is unchanged");
+                return (Mean(plan, d, seenNumerator, share, single), Mean(plan, d, seenDenominator, share, single));
             }
-            return (Mean(plan, d, numerator, share, single), Mean(plan, d, denominator, share, single));
+
+            var unseen = Enumerable.Range(0, design.ColumnNames.Count)
+                .Where(j => !d.KeptCommon.Contains(j) && (numerator[j] != 0 || denominator[j] != 0))
+                .Select(j => design.ColumnNames[j]);
+            Decide(DifferentialDecisionRules.MeansNotEstimable, design.Stratum, plan.Group, c.Id,
+                $"the stratum's average over {string.Join(", ", unseen)}, which the feature's data do not inform, even over the " +
+                "levels it was measured in",
+                "mean_numerator and mean_denominator left empty; the effect is reported");
+            return (null, null);
+        }
+
+        /// <summary>
+        /// Whether the feature has a usable value in a sample at a level of a term (a factor's name, or <c>batch</c>), for
+        /// ruling 18's average over the levels it was measured in.
+        /// </summary>
+        private static Func<string, string, bool> SeenLevels(AnalysisDesign design, FeatureObservations values)
+        {
+            var mine = values.SampleIds.ToHashSet(StringComparer.Ordinal);
+            var seen = new HashSet<(string, string)>();
+            foreach (var s in design.Samples.Where(s => mine.Contains(s.SampleId)))
+            {
+                foreach (var (name, level) in s.Factors) seen.Add((name, level));
+                if (s.Batch is not null) seen.Add((AnalysisDesign.BatchTerm, s.Batch));
+            }
+            return (term, level) => seen.Contains((term, level));
         }
 
         private static double Mean(FeaturePlan plan, FeatureDesign d, double[] common, double[] share, bool single)

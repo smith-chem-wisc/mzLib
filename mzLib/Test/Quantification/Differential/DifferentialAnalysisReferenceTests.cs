@@ -116,6 +116,78 @@ public class DifferentialAnalysisReferenceTests
             Is.EquivalentTo(new[] { "P34" }));
     }
 
+    /// <summary>
+    /// <c>ReferenceData/make_runner_batch_fixtures.R</c>: one stratum, groups A and B, batches b1-b3 (batch fitted), with a
+    /// protein never measured in b3 (B09), one never in the reference batch b1 (B10), one in b2 only (B11), and one measured
+    /// in b3 in group B only (B12, which still has every batch).
+    /// </summary>
+    private static DifferentialAnalysisResult RunBatch()
+    {
+        var values = Read("runner_batch_values.tsv");
+        var samples = values.GroupBy(v => v["sample"]).OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new AnalysisSample(g.Key)
+            {
+                Factors = new Dictionary<string, string> { ["group"] = g.First()["group"] },
+                Batch = g.First()["batch"],
+            }).ToList();
+        var peptides = values.GroupBy(v => v["peptide"]).Select(g => new PeptideRunValues(g.Key, g.Key,
+            g.First()["groups"].Split(';'), g.ToDictionary(v => v["sample"],
+                v => new RunValue(Math.Pow(2, Num(v["y"])), ObservationState.Quantified)))).ToList();
+        var groups = Enumerable.Range(1, 12).Select(i => new ProteinGroupInfo($"B{i:00}", 0, false, false));
+        var runs = samples.Select(s => new ObservationRun(s.SampleId, s.SampleId)).ToList();
+        return DifferentialAnalysis.Run(new DifferentialRequest
+        {
+            Table = ObservationTable.Build(runs, runs.Select(r => r.FileName), peptides, groups, QuantBasis.MsmsOnly),
+            Samples = samples,
+            Spec = new DesignSpec { Factors = new[] { new FactorSpec("group", "A") }, FitBatch = true },
+            Contrasts = new[] { DifferentialContrastRequest.Between("group", "B", "A") },
+            Settings = new DifferentialSettings { Robust = false, Normalization = SharedPeptideNormalization.None },
+        }, maxThreads: 1);
+    }
+
+    [Test]
+    public void WithBatchesEveryRowMatchesRIncludingTheMeansOfProteinsMissingABatch()
+    {
+        var result = RunBatch();
+        var expected = Read("runner_batch_results.tsv");
+        var fitted = result.Rows.Where(r => DifferentialStatus.IsFitted(r.Status)).ToDictionary(r => r.FeatureId);
+
+        Assert.That(fitted.Keys, Is.EquivalentTo(expected.Select(e => e["protein"])), "the runner fits exactly the rows R fits");
+        foreach (var e in expected)
+        {
+            var r = fitted[e["protein"]];
+            string at = $"{e["protein"]} (batches {e["batches_seen"]})";
+            Close(r.Log2Effect!.Value, e["log2"], Effect, false, at + " log2");
+            Assert.That(r.MeanNumerator, Is.Not.Null, at + " has a numerator mean");
+            Close(r.MeanNumerator!.Value, e["mean_num"], Effect, false, at + " mean numerator");
+            Close(r.MeanDenominator!.Value, e["mean_den"], Effect, false, at + " mean denominator");
+            Close(r.StandardError!.Value, e["se"], Inference, true, at + " se");
+            Close(r.Df!.Value, e["df"], Df, true, at + " df");
+            Close(r.PValue!.Value, e["p"], Inference, true, at + " p");
+            Assert.That(r.MeanNumerator!.Value - r.MeanDenominator!.Value, Is.EqualTo(r.Log2Effect!.Value).Within(1e-9),
+                at + " effect = numerator mean - denominator mean");
+        }
+    }
+
+    [Test]
+    public void AProteinMissingABatchHasItsMeansAveragedOverTheBatchesItWasMeasuredIn()
+    {
+        var result = RunBatch();
+
+        var over = result.Decisions.Where(d => d.Rule == DifferentialDecisionRules.MeansOverSeenLevels)
+            .ToDictionary(d => d.FeatureId!, d => d.Facts);
+        Assert.That(over, Is.EquivalentTo(new Dictionary<string, string>
+        {
+            ["B09"] = "no value in batch=b3",
+            ["B10"] = "no value in batch=b1",
+            ["B11"] = "no value in batch=b1, batch=b3",
+        }), "only the proteins never measured in a batch, naming it; B12 was measured in b3 (group B only)");
+        Assert.That(result.Decisions.Where(d => d.Rule == DifferentialDecisionRules.MeansOverSeenLevels).Select(d => d.ContrastId),
+            Is.All.EqualTo("c1"));
+        Assert.That(result.Decisions.Select(d => d.Rule), Has.None.EqualTo(DifferentialDecisionRules.MeansNotEstimable));
+        Assert.That(DifferentialDecisionRules.Ruling(DifferentialDecisionRules.MeansOverSeenLevels), Is.EqualTo("M5b-18"));
+    }
+
     private static void Close(double actual, string expectedText, double tolerance, bool relative, string where)
     {
         double expected = Num(expectedText);

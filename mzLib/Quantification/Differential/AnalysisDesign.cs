@@ -61,7 +61,7 @@ public sealed class AnalysisDesign
     public const string NotInStratum = "not_in_stratum";
 
     private const string Intercept = "intercept";
-    private const string BatchTerm = "batch";
+    internal const string BatchTerm = "batch";
 
     /// <summary>
     /// A null-space loading (or a unit-length contrast's projection on it) below this counts as zero, both on the columns
@@ -424,8 +424,24 @@ public sealed class AnalysisDesign
     /// <param name="side">A contrast's <see cref="Contrast.Numerator"/> or <see cref="Contrast.Denominator"/>
     /// (<c>factor=level</c>).</param>
     /// <returns>The weights, or null when <paramref name="side"/> names no level of a factor of the model.</returns>
-    internal double[]? MeanWeights(string? side)
+    internal double[]? MeanWeights(string? side) => MeanWeights(side, null, out _);
+
+    /// <summary>
+    /// As <see cref="MeanWeights(string?)"/>, averaged over only the stratum's samples whose levels a feature was measured in
+    /// (STAT1 M5b ruling 18): a sample is left out when its batch, or its level of a factor the mean averages over (any
+    /// factor but the tested one and those set to their baseline), is one <paramref name="seen"/> says the feature has no
+    /// value in. Each remaining sample still counts once, so <paramref name="side"/>'s weights minus the other side's are
+    /// still the contrast's weights.
+    /// </summary>
+    /// <param name="side">As <see cref="MeanWeights(string?)"/>.</param>
+    /// <param name="seen">Whether the feature has a value at a level of a term (a factor's name, or <c>batch</c>); null
+    /// keeps every sample.</param>
+    /// <param name="leftOut">The <c>term=level</c> pairs whose samples were left out, ordinal; empty when none was.</param>
+    /// <returns>The weights; null when <paramref name="side"/> names no level of a factor of the model, or no sample is
+    /// left.</returns>
+    internal double[]? MeanWeights(string? side, Func<string, string, bool>? seen, out IReadOnlyList<string> leftOut)
     {
+        leftOut = Array.Empty<string>();
         if (side is null) return null;
         var f = _factors.FirstOrDefault(x => side.StartsWith(x.Name + "=", StringComparison.Ordinal)
                                               && x.Levels.Contains(side[(x.Name.Length + 1)..], StringComparer.Ordinal));
@@ -448,6 +464,29 @@ public sealed class AnalysisDesign
                     zeroTerms.Add($"{a.Name}:{b.Name}");
 
         int n = Samples.Count, p = ColumnNames.Count;
+        var include = new bool[n];
+        int count = 0;
+        var left = new SortedSet<string>(StringComparer.Ordinal);
+        var averaged = _factors.Where(x => x.Name != f.Name && !atBaseline.Contains(x.Name)).Select(x => x.Name).ToList();
+        bool batch = _columnTerms.Contains(BatchTerm);
+        for (int i = 0; i < n; i++)
+        {
+            bool keep = true;
+            if (seen is not null)
+            {
+                foreach (var name in averaged)
+                {
+                    string l = Samples[i].Factors[name];
+                    if (!seen(name, l)) { keep = false; left.Add($"{name}={l}"); }
+                }
+                if (batch && !seen(BatchTerm, Samples[i].Batch!)) { keep = false; left.Add($"{BatchTerm}={Samples[i].Batch}"); }
+            }
+            include[i] = keep;
+            if (keep) count++;
+        }
+        leftOut = left.ToArray();
+        if (count == 0) return null;
+
         var weights = new double[p];
         for (int j = 0; j < p; j++)
         {
@@ -456,8 +495,9 @@ public sealed class AnalysisDesign
             else if (!zeroTerms.Contains(_columnTerms[j]))
             {
                 double sum = 0;
-                for (int i = 0; i < n; i++) sum += _matrix[i, j];
-                weights[j] = sum / n;
+                for (int i = 0; i < n; i++)
+                    if (include[i]) sum += _matrix[i, j];
+                weights[j] = sum / count;
             }
         }
         return weights;
