@@ -118,6 +118,25 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         /// <summary>
+        /// Columns are read by name, not by position: a table whose columns arrive in another order reads the same rows.
+        /// </summary>
+        [Test]
+        public void ColumnsAreReadByNameInAnyOrder()
+        {
+            var rows = new List<DiaPeptideFromTsv> { Row("a.raw", "T"), Row("b.raw", "D") };
+            string path = Path.Combine(Folder, "AllDiaPeptides.tsv");
+            new DiaPeptideFile(path, rows, contaminantsAssessed: true).WriteResults(path);
+            var lines = File.ReadAllLines(path);
+            File.WriteAllLines(path, lines.Take(1).Concat(lines.Skip(1).Select(l => string.Join('\t', l.Split('\t').Reverse()))));
+
+            var read = new DiaPeptideFile(path);
+            read.LoadResults();
+
+            Assert.That(File.ReadAllLines(path)[1], Does.StartWith("Precursor Charge\t"), "the columns really were reordered");
+            Assert.That(read.Results, Is.EqualTo(rows));
+        }
+
+        /// <summary>
         /// The DIA protein-group table is MetaMorpheus's protein-group format, so it needs no reader of its own: its name
         /// resolves to the existing protein-group reader.
         /// </summary>
