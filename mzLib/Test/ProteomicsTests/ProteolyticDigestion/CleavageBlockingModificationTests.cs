@@ -1087,5 +1087,43 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     && p.AllModsOneIsNterminus.ContainsKey(9 - 6 + 2)), Is.EqualTo(maxMissedCleavages > 0),
                 "a blocked site is not a site, so the chain must be emitted as flag-off emits a chain spanning no site");
         }
+
+        [Test]
+        [TestCase("Unimod", "Carbamyl on K")]
+        [TestCase("UniProt", "N6-carbamoyllysine on K")]
+        [TestCase("MetaMorpheus", "Carbamyl on K")]
+        public static void ShippedLysineCarbamylation_BlocksCleavageAndMayFormAfterDigestion(string source, string idWithMotif)
+        {
+            List<Modification> shipped = source switch
+            {
+                "Unimod" => Mods.UnimodModifications,
+                "UniProt" => Mods.UniprotModifications,
+                _ => Mods.MetaMorpheusProteinModifications,
+            };
+            Modification carbamylation = shipped.Single(m => m.IdWithMotif == idWithMotif);
+
+            Assert.That(carbamylation.BlocksCleavage, Is.True);
+            Assert.That(CleavageBlockingModifications.MayFormAfterDigestion(carbamylation), Is.True);
+        }
+
+        [Test]
+        public static void AModificationWithoutAnId_DoesNotFormAfterDigestion()
+        {
+            Assert.That(CleavageBlockingModifications.MayFormAfterDigestion(new Modification()), Is.False);
+        }
+
+        [Test]
+        public static void Digestion_PeptideEndingInCarbamylatedLysine_IsKeptWhileOtherBlockersAreDropped()
+        {
+            var carbamyl = MakeKModification("Carbamyl", mass: 43.005814);
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            List<string> modificationsEndingPeptidek = Digest(respectBlockingMods: true, maxMissedCleavages: 2, carbamyl, succinyl)
+                .Where(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p))
+                .Select(p => p.AllModsOneIsNterminus[p.BaseSequence.Length + 1].OriginalId)
+                .ToList();
+
+            Assert.That(modificationsEndingPeptidek, Is.EqualTo(new[] { "Carbamyl" }));
+        }
     }
 }
