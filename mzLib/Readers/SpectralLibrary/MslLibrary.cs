@@ -178,6 +178,39 @@ public sealed class MslLibrary : IDisposable
 	}
 
 	/// <summary>
+	/// Reports, from the 64-byte file header alone, whether <see cref="LoadIndexOnly(string)"/>
+	/// would open the file in index-only mode.
+	///
+	/// <para>
+	/// A compressed file cannot be opened index-only: its fragment offsets point into the
+	/// decompressed fragment section, not into the file. <see cref="LoadIndexOnly(string)"/> then
+	/// loads the whole library instead, which takes the time and memory of a full load (for a
+	/// 5.24 M-precursor library, 14 s and 13.9 GB instead of 4 s and 1.9 GB). Call this method
+	/// first to choose a mode, warn the user, or refuse the file before paying for that load.
+	/// </para>
+	///
+	/// <para>
+	/// Only the header is read. The checksum and the rest of the file are not validated, so a
+	/// damaged file can still fail when it is loaded.
+	/// </para>
+	/// </summary>
+	/// <param name="filePath">Absolute or relative path to the .msl file. Must not be null.</param>
+	/// <returns>
+	///   <see langword="true"/> when the file is uncompressed and <see cref="LoadIndexOnly(string)"/>
+	///   will open it index-only; <see langword="false"/> when it is compressed and will be loaded
+	///   in full.
+	/// </returns>
+	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
+	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
+	/// <exception cref="FormatException">The file is not an .msl file or is too short to hold a header.</exception>
+	public static bool CanLoadIndexOnly(string filePath)
+	{
+		ArgumentNullException.ThrowIfNull(filePath);
+		MslFileHeader header = MslReader.ReadHeaderOnly(filePath);
+		return (header.FileFlags & MslFormat.FileFlagIsCompressed) == 0;
+	}
+
+	/// <summary>
 	/// Opens a .msl file in index-only mode: precursor metadata is loaded into memory but
 	/// fragment blocks remain on disk and are read lazily on demand.
 	///
@@ -200,7 +233,8 @@ public sealed class MslLibrary : IDisposable
 	/// to the decompressed buffer rather than absolute file positions. This method transparently
 	/// falls back to full decompression in that case and returns a library with
 	/// <see cref="IsIndexOnly"/> == <see langword="false"/> and
-	/// <see cref="IsCompressed"/> == <see langword="true"/>. No exception is thrown.
+	/// <see cref="IsCompressed"/> == <see langword="true"/>. No exception is thrown. To find out
+	/// before loading, call <see cref="CanLoadIndexOnly"/>.
 	/// </para>
 	/// </summary>
 	/// <param name="filePath">
@@ -374,8 +408,8 @@ public sealed class MslLibrary : IDisposable
 
 		// Convert each LibrarySpectrum to an MslLibraryEntry, then delegate to the primary Save path
 		var entries = new List<MslLibraryEntry>(spectra.Count);
-		foreach (LibrarySpectrum spectrum in spectra)
-			entries.Add(MslLibraryEntry.FromLibrarySpectrum(spectrum));
+		for (int i = 0; i < spectra.Count; i++)
+			entries.Add(MslWriter.ConvertForWrite(spectra[i], i, nameof(spectra)));
 
 		MslWriter.Write(filePath, entries);
 	}
@@ -424,13 +458,13 @@ public sealed class MslLibrary : IDisposable
 
 	/// <summary>
 	/// Smallest precursor m/z value among all entries, in Thomson (m/z) units.
-	/// Returns 0 when the library contains no entries.
+	/// Returns <see cref="float.PositiveInfinity"/> when the library contains no entries.
 	/// </summary>
 	public float MinPrecursorMz => _stats.MinPrecursorMz;
 
 	/// <summary>
 	/// Largest precursor m/z value among all entries, in Thomson (m/z) units.
-	/// Returns 0 when the library contains no entries.
+	/// Returns <see cref="float.NegativeInfinity"/> when the library contains no entries.
 	/// </summary>
 	public float MaxPrecursorMz => _stats.MaxPrecursorMz;
 
@@ -647,7 +681,10 @@ public sealed class MslLibrary : IDisposable
 	/// </summary>
 	/// <param name="mzLow">Inclusive lower bound of the precursor m/z window.</param>
 	/// <param name="mzHigh">Inclusive upper bound of the precursor m/z window.</param>
-	/// <param name="rtLow">Inclusive lower bound of the retention-time (iRT) window.</param>
+	/// <param name="rtLow">
+	///   Inclusive lower bound of the retention-time (iRT) window. An entry with no retention
+	///   time (NaN) passes any window.
+	/// </param>
 	/// <param name="rtHigh">Inclusive upper bound of the retention-time (iRT) window.</param>
 	/// <param name="imLow">
 	///   Inclusive lower bound of the ion-mobility window. Pass 0 (along with
@@ -678,7 +715,8 @@ public sealed class MslLibrary : IDisposable
 
 	/// <summary>
 	/// Returns the full <see cref="MslLibraryEntry"/> for the precursor at
-	/// zero-based position <paramref name="precursorIdx"/> in the m/z-sorted index.
+	/// zero-based precursor index <paramref name="precursorIdx"/>: the precursor's position in
+	/// the file (<see cref="MslPrecursorIndexEntry.PrecursorIdx"/>), not its rank in m/z order.
 	///
 	/// <para>
 	/// In full-load mode the entry is retrieved from the in-memory array.
@@ -932,11 +970,26 @@ public sealed class MslLibrary : IDisposable
 
 		foreach (MslPrecursorIndexEntry indexEntry in all)
 		{
+			// Disposed mid-enumeration: stop cleanly, as documented. Dispose clears _index, so
+			// reading through it would throw NullReferenceException.
+			MslIndex? index = _index;
+			if (_disposed || index is null)
+				yield break;
+
 			// Apply the decoy filter before triggering a potentially expensive disk read
 			if (!includeDecoys && indexEntry.IsDecoy == 1)
 				continue;
 
-			MslLibraryEntry? entry = _index.GetEntry(indexEntry.PrecursorIdx);
+			MslLibraryEntry? entry;
+			try
+			{
+				entry = index.GetEntry(indexEntry.PrecursorIdx);
+			}
+			catch (ObjectDisposedException) when (_disposed)
+			{
+				// Disposed by another thread between the check above and the read.
+				yield break;
+			}
 			if (entry is not null)
 				yield return entry;
 		}
@@ -961,9 +1014,16 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
-	/// <b>This instance is not modified.</b> The new library is independent and holds its
-	/// own index. Dispose the new library when finished; it does not share a file stream with
-	/// the original.
+	/// <b>This instance is not modified.</b> The new library holds its own index, but it reads
+	/// fragments through the original's open file (in index-only mode) and shares its raw
+	/// data. Dispose the new library before the original: once the original is disposed, the
+	/// new library's reads fail with <see cref="ObjectDisposedException"/>.
+	/// </para>
+	///
+	/// <para>
+	/// Only the index moves. The entries themselves keep their <c>RetentionTime</c> and
+	/// <c>RtIsCalibrated</c>, so <see cref="GetEntry(int, bool)"/> still returns the stored
+	/// value, and saving the new library's entries does not save the calibration.
 	/// </para>
 	///
 	/// <para>
@@ -975,8 +1035,8 @@ public sealed class MslLibrary : IDisposable
 	/// </summary>
 	/// <param name="slope">
 	///   Slope of the linear iRT → calibrated RT regression. Typical values: 0.1–10.0.
-	///   No guard against zero or NaN; callers are responsible for providing a well-conditioned
-	///   regression fit.
+	///   Must be finite and non-zero: a NaN slope makes every RT NaN, so every RT window
+	///   matches, and a zero slope collapses every RT onto the intercept.
 	/// </param>
 	/// <param name="intercept">
 	///   Intercept of the linear iRT → calibrated RT regression (in the same units as the
@@ -988,10 +1048,19 @@ public sealed class MslLibrary : IDisposable
 	///   the <see cref="ProteoformIndex"/>. The new library has the same <see cref="Header"/>
 	///   and <see cref="IsIndexOnly"/> flag as the original.
 	/// </returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="slope"/> is zero or not finite, or <paramref name="intercept"/> is not finite.
+	/// </exception>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	public MslLibrary WithCalibratedRetentionTimes(double slope, double intercept)
 	{
 		ThrowIfDisposed();
+		if (!double.IsFinite(slope) || slope == 0.0)
+			throw new ArgumentOutOfRangeException(nameof(slope), slope,
+				"The calibration slope must be a finite, non-zero number.");
+		if (!double.IsFinite(intercept))
+			throw new ArgumentOutOfRangeException(nameof(intercept), intercept,
+				"The calibration intercept must be a finite number.");
 
 		// MslIndex.WithCalibratedRetentionTimes creates a brand-new index with transformed
 		// RetentionTime values; the original index (_index) is not modified.
@@ -1025,13 +1094,27 @@ public sealed class MslLibrary : IDisposable
 	///     <description>
 	///       For every entry in <paramref name="newSpectra"/> whose <c>(FullSequence, charge)</c>
 	///       key is already present in this library, the pair
-	///       <c>(observedRT, libraryIrt)</c> is collected as a regression anchor.
+	///       <c>(observedRT, libraryIrt)</c> is collected as a regression anchor, but only when
+	///       both times are real: the observed time is finite and greater than 0 (it is in run
+	///       minutes, so 0 or less is never a measurement; a psmtsv file uses -1 for "none"), and
+	///       the library time is finite (any sign, since iRT can be negative; NaN means none).
 	///       An ordinary-least-squares linear fit is computed:
 	///       <code>iRT_predicted = slope × observedRT + intercept</code>
-	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available, or the
+	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available, the
 	///       anchors mix iRT and run-minute entries (<see cref="MslLibraryEntry.RtIsCalibrated"/>),
-	///       the regression cannot be trusted; in that case the raw observed RT is stored unchanged
-	///       and <see cref="MslUpdateResult.RtNormalisationApplied"/> is <see langword="false"/>.
+	///       or the fitted slope or intercept is not finite, the regression cannot be trusted; in
+	///       that case the raw observed RT is stored unchanged and
+	///       <see cref="MslUpdateResult.RtNormalisationApplied"/> is <see langword="false"/>.
+	///       <para>
+	///       An incoming spectrum without a real time (null, not finite, or not greater than 0)
+	///       never erases a known one: a replacement keeps the original entry's
+	///       <see cref="MslLibraryEntry.RetentionTime"/> and <see cref="MslLibraryEntry.RtIsCalibrated"/>,
+	///       and a novel entry stores NaN, which means "no retention time".
+	///       When one <c>(sequence, charge)</c> arrives more than once, the spectrum is the copy
+	///       with the most matched ions (on a tie, one with a real time), and the time is the real
+	///       time of the copy with the most ions among those that have one, so a time one copy
+	///       measured is not lost because another copy had more ions.
+	///       </para>
 	///     </description>
 	///   </item>
 	///   <item>
@@ -1070,6 +1153,17 @@ public sealed class MslLibrary : IDisposable
 	/// (some iRT, some minutes), because a line fitted across two scales is meaningless.
 	/// </para>
 	///
+	/// <para>
+	/// <b>What a replacement keeps:</b> the fields that belong to the peptide and its protein,
+	/// which a better spectrum does not change: ion mobility, protein accession, protein name,
+	/// gene name, proteotypic, decoy and entrapment flags, and molecule type. The fields that
+	/// describe the replaced spectrum's evidence and acquisition are reset to unknown, because
+	/// the incoming <see cref="LibrarySpectrum"/> carries none of them and copying the old values
+	/// would mislabel the new spectrum: <see cref="MslLibraryEntry.QValue"/> (NaN),
+	/// <see cref="MslLibraryEntry.DissociationType"/> (Unknown) and
+	/// <see cref="MslLibraryEntry.Nce"/> (0).
+	/// </para>
+	///
 	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
 	/// concurrent write to <paramref name="outputPath"/> is in progress.</para>
 	/// </summary>
@@ -1095,6 +1189,10 @@ public sealed class MslLibrary : IDisposable
 	/// <exception cref="ArgumentNullException">
 	///   <paramref name="newSpectra"/> or <paramref name="outputPath"/> is <see langword="null"/>.
 	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   A spectrum in <paramref name="newSpectra"/> cannot be converted to a .msl entry
+	///   (null, empty sequence, charge or m/z not positive). Thrown before anything is written.
+	/// </exception>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	/// <exception cref="IOException">An I/O error occurred while writing the file.</exception>
 	public MslUpdateResult UpdateAndSave(
@@ -1106,6 +1204,11 @@ public sealed class MslLibrary : IDisposable
 		ArgumentNullException.ThrowIfNull(outputPath);
 		ThrowIfDisposed();
 
+		// Refuse an unconvertible spectrum up front, by its position, rather than failing
+		// later on the null that FromLibrarySpectrum returns for it.
+		for (int i = 0; i < newSpectra.Count; i++)
+			_ = MslWriter.ConvertForWrite(newSpectra[i], i, nameof(newSpectra));
+
 		// Clamp: a linear regression requires at least 2 points.
 		if (minRegressionAnchors < 2)
 			minRegressionAnchors = 2;
@@ -1113,18 +1216,31 @@ public sealed class MslLibrary : IDisposable
 		// ── Step 0: index incoming spectra by (FullSequence, ChargeState) ──────────
 		// We use a dictionary so both the regression pass and the merge pass are O(1) per lookup.
 		// When duplicates exist in newSpectra (same sequence+charge observed in multiple files)
-		// we keep the one with the most matched fragment ions — mirroring MetaMorpheus behaviour.
+		// we keep the one with the most matched fragment ions — mirroring MetaMorpheus behaviour;
+		// on a tie, a copy with a real observed time beats one without.
+		// The time is chosen separately from the spectrum: it is the real observed time of the
+		// copy with the most ions among the copies that have one. So a copy kept for its ions but
+		// lacking a time does not throw away a time another copy measured.
 		var incoming = new Dictionary<(string Sequence, int Charge), LibrarySpectrum>(
+			newSpectra.Count, SequenceChargeComparer.Instance);
+		var incomingTimes = new Dictionary<(string Sequence, int Charge), (double Minutes, int Ions)>(
 			newSpectra.Count, SequenceChargeComparer.Instance);
 
 		foreach (LibrarySpectrum s in newSpectra)
 		{
 			var key = (s.Sequence, s.ChargeState);
+			int ions = s.MatchedFragmentIons.Count;
+			bool timed = TryGetObservedMinutes(s, out double minutes);
+
 			if (!incoming.TryGetValue(key, out LibrarySpectrum? existing)
-				|| s.MatchedFragmentIons.Count > existing.MatchedFragmentIons.Count)
+				|| ions > existing.MatchedFragmentIons.Count
+				|| (ions == existing.MatchedFragmentIons.Count && timed && !TryGetObservedMinutes(existing, out _)))
 			{
 				incoming[key] = s;
 			}
+
+			if (timed && (!incomingTimes.TryGetValue(key, out var bestTime) || ions > bestTime.Ions))
+				incomingTimes[key] = (minutes, ions);
 		}
 
 		// ── Step 1: RT regression ─────────────────────────────────────────────
@@ -1141,10 +1257,13 @@ public sealed class MslLibrary : IDisposable
 
 		foreach (var (key, spectrum) in incoming)
 		{
+			// Only a pair of real times is an anchor; a missing time must not pull the line.
 			if (TryGetEntry(key.Sequence, key.Charge, out MslLibraryEntry? libEntry)
-				&& libEntry is not null)
+				&& libEntry is not null
+				&& incomingTimes.TryGetValue(key, out var anchorTime)
+				&& double.IsFinite(libEntry.RetentionTime))
 			{
-				anchorsObservedRt.Add(spectrum.RetentionTime ?? 0.0);
+				anchorsObservedRt.Add(anchorTime.Minutes);
 				anchorsLibraryIrt.Add(libEntry.RetentionTime);
 				if (libEntry.RtIsCalibrated) anyAnchorInMinutes = true;
 				else anyAnchorOnIrt = true;
@@ -1159,7 +1278,17 @@ public sealed class MslLibrary : IDisposable
 		double rtIntercept = 0.0;
 
 		if (rtNormalisationApplied)
+		{
 			(rtSlope, rtIntercept) = ComputeOlsRegression(anchorsObservedRt, anchorsLibraryIrt);
+
+			// A degenerate fit (e.g. every anchor at one observed time) is not a normalisation.
+			if (!double.IsFinite(rtSlope) || !double.IsFinite(rtIntercept))
+			{
+				rtNormalisationApplied = false;
+				rtSlope = 1.0;
+				rtIntercept = 0.0;
+			}
+		}
 
 		// ── Step 2: merge ─────────────────────────────────────────────────────
 		// Walk every entry already in this library and decide whether to keep the original
@@ -1188,17 +1317,31 @@ public sealed class MslLibrary : IDisposable
 				if (newFragmentCount > originalFragmentCount)
 				{
 					// The incoming spectrum has more matched ions — prefer it.
-					MslLibraryEntry replacement = MslLibraryEntry.FromLibrarySpectrum(newSpectrum);
-					replacement.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
-															  rtSlope, rtIntercept,
-															  rtNormalisationApplied);
-					// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
-					replacement.RtIsCalibrated = rtNormalisationApplied ? originalEntry.RtIsCalibrated : true;
+					MslLibraryEntry replacement = MslLibraryEntry.FromLibrarySpectrum(newSpectrum)!;
+					if (incomingTimes.TryGetValue(key, out var replacementTime))
+					{
+						replacement.RetentionTime = NormaliseRt(replacementTime.Minutes,
+																  rtSlope, rtIntercept,
+																  rtNormalisationApplied);
+						// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
+						replacement.RtIsCalibrated = rtNormalisationApplied ? originalEntry.RtIsCalibrated : true;
+					}
+					else
+					{
+						// No incoming time: never overwrite a known time with a missing one.
+						replacement.RetentionTime = originalEntry.RetentionTime;
+						replacement.RtIsCalibrated = originalEntry.RtIsCalibrated;
+					}
 					replacement.Source = MslFormat.SourceType.Empirical;
 
-					// Preserve rich metadata that LibrarySpectrum cannot carry.
+					// Preserve rich metadata that LibrarySpectrum cannot carry: what belongs to the
+					// peptide and its protein survives a better spectrum. QValue, DissociationType
+					// and Nce describe the replaced spectrum's evidence and acquisition, so they
+					// stay at their unknown defaults (NaN, Unknown, 0) rather than mislabel the new one.
 					replacement.IonMobility = originalEntry.IonMobility;
 					replacement.ProteinAccession = originalEntry.ProteinAccession;
+					replacement.ProteinName = originalEntry.ProteinName;
+					replacement.GeneName = originalEntry.GeneName;
 					replacement.IsProteotypic = originalEntry.IsProteotypic;
 					replacement.IsDecoy = originalEntry.IsDecoy;
 					replacement.IsEntrapment = originalEntry.IsEntrapment;
@@ -1228,11 +1371,20 @@ public sealed class MslLibrary : IDisposable
 			if (consumedKeys.Contains(key))
 				continue;
 
-			MslLibraryEntry novel = MslLibraryEntry.FromLibrarySpectrum(newSpectrum);
-			novel.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
-													  rtSlope, rtIntercept,
-													  rtNormalisationApplied);
-			novel.RtIsCalibrated = rtNormalisationApplied ? anchorScaleIsMinutes : true;
+			MslLibraryEntry novel = MslLibraryEntry.FromLibrarySpectrum(newSpectrum)!;
+			if (incomingTimes.TryGetValue(key, out var novelTime))
+			{
+				novel.RetentionTime = NormaliseRt(novelTime.Minutes,
+														  rtSlope, rtIntercept,
+														  rtNormalisationApplied);
+				novel.RtIsCalibrated = rtNormalisationApplied ? anchorScaleIsMinutes : true;
+			}
+			else
+			{
+				// No incoming time: the entry has none (NaN), not an invented NormaliseRt(0).
+				novel.RetentionTime = double.NaN;
+				novel.RtIsCalibrated = false;
+			}
 			novel.Source = MslFormat.SourceType.Empirical;
 
 			mergedEntries.Add(novel);
@@ -1280,10 +1432,12 @@ public sealed class MslLibrary : IDisposable
 
 		double denominator = n * sumX2 - sumX * sumX;
 
-		// Guard: if all observed RT values are identical the denominator is zero.
-		// Return an identity transform so callers get a non-NaN result.
+		// Guard: if all observed RT values are identical the denominator is zero and there is no
+		// line. Return NaN so the caller reports the normalisation as not applied. (An identity
+		// line here used to be reported as applied, so raw minutes were stored labelled as the
+		// anchors' scale.)
 		if (Math.Abs(denominator) < double.Epsilon)
-			return (slope: 1.0, intercept: 0.0);
+			return (slope: double.NaN, intercept: double.NaN);
 
 		double slope = (n * sumXY - sumX * sumY) / denominator;
 		double intercept = (sumY - slope * sumX) / n;
@@ -1300,6 +1454,17 @@ public sealed class MslLibrary : IDisposable
 	private static double NormaliseRt(double observedRt, double slope, double intercept,
 									   bool apply)
 		=> apply ? slope * observedRt + intercept : observedRt;
+
+	/// <summary>
+	/// The spectrum's observed retention time when it is a real measurement: finite and greater
+	/// than 0. It is in run minutes, so 0 or less is never measured (a psmtsv file writes -1 for
+	/// "none"), and a null or NaN time means none.
+	/// </summary>
+	private static bool TryGetObservedMinutes(LibrarySpectrum spectrum, out double minutes)
+	{
+		minutes = spectrum.RetentionTime ?? double.NaN;
+		return double.IsFinite(minutes) && minutes > 0.0;
+	}
 
 
 	// ────────────────────────────────────────────────────────────────────────────
@@ -1355,22 +1520,38 @@ public sealed class MslLibrary : IDisposable
 	/// function, then writes the results back into those entries in-place.
 	///
 	/// The prediction function receives the list of eligible entries and returns a dictionary
-	/// mapping each entry's Name to its predicted LibrarySpectrum. Use
-	/// MslFragmentModelRouter.Predict from PredictionClients to supply this function:
+	/// mapping each entry's Name to its predicted LibrarySpectrum, for example a wrapper
+	/// around a Koina fragment-intensity model from PredictionClients:
 	///
-	///   library.PredictFragments(entries => MslFragmentModelRouter.Predict(entries, out _));
+	///   library.PredictFragments(entries => PredictWithMyModel(entries));
+	///
+	/// <para>
+	/// The predicted fragments live only in the in-memory entries: nothing is written to disk
+	/// until the caller writes the entries (<see cref="MslWriter.Write"/> or <see cref="Save"/>).
+	/// </para>
+	///
+	/// <para>
+	/// An index-only library is refused. There the entries are cached copies, and eviction
+	/// would discard the predictions while the call reported success. Load the library in
+	/// full (<see cref="Load"/>) to predict into it.
+	/// </para>
 	/// </summary>
 	/// <param name="predict">
 	///   Function that accepts a read-only list of MslLibraryEntry and returns a dictionary
 	///   from Name to LibrarySpectrum. Only entries present in the dictionary are updated.
 	/// </param>
 	/// <returns>The number of entries whose MatchedFragmentIons list was successfully populated.</returns>
+	/// <exception cref="InvalidOperationException">This library was opened index-only.</exception>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	public int PredictFragments(
 		Func<IReadOnlyList<MslLibraryEntry>, Dictionary<string, LibrarySpectrum>> predict)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(predict);
+		if (IsIndexOnly)
+			throw new InvalidOperationException(
+				"PredictFragments needs a fully loaded library: this one was opened index-only, where " +
+				"predictions would go into cached entries that eviction discards. Open it with MslLibrary.Load.");
 
 		var eligible = GetAllEntries(includeDecoys: true)
 			.Where(e => e.Source == MslFormat.SourceType.Predicted && e.MatchedFragmentIons.Count == 0)
