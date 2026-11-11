@@ -71,6 +71,29 @@ public class DifferentialAnalysisTmtTests
     }
 
     /// <summary>
+    /// The isobaric table's canonical sha256 (ruling 10): the same data rebuilt give the same hash, one changed cell another,
+    /// and the runner records it as its first input, so the analysis id follows the data.
+    /// </summary>
+    [Test]
+    public void TheIsobaricTableIsTheFirstInputAndItsHashFollowsTheData()
+    {
+        var (table, _) = Data(20261110);
+        string hash = table.Sha256();
+        Assert.That(Data(20261110).Table.Sha256(), Is.EqualTo(hash), "the same data, rebuilt");
+        var changed = table.WithLog2((r, s) => r == 0 && s == table.SamplesOfPlex(table.Rows[0].Plex)[0]
+            ? table.Log2Intensity(r, s) + 0.001 : table.Log2Intensity(r, s));
+        Assert.That(changed.Sha256(), Is.Not.EqualTo(hash), "one cell different");
+
+        string text = table.ToCanonicalText();
+        Assert.That(text, Does.StartWith("observation_table\tisobaric\nsamples\t"));
+        Assert.That(text, Does.Contain("\nion\tBG001ION0\tBG001ION0\tBG001\t2\t1\t0\tplex1\t"));
+        Assert.That(text, Does.Contain("\nions_with_few_channels\t0\n"));
+
+        var input = Run().Metadata.Inputs.First();
+        Assert.That(input, Is.EqualTo(new DifferentialInput(DifferentialConstants.ObservationTableRole, "", hash)));
+    }
+
+    /// <summary>
     /// The global shift (ruling 9c) on the raw table: every ion of every plex run is valued in all six sample channels, so
     /// all 824 count (103 proteins x 4 ions x 2 plexes), and with 100 of 103 proteins unchanged the median is near 0.
     /// </summary>

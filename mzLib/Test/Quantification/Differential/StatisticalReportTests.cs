@@ -140,6 +140,24 @@ public class StatisticalReportTests
         };
     }
 
+    /// <summary>The runner's own table input has no file name (ruling 10): the report says it was in memory.</summary>
+    [Test]
+    public void AnInputWithNoFileNameIsReportedAsInMemory()
+    {
+        var m = Metadata() with
+        {
+            Inputs = new[]
+            {
+                new DifferentialInput(DifferentialConstants.ObservationTableRole, "", new string('1', 64)),
+                new DifferentialInput("design", "design.tsv", new string('2', 64)),
+            },
+        };
+        string md = Build(m).Markdown;
+        Assert.That(md, Does.Contain("**Inputs.** observation_table (in memory) (sha256 `"));
+        Assert.That(md, Does.Contain("; design `design.tsv` (sha256 `"));
+        Assert.That(md, Does.Not.Contain("``"));
+    }
+
     private static StatisticalReport Build(DifferentialMetadata? metadata = null, DifferentialDiagnostics? diagnostics = null,
         List<DifferentialResult>? rows = null)
     {

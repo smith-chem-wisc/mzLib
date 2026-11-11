@@ -164,7 +164,8 @@ public static class StatisticalReportWriter
             .Append(versions.Count == 0 ? "" : $" Method version: {string.Join(", ", versions)}.").Append("\n\n");
         if (m.Inputs.Count > 0)
             md.Append("**Inputs.** ")
-                .Append(string.Join("; ", m.Inputs.Select(i => $"{i.Role} `{i.FileName}` (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
+                .Append(string.Join("; ", m.Inputs.Select(i =>
+                    $"{i.Role}{(i.FileName.Length == 0 ? " (in memory)" : $" `{i.FileName}`")} (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
 
         md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.");
         if (m.Settings.NormalizationOverride is { } over)

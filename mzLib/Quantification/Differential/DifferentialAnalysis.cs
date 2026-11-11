@@ -45,7 +45,11 @@ public sealed record DifferentialRequest
     public IReadOnlyList<DifferentialContrastRequest>? Contrasts { get; init; }
     /// <summary>The settings.</summary>
     public DifferentialSettings Settings { get; init; } = new();
-    /// <summary>The inputs by role, file name and sha256.</summary>
+    /// <summary>
+    /// The caller's inputs by role, file name and sha256 (the files the table and design were read from, the contrast
+    /// spec). The runner puts the table it is given first itself, as <see cref="DifferentialConstants.ObservationTableRole"/>,
+    /// so that role is refused here.
+    /// </summary>
     public IReadOnlyList<DifferentialInput> Inputs { get; init; } = Array.Empty<DifferentialInput>();
     /// <summary><c>lfq</c>, <c>tmt</c>, ...; null takes <c>lfq</c> for a label-free table and <c>tmt</c> for an isobaric one.</summary>
     public string? QuantStyle { get; init; }
@@ -150,6 +154,11 @@ public static class DifferentialConstants
     public const string DefinitionId = "QuantProject:DEF-DIFF-ABUNDANCE v1";
     /// <summary>The framework's version string.</summary>
     public const string MethodVersion = "diff-1.0";
+    /// <summary>
+    /// The input role the runner gives the table it analyses (<c>DEF-DIFF-META</c> <c>inputs</c>): no file name, and the
+    /// sha256 of the table's canonical text (ruling 10). It is always the first input.
+    /// </summary>
+    public const string ObservationTableRole = "observation_table";
     /// <summary>A comparison between two levels.</summary>
     public const string EffectRatio = "abundance_log2_ratio";
     /// <summary>A covariate's slope.</summary>
@@ -250,6 +259,11 @@ public static class DifferentialAnalysis
         ArgumentNullException.ThrowIfNull(request.Spec, nameof(request));
         if ((request.Table is null) == (request.IsobaricTable is null))
             throw new ArgumentException("Give exactly one observation table: label-free or isobaric.", nameof(request));
+        ArgumentNullException.ThrowIfNull(request.Inputs, nameof(request));
+        if (request.Inputs.Any(i => i.Role == DifferentialConstants.ObservationTableRole))
+            throw new ArgumentException($"An input has the role '{DifferentialConstants.ObservationTableRole}'; the runner records the " +
+                "observation table itself, by the sha256 of the table it is given (ruling 10). Give the file the table was read " +
+                "from another role.", nameof(request));
         var withIndividual = request.Samples.Where(s => s.Individual is not null).Select(s => s.SampleId).ToList();
         if (withIndividual.Count > 0 && withIndividual.Count < request.Samples.Count)
             throw new ArgumentException(
@@ -271,6 +285,7 @@ public static class DifferentialAnalysis
         private readonly int _maxThreads;
         private readonly bool _isobaric;
         private readonly string _analysisId;
+        private readonly IReadOnlyList<DifferentialInput> _inputs;
         private readonly string? _basis;
         private readonly string _style;
         private readonly List<DifferentialResult> _rows = new();
@@ -290,7 +305,12 @@ public static class DifferentialAnalysis
             _request = request;
             _maxThreads = maxThreads;
             _isobaric = request.IsobaricTable is not null;
-            _analysisId = DifferentialMetadata.ComputeAnalysisId(request.Inputs, request.Settings);
+            // The table the runner analyses is the first input, by its canonical sha256 (ruling 10), so the analysis id
+            // changes whenever the data do; the caller's inputs follow in its order.
+            string tableSha256 = _isobaric ? request.IsobaricTable!.Sha256() : request.Table!.Sha256();
+            _inputs = new[] { new DifferentialInput(DifferentialConstants.ObservationTableRole, "", tableSha256) }
+                .Concat(request.Inputs).ToArray();
+            _analysisId = DifferentialMetadata.ComputeAnalysisId(_inputs, request.Settings);
             _basis = _isobaric ? null : request.Table!.Basis.ToMachineName();
             _style = request.QuantStyle ?? (_isobaric ? "tmt" : "lfq");
         }
@@ -321,7 +341,7 @@ public static class DifferentialAnalysis
             var metadata = new DifferentialMetadata
             {
                 Software = new[] { new DifferentialSoftware("mzLib", DifferentialConstants.MethodVersion) },
-                Inputs = _request.Inputs,
+                Inputs = _inputs,
                 Settings = _request.Settings,
                 Strata = _strata,
                 Contrasts = _contrastInfo.Values.OrderBy(c => c.Id, StringComparer.Ordinal)
