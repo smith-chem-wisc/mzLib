@@ -319,6 +319,52 @@ namespace Readers
                 ? $"Line {line} dropped: '{keyColumn}' is empty, so it names no searched file."
                 : $"Line {line} ('{fileName}') dropped: the search does not read that file.";
 
+        /// <summary>
+        /// The input SDRF's line of each row of a scoping's document (<see cref="SdrfSearchScoping.SourceLines"/>), for a
+        /// reader's report; null when the scoping was built directly and carries none, so the rows are numbered as the
+        /// document's own.
+        /// </summary>
+        /// <exception cref="ArgumentException">Source lines are given, but not one per row of the document.</exception>
+        internal static IReadOnlyList<int>? SourceLinesOf(SdrfSearchScoping scoping)
+        {
+            int rows = scoping.Document.Results.Count;
+            if (scoping.SourceLines.Count == 0)
+                return null;
+            if (scoping.SourceLines.Count != rows)
+                throw new ArgumentException($"The scoping gives {scoping.SourceLines.Count} source line(s) for {rows} row(s); " +
+                    "a reader needs one per row of its document.", nameof(scoping));
+            return scoping.SourceLines;
+        }
+
+        /// <summary>
+        /// The rows of the input SDRF a reader did not read because the search does not read their files, for the sentence
+        /// after a note on a gap in replicate or fraction numbers: whether a gap may be a sample that was not searched.
+        /// </summary>
+        /// <param name="Count">The rows set aside: by the join before the read and by the reader itself.</param>
+        /// <param name="Counted">True when the reader was given the join's count (it read an <see cref="SdrfSearchScoping"/>),
+        /// so the sentence can say how many rows; false when it read a document and knows only whether it dropped rows.</param>
+        internal readonly record struct SetAsideRows(int Count, bool Counted)
+        {
+            /// <summary>After a gap in a condition's biological replicates.</summary>
+            public string SampleGapReason => Count == 0
+                ? "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."
+                : Counted
+                    ? $"{Rows} were set aside because the search does not read their files, so a missing number may be " +
+                      "a sample whose file is not searched."
+                    : "Rows were dropped from the SDRF, so a missing number may be a sample whose file is not searched.";
+
+            /// <summary>After a gap in a sample's fractions or a fraction's technical replicates.</summary>
+            public string FileGapReason => Count == 0
+                ? "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files."
+                : Counted
+                    ? $"{Rows} were set aside because the search does not read their files, so a missing number may be " +
+                      "a file that is not searched."
+                    : "Rows were dropped from the SDRF, so a missing number may be a file that is not searched.";
+
+            /// <summary>As <see cref="SdrfSearchDesign"/>'s join report counts rows.</summary>
+            private string Rows => Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " SDRF row(s)";
+        }
+
         private sealed class SequenceComparer : IEqualityComparer<IReadOnlyList<string>>
         {
             public bool Equals(IReadOnlyList<string>? x, IReadOnlyList<string>? y) =>

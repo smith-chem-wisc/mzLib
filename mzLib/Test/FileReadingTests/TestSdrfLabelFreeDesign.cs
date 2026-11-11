@@ -507,6 +507,116 @@ namespace Test.FileReadingTests
             Assert.That(SdrfLabelFreeDesign.Read(sdrf).Refusals, Is.Empty);
         }
 
+        // ---------------------------------------------------------------- a join's rows (SdrfSearchScoping, QP-S38)
+
+        /// <summary>
+        /// Read from the join itself, a refusal names the line of the SDRF file: b2.raw's bad number is on line 5, though it
+        /// is the third row the join kept. Read from the join's document, the same refusal says line 4.
+        /// </summary>
+        [Test]
+        public void AJoinsRowsAreReportedOnTheLinesOfTheSdrfFile()
+        {
+            var sdrf = Document(
+                ("a1.raw", "A", "1", "1", "1"),
+                ("a2.raw", "A", "2", "1", "1"),
+                ("b1.raw", "B", "1", "1", "1"),
+                ("b2.raw", "B", "x", "1", "1"));
+            var searched = new[] { "a1.raw", "b1.raw", "b2.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+            var options = new SdrfLabelFreeDesignOptions { SearchedFiles = searched };
+
+            var design = SdrfLabelFreeDesign.Read(scoping, options);
+
+            Assert.That(scoping.SourceLines, Is.EqualTo(new[] { 2, 4, 5 }));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 5 (b2.raw):"));
+            Assert.That(SdrfLabelFreeDesign.Read(scoping.Document, options).Refusals.Single(), Does.StartWith("Line 4 (b2.raw):"),
+                "the document alone can only number its own rows");
+        }
+
+        /// <summary>
+        /// A gap in the numbers of a join's rows: the note says how many rows the join set aside, so the gap may be a sample
+        /// whose file is not searched. Read from the join's document alone, the note wrongly says every row is searched.
+        /// </summary>
+        [Test]
+        public void AGapNoteSaysHowManyRowsTheJoinSetAside()
+        {
+            var sdrf = Document(
+                ("a1.raw", "A", "1", "1", "1"),
+                ("a2.raw", "A", "2", "1", "1"),
+                ("a3.raw", "A", "3", "1", "1"),
+                ("b1.raw", "B", "1", "1", "1"),
+                ("b2.raw", "B", "2", "1", "1"),
+                ("c1.raw", "C", "1", "1", "1"));
+            var searched = new[] { "a1.raw", "a3.raw", "b1.raw", "b2.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+
+            var design = SdrfLabelFreeDesign.Read(scoping, new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(scoping.RowsSetAside, Is.EqualTo(2));
+            Assert.That(design.Notes.Single(), Is.EqualTo("Condition 'A': biological replicates 1, 3, kept as the SDRF numbers them. " +
+                "2 SDRF row(s) were set aside because the search does not read their files, so a missing number may be a sample " +
+                "whose file is not searched."));
+            Assert.That(SdrfLabelFreeDesign.Read(scoping.Document, new SdrfLabelFreeDesignOptions { SearchedFiles = searched })
+                .Notes.Single(), Does.EndWith("Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+        }
+
+        [Test]
+        public void AFractionGapNoteSaysHowManyRowsTheJoinSetAside()
+        {
+            var sdrf = Document(
+                ("a1_f1.raw", "A", "1", "1", "1"),
+                ("a1_f2.raw", "A", "1", "2", "1"),
+                ("a1_f3.raw", "A", "1", "3", "1"));
+            var searched = new[] { "a1_f1.raw", "a1_f3.raw" };
+
+            var design = SdrfLabelFreeDesign.Read(SdrfSearchScope.Restrict(sdrf, searched),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes.Single(), Is.EqualTo("Condition 'A' biorep 1: fractions 1, 3, kept as the SDRF numbers them. " +
+                "1 SDRF row(s) were set aside because the search does not read their files, so a missing number may be a file " +
+                "that is not searched."));
+        }
+
+        [Test]
+        public void AJoinThatSetsNothingAsideSaysEveryRowIsSearched()
+        {
+            var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "3", "1", "1"));
+            var searched = new[] { "a1.raw", "a3.raw" };
+
+            var design = SdrfLabelFreeDesign.Read(SdrfSearchScope.Restrict(sdrf, searched),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+            Assert.That(design.Notes.Single(), Does.EndWith(
+                "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+        }
+
+        /// <summary>A scoping built directly carries no source lines and no count, so it is read as its document.</summary>
+        [Test]
+        public void AScopingBuiltDirectlyIsReadAsItsDocument()
+        {
+            var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "3", "1", "1"), ("b1.raw", "B", "x", "1", "1"));
+            var none = Array.Empty<string>();
+
+            var design = SdrfLabelFreeDesign.Read(new SdrfSearchScoping(sdrf, none, none, none, none));
+
+            Assert.That(design.Report(), Is.EqualTo(SdrfLabelFreeDesign.Read(sdrf).Report()));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 4 (b1.raw):"));
+        }
+
+        [Test]
+        public void SourceLinesThatAreNotOnePerRowAreRefusedAsAnArgument()
+        {
+            var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "2", "1", "1"));
+            var none = Array.Empty<string>();
+            var scoping = new SdrfSearchScoping(sdrf, none, none, none, none) { SourceLines = new[] { 2 } };
+
+            Assert.That(() => SdrfLabelFreeDesign.Read(scoping),
+                Throws.ArgumentException.With.Message.Contains("1 source line(s) for 2 row(s)"));
+            Assert.That(() => SdrfLabelFreeDesign.Read((SdrfSearchScoping)null!), Throws.ArgumentNullException);
+        }
+
         // ---------------------------------------------------------------- the written file
 
         /// <summary>

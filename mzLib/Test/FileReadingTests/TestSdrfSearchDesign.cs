@@ -158,11 +158,12 @@ namespace Test.FileReadingTests
         // ---------------------------------------------------------------- the join to the searched files
 
         /// <summary>
-        /// A search of half the files: the other rows are set aside before the reader sees them, and the note says the
-        /// reader's line numbers and "every row is searched" then describe the kept rows.
+        /// A search of half the files: the other rows are set aside before the reader sees them, and the join report says
+        /// so. The reader reads the join itself (QP-S38), so no note has to warn that its line numbers or its "every row is
+        /// searched" describe only the kept rows.
         /// </summary>
         [Test]
-        public void ASearchOfSomeFilesSetsTheOtherRowsAsideAndSaysSo()
+        public void ASearchOfSomeFilesSetsTheOtherRowsAsideAndTheJoinReportSaysSo()
         {
             var all = DataFiles("PXD067622.sdrf.tsv");
             var searched = all.Where(f => f.Contains("DMSO")).ToList();
@@ -174,9 +175,42 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Is.Empty, design.Report());
             Assert.That(design.LabelFree!.Files, Has.Count.EqualTo(searched.Count));
             Assert.That(design.Scoping!.DroppedDataFiles, Has.Count.EqualTo(all.Count - searched.Count));
-            Assert.That(design.Notes.First(), Does.StartWith($"{all.Count - searched.Count} of {all.Count} SDRF row(s) were set aside"));
+            Assert.That(design.Notes, Is.EqualTo(design.LabelFree.Notes), "only the reader's own notes");
             Assert.That(design.Report(), Does.Contain($"SDRF joined to the searched files: {searched.Count} of {all.Count} SDRF rows kept.")
-                .And.Contain("DroppedDataFiles (the search does not read them): "));
+                .And.Contain("DroppedDataFiles (the search does not read them): ")
+                .And.Not.Contain("count the kept rows"));
+        }
+
+        /// <summary>
+        /// The readers read the join itself (QP-S38): a refusal names the SDRF file's line (b2.raw's bad number is on line
+        /// 5, the third kept row), for a label-free and an isobaric search alike.
+        /// </summary>
+        [Test]
+        public void TheReadersLineNumbersAreTheSdrfFilesLines()
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[biological replicate]", "comment[label]", "comment[fraction identifier]",
+                "comment[technical replicate]", "comment[data file]", "comment[plex]", "factor value[condition]"
+            });
+            SdrfRow Row(string file, string label, string biorep, string condition, string plex = "P1") =>
+                new(header, new[] { $"{condition} {biorep}", biorep, label, "1", "1", file, plex, condition });
+
+            var labelFree = new SdrfDocument(header, new[]
+            {
+                Row("a1.raw", "label free sample", "1", "A"), Row("a2.raw", "label free sample", "2", "A"),
+                Row("b1.raw", "label free sample", "1", "B"), Row("b2.raw", "label free sample", "x", "B"),
+            });
+            var design = SdrfSearchDesign.Read(labelFree, new[] { "a1-calib.mzML", "b1-calib.mzML", "b2-calib.mzML" });
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 5 (b2-calib.mzML):"), design.Report());
+
+            var isobaric = new SdrfDocument(header, new[]
+            {
+                Row("a.raw", "TMT126", "1", "A"), Row("c.raw", "TMT126", "1", "C", "P3"), Row("b.raw", "TMT131C", "1", "B", "P2"),
+            });
+            var tmt = SdrfSearchDesign.Read(isobaric, new[] { "a.raw", "b.raw" },
+                new SdrfSearchDesignOptions { Tag = Tmt10(), PlexColumn = "comment[plex]" });
+            Assert.That(tmt.Refusals.Single(), Does.StartWith("Line 4 (b.raw):").And.Contain("not a channel of TMT10"), tmt.Report());
         }
 
         /// <summary>A searched file whose name the suffix rule cannot join, matched by the acquired name the caller knows.</summary>

@@ -792,6 +792,29 @@ namespace Test.FileReadingTests
             Assert.That(design.Files.Single().FilePath, Is.EqualTo(searched));
         }
 
+        /// <summary>
+        /// Read from the join itself (QP-S38), a refusal names the line of the SDRF file: b.raw's 127N row is line 6, though
+        /// it is the fourth row the join kept; read from the join's document, the same refusal says line 5.
+        /// </summary>
+        [Test]
+        public void AJoinsRowsAreReportedOnTheLinesOfTheSdrfFile()
+        {
+            var sdrf = Document(TwoChannels("a.raw")
+                .Concat(new[] { new Row("c.raw", "TMT126", "S5") })
+                .Concat(new[] { new Row("b.raw", "TMT126", "S3", Plex: "P2"), new Row("b.raw", "TMT131C", "S4", Plex: "P2") }).ToArray());
+            var searched = new[] { "a.raw", "b.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+            var options = new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SearchedFiles = searched };
+
+            var design = SdrfIsobaricDesign.Read(scoping, options);
+
+            Assert.That(scoping.SourceLines, Is.EqualTo(new[] { 2, 3, 5, 6 }));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 6 (b.raw):").And.Contain("not a channel of TMT10"));
+            Assert.That(SdrfIsobaricDesign.Read(scoping.Document, options).Refusals.Single(), Does.StartWith("Line 5 (b.raw):"));
+            Assert.That(() => SdrfIsobaricDesign.Read((SdrfSearchScoping)null!, options), Throws.ArgumentNullException);
+            Assert.That(() => SdrfIsobaricDesign.Read(scoping, null!), Throws.ArgumentNullException);
+        }
+
         [Test]
         public void ASearchedFileWithNoRowIsRefused()
         {

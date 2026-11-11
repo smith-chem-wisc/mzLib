@@ -226,7 +226,6 @@ namespace Readers
             var notes = new List<string>();
             var joinReport = new List<string>();
             SdrfSearchScoping? scoping = null;
-            var scoped = sdrf;
             if (sdrf.Header.Contains(SdrfLabelFreeDesign.DataFileColumn))
             {
                 scoping = SdrfSearchScope.Restrict(sdrf, searched, options.AcquiredNameOf);
@@ -242,18 +241,13 @@ namespace Readers
                             "Check that the searched files are the ones this SDRF describes." },
                         notes, joinReport);
 
-                // The reader sees only the kept rows, so two of its notes describe them, not the file.
-                if (rowsKept < rowsRead)
-                    notes.Add($"{rowsRead - rowsKept} of {rowsRead} SDRF row(s) were set aside because the search does not " +
-                        "read their files. Line numbers in the design report count the kept rows, not the lines of the SDRF " +
-                        "file, and where it says every row of the SDRF is searched it means the kept rows, so a gap in " +
-                        "replicate or fraction numbers may be a sample whose file is not searched.");
-                scoped = scoping.Document;
+                // The readers read the scoping itself, so their line numbers are the SDRF file's and their gap notes count
+                // the rows set aside here (QP-S38); the join report above says how many were kept.
             }
 
             if (options.Tag is not null)
             {
-                var isobaric = SdrfIsobaricDesign.Read(scoped, new SdrfIsobaricDesignOptions
+                var isobaricOptions = new SdrfIsobaricDesignOptions
                 {
                     Tag = options.Tag,
                     PlexColumn = options.PlexColumn,
@@ -261,15 +255,21 @@ namespace Readers
                     SinglePlex = options.SinglePlex,
                     ConditionColumns = conditionColumns,
                     SearchedFiles = searched,
-                });
+                };
+                var isobaric = scoping is null
+                    ? SdrfIsobaricDesign.Read(sdrf, isobaricOptions)
+                    : SdrfIsobaricDesign.Read(scoping, isobaricOptions);
                 return new SdrfSearchDesign(null, isobaric, scoping, new List<string>(), notes, joinReport);
             }
 
-            var labelFree = SdrfLabelFreeDesign.Read(scoped, new SdrfLabelFreeDesignOptions
+            var labelFreeOptions = new SdrfLabelFreeDesignOptions
             {
                 ConditionColumns = conditionColumns,
                 SearchedFiles = searched,
-            });
+            };
+            var labelFree = scoping is null
+                ? SdrfLabelFreeDesign.Read(sdrf, labelFreeOptions)
+                : SdrfLabelFreeDesign.Read(scoping, labelFreeOptions);
             return new SdrfSearchDesign(labelFree, null, scoping, new List<string>(), notes, joinReport);
         }
 
