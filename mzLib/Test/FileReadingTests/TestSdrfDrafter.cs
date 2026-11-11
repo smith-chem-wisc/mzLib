@@ -338,7 +338,8 @@ namespace Test.FileReadingTests
 
             Assert.That(d.Rows.All(r => r.Factors.Count == d.FactorColumns.Count));
             var wt = Row(d, "WT_A_1.raw");
-            Assert.That(wt.Factors.Count(f => f.Source != SdrfDraftSource.NotAvailable), Is.EqualTo(2), "its own family's two factors");
+            Assert.That(wt.Factors.Where(f => f.Source != SdrfDraftSource.NotAvailable).Select(f => f.Value), Is.EqualTo(new[] { "WT A" }),
+                "its own family's two factors, in the one condition column (sdrf D65)");
         }
 
         /// <summary>
@@ -585,25 +586,100 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
-        /// Two name families each carry their own factor: each family's level goes in that family's own
-        /// column, with that slot's evidence, and every row fills every column.
+        /// Two name families each carry their own factor. Matching their slots by position would put one family's
+        /// genotype under another's treatment, and a column per family left every file `not available` in the other
+        /// family's column, so no condition could be built for any file and no design read (PXD005123, sdrf D65). So the
+        /// condition is ONE column holding each file's own levels, each cell citing its own family's slot.
         /// </summary>
         [Test]
-        public void EachNameFamilyFillsItsOwnFactorColumnAndEveryRowIsFullWidth()
+        public void NameFamiliesWithTheirOwnFactorsShareOneConditionColumn()
         {
             var files = new[] { "A_1.raw", "A_2.raw", "B_1.raw", "B_2.raw", "X_P_1.raw", "X_P_2.raw", "X_Q_1.raw", "X_Q_2.raw" };
 
             var d = SdrfDrafter.Draft(Covid(), files);
 
-            Assert.That(d.FactorColumns, Has.Count.EqualTo(2), string.Join(", ", d.FactorColumns));
-            Assert.That(d.Rows.Select(r => r.Factors.Count), Is.All.EqualTo(d.FactorColumns.Count));
-            int ab = Row(d, "A_1.raw").Factors.Select(c => c.Value).ToList().IndexOf("A");
-            int pq = Row(d, "X_P_1.raw").Factors.Select(c => c.Value).ToList().IndexOf("P");
-            Assert.That(new[] { ab, pq }, Is.EquivalentTo(new[] { 0, 1 }), "the two families' levels sit in different columns");
-            Assert.That(Row(d, "A_1.raw").Factors[pq].Value, Is.EqualTo(SdrfReserved.NotAvailable));
-            Assert.That(Row(d, "X_Q_2.raw").Factors[ab].Value, Is.EqualTo(SdrfReserved.NotAvailable));
-            Assert.That(Row(d, "X_P_1.raw").Factors[pq].Evidence, Is.Not.EqualTo(Row(d, "A_1.raw").Factors[ab].Evidence),
+            Assert.That(d.FactorColumns, Is.EqualTo(new[] { "factor value[condition]" }), string.Join(", ", d.FactorColumns));
+            Assert.That(d.Rows.Select(r => r.Factors.Count), Is.All.EqualTo(1));
+            Assert.That(files.Select(f => Row(d, f).Factors[0].Value), Is.EqualTo(new[] { "A", "A", "B", "B", "P", "P", "Q", "Q" }));
+            Assert.That(Row(d, "X_P_1.raw").Factors[0].Evidence, Is.Not.EqualTo(Row(d, "A_1.raw").Factors[0].Evidence),
                 "each cell cites its own family's slot");
+        }
+
+        /// <summary>
+        /// Two families can use one word for two conditions: PXD040292's <c>ID</c> is three spectral-library pools in one family
+        /// and eighteen patients in another. Joined, they would be one condition, so the columns stay as they were (sdrf D65).
+        /// </summary>
+        [Test]
+        public void AWordTwoFamiliesShareKeepsTheirOwnColumns()
+        {
+            var files = new[] { "ID_1.raw", "ID_2.raw", "UMI_1.raw", "UMI_2.raw", "lib_ID_1.raw", "lib_ID_2.raw", "lib_TR_1.raw", "lib_TR_2.raw" };
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(2), string.Join(", ", d.FactorColumns));
+            Assert.That(Row(d, "ID_1.raw").Factors.Select(f => f.Value), Is.Not.EqualTo(Row(d, "lib_ID_1.raw").Factors.Select(f => f.Value)),
+                "the patients' ID and the libraries' ID stay two conditions");
+        }
+
+        /// <summary>
+        /// Two factors every file carries (a genotype and a treatment) stay two columns: only columns that leave a file blank
+        /// beside its own level become one (sdrf D65).
+        /// </summary>
+        [Test]
+        public void TwoFactorsEveryFileCarriesStayTwoColumns()
+        {
+            var files = new[] { "WT", "KO" }.SelectMany(g => new[] { "ctrl", "drug" }.SelectMany(t => Enumerable.Range(1, 2).Select(i => $"{g}_{t}_{i}.raw"))).ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(2), string.Join(", ", d.FactorColumns));
+            Assert.That(Row(d, "KO_drug_2.raw").Factors.Select(f => f.Value), Is.EquivalentTo(new[] { "KO", "drug" }));
+        }
+
+        /// <summary>
+        /// What sdrf D65 is for: a label-free design can be read from the draft of a deposit whose families of names each carry
+        /// their own factor, with every number the draft writes.
+        /// </summary>
+        [Test]
+        public void ADraftOfNameFamiliesWithTheirOwnFactorsGivesALabelFreeDesign()
+        {
+            var files = new[] { "A_1.raw", "A_2.raw", "B_1.raw", "B_2.raw", "X_P_1.raw", "X_P_2.raw", "X_Q_1.raw", "X_Q_2.raw" };
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Covid(), files), "PXD020394");
+
+            var design = SdrfLabelFreeDesign.Read(doc, new SdrfLabelFreeDesignOptions { SearchedFiles = files });
+
+            Assert.That(design.IsValid, design.Report());
+            Assert.That(design.Files.Select(f => f.Condition).Distinct(), Is.EquivalentTo(new[] { "A", "B", "P", "Q" }));
+        }
+
+        /// <summary>
+        /// A joined condition is written with one source and one method, so its parts must agree on both. Here one file's
+        /// genotype was read from its name and its treatment from a paper. Joining them would label the whole value as read
+        /// from the name, while citing the paper. So the columns stay as they were.
+        /// </summary>
+        [Test]
+        public void PartsReadFromDifferentSourcesAreNotJoinedIntoOneCondition()
+        {
+            static SdrfDraftCell Na() => SdrfDraftCell.NotAvailable("nothing states it");
+            static SdrfDraftCell Name(string v) => new(v, SdrfDraftSource.Inferred, "a slot of the file name");
+            static SdrfDraftCell Paper(string v) => new(v, SdrfDraftSource.Publication, "the paper's sample table", Reference: "Table 1", Method: "model");
+            static SdrfDraftRow R(string file, params SdrfDraftCell[] factors) => new(file, Na(), Na(), Na(), Na(), Na(), Na(), Na(), Na(), factors);
+            var draft = new SdrfDraft(new[]
+            {
+                R("WT_1.raw", Name("WT"), Paper("drug")),
+                R("WT_2.raw", Name("WT"), Na()),
+                R("KO_1.raw", Name("KO"), Paper("drug")),
+                R("B_1.raw", Na(), Name("B")),
+            }, new[] { "factor value[genotype]", "factor value[treatment]" });
+
+            var d = SdrfDrafter.OneConditionColumnWhereColumnsLeaveBlanks(draft);
+
+            Assert.That(d.FactorColumns, Is.EqualTo(draft.FactorColumns), "the columns stay as they were");
+            Assert.That(Row(d, "WT_1.raw").Factors.Select(f => f.Source), Is.EqualTo(new[] { SdrfDraftSource.Inferred, SdrfDraftSource.Publication }));
+
+            // The control: the same draft with every part read from names is joined, as before.
+            var named = draft with { Rows = draft.Rows.Select(r => r with { Factors = r.Factors.Select(f => f.Source == SdrfDraftSource.Publication ? Name(f.Value) : f).ToList() }).ToList() };
+            Assert.That(SdrfDrafter.OneConditionColumnWhereColumnsLeaveBlanks(named).FactorColumns, Is.EqualTo(new[] { "factor value[condition]" }));
         }
 
         [TestCase("Blank_1.raw", "Blank_2.raw")]

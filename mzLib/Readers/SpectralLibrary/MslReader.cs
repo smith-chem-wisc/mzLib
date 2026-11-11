@@ -62,15 +62,18 @@ public static class MslReader
 	/// extended annotation table.
 	/// </summary>
 	/// <param name="code">Neutral-loss code extracted from the fragment flags byte.</param>
-	/// <returns>Neutral-loss mass in daltons (negative = loss); 0.0 when absent or unknown.</returns>
+	/// <returns>
+	///   Neutral-loss mass in daltons, positive for a loss as in <c>Product.NeutralLoss</c>;
+	///   0.0 when absent or unknown.
+	/// </returns>
 	private static double DecodeNeutralLoss(MslFormat.NeutralLossCode code) => code switch
 	{
 		MslFormat.NeutralLossCode.None => 0.0,
-		MslFormat.NeutralLossCode.H2O => -18.010565,
-		MslFormat.NeutralLossCode.NH3 => -17.026549,
-		MslFormat.NeutralLossCode.H3PO4 => -97.976895,
-		MslFormat.NeutralLossCode.HPO3 => -79.966331,
-		MslFormat.NeutralLossCode.H3PO4AndH2O => -18.010565 + -97.976895,
+		MslFormat.NeutralLossCode.H2O => 18.010565,
+		MslFormat.NeutralLossCode.NH3 => 17.026549,
+		MslFormat.NeutralLossCode.H3PO4 => 97.976895,
+		MslFormat.NeutralLossCode.HPO3 => 79.966331,
+		MslFormat.NeutralLossCode.H3PO4AndH2O => 18.010565 + 97.976895,
 		_ => 0.0
 	};
 
@@ -80,13 +83,18 @@ public static class MslReader
 	/// Reads only the <see cref="MslFileHeader"/> (64 bytes at offset 0) without loading any
 	/// entries, string table, or fragments. Useful for rapid metadata inspection.
 	///
-	/// The leading magic is verified; the full five-step validation sequence is NOT performed.
+	/// The leading magic and the format version are verified (the version by the same rule as a
+	/// full load). The rest of the five-step validation sequence is NOT performed: a truncated
+	/// file, a bad footer or a CRC mismatch still reads as a header here and is caught only by
+	/// <see cref="Load"/> or <see cref="LoadIndexOnly"/>.
 	/// </summary>
 	/// <param name="filePath">Absolute or relative path to the .msl file. Must not be null.</param>
 	/// <returns>The deserialized <see cref="MslFileHeader"/> struct.</returns>
 	/// <exception cref="FileNotFoundException">File does not exist at <paramref name="filePath"/>.</exception>
 	/// <exception cref="FormatException">
-	/// The first four bytes do not match the MSL magic, or the file is too short to hold a header.
+	/// The first four bytes do not match the MSL magic, the file is too short to hold a header,
+	/// or the format version is outside [<see cref="MslFormat.MinSupportedVersion"/>,
+	/// <see cref="MslFormat.CurrentVersion"/>].
 	/// </exception>
 	public static MslFileHeader ReadHeaderOnly(string filePath)
 	{
@@ -113,7 +121,15 @@ public static class MslReader
 			throw new FormatException(
 				$"File '{filePath}' is too short to contain a complete 64-byte MSL header.");
 
-		return MemoryMarshal.Read<MslFileHeader>(headerBytes.AsSpan());
+		MslFileHeader header = MemoryMarshal.Read<MslFileHeader>(headerBytes.AsSpan());
+
+		// A header of an unknown version cannot be trusted field by field; refuse it as a full load does.
+		if (header.FormatVersion < MslFormat.MinSupportedVersion || header.FormatVersion > MslFormat.CurrentVersion)
+			throw new FormatException(
+				$"Unsupported version: {header.FormatVersion} in '{filePath}'. " +
+				$"This reader supports versions {MslFormat.MinSupportedVersion}–{MslFormat.CurrentVersion}.");
+
+		return header;
 	}
 
 	/// <summary>

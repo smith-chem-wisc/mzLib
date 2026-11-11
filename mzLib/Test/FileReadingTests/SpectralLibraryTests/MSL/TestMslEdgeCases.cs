@@ -540,11 +540,11 @@ public sealed class TestMslEdgeCases
 		var lossValues = new (string name, double mass)[]
 		{
 			("None",     0.0),
-			("H2O",    -18.010565),
-			("NH3",    -17.026549),
-			("H3PO4",  -97.976895),
-			("HPO3",   -79.966331),
-			("PlusH2O", -97.976895 + -18.010565),
+			("H2O",    18.010565),
+			("NH3",    17.026549),
+			("H3PO4",  97.976895),
+			("HPO3",   79.966331),
+			("PlusH2O", 97.976895 + 18.010565),
 		};
 
 		// Build one entry with one fragment per named loss type at distinct m/z values

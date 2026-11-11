@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -172,11 +172,207 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         => HTTP.InferenceRequest(modelName, request, cancellationToken);
     #endregion
 
+    #region Sending a Session's Requests
+    /// <summary>
+    /// Sends <paramref name="validInputs"/> to Koina and parses the responses, keeping the prediction for
+    /// every input Koina predicts even when the model refuses one of them.
+    /// </summary>
+    /// <param name="validInputs">The inputs to predict, in the order <paramref name="validInputsMask"/> marks them true.</param>
+    /// <param name="validInputsMask">The session's mask over all of its inputs. Each input the model refused is set false here.</param>
+    /// <param name="responseToPredictions">The model family's parser: responses, and the inputs they answer, to predictions.</param>
+    /// <returns>
+    /// The predictions, one per input that was predicted, in input order; and for each input the model refused, its
+    /// index in <paramref name="validInputsMask"/> and a warning that carries Koina's message, with the
+    /// <see cref="KoinaInputRejectedException"/> as its inner exception.
+    /// </returns>
+    /// <remarks>
+    /// Requests go out as they always have: built by ToBatchedRequests, at most MaxNumberOfBatchesPerRequest at a time with
+    /// ThrottlingDelayInMilliseconds between groups, under one SessionDeadline. When nothing is refused, that is all that
+    /// happens, and the parser sees every response at once, as before.
+    ///
+    /// Koina answers the whole request with 400 when the model raises on one input, which used to throw away every
+    /// prediction in the call. A request refused that way (a <see cref="KoinaInputRejectedException"/>) is now split in
+    /// half, each half rebuilt by ToBatchedRequests and sent again, down to single inputs. The halves go out in rounds, each
+    /// round throttled the same way and under its own SessionDeadline. The single input still refused is the one the model
+    /// will not take. It is reported, and every other input keeps its prediction. Finding one such input among n costs at
+    /// most 2*ceil(log2 n) extra requests.
+    ///
+    /// Nothing else is split. An outage (a 5xx, a timeout, a network error, a <see cref="KoinaServiceException"/>) or a
+    /// malformed request throws exactly as before: sending those again in pieces would only multiply the requests.
+    ///
+    /// Splitting stops, and the first refusal is thrown just as it was before splitting existed, when the model has
+    /// refused more inputs than <see cref="MaxRefusedInputs"/> allows, or when ToBatchedRequests does not batch its inputs
+    /// in order, MaxBatchSize at a time, so that which inputs a request carried cannot be known.
+    ///
+    /// In <see cref="SequenceConversionHandlingMode.ThrowException"/> mode a refused input throws an
+    /// <see cref="ArgumentException"/> naming it, as <see cref="HandleFailure"/> does for an input refused here.
+    /// The other modes leave it unpredicted with the warning; RemoveIncompatibleElements cannot do better, because
+    /// Koina does not say which part of the input it refused.
+    /// </remarks>
+    protected async Task<(List<TModelOutput> Predictions, IReadOnlyDictionary<int, WarningException> RefusedInputs)> RequestPredictionsAsync(
+        List<TModelInput> validInputs,
+        bool[] validInputsMask,
+        Func<IReadOnlyList<string>, List<TModelInput>, List<TModelOutput>> responseToPredictions)
+    {
+        var requests = ToBatchedRequests(validInputs);
+        var outcomes = await SendThrottledAsync(requests);
+
+        var firstRefusal = outcomes.Select(o => o.Refusal).FirstOrDefault(r => r != null);
+        if (firstRefusal == null)
+            return (responseToPredictions(outcomes.Select(o => o.Response!).ToList(), validInputs), new Dictionary<int, WarningException>());
+
+        // Splitting has to know which inputs each request carried. Every model batches its inputs in order, MaxBatchSize
+        // at a time, so request k carries inputs k*MaxBatchSize onward. A model that batches otherwise fails as before.
+        if (requests.Count != (validInputs.Count + MaxBatchSize - 1) / MaxBatchSize)
+            Rethrow(firstRefusal);
+
+        var answered = new List<(int Start, List<TModelInput> Inputs, string Response)>();
+        var stillRefused = new List<(int Start, List<TModelInput> Inputs, KoinaInputRejectedException Refusal)>();
+        for (int k = 0; k < outcomes.Count; k++)
+        {
+            int start = k * MaxBatchSize;
+            var inputs = validInputs.GetRange(start, Math.Min(MaxBatchSize, validInputs.Count - start));
+            if (outcomes[k].Refusal is { } refusal)
+                stillRefused.Add((start, inputs, refusal));
+            else
+                answered.Add((start, inputs, outcomes[k].Response!));
+        }
+
+        var refused = new Dictionary<int, KoinaInputRejectedException>(); // keyed by index in validInputs
+        int maxRefused = MaxRefusedInputs(validInputs.Count);
+        while (stillRefused.Count > 0)
+        {
+            var halves = new List<(int Start, List<TModelInput> Inputs)>();
+            foreach (var (start, inputs, refusal) in stillRefused)
+            {
+                if (inputs.Count == 1)
+                {
+                    if (ModHandlingMode == SequenceConversionHandlingMode.ThrowException)
+                        throw new ArgumentException($"Koina refused input {inputs[0]}: {FirstLine(refusal.ServerError)}", refusal);
+                    refused[start] = refusal;
+                    continue;
+                }
+
+                int half = inputs.Count / 2;
+                halves.Add((start, inputs.GetRange(0, half)));
+                halves.Add((start + half, inputs.GetRange(half, inputs.Count - half)));
+            }
+
+            // Each request still refused holds at least one input the model will not take.
+            if (refused.Count + halves.Count / 2 > maxRefused)
+                Rethrow(firstRefusal);
+            if (halves.Count == 0)
+                break;
+
+            var halfRequests = halves.Select(h => ToBatchedRequests(h.Inputs)).ToList();
+            if (halfRequests.Any(r => r.Count != 1))
+                Rethrow(firstRefusal);
+
+            await Task.Delay(ThrottlingDelayInMilliseconds); // the previous group of requests has just gone
+            var halfOutcomes = await SendThrottledAsync(halfRequests.Select(r => r[0]).ToList());
+
+            stillRefused = new();
+            for (int k = 0; k < halves.Count; k++)
+            {
+                if (halfOutcomes[k].Refusal is { } refusal)
+                    stillRefused.Add((halves[k].Start, halves[k].Inputs, refusal));
+                else
+                    answered.Add((halves[k].Start, halves[k].Inputs, halfOutcomes[k].Response!));
+            }
+        }
+
+        // Each answered request is parsed on its own: a split one holds fewer than MaxBatchSize inputs, and the
+        // parsers read responses MaxBatchSize inputs at a time.
+        var predictions = new List<TModelOutput>(validInputs.Count - refused.Count);
+        foreach (var (_, inputs, response) in answered.OrderBy(a => a.Start))
+            predictions.AddRange(responseToPredictions(new[] { response }, inputs));
+
+        var refusedInputs = new Dictionary<int, WarningException>();
+        for (int i = 0, validIndex = 0; i < validInputsMask.Length; i++)
+        {
+            if (!validInputsMask[i])
+                continue;
+            if (refused.TryGetValue(validIndex++, out var refusal))
+            {
+                validInputsMask[i] = false;
+                refusedInputs[i] = new WarningException($"Koina refused this input: {FirstLine(refusal.ServerError)}", refusal);
+            }
+        }
+        return (predictions, refusedInputs);
+    }
+
+    /// <summary>
+    /// The most inputs one session lets the model refuse before it stops isolating them and fails as before: 1% of
+    /// the session's inputs, and never fewer than 10.
+    /// </summary>
+    /// <remarks>
+    /// A few refused inputs are bad inputs. Many look like something wrong for every input, such as a broken model or a
+    /// notation the model no longer reads, and isolating each of those costs up to 2*ceil(log2 MaxBatchSize) requests
+    /// for nothing. The limit bounds the extra requests in that case to at most 2*limit per round, for at most
+    /// ceil(log2 MaxBatchSize) rounds, and keeps the failure loud.
+    /// </remarks>
+    private static int MaxRefusedInputs(int validInputCount) => Math.Max(10, validInputCount / 100);
+
+    /// <summary>
+    /// Sends <paramref name="requests"/> at most MaxNumberOfBatchesPerRequest at a time, with ThrottlingDelayInMilliseconds
+    /// between groups, under the SessionDeadline for that many requests. Returns each request's response, or its refusal
+    /// when the model refused one of its inputs. Anything else a request throws propagates.
+    /// </summary>
+    private async Task<List<(string? Response, KoinaInputRejectedException? Refusal)>> SendThrottledAsync(List<Dictionary<string, object>> requests)
+    {
+        var chunks = requests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
+        var outcomes = new List<(string? Response, KoinaInputRejectedException? Refusal)>(requests.Count);
+        using var cts = new CancellationTokenSource(SessionDeadline(requests.Count, chunks.Count)); // Bound all of these requests together
+
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            outcomes.AddRange(await Task.WhenAll(chunks[i].Select(request => SendCatchingRefusalAsync(request, cts.Token))));
+
+            if (i < chunks.Count - 1) // No need to throttle after the last batch
+            {
+                await Task.Delay(ThrottlingDelayInMilliseconds);
+            }
+        }
+        return outcomes;
+    }
+
+    private async Task<(string? Response, KoinaInputRejectedException? Refusal)> SendCatchingRefusalAsync(
+        Dictionary<string, object> request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (await SendInferenceRequestAsync(ModelName, request, cancellationToken), null);
+        }
+        catch (KoinaInputRejectedException refusal)
+        {
+            return (null, refusal);
+        }
+    }
+
+    /// <summary>
+    /// Koina's message without the Python traceback that follows it.
+    /// </summary>
+    private static string FirstLine(string serverError) =>
+        serverError.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.Length > 0) ?? serverError;
+
+    /// <summary>
+    /// Throws <paramref name="refusal"/> again with the stack trace it was first thrown with, as the request would have
+    /// failed before splitting existed.
+    /// </summary>
+    private static void Rethrow(KoinaInputRejectedException refusal) =>
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(refusal);
+    #endregion
+
     #region Validation and Modification Handling
     /// <summary>
     /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
     /// Handles incompatible modifications according to the specified ModHandlingMode.
     /// </summary>
+    /// <param name="apiSequence">The sequence as sent to Koina, in the model's API notation (for example UNIMOD).</param>
+    /// <returns>
+    /// The cleaned sequence in mzLib notation, exactly as predicted: the input's own modification labels, minus any
+    /// modification the handling mode removed. Null when the sequence is invalid for this model.
+    /// </returns>
     protected virtual string? TryCleanSequence(
         string sequence,
         ISequenceParser? sourceParser,
@@ -225,12 +421,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
         // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
         var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        // Each accepted modification as the mzLib-notation sequence names it: the input's own label when it gave one, so a
+        // peptide predicted from an mzLib sequence keeps that sequence's names; the resolved one otherwise (ProForma).
+        var acceptedAsLabelled = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+            {
                 accepted.Add(resolved);
+                acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+            }
             else
                 incompatible.Add(resolved);
         }
@@ -282,8 +484,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         }
 
         apiSequence = serialized;
+
+        // The same sequence in mzLib notation, so a caller can rebuild the peptide that was predicted. When incompatible
+        // modifications were removed, keep only those the model's serializer accepts on their own: its rule, not a second one.
+        var predicted = cleaned.WithModifications(Enumerable.Range(0, accepted.Count)
+            .Where(k => ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements
+                || SequenceConverter.Serialize(cleaned.WithModifications(new[] { accepted[k] }), new ConversionWarnings(),
+                    SequenceConversionHandlingMode.ReturnNull) != null)
+            .Select(k => acceptedAsLabelled[k]));
+        string? cleanedFullSequence = MzLibSequenceSerializer.Instance.Serialize(predicted, conversionWarnings, SequenceConversionHandlingMode.ThrowException);
+
         warning = BuildWarning(conversionWarnings, null);
-        return apiSequence;
+        return cleanedFullSequence;
     }
 
     private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
