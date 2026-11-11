@@ -289,8 +289,8 @@ namespace Test.KoinaTests
                         checkedRestrictedModels++;
                 }
             });
-            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(16), "Expected all 16 accept-all models to resolve oxidation and be checked.");
-            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(20), "Expected all 20 restricted models that allow oxidation to resolve it and be checked.");
+            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(17), "Expected all 17 accept-all models to resolve oxidation and be checked.");
+            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(19), "Expected all 19 restricted models that allow oxidation to resolve it and be checked.");
         }
 
         [Test]
@@ -373,6 +373,29 @@ namespace Test.KoinaTests
             Assert.That(warning!.Message, Does.Contain("1896"));
         }
 
+        [TestCase("PEPS[UNIMOD:21]IDEK", "PEPS[UNIMOD:21]IDEK")]
+        [TestCase("[UNIMOD:1]-PEPTIDEK", "[UNIMOD:1]-PEPTIDEK")]
+        public void Chronologer_TryCleanSequence_ProFormaModificationBeyondOxidationAndCarbamidomethyl_IsAccepted(string proForma, string expected)
+        {
+            var model = new ChronologerProbe();
+
+            var result = model.CleanWithParser(proForma, ProFormaSequenceParser.Instance, out var api, out var warning);
+
+            Assert.That(result, Is.Not.Null, warning?.Message);
+            Assert.That(api, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Chronologer_TryCleanSequence_TmtLabelledMzLibSequence_WritesDashedNTerminus()
+        {
+            var model = new ChronologerProbe();
+
+            var result = model.Clean("[Multiplex Label:TMT6-plex on X]PEPTIDEK[Multiplex Label:TMT6-plex on K]", out var api, out var warning);
+
+            Assert.That(result, Is.Not.Null, warning?.Message);
+            Assert.That(api, Is.EqualTo("[UNIMOD:737]-PEPTIDEK[UNIMOD:737]"));
+        }
+
         [Test]
         public void UniSpec_ValidateModelSpecificInputs_RejectsChargeOutsideInstrumentRange()
         {
@@ -445,6 +468,15 @@ namespace Test.KoinaTests
                     return (Array)t.GetProperty("data")!.GetValue(input)!;
             }
             return null;
+        }
+
+        private sealed class ChronologerProbe : ChronologerRT
+        {
+            public string? Clean(string sequence, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, null, out api, out warning);
+
+            public string? CleanWithParser(string sequence, ISequenceParser sourceParser, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, sourceParser, out api, out warning);
         }
 
         private sealed class XlNms2Probe : Prosit2024IntensityXLNMS2
