@@ -202,7 +202,10 @@ public sealed class MslLibrary : IDisposable
 	/// </returns>
 	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
-	/// <exception cref="FormatException">The file is not an .msl file or is too short to hold a header.</exception>
+	/// <exception cref="FormatException">
+	///   The file is not an .msl file, is too short to hold a header, or has a format version this
+	///   reader does not support.
+	/// </exception>
 	public static bool CanLoadIndexOnly(string filePath)
 	{
 		ArgumentNullException.ThrowIfNull(filePath);
