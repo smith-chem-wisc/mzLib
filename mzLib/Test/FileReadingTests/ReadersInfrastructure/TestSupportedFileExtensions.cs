@@ -56,6 +56,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv", SupportedFileType.FlashLFQQuantifiedPeptide);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_RNA_AllQuantifiedTranscriptGroups.tsv", SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_RNA_AllQuantifiedOligos.tsv", SupportedFileType.FlashLFQQuantifiedOligo);
+            yield return new TestCaseData(@"FileReadingTests\DeNovoMapping\TestData\DeNovo_H1N1_C1_3_MappingSummary.tsv", SupportedFileType.DenovoMappingResult);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();
