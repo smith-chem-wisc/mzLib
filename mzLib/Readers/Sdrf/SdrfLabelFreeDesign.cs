@@ -167,7 +167,7 @@ namespace Readers
             text.Append('\n');
             foreach (var file in _files)
             {
-                text.Append(Path.GetFileName(file.FullFilePathWithExtension)).Append('\t')
+                text.Append(SdrfFileNamePattern.FileName(file.FullFilePathWithExtension)).Append('\t')
                     .Append(file.Condition).Append('\t')
                     .Append((file.BiologicalReplicate + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
                     .Append((file.Fraction + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
@@ -196,7 +196,7 @@ namespace Readers
             report.AppendLine($"Condition from: {(ConditionColumns.Count == 0 ? "(none)" : string.Join(" + ", ConditionColumns))}");
             if (IsValid)
             {
-                var references = _files.Where(f => f.IsReference).Select(f => Path.GetFileName(f.FullFilePathWithExtension)).ToList();
+                var references = _files.Where(f => f.IsReference).Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)).ToList();
                 report.AppendLine(references.Count == 0
                     ? "Reference files: none marked; every file is a study sample."
                     : $"Reference files: {references.Count} ({string.Join(", ", references.Take(10))}" +
@@ -520,7 +520,7 @@ namespace Readers
             {
                 refusals.Add($"Condition '{shared.Key.Condition}' biorep {shared.Key.BiologicalReplicate + 1} fraction {shared.Key.Fraction + 1} " +
                              $"techrep {shared.Key.TechnicalReplicate + 1} is named by {shared.Count()} files: " +
-                             string.Join(", ", shared.Select(f => $"'{Path.GetFileName(f.FullFilePathWithExtension)}'")) +
+                             string.Join(", ", shared.Select(f => $"'{SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)}'")) +
                              ". Different samples cannot share one replicate; declare the factor that tells them apart.");
             }
         }

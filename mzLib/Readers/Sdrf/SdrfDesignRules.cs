@@ -153,11 +153,15 @@ namespace Readers
             return keyColumn;
         }
 
-        /// <summary>The bare file name a row's key cell names, or empty when the cell is blank.</summary>
+        /// <summary>
+        /// The bare file name a row's key cell names, or empty when the cell is blank. A path is split at either separator,
+        /// whatever the platform (<see cref="SdrfFileNamePattern.FileName"/>): an SDRF written on Windows and read on Linux
+        /// names <c>D:\search\X-calib.mzML</c>.
+        /// </summary>
         internal static string FileNameOf(SdrfRow row, string keyColumn)
         {
             string? cell = row[keyColumn];
-            return string.IsNullOrWhiteSpace(cell) ? string.Empty : Path.GetFileName(cell.Trim());
+            return string.IsNullOrWhiteSpace(cell) ? string.Empty : SdrfFileNamePattern.FileName(cell);
         }
 
         // MAP-07 as amended by QP-S14: the declared columns, in order; else the only factor column.
@@ -278,7 +282,8 @@ namespace Readers
                 return searchedByName;
             }
 
-            foreach (var group in usable.GroupBy(p => Path.GetFileName(p.Trim()), StringComparer.Ordinal))
+            // Split at either separator on any platform: a search run on Windows can be read on Linux.
+            foreach (var group in usable.GroupBy(SdrfFileNamePattern.FileName, StringComparer.Ordinal))
             {
                 var paths = group.Distinct(StringComparer.Ordinal).ToList();
                 if (paths.Count > 1)
