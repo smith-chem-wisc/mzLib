@@ -124,12 +124,37 @@ namespace Test.FileReadingTests
         [Test]
         public void TheReadersRefusalsAreTheDesignsRefusals()
         {
-            var design = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), DataFiles("PXD067622.sdrf.tsv"));
+            // PXD049018 states no treatment ('not available' on every row), and with no column declared the treatment is
+            // part of the condition.
+            var design = SdrfSearchDesign.Read(Fixture("PXD049018.sdrf.tsv"), DataFiles("PXD049018.sdrf.tsv"));
 
             Assert.That(design.IsValid, Is.False);
             Assert.That(design.LabelFree, Is.Not.Null);
-            Assert.That(design.Refusals.Single(), Does.Contain("Several factor value columns and none declared"));
+            Assert.That(design.Refusals, Has.Count.EqualTo(20));
+            Assert.That(design.Refusals, Has.All.Contain($"'{Treatment}' is 'not available'"));
             Assert.That(design.Refusals, Is.EqualTo(design.LabelFree!.Refusals));
+        }
+
+        /// <summary>The two grouping statements of 2026-11-11 (QP-S42 b, QP-S44) reach the reader.</summary>
+        [Test]
+        public void TheGroupingStatementsReachTheReader()
+        {
+            var searched = DataFiles("PXD067622.sdrf.tsv");
+
+            var single = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), searched,
+                new SdrfSearchDesignOptions { SingleCondition = "all" });
+            var ownCondition = SdrfSearchDesign.Read(Fixture("PXD049018.sdrf.tsv"), DataFiles("PXD049018.sdrf.tsv"),
+                new SdrfSearchDesignOptions { ConditionColumns = new[] { "genotype", "treatment" }, UnknownFactorIsOwnCondition = true });
+
+            // One group on PXD067622 sets its two factor columns aside, and its replicates, numbered 1..3 within each of
+            // the eight groups, then collide: one condition cannot hold eight replicate 1s. Refused, as it should be.
+            Assert.That(single.LabelFree!.SingleCondition, Is.EqualTo("all"));
+            Assert.That(single.Notes, Has.Some.Contain("are set aside"));
+            Assert.That(single.Refusals, Has.Count.EqualTo(3));
+            Assert.That(single.Refusals, Has.All.StartWith("Condition 'all' biorep "));
+            Assert.That(ownCondition.Refusals, Has.None.Contain("'not available'. A condition cannot be built"),
+                "the unknown treatment is kept, not refused");
+            Assert.That(ownCondition.Notes, Has.Some.Contain("kept as a level of its own"));
         }
 
         // ---------------------------------------------------------------- condition columns
@@ -330,7 +355,7 @@ namespace Test.FileReadingTests
         public void ARefusedDesignWritesNothingAndBuildsNothing()
         {
             string path = Path.Combine(_directory, "ExperimentalDesign.tsv");
-            var refusedByReader = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), DataFiles("PXD067622.sdrf.tsv"));
+            var refusedByReader = SdrfSearchDesign.Read(Fixture("PXD049018.sdrf.tsv"), DataFiles("PXD049018.sdrf.tsv"));
             var refusedHere = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), new[] { "elsewhere.raw" });
 
             foreach (var design in new[] { refusedByReader, refusedHere })

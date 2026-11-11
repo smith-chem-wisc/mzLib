@@ -18,10 +18,26 @@ namespace Readers
         /// <summary>
         /// The <c>factor value[...]</c> columns the condition is built from, in order, by their exact
         /// column names (column names match case-sensitively). The condition is their values joined
-        /// with <c>_</c>. Leave null or empty to use the document's only factor column; a document
-        /// with several and none declared is refused (MAP-07, N5).
+        /// with <c>_</c>. Leave null or empty to build it from every factor value column, in the
+        /// document's order (MAP-07; ruled 2026-11-11, QP-S42 c), with a note when there are several.
+        /// A document with no factor value column, and none declared, is refused unless
+        /// <see cref="SingleCondition"/> is given.
         /// </summary>
         public IReadOnlyList<string>? ConditionColumns { get; init; }
+
+        /// <summary>
+        /// The name of the one condition every file belongs to, when the user states it (ruled 2026-11-11, QP-S42 b). It is
+        /// never assumed: an SDRF with no factor value column is refused without it. Any factor value columns are set aside,
+        /// and a note names them. Cannot be given with <see cref="ConditionColumns"/>.
+        /// </summary>
+        public string? SingleCondition { get; init; }
+
+        /// <summary>
+        /// The user states that files whose condition cell says nobody stated it (<c>not available</c>,
+        /// <c>not applicable</c>, or a blank, read as <c>not available</c>) are a condition of their own (ruled 2026-11-11,
+        /// QP-S44). Without it they are refused, each named. With it the word is kept as a level, and a note names the files.
+        /// </summary>
+        public bool UnknownFactorIsOwnCondition { get; init; }
 
         /// <summary>
         /// The files the search will read, as paths or bare names. When given, the design is checked
@@ -104,14 +120,16 @@ namespace Readers
 
         private readonly List<SpectraFileInfo> _files;
 
+        private readonly SdrfDesignRules.ConditionRule _condition;
+
         private SdrfLabelFreeDesign(List<SpectraFileInfo> files, List<string> refusals, List<string> notes,
-            string? fileKeyColumn, List<string> conditionColumns)
+            string? fileKeyColumn, SdrfDesignRules.ConditionRule condition)
         {
             _files = files;
             Refusals = refusals;
             Notes = notes;
             FileKeyColumn = fileKeyColumn;
-            ConditionColumns = conditionColumns;
+            _condition = condition;
         }
 
         /// <summary>True when there is nothing in <see cref="Refusals"/> and the design can be used.</summary>
@@ -136,8 +154,11 @@ namespace Readers
         /// <summary>The column the files were keyed on (MAP-12), or null when neither was present.</summary>
         public string? FileKeyColumn { get; }
 
-        /// <summary>The factor columns the condition was built from, in join order.</summary>
-        public IReadOnlyList<string> ConditionColumns { get; }
+        /// <summary>The factor columns the condition was built from, in join order. Empty with a stated single condition.</summary>
+        public IReadOnlyList<string> ConditionColumns => _condition.Columns;
+
+        /// <summary>The one condition every file belongs to, when the caller stated it; else null.</summary>
+        public string? SingleCondition => _condition.SingleCondition;
 
         /// <summary>
         /// The design as mzLib quantification takes it. Throws when the design was refused.
@@ -193,7 +214,7 @@ namespace Readers
                   $"{_files.Select(f => f.Condition).Distinct(StringComparer.Ordinal).Count()} condition(s)."
                 : $"Label-free design REFUSED: {Refusals.Count} reason(s). No design was produced.");
             report.AppendLine($"Files keyed on: {FileKeyColumn ?? "(none)"}");
-            report.AppendLine($"Condition from: {(ConditionColumns.Count == 0 ? "(none)" : string.Join(" + ", ConditionColumns))}");
+            report.AppendLine($"Condition from: {_condition.Description}");
             if (IsValid)
             {
                 var references = _files.Where(f => f.IsReference).Select(f => Path.GetFileName(f.FullFilePathWithExtension)).ToList();
@@ -235,21 +256,22 @@ namespace Readers
 
             string? keyColumn = SdrfDesignRules.ChooseFileKeyColumn(header, refusals);
 
-            var conditionColumns = SdrfDesignRules.ResolveConditionColumns(header, options.ConditionColumns, refusals);
-            bool conditionDeclared = options.ConditionColumns is { Count: > 0 };
+            var condition = SdrfDesignRules.ResolveConditionColumns(header, rows, options.ConditionColumns,
+                options.SingleCondition, options.UnknownFactorIsOwnCondition, refusals, notes);
+            var keptUnknown = new List<(string Column, string Value, string FileName)>();
 
             if (rows.Count == 0)
                 refusals.Add("The SDRF has no rows.");
 
             if (refusals.Count > 0)
-                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
             Dictionary<string, string>? searchedByName = null;
             if (options.SearchedFiles != null)
             {
                 searchedByName = SdrfDesignRules.IndexSearchedFiles(options.SearchedFiles, refusals);
                 if (refusals.Count > 0)
-                    return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                    return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
             }
 
             // Read every row, collecting every problem rather than stopping at the first. A row for a
@@ -279,12 +301,14 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, cleared, refusals);
+                var row = ParseRow(rows[i], line, keyColumn!, condition, cleared, refusals, keptUnknown);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
                     unreadFiles.Add(fileName);
             }
+
+            SdrfDesignRules.NoteKeptUnknownFactorValues(keptUnknown, notes);
 
             foreach (var row in parsed.Where(r => r.IsReference && r.StudySampleSignals.Count > 0))
                 notes.Add(SdrfDesignRules.DisagreementNote($"Line {row.Line}{SdrfDesignRules.Describe(row.FileName)}",
@@ -301,11 +325,11 @@ namespace Readers
             }
 
             if (refusals.Count > 0)
-                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
             var bioreps = NumberBiologicalReplicates(parsed, rowsWereDropped: dropped.Count > 0, notes, refusals);
             if (refusals.Count > 0)
-                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
             var files = parsed
                 .Select(r => new SpectraFileInfo(r.FilePath, r.Condition, bioreps[r] - 1, r.TechnicalReplicate - 1, r.Fraction - 1)
@@ -317,7 +341,7 @@ namespace Readers
             RefuseWhatMetaMorpheusWouldReject(files, refusals);
             NoteFractionAndTechrepGaps(files, rowsWereDropped: dropped.Count > 0, notes);
 
-            return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, conditionColumns);
+            return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, condition);
         }
 
         private sealed class ParsedRow
@@ -339,8 +363,9 @@ namespace Readers
             public bool IsReference => ReferenceSignals.Count > 0;
         }
 
-        private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, List<string> conditionColumns,
-            bool conditionDeclared, SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals)
+        private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, SdrfDesignRules.ConditionRule condition,
+            SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals,
+            List<(string Column, string Value, string FileName)> keptUnknown)
         {
             int before = refusals.Count;
 
@@ -359,7 +384,7 @@ namespace Readers
             // sample of the design carries is cleared (SdrfDesignRules.EverySampleIsMarked).
             var (roleSignals, preparationSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
             var referenceSignals = cleared.Kept(roleSignals, preparationSignals);
-            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, condition, refusals, keptUnknown,
                 isReference: referenceSignals.Count > 0);
 
             int? biorep = ReadBiologicalReplicate(row, line, fileName, refusals);
@@ -522,6 +547,10 @@ namespace Readers
                              $"techrep {shared.Key.TechnicalReplicate + 1} is named by {shared.Count()} files: " +
                              string.Join(", ", shared.Select(f => $"'{Path.GetFileName(f.FullFilePathWithExtension)}'")) +
                              ". Different samples cannot share one replicate; declare the factor that tells them apart.");
+
+                // QP-S45: never renumbered, but names that read like fractions or repeat injections are said, with the column.
+                if (SdrfDesignRules.SharedReplicateHint(shared.Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)).ToList()) is { } hint)
+                    refusals[^1] += " " + hint;
             }
         }
 

@@ -768,6 +768,62 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals[1], Does.Contain("'factor value[condition]' is empty"));
         }
 
+        /// <summary>QP-S44 (ruled 2026-11-11), per channel: stated, a channel whose factor nobody stated is its own condition.</summary>
+        [Test]
+        public void ChannelsWhoseFactorIsUnknownAreAConditionOfTheirOwnWhenStated()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1", "not applicable"),
+                new Row("a.raw", "TMT127N", "S2", "")), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, UnknownFactorIsOwnCondition = true,
+            });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition),
+                Is.EqualTo(new[] { "not applicable", "not available" }));
+            Assert.That(design.Notes, Has.Some.StartWith("'factor value[condition]' is 'not applicable' for 1 file(s), kept as a level of its own"));
+            Assert.That(design.Notes, Has.Some.StartWith("'factor value[condition]' is empty for 1 file(s), written 'not available'"));
+        }
+
+        /// <summary>QP-S42 (b) and (c), ruled 2026-11-11, in the isobaric reader: the same condition rules as label-free.</summary>
+        [Test]
+        public void AStatedSingleConditionMakesEveryChannelThatCondition()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SingleCondition = "all",
+            });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition), Is.All.EqualTo("all"));
+            Assert.That(design.SingleCondition, Is.EqualTo("all"));
+            Assert.That(design.Notes, Has.Some.Contain("'factor value[condition]' are set aside"));
+            Assert.That(design.Report(), Does.Contain("Condition from: one condition, 'all', as stated"));
+        }
+
+        [Test]
+        public void WithNoDeclarationEveryFactorColumnMakesTheChannelsCondition()
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[biological replicate]", "comment[label]", "comment[data file]", PlexColumn,
+                "factor value[genotype]", "factor value[treatment]"
+            });
+            var sdrf = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "S1", "1", "TMT126", "a.raw", "P1", "WT", "drug" }),
+                new SdrfRow(header, new[] { "S2", "1", "TMT127N", "a.raw", "P1", "KO", "drug" }),
+            });
+
+            var design = SdrfIsobaricDesign.Read(sdrf, ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.ConditionColumns, Is.EqualTo(new[] { "factor value[genotype]", "factor value[treatment]" }));
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition), Is.EqualTo(new[] { "WT_drug", "KO_drug" }));
+            Assert.That(design.Notes, Has.Some.Contain("every factor value column"));
+        }
+
         [TestCase("0")]
         [TestCase("two")]
         public void ABiologicalReplicateThatIsNotPositiveIsRefused(string biorep)
