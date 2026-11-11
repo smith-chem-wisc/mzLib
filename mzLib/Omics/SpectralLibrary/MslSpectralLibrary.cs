@@ -173,20 +173,20 @@ public static class MslFormat
 		/// <summary>No neutral loss. NeutralLoss double is 0.</summary>
 		None = 0,
 
-		/// <summary>Loss of water: −18.010565 Da.</summary>
+		/// <summary>Loss of water: NeutralLoss = 18.010565 Da (positive = mass lost, as in Product.NeutralLoss).</summary>
 		H2O = 1,
 
-		/// <summary>Loss of ammonia: −17.026549 Da.</summary>
+		/// <summary>Loss of ammonia: NeutralLoss = 17.026549 Da.</summary>
 		NH3 = 2,
 
-		/// <summary>Loss of phosphoric acid: −97.976895 Da (phospho serine/threonine/tyrosine).</summary>
+		/// <summary>Loss of phosphoric acid: NeutralLoss = 97.976895 Da (phospho serine/threonine/tyrosine).</summary>
 		H3PO4 = 3,
 
-		/// <summary>Loss of metaphosphoric acid: −79.966331 Da (phospho, alternative loss).</summary>
+		/// <summary>Loss of metaphosphoric acid: NeutralLoss = 79.966331 Da (phospho, alternative loss).</summary>
 		HPO3 = 4,
 
 		/// <summary>
-		/// Combined loss of phosphoric acid and water: −115.987460 Da (= −97.976895 + −18.010565).
+		/// Combined loss of phosphoric acid and water: NeutralLoss = 115.987460 Da (= 97.976895 + 18.010565).
 		/// Occurs for phosphorylated serine/threonine residues via a two-step elimination.
 		/// Formerly named PlusH2O (misleading — the "plus" referred to the water component
 		/// of the combined loss, not a water gain or standalone water loss).
@@ -489,9 +489,13 @@ public static class MslFormat
 	/// <c>MslFragmentIon.FromLibrarySpectrum</c> and <c>MslWriter</c>.
 	/// Both previously maintained independent copies; this method eliminates
 	/// the duplication.</para>
+	///
+	/// <para>The sign follows mzLib's <c>Product.NeutralLoss</c>: a loss is a positive mass,
+	/// the mass removed from the fragment. The MSP reader and the Koina models produce losses
+	/// that way. A negative value is a gain and is stored as <see cref="NeutralLossCode.Custom"/>.</para>
 	/// </summary>
 	/// <param name="neutralLoss">
-	///   Neutral-loss mass in daltons. 0.0 = no loss. Negative = mass lost.
+	///   Neutral-loss mass in daltons. 0.0 = no loss. Positive = mass lost.
 	/// </param>
 	/// <returns>
 	///   The matching <see cref="NeutralLossCode"/>, or
@@ -499,11 +503,11 @@ public static class MslFormat
 	/// </returns>
 	public static NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
 	{
-		const double MassH2O = -18.010565;
-		const double MassNH3 = -17.026549;
-		const double MassH3PO4 = -97.976895;
-		const double MassHPO3 = -79.966331;
-		const double MassCombined = MassH3PO4 + MassH2O;   // = −115.987460
+		const double MassH2O = 18.010565;
+		const double MassNH3 = 17.026549;
+		const double MassH3PO4 = 97.976895;
+		const double MassHPO3 = 79.966331;
+		const double MassCombined = MassH3PO4 + MassH2O;   // = 115.987460
 		const double Tolerance = 0.01;
 
 		if (neutralLoss == 0.0) return NeutralLossCode.None;
