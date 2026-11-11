@@ -205,10 +205,12 @@ namespace Test.KoinaTests
 
         /// <summary>
         /// The real case, offline: Prosit_2025_irt_40PTM refuses zinc on E, E[UNIMOD:954], sent as
-        /// ProForma the way the MSL pipeline sends it.
+        /// ProForma the way the MSL pipeline sends it. Prosit2025ModificationRules now refuses it before
+        /// sending, so the one request carries the other three and there is nothing to split. The fake still
+        /// refuses E[UNIMOD:954]: if the rule let it through, it would be sent and take five requests.
         /// </summary>
         [Test]
-        public void Prosit2025iRT40PTM_ARefusedE954_FailsAlone()
+        public void Prosit2025iRT40PTM_AnE954_IsRefusedBeforeSending_AndFailsAlone()
         {
             var koina = new FakeKoina(sequences => sequences.Any(s => s.Contains("E[UNIMOD:954]")) ? FakeKoina.Refusal() : null);
             var model = new Rt40PtmModel(koina);
@@ -217,14 +219,14 @@ namespace Test.KoinaTests
 
             var predictions = model.Predict(inputs);
 
-            Assert.That(predictions[1].ValidatedFullSequence, Is.EqualTo("PEPE[UNIMOD:954]TIDEK"), "what was sent and refused");
+            Assert.That(predictions[1].ValidatedFullSequence, Is.Null, "refused before sending");
             Assert.That(predictions[1].PredictedRetentionTime, Is.Null);
-            Assert.That(predictions[1].Warning!.Message, Does.Contain(KoinasReason));
+            Assert.That(predictions[1].Warning!.Message, Does.Contain("Prosit_2025_irt_40PTM cannot place E[UNIMOD:954]"));
+            Assert.That(predictions[1].Warning.InnerException, Is.Null, "mzLib refused it, not Koina");
             Assert.That(model.ValidInputsMask, Is.EqualTo(new[] { true, false, true, true }));
             foreach (int i in new[] { 0, 2, 3 })
                 Assert.That(predictions[i].PredictedRetentionTime, Is.EqualTo(Value(i)));
-            // 1 request, then [0,1] [2,3], then [0] [1].
-            Assert.That(koina.Requests, Is.EqualTo(5));
+            Assert.That(koina.Requests, Is.EqualTo(1));
         }
 
         /// <summary>
@@ -699,8 +701,9 @@ namespace Test.KoinaTests
 
     /// <summary>
     /// The live canary for the case that started this: Prosit_2025_irt_40PTM refuses zinc on E,
-    /// E[UNIMOD:954]. If Koina ever accepts it, this fails and says the case has changed; if Koina is
-    /// down or faulting, KoinaLiveTestFixture skips it.
+    /// E[UNIMOD:954]. Prosit2025ModificationRules now refuses it before sending, so this sends it through
+    /// a copy of the model without that rule. If Koina ever accepts it, this fails and says the case has
+    /// changed, and the rule is out of date; if Koina is down or faulting, KoinaLiveTestFixture skips it.
     /// </summary>
     [TestFixture]
     [Category("ExternalService")]
@@ -713,7 +716,7 @@ namespace Test.KoinaTests
         {
             // ProForma, the way the MSL pipeline sends modified peptides to Koina.
             var sequences = new[] { "PEPTIDEK", "LGGNEQVTR", "PEPE[UNIMOD:954]TIDEK", "AGGSSEPVTGLADK", "VEATFGVDESNAK" };
-            var model = new Prosit2025iRT40PTM();
+            var model = new Prosit2025iRT40PTMWithoutModificationRules();
 
             var predictions = model.Predict(sequences
                 .Select(s => new RetentionTimePredictionInput(s) { SequenceParser = ProFormaSequenceParser.Instance }).ToList());
@@ -730,6 +733,34 @@ namespace Test.KoinaTests
                 Assert.That(predictions[i].PredictedRetentionTime, Is.Not.Null, $"{sequences[i]} is predicted");
                 Assert.That(model.ValidInputsMask[i], Is.True);
             }
+        }
+
+        /// <summary>
+        /// Prosit2025iRT40PTM as it was before Prosit2025ModificationRules: the same converter and request,
+        /// with base's cleaning only, so E[UNIMOD:954] reaches Koina.
+        /// </summary>
+        private sealed class Prosit2025iRT40PTMWithoutModificationRules : RetentionTimeModel
+        {
+            private static readonly ISequenceConverter Converter =
+                CreateUnimodConverterAcceptAll(new UnimodSequenceFormatSchema(UnimodLabelStyle.UpperCase, '[', ']', "-", "-"));
+
+            public Prosit2025iRT40PTMWithoutModificationRules() : base(Converter) { }
+
+            public override string ModelName => "Prosit_2025_irt_40PTM";
+            public override int MaxBatchSize => 1000;
+            public override int MaxNumberOfBatchesPerRequest { get; init; } = 500;
+            public override int ThrottlingDelayInMilliseconds { get; init; } = 100;
+            public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 1500;
+            public override int MaxPeptideLength => 30;
+            public override int MinPeptideLength => 1;
+            public override bool IsIndexedRetentionTimeModel => true;
+            public override bool AcceptsAllUnimodModifications => true;
+            public override SequenceConversionHandlingMode ModHandlingMode { get; init; } = SequenceConversionHandlingMode.ReturnNull;
+
+            protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs) =>
+                validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize)
+                    .Select((batch, i) => BuildBatchedRequest(i, new InputField("peptide_sequences", "BYTES", batch)))
+                    .ToList();
         }
     }
 }
