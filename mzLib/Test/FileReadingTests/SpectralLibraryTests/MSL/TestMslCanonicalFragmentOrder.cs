@@ -60,8 +60,8 @@ public sealed class TestMslCanonicalFragmentOrder
 		Frag(285.15573f, 0.149f, ProductType.b, 8, 2, residuePosition: 8),
 		Frag(400.2f, 0.5f, ProductType.y, 3, 1, residuePosition: 13),
 		Frag(400.2f, 0.4f, ProductType.y, 3, 1, ProductType.b, 9, residuePosition: 6),
-		Frag(500.3f, 1.0f, ProductType.y, 4, 1, neutralLoss: -18.010565, residuePosition: 12),
-		Frag(500.3f, 0.9f, ProductType.y, 4, 1, neutralLoss: -17.026549, residuePosition: 12),
+		Frag(500.3f, 1.0f, ProductType.y, 4, 1, neutralLoss: 18.010565, residuePosition: 12),
+		Frag(500.3f, 0.9f, ProductType.y, 4, 1, neutralLoss: 17.026549, residuePosition: 12),
 		Frag(600.4f, 0.3f, ProductType.y, 5, 1, residuePosition: 11, excludeFromQuant: true),
 		Frag(600.4f, 0.3f, ProductType.y, 5, 1, residuePosition: 11, excludeFromQuant: false),
 	};
@@ -161,6 +161,39 @@ public sealed class TestMslCanonicalFragmentOrder
 		WriteWith(writer, second, reread, 0);
 
 		Assert.That(File.ReadAllBytes(second), Is.EqualTo(File.ReadAllBytes(first)));
+	}
+
+	/// <summary>
+	/// A custom loss is stored as an index into the file's custom-loss table. The indices are
+	/// handed out after the fragments are sorted, so two custom losses tied on m/z get the same
+	/// indices whatever order the fragments arrive in.
+	/// </summary>
+	[TestCase("Write")]
+	[TestCase("WriteStreaming")]
+	public void TiedCustomLosses_InAnyInputOrder_WriteIdenticalFiles(string writer)
+	{
+		static List<MslFragmentIon> CustomLossFragments() => new()
+		{
+			Frag(500.3f, 1.0f, ProductType.y, 4, 1, neutralLoss: 123.4567, residuePosition: 12),
+			Frag(500.3f, 0.9f, ProductType.y, 4, 1, neutralLoss: 98.7654, residuePosition: 12),
+		};
+
+		string given = TempPath($"{writer}_custom_given");
+		string reversed = TempPath($"{writer}_custom_reversed");
+		string again = TempPath($"{writer}_custom_again");
+		WriteWith(writer, given, Entries(_ => CustomLossFragments()), 0);
+		WriteWith(writer, reversed, Entries(_ => Reversed(CustomLossFragments())), 0);
+
+		List<MslLibraryEntry> reread;
+		using (MslLibrary lib = MslLibrary.Load(given))
+			reread = lib.GetAllEntries().ToList();
+		WriteWith(writer, again, reread, 0);
+
+		Assert.That(reread.Single().MatchedFragmentIons.Select(f => f.NeutralLoss),
+			Is.EqualTo(new[] { 98.7654, 123.4567 }).Within(1e-4));
+		byte[] bytesGiven = File.ReadAllBytes(given);
+		Assert.That(File.ReadAllBytes(reversed), Is.EqualTo(bytesGiven));
+		Assert.That(File.ReadAllBytes(again), Is.EqualTo(bytesGiven));
 	}
 
 	[Test]

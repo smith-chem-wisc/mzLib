@@ -396,6 +396,14 @@ public static class MslWriter
 					// ── Step 4: Fragment validation, sort, normalize ────────────
 					List<MslFragmentIon> frags = entry.MatchedFragmentIons ?? new List<MslFragmentIon>(0);
 
+					if (frags.Count > 0)
+					{
+						frags.Sort(CompareFragmentsForWrite);
+						NormalizeIntensities(frags);
+					}
+
+					// Custom losses are numbered after the sort, so the table index stored in each
+					// fragment does not depend on the order the fragments arrived in.
 					foreach (MslFragmentIon frag in frags)
 					{
 						if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
@@ -403,12 +411,6 @@ public static class MslWriter
 							if (!customLossIndex.ContainsKey(frag.NeutralLoss))
 								customLossIndex[frag.NeutralLoss] = nextCustomIdx++;
 						}
-					}
-
-					if (frags.Count > 0)
-					{
-						frags.Sort(CompareFragmentsForWrite);
-						NormalizeIntensities(frags);
 					}
 
 					// ── Step 5: Write fragment block to fragment temp file ─────
@@ -1672,6 +1674,11 @@ public static class MslWriter
 				if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 					continue;
 
+				entry.MatchedFragmentIons.Sort(CompareFragmentsForWrite);
+				NormalizeIntensities(entry.MatchedFragmentIons);
+
+				// Custom losses are numbered after the sort, so the table index stored in each
+				// fragment does not depend on the order the fragments arrived in.
 				foreach (MslFragmentIon frag in entry.MatchedFragmentIons)
 				{
 					if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
@@ -1681,9 +1688,6 @@ public static class MslWriter
 						HasCustomLosses = true;
 					}
 				}
-
-				entry.MatchedFragmentIons.Sort(CompareFragmentsForWrite);
-				NormalizeIntensities(entry.MatchedFragmentIons);
 			}
 
 			// ── Step 5: Offset computation ────────────────────────────────────
