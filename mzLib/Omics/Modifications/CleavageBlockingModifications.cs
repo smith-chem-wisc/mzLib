@@ -56,20 +56,31 @@ namespace Omics.Modifications
         /// stearoyl (C18). "lactoyl" is UniProt's spelling of lactylation. Over both shipped databases they add
         /// ten K entries, all epsilon-amine amides, and change nothing else. The fatty acyls are commoner on
         /// cysteine and on an N-terminal glycine, which the residue gate already rejects.
+        ///
+        /// The third row names lysine acylations unimod.xml carries under titles the first two rows miss, each
+        /// "Post-translational" on K: the C5 pair "Isovaleryl" and "Pentanoyl", "Hexanoyl", "Tiglyl",
+        /// "3-methylglutaconyl", "Pyruvoyl", "Glyoxylyl", "Itaconyl", "Glyceroyl", "3-phosphoglyceryl",
+        /// "Phosphogluconoylation", and "Gluratylation", Unimod's own misspelling of glutarylation. Together
+        /// with the UFM1 and Pup remnants below, they reclassify fourteen Unimod K entries over the shipped
+        /// Unimod, UniProt and Mods.txt files, and change nothing else. The N-terminal forms of Glyceroyl and
+        /// Phosphogluconoylation stay non-blocking, through the location gate.
         /// </remarks>
         private static readonly string[] ChargeNeutralizingAcylStems =
         {
             "acetyl", "succinyl", "malonyl", "glutaryl", "crotonyl", "propionyl", "butyryl",
             "formyl", "carbamyl", "carbamoyl", "hydroxyisobutyryl", "benzoyl", "lactyl", "biotinyl",
             "methacryl", "isonicotinyl", "lipoyl", "decanoyl", "myristoyl", "palmitoyl", "stearoyl", "lactoyl",
+            "valeryl", "pentanoyl", "hexanoyl", "tiglyl", "glutaconyl", "gluratyl", "pyruvoyl", "glyoxylyl",
+            "itaconyl", "glyceroyl", "phosphoglyceryl", "gluconoyl",
         };
 
         /// <summary>
         /// Names for a ubiquitin-family remnant that do not end in the Gly-Gly itself: "diGly" spells the
-        /// stub out, and SUMO's "GGQ" is the GlyGlyGln left when the Gln is retained. Matched as whole
-        /// TOKENS of the modification id, not as substrings -- see <see cref="HasUbiquitinRemnantToken"/>.
+        /// stub out, SUMO's "GGQ" is the GlyGlyGln left when the Gln is retained, and "ValGly" is UFM1's,
+        /// whose C-terminus is Val-Gly rather than Gly-Gly. Matched as whole TOKENS of the modification id,
+        /// not as substrings -- see <see cref="HasUbiquitinRemnantToken"/>.
         /// </summary>
-        private static readonly string[] UbiquitinRemnantStubs = { "digly", "ggq" };
+        private static readonly string[] UbiquitinRemnantStubs = { "digly", "ggq", "valgly" };
 
         /// <summary>
         /// Characters that separate the components of a modification id. Unimod composes names out of
@@ -148,8 +159,10 @@ namespace Omics.Modifications
             // (PSI-MOD) and "diGly" (MaxQuant and common usage); a non-tryptic digest leaves the longer
             // "LRGG" stub instead, and Unimod composes all of these with isotope labels and methyls.
             // SUMO's remnant is longer still and is named by its sequence, which ends in the same Gly-Gly;
-            // Unimod's whole-remnant entries ("SUMO2135", "SUMO3549") name the modifier instead.
+            // Unimod's whole-remnant entries ("SUMO2135", "SUMO3549") name the modifier instead, and so does
+            // "pupylation": Pup, the prokaryotic ubiquitin-like protein, leaves Gly-Gly-Glu on the lysine.
             if (id.Contains("gly-gly") || id.Contains("diglycyl") || id.Contains("ubiquit") || id.Contains("sumo")
+                || id.Contains("pupyl")
                 || HasUbiquitinRemnantToken(id))
                 return true;
 
@@ -193,5 +206,14 @@ namespace Omics.Modifications
             && modification is not null
             && modification.BlocksCleavage
             && agent.CleavesCTerminalTo(BlockedResidue(modification));
+
+        /// <summary>
+        /// True for carbamylation, which urea also adds after digestion, so a peptide can end in it at a cut.
+        /// </summary>
+        public static bool MayFormAfterDigestion(Modification modification)
+        {
+            string id = (modification.OriginalId ?? string.Empty).ToLowerInvariant();
+            return id.Contains("carbamyl") || id.Contains("carbamoyl");
+        }
     }
 }

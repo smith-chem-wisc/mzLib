@@ -337,6 +337,7 @@ namespace Readers
             SdrfDraftSource.MassiveDatasetRecord => "massive dataset record",
             SdrfDraftSource.Publication => "publication",
             SdrfDraftSource.Deposit => "deposited",
+            SdrfDraftSource.Community => SdrfEvidence.CommunitySdrfSource,
             SdrfDraftSource.Default => "default",
             SdrfDraftSource.Inferred => "inferred",
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "a cell with no source is never written")

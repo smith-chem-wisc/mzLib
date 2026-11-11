@@ -45,14 +45,17 @@ namespace UsefulProteomicsDatabases
 
         private readonly Dictionary<string, CvParam> _byAccession;
         private readonly Dictionary<string, CvParam> _byName;
+        private readonly Dictionary<string, string[]> _isAParents;
 
         private ControlledVocabulary(string label, string version,
-            Dictionary<string, CvParam> byAccession, Dictionary<string, CvParam> byName)
+            Dictionary<string, CvParam> byAccession, Dictionary<string, CvParam> byName,
+            Dictionary<string, string[]> isAParents)
         {
             Label = label;
             Version = version;
             _byAccession = byAccession;
             _byName = byName;
+            _isAParents = isAParents;
         }
 
         /// <summary>The PSI-MS controlled vocabulary: instruments, dissociation methods, enzymes, analyzers.</summary>
@@ -112,6 +115,36 @@ namespace UsefulProteomicsDatabases
                    && _byName.TryGetValue(Normalize(name), out term);
         }
 
+        /// <summary>
+        /// Whether <paramref name="accession"/> descends from <paramref name="ancestorAccession"/> over is_a edges.
+        /// Strict: a term is not its own ancestor. False for an accession this vocabulary does not hold.
+        ///
+        /// Internal, for <see cref="InstrumentModelCvTerms"/>: a name lookup returns any term with that name, and the
+        /// question a caller resolving free text usually has is whether it got the KIND of term it wanted.
+        /// </summary>
+        internal bool IsA(string accession, string ancestorAccession)
+        {
+            if (string.IsNullOrWhiteSpace(accession) || string.IsNullOrWhiteSpace(ancestorAccession))
+                return false;
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var pending = new Stack<string>();
+            pending.Push(accession.Trim());
+            while (pending.Count > 0)
+            {
+                if (!_isAParents.TryGetValue(pending.Pop(), out var parents))
+                    continue;
+                foreach (string parent in parents)
+                {
+                    if (string.Equals(parent, ancestorAccession.Trim(), StringComparison.OrdinalIgnoreCase))
+                        return true;
+                    if (seen.Add(parent))
+                        pending.Push(parent);
+                }
+            }
+            return false;
+        }
+
         private static ControlledVocabulary Load(string resourceName, string label)
         {
             var assembly = typeof(ControlledVocabulary).Assembly;
@@ -130,6 +163,7 @@ namespace UsefulProteomicsDatabases
 
             var byAccession = new Dictionary<string, CvParam>(StringComparer.OrdinalIgnoreCase);
             var byName = new Dictionary<string, CvParam>(StringComparer.Ordinal);
+            var isAParents = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var oboTerm in new OboParser().ParseText(text))
             {
@@ -151,6 +185,7 @@ namespace UsefulProteomicsDatabases
                 // cvParam and wrong in an SDRF cell.
                 var term = new CvParam(LabelFor(oboTerm.Id, label), oboTerm.Id, oboTerm.Name, "");
                 byAccession[oboTerm.Id] = term;
+                isAParents[oboTerm.Id] = IsAParents(oboTerm).ToArray();
 
                 if (obsolete)
                     continue;
@@ -168,7 +203,28 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            return new ControlledVocabulary(label, version, byAccession, byName);
+            return new ControlledVocabulary(label, version, byAccession, byName, isAParents);
+        }
+
+        /// <summary>
+        /// A term's is_a parents. Like synonyms they arrive as untyped tag/value pairs, the value being the raw OBO
+        /// line after the tag, e.g. <c>MS:1000494 ! Thermo Scientific instrument model</c>; the accession is its first
+        /// token.
+        /// </summary>
+        private static IEnumerable<string> IsAParents(OboTerm term)
+        {
+            if (term.ValuePairs == null)
+                yield break;
+
+            foreach (var pair in term.ValuePairs)
+            {
+                if (!string.Equals(pair.Tag, "is_a", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(pair.Value))
+                    continue;
+
+                string parent = pair.Value.Trim().Split(' ', '\t', '!')[0];
+                if (parent.Length > 0)
+                    yield return parent;
+            }
         }
 
         /// <summary>

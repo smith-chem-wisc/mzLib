@@ -201,7 +201,7 @@ namespace Proteomics.ProteolyticDigestion
 
                 if (positionAndMod.Key == peptideLength + 1)
                 {
-                    cTerminalResidueBlocked = true;
+                    cTerminalResidueBlocked = !CleavageBlockingModifications.MayFormAfterDigestion(positionAndMod.Value);
                 }
                 else if (positionAndMod.Key >= 2 && positionAndMod.Key <= peptideLength)
                 {
