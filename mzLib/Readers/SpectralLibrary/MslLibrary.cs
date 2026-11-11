@@ -178,6 +178,39 @@ public sealed class MslLibrary : IDisposable
 	}
 
 	/// <summary>
+	/// Reports, from the 64-byte file header alone, whether <see cref="LoadIndexOnly(string)"/>
+	/// would open the file in index-only mode.
+	///
+	/// <para>
+	/// A compressed file cannot be opened index-only: its fragment offsets point into the
+	/// decompressed fragment section, not into the file. <see cref="LoadIndexOnly(string)"/> then
+	/// loads the whole library instead, which takes the time and memory of a full load (for a
+	/// 5.24 M-precursor library, 14 s and 13.9 GB instead of 4 s and 1.9 GB). Call this method
+	/// first to choose a mode, warn the user, or refuse the file before paying for that load.
+	/// </para>
+	///
+	/// <para>
+	/// Only the header is read. The checksum and the rest of the file are not validated, so a
+	/// damaged file can still fail when it is loaded.
+	/// </para>
+	/// </summary>
+	/// <param name="filePath">Absolute or relative path to the .msl file. Must not be null.</param>
+	/// <returns>
+	///   <see langword="true"/> when the file is uncompressed and <see cref="LoadIndexOnly(string)"/>
+	///   will open it index-only; <see langword="false"/> when it is compressed and will be loaded
+	///   in full.
+	/// </returns>
+	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
+	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
+	/// <exception cref="FormatException">The file is not an .msl file or is too short to hold a header.</exception>
+	public static bool CanLoadIndexOnly(string filePath)
+	{
+		ArgumentNullException.ThrowIfNull(filePath);
+		MslFileHeader header = MslReader.ReadHeaderOnly(filePath);
+		return (header.FileFlags & MslFormat.FileFlagIsCompressed) == 0;
+	}
+
+	/// <summary>
 	/// Opens a .msl file in index-only mode: precursor metadata is loaded into memory but
 	/// fragment blocks remain on disk and are read lazily on demand.
 	///
@@ -200,7 +233,8 @@ public sealed class MslLibrary : IDisposable
 	/// to the decompressed buffer rather than absolute file positions. This method transparently
 	/// falls back to full decompression in that case and returns a library with
 	/// <see cref="IsIndexOnly"/> == <see langword="false"/> and
-	/// <see cref="IsCompressed"/> == <see langword="true"/>. No exception is thrown.
+	/// <see cref="IsCompressed"/> == <see langword="true"/>. No exception is thrown. To find out
+	/// before loading, call <see cref="CanLoadIndexOnly"/>.
 	/// </para>
 	/// </summary>
 	/// <param name="filePath">
