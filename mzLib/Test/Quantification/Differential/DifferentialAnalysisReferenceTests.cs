@@ -96,6 +96,77 @@ public class DifferentialAnalysisReferenceTests
         }
     }
 
+    /// <summary>
+    /// The report's mean-variance diagnostic against R: one entry per stratum and model family, its proteins those R fits in
+    /// that family, each with R's residual variance (<c>sigma(m)^2</c>), the family's prior (<c>squeezeVar</c>'s
+    /// <c>var.prior</c>; none with fewer than 3 fitted) and the mean of the values it was fitted on.
+    /// </summary>
+    [Test]
+    public void TheMeanVarianceDiagnosticHasRsVariancesAndPriors()
+    {
+        var result = Run();
+        var models = new Dictionary<string, string>
+        {
+            ["mixed"] = DifferentialConstants.MixedModel, ["reduced"] = DifferentialConstants.MixedModelReduced,
+            ["t"] = DifferentialConstants.ModeratedT,
+        };
+        var expected = Read("runner_results.tsv").GroupBy(e => (e["stratum"], e["family"], e["protein"])).Select(g => g.First()).ToList();
+        Assert.That(result.Diagnostics.Fits.Select(f => (f.Stratum, f.ModelUsed)),
+            Is.EquivalentTo(expected.Select(e => (e["stratum"], models[e["family"]])).Distinct()), "one entry per stratum and family");
+        foreach (var fit in result.Diagnostics.Fits)
+        {
+            Assert.That(fit.QuantBasis, Is.EqualTo("msms_only"));
+            var mine = expected.Where(e => e["stratum"] == fit.Stratum && models[e["family"]] == fit.ModelUsed).ToList();
+            Assert.That(fit.FeatureIds, Is.EquivalentTo(mine.Select(e => e["protein"])), $"{fit.Stratum} {fit.ModelUsed}");
+            Assert.That(fit.FeatureIds, Is.Ordered.Using((IComparer<string>)StringComparer.Ordinal));
+            foreach (var e in mine)
+            {
+                int i = fit.FeatureIds.ToList().IndexOf(e["protein"]);
+                string at = $"{fit.Stratum} {fit.ModelUsed} {e["protein"]}";
+                Close(fit.ResidualVariance[i], e["s2"], Inference, true, at + " residual variance");
+                Close(fit.AverageLog2[i], e["ave"], 1e-9, false, at + " average log2");
+                if (e["s2_prior"] == "NaN") Assert.That(fit.PriorVariance[i], Is.NaN, at + " no prior");
+                else Close(fit.PriorVariance[i], e["s2_prior"], Inference, true, at + " prior variance");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The report's sample-correlation values: per stratum, every sample's log2 value (normalization is off here) on every
+    /// peptide unique to a group in the row set, so not the shared peptide, nor the decoy's, the entrapment group's or the
+    /// undescribed group's.
+    /// </summary>
+    [Test]
+    public void TheSampleMatrixHoldsEverySamplesValueOnTheRowSetsUniquePeptides()
+    {
+        var result = Run();
+        var values = Read("runner_values.tsv");
+        string[] excluded = { "DECOY", "ENTRAP", "UNDESC" };
+
+        Assert.That(result.Diagnostics.Samples.Select(s => s.Stratum), Is.EquivalentTo(new[] { "tissue=brain", "tissue=liver" }));
+        foreach (var matrix in result.Diagnostics.Samples)
+        {
+            string tissue = matrix.Stratum["tissue=".Length..];
+            var mine = values.Where(v => v["tissue"] == tissue).ToList();
+            var peptides = mine.Where(v => !v["groups"].Contains(';') && !excluded.Contains(v["groups"])).Select(v => v["peptide"])
+                .Distinct().Order(StringComparer.Ordinal).ToList();
+            Assert.That(matrix.QuantBasis, Is.EqualTo("msms_only"));
+            Assert.That(matrix.SampleIds, Is.EqualTo(mine.Select(v => v["sample"]).Distinct().Order(StringComparer.Ordinal)));
+            var cell = mine.ToDictionary(v => (v["sample"], v["peptide"]), v => Num(v["y"]));
+            for (int s = 0; s < matrix.SampleIds.Count; s++)
+            {
+                Assert.That(matrix.Values[s], Has.Count.EqualTo(peptides.Count), "the peptides, in order");
+                for (int k = 0; k < peptides.Count; k++)
+                {
+                    double v = matrix.Values[s][k];
+                    if (cell.TryGetValue((matrix.SampleIds[s], peptides[k]), out double y))
+                        Assert.That(v, Is.EqualTo(y).Within(1e-9), $"{matrix.SampleIds[s]} {peptides[k]}");
+                    else Assert.That(v, Is.NaN, $"{matrix.SampleIds[s]} {peptides[k]} has no value");
+                }
+            }
+        }
+    }
+
     [Test]
     public void TheGlobalShiftsAgreeAndTheExcludedGroupsHaveNoRows()
     {

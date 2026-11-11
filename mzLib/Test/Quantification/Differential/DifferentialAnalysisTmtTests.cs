@@ -94,6 +94,30 @@ public class DifferentialAnalysisTmtTests
     }
 
     /// <summary>
+    /// The report's diagnostics on an isobaric table: the sample matrix keys on the ion (sequence and charge), so the
+    /// samples of the two plexes share every ion and each has a value on all 412 (103 proteins x 4 ions); the pooled
+    /// reference channel is no sample. The mean-variance entry holds every fitted protein with the model's prior.
+    /// </summary>
+    [Test]
+    public void TheDiagnosticsKeyIonsAcrossPlexesAndHoldEveryFittedProtein()
+    {
+        var result = Run();
+
+        var matrix = result.Diagnostics.Samples.Single();
+        Assert.That(matrix.QuantBasis, Is.Null);
+        Assert.That(matrix.SampleIds, Has.Count.EqualTo(12));
+        Assert.That(matrix.Values.Select(v => v.Count), Is.All.EqualTo(412));
+        Assert.That(matrix.Values.SelectMany(v => v), Is.All.Not.NaN, "every sample of either plex has every ion");
+
+        var fit = result.Diagnostics.Fits.Single();
+        var fitted = result.Rows.Where(r => DifferentialStatus.IsFitted(r.Status)).Select(r => r.FeatureId).Distinct();
+        Assert.That(fit.ModelUsed, Is.EqualTo(DifferentialConstants.MixedModel));
+        Assert.That(fit.FeatureIds, Is.EquivalentTo(fitted));
+        Assert.That(fit.PriorVariance, Is.All.EqualTo(result.Metadata.Models.Single().Prior!.Variance!.Value));
+        Assert.That(fit.ResidualVariance, Is.All.GreaterThan(0));
+    }
+
+    /// <summary>
     /// The global shift (ruling 9c) on the raw table: every ion of every plex run is valued in all six sample channels, so
     /// all 824 count (103 proteins x 4 ions x 2 plexes), and with 100 of 103 proteins unchanged the median is near 0.
     /// </summary>

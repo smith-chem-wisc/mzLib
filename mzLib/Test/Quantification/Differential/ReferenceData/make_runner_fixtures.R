@@ -126,7 +126,7 @@ for (tissue in c("brain", "liver")) {
       out[[cid]] <- data.frame(contrast = cid, est = est, se = se, cdf = df, mean_num = mean_of[[cc[1]]], mean_den = mean_of[[cc[2]]])
     }
     if (length(out) == 0) next
-    fits[[p]] <- list(family = if (single) "t" else if (kind == "lm") "reduced" else "mixed", s2 = sigma(m)^2, vdf = vdf,
+    fits[[p]] <- list(family = if (single) "t" else if (kind == "lm") "reduced" else "mixed", s2 = sigma(m)^2, vdf = vdf, ave = mean(x$y),
                       rows = do.call(rbind, out),
                       kind = kind)
   }
@@ -134,22 +134,24 @@ for (tissue in c("brain", "liver")) {
     members <- names(fits)[sapply(fits, function(f) f$family == family)]
     s2 <- sapply(fits[members], `[[`, "s2"); vdf <- sapply(fits[members], `[[`, "vdf")
     if (length(members) >= 3) {
-      sq <- squeezeVar(s2, vdf, legacy = TRUE); post <- sq$var.post; d0 <- sq$df.prior
+      sq <- squeezeVar(s2, vdf, legacy = TRUE); post <- sq$var.post; d0 <- sq$df.prior; s0sq <- sq$var.prior
     } else {
-      post <- s2; d0 <- 0
+      post <- s2; d0 <- 0; s0sq <- NA
     }
     cap <- sum(vdf)
     for (i in seq_along(members)) {
       f <- fits[[members[i]]]; r <- f$rows
       se <- sqrt(r$se^2 / f$s2 * post[i]); df <- pmin(r$cdf + d0, cap)
+      # family, s2, s2_prior and ave: the mean-variance diagnostic (residual variance, the family's prior, the mean fitted value).
       rows <- rbind(rows, data.frame(stratum = stratum, protein = members[i], contrast = r$contrast,
         status = if (family == "t") "fitted_single_peptide" else "fitted", model = f$kind,
-        log2 = r$est, se = se, df = df, p = 2 * pt(-abs(r$est / se), df), mean_num = r$mean_num, mean_den = r$mean_den))
+        log2 = r$est, se = se, df = df, p = 2 * pt(-abs(r$est / se), df), mean_num = r$mean_num, mean_den = r$mean_den,
+        family = family, s2 = f$s2, s2_prior = s0sq, ave = f$ave))
     }
   }
 }
 rows$p_adj <- ave(rows$p, paste(rows$stratum, rows$contrast), FUN = function(p) p.adjust(p, "BH"))
-for (col in c("log2", "se", "df", "p", "p_adj", "mean_num", "mean_den")) rows[[col]] <- fmt(rows[[col]])
+for (col in c("log2", "se", "df", "p", "p_adj", "mean_num", "mean_den", "s2", "s2_prior", "ave")) rows[[col]] <- fmt(rows[[col]])
 write.table(values[, c("tissue", "sample", "group", "peptide", "groups", "y")], file.path(here, "runner_values.tsv"),
             sep = "\t", quote = FALSE, row.names = FALSE)
 values$y <- fmt(values$y)

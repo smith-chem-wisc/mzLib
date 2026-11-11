@@ -196,15 +196,16 @@ public static class DifferentialConstants
     public const string TooFewObservations = "too_few_observations";
 }
 
-/// <summary>A differential analysis's rows, metadata and decisions.</summary>
+/// <summary>A differential analysis's rows, metadata, decisions and the values its report's diagnostics draw.</summary>
 public sealed class DifferentialAnalysisResult
 {
     internal DifferentialAnalysisResult(IReadOnlyList<DifferentialResult> rows, DifferentialMetadata metadata,
-        IReadOnlyList<DifferentialDecision> decisions)
+        IReadOnlyList<DifferentialDecision> decisions, DifferentialDiagnostics diagnostics)
     {
         Rows = rows;
         Metadata = metadata;
         Decisions = decisions;
+        Diagnostics = diagnostics;
     }
 
     /// <summary>The result rows, in DEF-DIFF-ROW order.</summary>
@@ -215,11 +216,26 @@ public sealed class DifferentialAnalysisResult
     public IReadOnlyList<DifferentialDecision> Decisions { get; }
 
     /// <summary>
+    /// What the report's diagnostic figures draw beyond the rows and metadata: per stratum, quant basis and model family,
+    /// each fitted protein's average log2 value, residual variance and the family's prior variance (the mean-variance
+    /// figure); per stratum and quant basis, each sample's normalized log2 values on the peptides (isobaric: ions) unique to
+    /// a protein group in the row set (the sample-correlation figure). See <see cref="DifferentialAnalysis"/>.
+    /// </summary>
+    public DifferentialDiagnostics Diagnostics { get; }
+
+    /// <summary>
     /// Writes the results table, its metadata and the decisions file into <paramref name="directory"/>, all three or none
     /// (<see cref="DifferentialResultWriter.Write(string, IEnumerable{DifferentialResult}, DifferentialMetadata, IEnumerable{DifferentialDecision})"/>),
-    /// and returns the results file's path.
+    /// then <see cref="StatisticalReportWriter.ReportFileName"/> and its figures, and returns the results file's path. The
+    /// report is built and checked before anything is written.
     /// </summary>
-    public string Write(string directory) => DifferentialResultWriter.Write(directory, Rows, Metadata, Decisions);
+    public string Write(string directory)
+    {
+        var report = StatisticalReportWriter.Build(Metadata, Rows, Diagnostics, Decisions);
+        string path = DifferentialResultWriter.Write(directory, Rows, Metadata, Decisions);
+        StatisticalReportWriter.WriteFiles(directory, report);
+        return path;
+    }
 }
 
 /// <summary>
@@ -297,6 +313,8 @@ public static class DifferentialAnalysis
         private readonly Dictionary<string, List<DifferentialGlobalShift>> _shifts = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _designSha256 = new(StringComparer.Ordinal);
         private readonly List<string> _designWarnings = new();
+        private readonly List<DiagnosticFit> _fits = new();
+        private readonly List<SampleLog2> _sampleLog2 = new();
         private IsobaricObservationTable? _tmt;
         private IsobaricNormalizationResult? _tmtNormalization;
 
@@ -352,7 +370,8 @@ public static class DifferentialAnalysis
             };
             _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.Settings, DifferentialDecisionWriter.AnalysisStratum,
                 null, null, null, SettingsFacts(spec), "applied to every stratum"));
-            return new DifferentialAnalysisResult(DifferentialResultWriter.Order(rows), metadata, DifferentialDecisionWriter.Order(_decisions));
+            return new DifferentialAnalysisResult(DifferentialResultWriter.Order(rows), metadata, DifferentialDecisionWriter.Order(_decisions),
+                new DifferentialDiagnostics { Fits = _fits, Samples = _sampleLog2 });
         }
 
         /// <summary>The analysis-scope settings line (ruling 14), in plain words.</summary>
@@ -392,6 +411,7 @@ public static class DifferentialAnalysis
             IReadOnlyDictionary<string, ProteinGroupInfo> groupInfo;
             List<string> candidates;
             string normalization;
+            ObservationTable? normalizedTable = null;
             if (_isobaric)
             {
                 features = FeatureObservationBuilder.FromIsobaric(_tmt!, sampleMap, UsableMinimumSamples);
@@ -416,6 +436,7 @@ public static class DifferentialAnalysis
                 features = FeatureObservationBuilder.FromTable(normalized, sampleMap, UsableMinimumSamples);
                 groupInfo = normalized.ProteinGroups;
                 candidates = LabelFreeCandidates(normalized);
+                normalizedTable = normalized;
             }
 
             // The row set (ruling 12).
@@ -430,6 +451,9 @@ public static class DifferentialAnalysis
             if (left.Count > 0)
                 _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.RowSet, stratum, _basis, null, null,
                     string.Join("; ", left.Select(kv => $"{kv.Key} {kv.Value}")), "left out of the row set: no rows"));
+            _sampleLog2.Add(_isobaric
+                ? IsobaricSampleLog2(stratum, sampleMap, included)
+                : LabelFreeSampleLog2(stratum, normalizedTable!, included));
 
             var tested = TestedColumns(design, contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable).Select(c => c.Contrast));
             var plans = new List<FeaturePlan>();
@@ -438,6 +462,73 @@ public static class DifferentialAnalysis
 
             FitAndModerate(design, contrasts, plans, tested, normalization);
             _strata.Add(StratumInfo(design));
+        }
+
+        /// <summary>
+        /// The sample-correlation diagnostic's values (label-free): each stratum sample's normalized log2 value on every
+        /// peptide unique to a protein group in the row set that has a value in at least one of the stratum's samples,
+        /// peptides in the table's order (full sequence, ordinal); NaN where the sample has none.
+        /// </summary>
+        private SampleLog2 LabelFreeSampleLog2(string stratum, ObservationTable table, IReadOnlyCollection<string> rowSet)
+        {
+            var groups = rowSet.ToHashSet(StringComparer.Ordinal);
+            var peptides = Enumerable.Range(0, table.Peptides.Count)
+                .Where(p => table.Peptides[p].UniqueProteinGroup is { } g && groups.Contains(g)
+                            && Enumerable.Range(0, table.Samples.Count).Any(s => !double.IsNaN(table.Log2Intensity(p, s))))
+                .ToArray();
+            var values = Enumerable.Range(0, table.Samples.Count)
+                .Select(s => (IReadOnlyList<double>)peptides.Select(p => table.Log2Intensity(p, s)).ToArray()).ToList();
+            return new SampleLog2(stratum, _basis, table.Samples.ToList(), values);
+        }
+
+        /// <summary>
+        /// The sample-correlation diagnostic's values (isobaric): each stratum sample's normalized log2 value on every ion
+        /// (full sequence and charge, ordinal) unique to a protein group in the row set, averaged over the plex runs of its
+        /// plex that hold the ion (repeat injections), so samples of different plexes share the ions both were measured on;
+        /// NaN where it has none. Ions with no value in the stratum are left out.
+        /// </summary>
+        private SampleLog2 IsobaricSampleLog2(string stratum, IReadOnlyDictionary<string, AnalysisSample> samples,
+            IReadOnlyCollection<string> rowSet)
+        {
+            var table = _tmt!;
+            var groups = rowSet.ToHashSet(StringComparer.Ordinal);
+            var columns = Enumerable.Range(0, table.Samples.Count).Where(s => samples.ContainsKey(table.Samples[s])).ToArray();
+            var ions = new SortedDictionary<(string Sequence, int Charge), (double Sum, int Count)[]>(Comparer<(string Sequence, int Charge)>.Create(
+                (a, b) => string.CompareOrdinal(a.Sequence, b.Sequence) is var c && c != 0 ? c : a.Charge.CompareTo(b.Charge)));
+            for (int r = 0; r < table.Rows.Count; r++)
+            {
+                var row = table.Rows[r];
+                if (row.Peptide.UniqueProteinGroup is not { } g || !groups.Contains(g)) continue;
+                var key = (row.Peptide.FullSequence, row.Charge);
+                for (int k = 0; k < columns.Length; k++)
+                {
+                    double v = table.Log2Intensity(r, columns[k]);
+                    if (double.IsNaN(v)) continue;
+                    if (!ions.TryGetValue(key, out var sums)) ions[key] = sums = new (double, int)[columns.Length];
+                    sums[k] = (sums[k].Sum + v, sums[k].Count + 1);
+                }
+            }
+            var values = Enumerable.Range(0, columns.Length)
+                .Select(k => (IReadOnlyList<double>)ions.Values.Select(a => a[k].Count > 0 ? a[k].Sum / a[k].Count : double.NaN).ToArray())
+                .ToList();
+            return new SampleLog2(stratum, null, columns.Select(s => table.Samples[s]).ToList(), values);
+        }
+
+        /// <summary>
+        /// The mean-variance diagnostic for one model family (<see cref="DiagnosticFit"/>): each protein with a finite
+        /// residual variance, by name (ordinal), with the mean of the log2 values it was fitted on, that variance and the
+        /// family's prior variance (NaN with no prior, ruling 5).
+        /// </summary>
+        private void AddFit(AnalysisDesign design, string model, IEnumerable<FeaturePlan> members, Func<FeaturePlan, double> variance,
+            DifferentialPriorInfo? prior)
+        {
+            var fitted = members.Select(p => (Plan: p, Variance: variance(p))).Where(x => double.IsFinite(x.Variance))
+                .OrderBy(x => x.Plan.Group, StringComparer.Ordinal).ToList();
+            if (fitted.Count == 0) return;
+            double priorVariance = prior?.Variance ?? double.NaN;
+            _fits.Add(new DiagnosticFit(design.Stratum, _basis, DifferentialConstants.Method, model, DifferentialConstants.Grain,
+                fitted.Select(x => x.Plan.Group).ToList(), fitted.Select(x => x.Plan.Values!.Values.Average(v => v.Log2)).ToList(),
+                fitted.Select(x => x.Variance).ToList(), fitted.Select(_ => priorVariance).ToList()));
         }
 
         private List<StratumContrast> Contrasts(AnalysisDesign design)
@@ -699,7 +790,9 @@ public static class DifferentialAnalysis
                 var moderated = NestedMixedModel.ModerateContrasts(mixedParts, _request.Settings.CiLevel);
                 for (int part = 0; part < moderated.Count; part++)
                     foreach (var p in mixedMembers[part]) p.Moderated = moderated[part];
-                Prior(design, moderated, model, mixedParts.Sum(m => m.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                var prior = Prior(design, moderated, model, mixedParts.Sum(m => m.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                AddFit(design, model, mixedMembers.SelectMany(m => m),
+                    p => p.MixedFit!.Status[p.Index] == FeatureFitStatus.Fitted ? p.MixedFit.ResidualVariance[p.Index] : double.NaN, prior);
             }
         }
 
@@ -740,7 +833,11 @@ public static class DifferentialAnalysis
                 var moderated = EmpiricalBayes.ModerateContrasts(linearParts, _request.Settings.CiLevel);
                 for (int part = 0; part < moderated.Count; part++)
                     foreach (var p in linearMembers[part]) p.Moderated = moderated[part];
-                Prior(design, moderated, DifferentialConstants.ModeratedT, linearParts.Sum(l => l.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                var prior = Prior(design, moderated, DifferentialConstants.ModeratedT,
+                    linearParts.Sum(l => l.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                AddFit(design, DifferentialConstants.ModeratedT, linearMembers.SelectMany(m => m),
+                    p => p.LinearFit!.Status[p.Index] == FeatureFitStatus.Fitted ? p.LinearFit.Sigma[p.Index] * p.LinearFit.Sigma[p.Index] : double.NaN,
+                    prior);
             }
         }
 
@@ -828,7 +925,8 @@ public static class DifferentialAnalysis
             contrasts.Select(c => new ContrastWeights(c.Id, design.KeptWeights(c.Weights)))
                 .Where(w => w.Weights.Any(x => x != 0)).ToList();
 
-        private void Prior(AnalysisDesign design, IReadOnlyList<IReadOnlyList<ModeratedContrast>> moderated, string model, int fitted)
+        private DifferentialPriorInfo? Prior(AnalysisDesign design, IReadOnlyList<IReadOnlyList<ModeratedContrast>> moderated, string model,
+            int fitted)
         {
             var any = moderated.SelectMany(m => m).FirstOrDefault();
             DifferentialPriorInfo? prior = null;
@@ -850,6 +948,7 @@ public static class DifferentialAnalysis
             _models.Add(new DifferentialModelInfo(design.Stratum, _basis, DifferentialConstants.Method, model, DifferentialConstants.Grain,
                 formula, true, mixedModel ? DifferentialConstants.DfSatterthwaite : DifferentialConstants.DfResidual,
                 mixedModel && _request.Settings.Robust ? DifferentialConstants.RobustRule : null, prior));
+            return prior;
         }
 
         private string Formula(AnalysisDesign design, bool mixedModel)

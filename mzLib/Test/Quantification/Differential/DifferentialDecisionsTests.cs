@@ -94,7 +94,7 @@ public class DifferentialDecisionsTests
     }
 
     [Test]
-    public void WritingTheResultPutsDownAllThreeFilesTogether()
+    public void WritingTheResultPutsDownTheThreeTablesAndTheReport()
     {
         var r = Run();
         string dir = Path.Combine(Path.GetTempPath(), "mzlib-decisions-" + Guid.NewGuid().ToString("N"));
@@ -104,7 +104,18 @@ public class DifferentialDecisionsTests
             Assert.That(Path.GetFileName(path), Is.EqualTo(DifferentialResultWriter.ResultsFileName));
             Assert.That(File.ReadAllBytes(Path.Combine(dir, DifferentialDecisionWriter.FileName)), Is.EqualTo(Bytes(r)));
             Assert.That(File.Exists(Path.Combine(dir, DifferentialResultWriter.MetadataFileName)), Is.True);
-            Assert.That(Directory.GetFiles(dir), Has.Length.EqualTo(3), "no temporary file left");
+            Assert.That(Directory.GetFiles(dir).Select(Path.GetFileName), Is.EquivalentTo(new[]
+            {
+                DifferentialResultWriter.ResultsFileName, DifferentialResultWriter.MetadataFileName, DifferentialDecisionWriter.FileName,
+                StatisticalReportWriter.ReportFileName,
+            }), "no temporary file left");
+            string report = File.ReadAllText(Path.Combine(dir, StatisticalReportWriter.ReportFileName));
+            Assert.That(report, Does.Contain("## 6. Decisions applied"));
+            Assert.That(report, Does.Contain("Mean-variance: stratum"));
+            Assert.That(report, Does.Contain("Sample correlation: stratum"));
+            var figures = Directory.GetFiles(Path.Combine(dir, StatisticalReportWriter.FiguresDirectoryName)).Select(Path.GetFileName).ToList();
+            Assert.That(figures.Where(f => f!.Contains("mean_variance")), Is.Not.Empty);
+            Assert.That(figures.Where(f => f!.Contains("sample_correlation")), Is.Not.Empty);
         }
         finally
         {

@@ -77,7 +77,13 @@ public static class StatisticalReportWriter
         DifferentialDiagnostics diagnostics, IReadOnlyList<DifferentialDecision>? decisions)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        var report = Build(metadata, rows, diagnostics, decisions);
+        return WriteFiles(directory, Build(metadata, rows, diagnostics, decisions));
+    }
+
+    /// <summary>Writes a built report's figures and markdown into <paramref name="directory"/> and returns the report's path.</summary>
+    internal static string WriteFiles(string directory, StatisticalReport report)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         string figures = Path.Combine(directory, FiguresDirectoryName);
         Directory.CreateDirectory(figures);
         foreach (var file in report.Figures)
