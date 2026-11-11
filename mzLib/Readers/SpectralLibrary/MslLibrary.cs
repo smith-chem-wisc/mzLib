@@ -1164,6 +1164,14 @@ public sealed class MslLibrary : IDisposable
 	/// <see cref="MslLibraryEntry.Nce"/> (0).
 	/// </para>
 	///
+	/// <para>
+	/// <b>Retention-time status:</b> this method checks no evidence, so an entry whose time it
+	/// writes (a replacement with an incoming time, or a novel entry) gets
+	/// <see cref="MslFormat.RetentionTimeStatus.None"/>. An entry whose time it keeps (a retained
+	/// entry, or a replacement whose spectrum has no time) keeps its
+	/// <see cref="MslLibraryEntry.RtStatus"/> and <see cref="MslLibraryEntry.RtStruckByPrediction"/>.
+	/// </para>
+	///
 	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
 	/// concurrent write to <paramref name="outputPath"/> is in progress.</para>
 	/// </summary>
@@ -1325,12 +1333,17 @@ public sealed class MslLibrary : IDisposable
 																  rtNormalisationApplied);
 						// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
 						replacement.RtIsCalibrated = rtNormalisationApplied ? originalEntry.RtIsCalibrated : true;
+						// RtStatus stays None: the original's status described the time just replaced,
+						// and this method checks no evidence for the new one.
 					}
 					else
 					{
 						// No incoming time: never overwrite a known time with a missing one.
 						replacement.RetentionTime = originalEntry.RetentionTime;
 						replacement.RtIsCalibrated = originalEntry.RtIsCalibrated;
+						// The time is kept, so what is known about it is kept too.
+						replacement.RtStatus = originalEntry.RtStatus;
+						replacement.RtStruckByPrediction = originalEntry.RtStruckByPrediction;
 					}
 					replacement.Source = MslFormat.SourceType.Empirical;
 

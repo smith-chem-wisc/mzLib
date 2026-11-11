@@ -831,6 +831,8 @@ public static class MslReader
 		// Decode the single flags byte into its named Booleans
 		var (isDecoy, isProteotypic, rtCalibrated) = MslFormat.DecodePrecursorFlags(p.PrecursorFlags);
 		bool isEntrapment = MslFormat.DecodeIsEntrapment(p.PrecursorFlags);
+		MslFormat.RetentionTimeStatus rtStatus = MslFormat.DecodeRetentionTimeStatus(p.PrecursorFlags);
+		bool rtStruckByPrediction = MslFormat.DecodeRtStruckByPrediction(p.PrecursorFlags);
 
 		// Resolve the optional protein record (ProteinIdx == -1 means no protein)
 		bool hasProtein = p.ProteinIdx >= 0 && p.ProteinIdx < proteins.Length;
@@ -846,6 +848,8 @@ public static class MslReader
 			ChargeState = (int)p.Charge,
 			RetentionTime = p.Irt,
 			RtIsCalibrated = rtCalibrated,
+			RtStatus = rtStatus,
+			RtStruckByPrediction = rtStruckByPrediction,
 			IonMobility = p.IonMobility,
 			IsDecoy = isDecoy,
 			IsEntrapment = isEntrapment,
