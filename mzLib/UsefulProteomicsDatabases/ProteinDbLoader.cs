@@ -74,6 +74,18 @@ namespace UsefulProteomicsDatabases
         public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
 
         /// <summary>
+        /// The dbReference type UniProt uses for Reactome pathways. Re-exported for the same reason as the taxonomy, GO
+        /// and Ensembl types. Read the pathways from <see cref="Protein.ReactomePathways"/>.
+        /// </summary>
+        public const string ReactomeDatabaseReferenceType = Protein.ReactomeDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for KEGG GENES ids. Re-exported for the same reason. Read the ids from
+        /// <see cref="Protein.KeggGeneIds"/>.
+        /// </summary>
+        public const string KeggDatabaseReferenceType = Protein.KeggDatabaseReferenceType;
+
+        /// <summary>
         /// Whether an accession is entrapment by the rule the loaders apply when no whole-database flag is
         /// given: it contains <paramref name="entrapmentIdentifier"/> anywhere, ignoring case. A caller holding
         /// only accessions -- a stored results file, which MetaMorpheus writes T/D/C without an entrapment

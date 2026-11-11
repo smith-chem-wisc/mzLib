@@ -625,7 +625,7 @@ public class TestMslFoundation
 	public void MslLibraryEntry_FromLibrarySpectrum_NeutralLoss_IsPreserved()
 	{
 		// Arrange: b5 ion with −H2O loss
-		const double h2oLoss = -18.010565;
+		const double h2oLoss = 18.010565;
 		var product = new Product(
 			ProductType.b,
 			FragmentationTerminus.N,
