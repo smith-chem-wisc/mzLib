@@ -555,7 +555,7 @@ public sealed class ObservationTable
         return labelToRun;
     }
 
-    private static Dictionary<string, ProteinGroupInfo> ValidateGroups(IEnumerable<ProteinGroupInfo> proteinGroups)
+    internal static Dictionary<string, ProteinGroupInfo> ValidateGroups(IEnumerable<ProteinGroupInfo> proteinGroups)
     {
         var groups = new Dictionary<string, ProteinGroupInfo>(StringComparer.Ordinal);
         foreach (ProteinGroupInfo group in proteinGroups)

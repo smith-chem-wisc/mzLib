@@ -174,23 +174,45 @@ namespace StatisticalModels
             WeightValues = new double[features][];
             RobustIterationsValues = new int[features];
             RobustConvergedValues = new bool?[features];
+            RobustFellBackValues = new bool?[features];
+            NuisanceValues = new double[features][];
         }
 
+        internal double[]?[] NuisanceValues { get; }
         internal double[]?[] WeightValues { get; }
         internal int[] RobustIterationsValues { get; }
         internal bool?[] RobustConvergedValues { get; }
+        internal bool?[] RobustFellBackValues { get; }
 
         /// <summary>
         /// The weight each observation of <paramref name="feature"/> carried in the final fit, in the problem's order: 1 when
-        /// the fit was not robust, the Huber weight when it was, NaN for a missing response. For a robust fit whose
-        /// reweighting did not finish (<see cref="FeatureFitStatus.NotConverged"/>), the weights of its last round. Null
-        /// when the feature was not fitted far enough to have weights.
+        /// the fit was not robust, the Huber weight when it was, NaN for a missing response. For a robust fit that fell back
+        /// to one round (<see cref="RobustFellBack"/>), the first round's weights; for one whose first round could not be
+        /// formed (<see cref="FeatureFitStatus.NotConverged"/>), the weights that round left. Null when the feature was not
+        /// fitted far enough to have weights.
         /// </summary>
         public IReadOnlyList<double>? Weights(int feature) => WeightValues[feature];
-        /// <summary>Reweighting rounds per feature; 0 when the fit was not robust.</summary>
+        /// <summary>
+        /// Reweighting rounds run per feature, counting a round that could not be formed; 0 when the fit was not robust. A
+        /// feature that fell back (<see cref="RobustFellBack"/>) shows the rounds run before it did, although its fit is
+        /// the first round's.
+        /// </summary>
         public IReadOnlyList<int> RobustIterations => RobustIterationsValues;
-        /// <summary>Whether reweighting converged within its round limit; null when the fit was not robust.</summary>
+        /// <summary>
+        /// Whether reweighting converged within its round limit; null when the fit was not robust. False for a feature that
+        /// fell back to one round (<see cref="RobustFellBack"/>), whose reweighting did not converge.
+        /// </summary>
         public IReadOnlyList<bool?> RobustConverged => RobustConvergedValues;
+        /// <summary>
+        /// Whether reweighting fell back to msqrob2's default of one round (QuantProject GR-22, amended 2026-11-03); null
+        /// when the fit was not robust. True when reweighting did not settle, because it reached its round limit or a later
+        /// round's weights or refit could not be formed: the feature is then fitted on its first round's weights, as msqrob2
+        /// with <c>maxitRob = 1</c>, and is an ordinary fit that enters moderation (<see cref="Status"/> is
+        /// <see cref="FeatureFitStatus.Fitted"/> unless its df cannot be computed). <see cref="RobustConverged"/> stays
+        /// false for it, so this flag is how a report counts such features. False when reweighting converged, or when even
+        /// its first round could not be formed (then <see cref="FeatureFitStatus.NotConverged"/>).
+        /// </summary>
+        public IReadOnlyList<bool?> RobustFellBack => RobustFellBackValues;
 
         internal double[] CoefficientValues { get; }
         internal double[] UnscaledValues { get; }
@@ -214,6 +236,17 @@ namespace StatisticalModels
 
         /// <summary>REML estimate of common coefficient <paramref name="coefficient"/> of <paramref name="feature"/>.</summary>
         public double Coefficient(int feature, int coefficient) => CoefficientValues[feature * CommonNames.Count + coefficient];
+
+        /// <summary>
+        /// REML estimates of <paramref name="feature"/>'s nuisance coefficients (e.g. each peptide's offset from the
+        /// reference peptide), in the order of its problem's nuisance columns: for a problem from
+        /// <see cref="NestedMixedModelProblem.FromNuisanceLabels"/>, the labels <see cref="NestedMixedModelProblem.NuisanceLevels"/>
+        /// [1..], the first being the reference with no column. With <see cref="Coefficient"/> they give the feature's
+        /// fitted fixed part, so an average over its peptides (an estimated marginal mean) can be formed. Empty for a
+        /// fitted problem with no nuisance column; null for a feature that was not fitted
+        /// (<see cref="Status"/> is not <see cref="FeatureFitStatus.Fitted"/>).
+        /// </summary>
+        public IReadOnlyList<double>? NuisanceCoefficients(int feature) => NuisanceValues[feature];
 
         /// <summary>
         /// Element (i, j) of (XᵀV⁻¹X)⁻¹ for the common columns, with V the observations' covariance divided by the residual
@@ -329,6 +362,18 @@ namespace StatisticalModels
     }
 
     /// <summary>
+    /// One mixed-model fit, the contrasts tested on it and the condition terms that give its features' variance df, as a
+    /// part of a pooled moderation
+    /// (<see cref="NestedMixedModel.ModerateContrasts(IReadOnlyList{MixedModelModerationPart}, double)"/>).
+    /// </summary>
+    /// <param name="Fit">Output of <see cref="NestedMixedModel.Fit"/>.</param>
+    /// <param name="Contrasts">Weights on this fit's common columns; names unique within the part; may be empty.</param>
+    /// <param name="VarianceDfRows">The condition terms, as weights on this fit's common columns, whose joint
+    /// Satterthwaite F df is each feature's variance df; at least one.</param>
+    public sealed record MixedModelModerationPart(NestedMixedModelFit Fit, IReadOnlyList<ContrastWeights> Contrasts,
+        IReadOnlyList<IReadOnlyList<double>> VarianceDfRows);
+
+    /// <summary>
     /// A linear mixed model fitted separately for each feature, each with its own design: the response (e.g. every
     /// peptide's log2 intensity in every sample) on common fixed effects (the experimental design) plus the feature's own
     /// nuisance fixed effects (e.g. its peptides), with random intercepts for the sample, or the individual, or both
@@ -357,15 +402,27 @@ namespace StatisticalModels
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
     /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
-    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). A robust fit is also
-    /// <see cref="FeatureFitStatus.NotConverged"/> when reweighting does not converge within its round limit, when a
-    /// reweighted refit fails, or when the residuals' MAD is zero (more than half of them exactly 0), so that no Huber
-    /// weight can be formed; such a feature keeps its robust diagnostics and is left out of moderation. Output does not
-    /// depend on the thread count.
+    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Robust reweighting that does
+    /// not settle, because it reaches its round limit or a later round's refit fails or its residuals' MAD is zero, falls
+    /// back to msqrob2's default of one round and is fitted on the first round's weights
+    /// (<see cref="NestedMixedModelFit.RobustFellBack"/>). A robust fit is <see cref="FeatureFitStatus.NotConverged"/>
+    /// only when its first round cannot be formed: the first reweighted refit fails, or the unweighted fit's residuals
+    /// have a MAD of zero (more than half of them exactly 0), so that no Huber weight exists; such a feature keeps its
+    /// robust diagnostics and is left out of moderation. Output does not depend on the thread count.
     /// </para>
     /// </remarks>
     public static class NestedMixedModel
     {
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+            FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups,
+        });
+
         /// <summary>Fits every problem.</summary>
         /// <param name="problems">One per feature.</param>
         /// <param name="commonNames">One name per common design column; every problem has these columns.</param>
@@ -375,7 +432,9 @@ namespace StatisticalModels
         /// min(1, 1.345 / |r / MAD₀(r)|) on the response residuals r, MAD about zero — refitted until the penalised residual
         /// sum of squares changes by at most 1e-6 relative (msqrob2 stops after one round by default), then REML,
         /// Satterthwaite and moderation on the weighted model. Off by default here; QuantProject's differential framework
-        /// turns it on (GR-8). A feature whose reweighting cannot finish is <see cref="FeatureFitStatus.NotConverged"/>.
+        /// turns it on (GR-8). A feature whose reweighting does not settle within the round limit falls back to msqrob2's
+        /// default, one round, and is flagged (<see cref="NestedMixedModelFit.RobustFellBack"/>; GR-22 amended 2026-11-03);
+        /// one whose first round cannot be formed is <see cref="FeatureFitStatus.NotConverged"/>.
         /// </param>
         public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
             int maxThreads = -1, bool robust = false) =>
@@ -469,6 +528,90 @@ namespace StatisticalModels
         }
 
         /// <summary>
+        /// Moderated contrasts over several mixed-model fits that share one variance prior: exactly
+        /// <see cref="ModerateContrasts(NestedMixedModelFit, IReadOnlyList{ContrastWeights}, IReadOnlyList{IReadOnlyList{double}}, double)"/>,
+        /// with the prior, the df cap and Benjamini–Hochberg taken over every part together. Use it when features are fitted
+        /// on different common columns (each on the columns its own observed samples can estimate, so a feature missing
+        /// a group or batch is not refused as a whole), so they cannot share one fit, but their variances still share one
+        /// prior, as limma's do across genes with different missing values.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Pooled.</b> Each part's fitted features with a finite, positive joint Satterthwaite df of its
+        /// <see cref="MixedModelModerationPart.VarianceDfRows"/> enter the prior, in part order. The df cap is the sum of
+        /// those df. Benjamini–Hochberg runs per contrast name over the features of every part that tests it. A part's
+        /// contrasts and variance-df rows are weights on its own common columns; parts may test different contrasts, and a
+        /// part with none still informs the prior.
+        /// </para>
+        /// <para>
+        /// <b>Few features.</b> The prior counts those usable features only: with fewer than 3, no prior is fitted
+        /// (d0 = 0), so each keeps its own variance and its contrasts their own Satterthwaite df; with none, every value is
+        /// NaN. Nothing is thrown for too few features (QuantProject STAT1 ruling 5, 2026-11-10). The single-fit overload
+        /// is unchanged: it counts every feature of its fit and throws below 2 usable ones.
+        /// </para>
+        /// <para>
+        /// <b>Same numbers as one fit.</b> With one part and at least 3 usable features this gives exactly what the
+        /// single-fit overload gives; features split over several parts in their original order give the same numbers as
+        /// one fit of them all.
+        /// </para>
+        /// </remarks>
+        /// <param name="parts">At least one: each a fit, its contrasts and the condition terms of its variance df.</param>
+        /// <param name="confidenceLevel">Two-sided interval level, strictly between 0 and 1.</param>
+        /// <returns>Per part, in order, one result per contrast of that part, in its order.</returns>
+        public static IReadOnlyList<IReadOnlyList<ModeratedContrast>> ModerateContrasts(
+            IReadOnlyList<MixedModelModerationPart> parts, double confidenceLevel = 0.95)
+        {
+            ArgumentNullException.ThrowIfNull(parts);
+            EmpiricalBayes.CheckLevel(confidenceLevel);
+            if (parts.Count == 0) throw new ArgumentException("No part was given.", nameof(parts));
+            var pooled = new List<EmpiricalBayes.PooledPart>(parts.Count);
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i] ?? throw new ArgumentException($"Part {i} is null.", nameof(parts));
+                var fit = part.Fit ?? throw new ArgumentException($"Part {i} has no fit.", nameof(parts));
+                var contrasts = part.Contrasts ?? throw new ArgumentException($"Part {i} has no contrast list.", nameof(parts));
+                var rows = part.VarianceDfRows ?? throw new ArgumentException($"Part {i} has no variance-df rows.", nameof(parts));
+                int p = fit.CommonNames.Count;
+                if (contrasts.Count > 0)
+                    EmpiricalBayes.CheckContrasts(contrasts, confidenceLevel, c =>
+                    {
+                        if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
+                            throw new ArgumentException($"Contrast '{c.Name}' of part {i} needs {p} finite weights.", nameof(parts));
+                    });
+                if (rows.Count == 0) throw new ArgumentException($"Part {i} has no variance-df rows.", nameof(parts));
+                foreach (var r in rows)
+                    if (r is null || r.Count != p || r.Any(w => !double.IsFinite(w)))
+                        throw new ArgumentException($"Each variance-df row of part {i} needs {p} finite weights.", nameof(parts));
+
+                int n = fit.FeatureCount;
+                var s2 = new double[n];
+                var df = new double[n];
+                var usable = new List<int>();
+                for (int f = 0; f < n; f++)
+                {
+                    s2[f] = double.NaN;
+                    if (fit.Status[f] != FeatureFitStatus.Fitted) continue;
+                    double d = fit.JointSatterthwaiteDf(f, rows);
+                    if (!(double.IsFinite(d) && d > 0)) continue;
+                    s2[f] = fit.ResidualVariance[f];
+                    df[f] = d;
+                    usable.Add(f);
+                }
+                pooled.Add(new EmpiricalBayes.PooledPart(contrasts, s2, df, usable, fit.Status, (f, w) =>
+                {
+                    double unscaled = 0, estimate = 0;
+                    for (int a = 0; a < p; a++)
+                    {
+                        estimate += w[a] * fit.Coefficient(f, a);
+                        for (int b = 0; b < p; b++) unscaled += w[a] * w[b] * fit.UnscaledCovariance(f, a, b);
+                    }
+                    return new FeatureContrast(estimate, Math.Sqrt(unscaled), fit.Satterthwaite(f, w, out _));
+                }));
+            }
+            return EmpiricalBayes.ModeratePooled(pooled, confidenceLevel);
+        }
+
+        /// <summary>
         /// Huber weights min(1, k / |r / MAD₀(r)|) into <paramref name="weights"/>, MAD₀ = 1.4826 · median |r| (R's
         /// <c>mad(r, 0)</c>). False, leaving the weights as they were, when MAD₀ is zero or not finite: with more than
         /// half the residuals exactly 0 no observation can be scaled (msqrob2 would divide by zero).
@@ -494,7 +637,9 @@ namespace StatisticalModels
             private const double RobustTolerance = 1e-6;
             /// <summary>
             /// The most reweighting rounds. msqrob2 defaults to 1; GR-22 iterates to convergence, which took 7-47 rounds on
-            /// the reference data (47 for one sample_only protein), so the limit is about twice the most seen.
+            /// the reference data (47 for one sample_only protein), so the limit is about twice the most seen. Reweighting
+            /// that has not settled by then falls back to msqrob2's one round (GR-22 amended 2026-11-03): some features with
+            /// few peptides and samples cycle and never settle.
             /// </summary>
             internal const int MaxRobustIterations = 100;
 
@@ -584,11 +729,14 @@ namespace StatisticalModels
                     // msqrob2 1.20.0's .robust_fitting, iterated to convergence (QuantProject GR-22): Huber weights from the
                     // response residuals scaled by their MAD about zero, refit, until the penalised residual sum of squares
                     // changes by at most RobustTolerance relative.
-                    // A feature whose reweighting cannot finish (round limit, failed refit, zero MAD) is NotConverged and
-                    // never reaches moderation, but keeps its rounds and last weights so it can be told from a plain fit.
+                    // Reweighting that does not settle (round limit; a later round's zero MAD or failed refit) falls back to
+                    // msqrob2's default of one round, the first round's weights and fit (GR-22 amended 2026-11-03), and is
+                    // flagged. Only a first round that cannot be formed leaves the feature NotConverged, out of moderation,
+                    // with its rounds and weights kept so it can be told from a plain fit.
                     double sseOld = best.R2;
                     int iteration = 0;
                     bool converged = false;
+                    (double[] Theta, Result Best, double[] Weights)? firstRound = null;
                     while (iteration < _maxRobustIterations)
                     {
                         iteration++;
@@ -600,16 +748,28 @@ namespace StatisticalModels
                         if (!result.Ok) break;
                         theta = next;
                         best = result;
+                        if (iteration == 1) firstRound = (next, result, (double[])_w.Clone());
                         if (Math.Abs(sseOld - best.R2) / sseOld <= RobustTolerance) { converged = true; break; }
                         sseOld = best.R2;
                     }
+                    bool fellBack = !converged && firstRound is not null;
+                    if (fellBack)
+                    {
+                        (theta, best, _w) = firstRound!.Value;
+                        BuildCrossProducts();
+                    }
                     fit.RobustIterationsValues[f] = iteration;
                     fit.RobustConvergedValues[f] = converged;
+                    fit.RobustFellBackValues[f] = fellBack;
                 }
                 var weights = Enumerable.Repeat(double.NaN, _problem.Response.Count).ToArray();
                 for (int i = 0; i < _m; i++) weights[rows[i]] = _w[i];
                 fit.WeightValues[f] = weights;
-                if (_robust && fit.RobustConvergedValues[f] != true) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
+                if (_robust && fit.RobustConvergedValues[f] != true && fit.RobustFellBackValues[f] != true)
+                {
+                    fit.StatusValues[f] = FeatureFitStatus.NotConverged;
+                    return;
+                }
                 double sigma2 = best.R2 / (_m - _p);
                 int p = _common;
                 for (int i = 0; i < p; i++)
@@ -654,6 +814,9 @@ namespace StatisticalModels
                 fit.Jacobians[f] = jac;
                 fit.VarParCovariances[f] = a2;
                 fit.StructureValues[f] = structure;
+                var nuisanceCoefficients = new double[_p - _common];
+                for (int i = 0; i < nuisanceCoefficients.Length; i++) nuisanceCoefficients[i] = best.Beta![_common + i];
+                fit.NuisanceValues[f] = nuisanceCoefficients;
                 fit.StatusValues[f] = FeatureFitStatus.Fitted;
             }
 

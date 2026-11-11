@@ -1,0 +1,4 @@
+contrast	G1:intercept	G1:old	G2:intercept	G2:old	G3:intercept	G3:old
+old_mean	0	0.333333333333333	0	0.333333333333333	0	0.333333333333333
+G1_old	0	1	0	0	0	0
+G3_old	0	0	0	0	0	1

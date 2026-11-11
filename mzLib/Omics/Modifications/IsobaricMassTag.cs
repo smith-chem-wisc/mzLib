@@ -271,5 +271,28 @@ namespace Omics.Modifications
 
             return reporterIonIntensities;
         }
+
+        /// <summary>
+        /// Each reporter ion's signal-to-noise in <paramref name="scan"/>, in the order of <see cref="ReporterIonMzs"/>:
+        /// the intensity <see cref="GetReporterIonIntensities"/> finds for it, as Thermo computes signal-to-noise,
+        /// (intensity - baseline) / (noise - baseline), with the scan's noise and baseline at the reporter ion's m/z
+        /// (<see cref="MsDataScan.GetSignalToNoise"/>). The noise table changes little within the ±<see cref="AbsoluteToleranceValue"/> Da
+        /// a peak may sit from its reporter ion. A reporter ion with no peak gets zero, as its intensity does.
+        /// Null when <see cref="GetReporterIonIntensities"/> gives null, or when the scan has no noise table (an
+        /// ion-trap scan, or a file whose reader gives no noise); NaN for a reporter ion where noise does not exceed baseline.
+        /// </summary>
+        public double[]? GetReporterIonSignalToNoise(MsDataScan? scan)
+        {
+            if (scan == null || !scan.TryGetNoiseAndBaseline(ReporterIonMzs[0], out _, out _)) return null;
+            double[]? intensities = GetReporterIonIntensities(scan.MassSpectrum);
+            if (intensities == null) return null;
+
+            var signalToNoise = new double[intensities.Length];
+            for (int i = 0; i < intensities.Length; i++)
+            {
+                signalToNoise[i] = intensities[i] > 0 ? scan.GetSignalToNoise(ReporterIonMzs[i], intensities[i]) : 0;
+            }
+            return signalToNoise;
+        }
     }
 }

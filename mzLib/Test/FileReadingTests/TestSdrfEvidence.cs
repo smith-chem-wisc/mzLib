@@ -249,6 +249,45 @@ namespace Test.FileReadingTests
             Assert.That(improved["comment[organism part source method]"], Is.EqualTo("rules"));
         }
 
+        private static SdrfEvidence CommunityClaim(string file, string column, string value) =>
+            new(file, "", column, value, "community sdrf", "PXD060431_community_annotated.sdrf.tsv!R2C4", "sdrf", SdrfEvidenceConfidence.Certain);
+
+        [Test]
+        public void ACellFromACommunitySdrfSaysSoAndNamesTheFile()
+        {
+            var draft = SdrfDrafter.Draft(Project(), Files, new[] { CommunityClaim("HumanHFpEF_1.raw", "characteristics[age]", "77Y") });
+
+            var cell = Row(draft, "HumanHFpEF_1.raw").Characteristics!["characteristics[age]"];
+            Assert.That((cell.Value, cell.Source), Is.EqualTo(("77Y", SdrfDraftSource.Community)));
+
+            var doc = SdrfDrafter.ToDocument(draft, "PXD060431");
+            var one = Written(doc, "HumanHFpEF_1.raw");
+            Assert.That(SourceOf(doc, one, "age"), Is.EqualTo("community sdrf"));
+            Assert.That(one["comment[age source reference]"], Is.EqualTo("PXD060431_community_annotated.sdrf.tsv!R2C4"));
+            Assert.That(one["comment[age source method]"], Is.EqualTo("rules"));
+        }
+
+        [Test]
+        public void TheImproverSaysCommunitySdrfToo()
+        {
+            var header = new SdrfHeader(new[] { "source name", "characteristics[organism]", "characteristics[organism part]",
+                "characteristics[biological replicate]", "assay name", "comment[label]", "comment[data file]", "comment[technical replicate]" });
+            var deposited = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "s1", "homo sapiens", "not available", "1", "run 1", "label free sample", "HumanHFpEF_1.raw", "1" })
+            });
+            var draft = SdrfDrafter.Draft(Project(), Files, new[]
+            {
+                CommunityClaim("HumanHFpEF_1.raw", "characteristics[organism part]", "heart"),
+                CommunityClaim("HumanControl_1.raw", "characteristics[organism part]", "liver"),
+            });
+
+            var doc = SdrfImprover.Improve(deposited, draft).Document;
+
+            Assert.That(Written(doc, "HumanHFpEF_1.raw")["comment[organism part source]"], Is.EqualTo("community sdrf"), "a filled gap");
+            Assert.That(SourceOf(doc, Written(doc, "HumanControl_1.raw"), "organism part"), Is.EqualTo("community sdrf"), "a drafted row");
+        }
+
         /// <summary>A row the improver drafts for a file the deposit does not list says "publication" too.</summary>
         [Test]
         public void ADraftedRowsPublicationCellSaysPublication()

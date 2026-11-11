@@ -802,7 +802,7 @@ public sealed class TestMslReader
 						ProductType   = ProductType.y,
 						FragmentNumber = 1,
 						Charge        = 1,
-						NeutralLoss   = -18.010565  // H2O loss
+						NeutralLoss   = 18.010565  // H2O loss
                     }
 				}
 			}
@@ -813,7 +813,7 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		double readLoss = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
-		Assert.That(readLoss, Is.EqualTo(-18.010565).Within(0.001),
+		Assert.That(readLoss, Is.EqualTo(18.010565).Within(0.001),
 			"H2O neutral-loss mass must round-trip from NeutralLossCode.H2O.");
 	}
 

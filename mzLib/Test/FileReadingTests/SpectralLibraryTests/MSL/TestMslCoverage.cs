@@ -208,32 +208,35 @@ public sealed class TestMslCoverage
 		Assert.That(ion.Annotation, Does.Contain("^2+"));
 	}
 
-	/// <summary>Terminal ion with negative (loss) neutral loss appends "-XXXX" suffix.</summary>
+	/// <summary>
+	/// Terminal ion with a loss appends a "-XXXX" suffix. A loss is a positive NeutralLoss,
+	/// as in Product.NeutralLoss.
+	/// </summary>
 	[Test]
-	public void MslFragmentIon_Annotation_NegativeNeutralLoss()
+	public void MslFragmentIon_Annotation_PositiveNeutralLossIsALoss()
 	{
 		var ion = new MslFragmentIon
 		{
 			ProductType = ProductType.b,
 			FragmentNumber = 4,
 			Charge = 1,
-			NeutralLoss = -18.010565
+			NeutralLoss = 18.010565
 		};
-		Assert.That(ion.Annotation, Does.StartWith("b4-"));
+		Assert.That(ion.Annotation, Is.EqualTo("b4-18.0106"));
 	}
 
-	/// <summary>Terminal ion with positive (gain) neutral loss appends "+XXXX" suffix.</summary>
+	/// <summary>Terminal ion with a gain (a negative NeutralLoss) appends a "+XXXX" suffix.</summary>
 	[Test]
-	public void MslFragmentIon_Annotation_PositiveNeutralLoss()
+	public void MslFragmentIon_Annotation_NegativeNeutralLossIsAGain()
 	{
 		var ion = new MslFragmentIon
 		{
 			ProductType = ProductType.y,
 			FragmentNumber = 2,
 			Charge = 1,
-			NeutralLoss = 1.9979
+			NeutralLoss = -1.9979
 		};
-		Assert.That(ion.Annotation, Does.StartWith("y2+"));
+		Assert.That(ion.Annotation, Is.EqualTo("y2+1.9979"));
 	}
 
 	/// <summary>Internal fragment annotation has "I" separator and bracket range.</summary>
@@ -266,7 +269,7 @@ public sealed class TestMslCoverage
 	[Test]
 	public void MslFragmentIon_NeutralLoss_NH3_RoundTrips()
 	{
-		const double nh3Loss = -17.026549;
+		const double nh3Loss = 17.026549;
 		var product = new Product(ProductType.y, FragmentationTerminus.C, 0.0, 3, 0, nh3Loss);
 		var ion = new MatchedFragmentIon(product, 374.2, 0.6f, 1);
 		var spectrum = new LibrarySpectrum("ALGVGLATR", 429.26, 2,
@@ -279,7 +282,7 @@ public sealed class TestMslCoverage
 	[Test]
 	public void MslFragmentIon_NeutralLoss_H3PO4_RoundTrips()
 	{
-		const double phosphoLoss = -97.976895;
+		const double phosphoLoss = 97.976895;
 		var product = new Product(ProductType.y, FragmentationTerminus.C, 0.0, 4, 0, phosphoLoss);
 		var ion = new MatchedFragmentIon(product, 355.1, 0.4f, 1);
 		var spectrum = new LibrarySpectrum("PEPTIDE", 449.74, 2,
@@ -292,7 +295,7 @@ public sealed class TestMslCoverage
 	[Test]
 	public void MslFragmentIon_NeutralLoss_HPO3_RoundTrips()
 	{
-		const double hpo3Loss = -79.966331;
+		const double hpo3Loss = 79.966331;
 		var product = new Product(ProductType.y, FragmentationTerminus.C, 0.0, 4, 0, hpo3Loss);
 		var ion = new MatchedFragmentIon(product, 373.1, 0.3f, 1);
 		var spectrum = new LibrarySpectrum("PEPTIDE", 449.74, 2,
