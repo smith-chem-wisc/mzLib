@@ -882,6 +882,9 @@
     <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\msl_written_by_1.0.597.msl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

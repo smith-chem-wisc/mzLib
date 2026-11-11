@@ -652,6 +652,36 @@ namespace Test.FileReadingTests
             Assert.That(design.Files.Select(f => f.Condition).Distinct(), Is.EquivalentTo(new[] { "A", "B", "P", "Q" }));
         }
 
+        /// <summary>
+        /// A joined condition is written with one source and one method, so its parts must agree on both. Here one file's
+        /// genotype was read from its name and its treatment from a paper. Joining them would label the whole value as read
+        /// from the name, while citing the paper. So the columns stay as they were.
+        /// </summary>
+        [Test]
+        public void PartsReadFromDifferentSourcesAreNotJoinedIntoOneCondition()
+        {
+            static SdrfDraftCell Na() => SdrfDraftCell.NotAvailable("nothing states it");
+            static SdrfDraftCell Name(string v) => new(v, SdrfDraftSource.Inferred, "a slot of the file name");
+            static SdrfDraftCell Paper(string v) => new(v, SdrfDraftSource.Publication, "the paper's sample table", Reference: "Table 1", Method: "model");
+            static SdrfDraftRow R(string file, params SdrfDraftCell[] factors) => new(file, Na(), Na(), Na(), Na(), Na(), Na(), Na(), Na(), factors);
+            var draft = new SdrfDraft(new[]
+            {
+                R("WT_1.raw", Name("WT"), Paper("drug")),
+                R("WT_2.raw", Name("WT"), Na()),
+                R("KO_1.raw", Name("KO"), Paper("drug")),
+                R("B_1.raw", Na(), Name("B")),
+            }, new[] { "factor value[genotype]", "factor value[treatment]" });
+
+            var d = SdrfDrafter.OneConditionColumnWhereColumnsLeaveBlanks(draft);
+
+            Assert.That(d.FactorColumns, Is.EqualTo(draft.FactorColumns), "the columns stay as they were");
+            Assert.That(Row(d, "WT_1.raw").Factors.Select(f => f.Source), Is.EqualTo(new[] { SdrfDraftSource.Inferred, SdrfDraftSource.Publication }));
+
+            // The control: the same draft with every part read from names is joined, as before.
+            var named = draft with { Rows = draft.Rows.Select(r => r with { Factors = r.Factors.Select(f => f.Source == SdrfDraftSource.Publication ? Name(f.Value) : f).ToList() }).ToList() };
+            Assert.That(SdrfDrafter.OneConditionColumnWhereColumnsLeaveBlanks(named).FactorColumns, Is.EqualTo(new[] { "factor value[condition]" }));
+        }
+
         [TestCase("Blank_1.raw", "Blank_2.raw")]
         [TestCase("QC_01.raw", "QC_02.raw", "QC_03.raw")]
         public void ARunOutsideTheFactorFamilyHasNotAvailableFactorCells(params string[] extra)
