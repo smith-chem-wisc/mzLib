@@ -44,9 +44,17 @@ namespace Readers
 
         /// <summary>
         /// The <c>factor value[...]</c> columns the condition is built from, exactly as
-        /// <see cref="SdrfLabelFreeDesignOptions.ConditionColumns"/> (MAP-07).
+        /// <see cref="SdrfLabelFreeDesignOptions.ConditionColumns"/> (MAP-07): leave null or empty to build it from every
+        /// factor value column.
         /// </summary>
         public IReadOnlyList<string>? ConditionColumns { get; init; }
+
+        /// <summary>The one condition every channel belongs to, when the user states it, exactly as
+        /// <see cref="SdrfLabelFreeDesignOptions.SingleCondition"/> (QP-S42 b).</summary>
+        public string? SingleCondition { get; init; }
+
+        /// <summary>Exactly as <see cref="SdrfLabelFreeDesignOptions.UnknownFactorIsOwnCondition"/> (QP-S44), per channel.</summary>
+        public bool UnknownFactorIsOwnCondition { get; init; }
 
         /// <summary>
         /// The files the search will read, exactly as <see cref="SdrfLabelFreeDesignOptions.SearchedFiles"/>:
@@ -164,14 +172,16 @@ namespace Readers
 
         private readonly List<SdrfIsobaricFile> _files;
 
+        private readonly SdrfDesignRules.ConditionRule _condition;
+
         private SdrfIsobaricDesign(List<SdrfIsobaricFile> files, List<string> refusals, List<string> notes,
-            string? fileKeyColumn, List<string> conditionColumns, string plexSource, IsobaricMassTag? tag)
+            string? fileKeyColumn, SdrfDesignRules.ConditionRule condition, string plexSource, IsobaricMassTag? tag)
         {
             _files = files;
             Refusals = refusals;
             Notes = notes;
             FileKeyColumn = fileKeyColumn;
-            ConditionColumns = conditionColumns;
+            _condition = condition;
             PlexSource = plexSource;
             Tag = tag;
         }
@@ -191,8 +201,11 @@ namespace Readers
         /// <summary>The column the files were keyed on (MAP-12), or null when neither was present.</summary>
         public string? FileKeyColumn { get; }
 
-        /// <summary>The factor columns the condition was built from, in join order.</summary>
-        public IReadOnlyList<string> ConditionColumns { get; }
+        /// <summary>The factor columns the condition was built from, in join order. Empty with a stated single condition.</summary>
+        public IReadOnlyList<string> ConditionColumns => _condition.Columns;
+
+        /// <summary>The one condition every channel belongs to, when the caller stated it; else null.</summary>
+        public string? SingleCondition => _condition.SingleCondition;
 
         /// <summary>Where the plex was read from, as the report prints it.</summary>
         public string PlexSource { get; }
@@ -299,7 +312,7 @@ namespace Readers
                 : $"Isobaric design REFUSED: {Refusals.Count} reason(s). No design was produced.");
             report.AppendLine($"Files keyed on: {FileKeyColumn ?? "(none)"}");
             report.AppendLine($"Plex from: {PlexSource}");
-            report.AppendLine($"Condition from: {(ConditionColumns.Count == 0 ? "(none)" : string.Join(" + ", ConditionColumns))}");
+            report.AppendLine($"Condition from: {_condition.Description}");
             if (IsValid)
             {
                 var plexIds = PlexIds;
@@ -359,21 +372,22 @@ namespace Readers
                     refusals.Add($"The SDRF has no '{column}' column, which every channel needs.");
             }
 
-            var conditionColumns = SdrfDesignRules.ResolveConditionColumns(header, options.ConditionColumns, refusals);
-            bool conditionDeclared = options.ConditionColumns is { Count: > 0 };
+            var condition = SdrfDesignRules.ResolveConditionColumns(header, rows, options.ConditionColumns,
+                options.SingleCondition, options.UnknownFactorIsOwnCondition, refusals, notes);
+            var keptUnknown = new List<(string Column, string Value, string FileName)>();
 
             if (rows.Count == 0)
                 refusals.Add("The SDRF has no rows.");
 
             if (refusals.Count > 0)
-                return Refused(refusals, notes, keyColumn, conditionColumns, plexReader, tag);
+                return Refused(refusals, notes, keyColumn, condition, plexReader, tag);
 
             Dictionary<string, string>? searchedByName = null;
             if (options.SearchedFiles != null)
             {
                 searchedByName = SdrfDesignRules.IndexSearchedFiles(options.SearchedFiles, refusals);
                 if (refusals.Count > 0)
-                    return Refused(refusals, notes, keyColumn, conditionColumns, plexReader, tag);
+                    return Refused(refusals, notes, keyColumn, condition, plexReader, tag);
             }
 
             var parsed = new List<ParsedRow>();
@@ -400,13 +414,15 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, fileName, keyColumn!, tag!, plexReader!, conditionColumns, conditionDeclared,
-                    cleared, refusals);
+                var row = ParseRow(rows[i], line, fileName, keyColumn!, tag!, plexReader!, condition,
+                    cleared, refusals, keptUnknown);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
                     unreadFiles.Add(fileName);
             }
+
+            SdrfDesignRules.NoteKeptUnknownFactorValues(keptUnknown, notes);
 
             NumberPooledReferences(parsed, tag!, notes);
             NoteDisagreeingReferenceSignals(parsed, notes);
@@ -420,7 +436,7 @@ namespace Readers
                 SdrfDesignRules.RefuseSearchedFilesWithoutRows(parsed.Select(r => r.FileName), unreadFiles, dropped, searchedByName, refusals);
 
             if (refusals.Count > 0)
-                return Refused(refusals, notes, keyColumn, conditionColumns, plexReader, tag);
+                return Refused(refusals, notes, keyColumn, condition, plexReader, tag);
 
             var files = new List<SdrfIsobaricFile>();
             foreach (var file in parsed.GroupBy(r => r.FileName, StringComparer.Ordinal))
@@ -446,12 +462,12 @@ namespace Readers
                 });
             }
 
-            return new SdrfIsobaricDesign(files, refusals, notes, keyColumn, conditionColumns, plexReader!.Description, tag);
+            return new SdrfIsobaricDesign(files, refusals, notes, keyColumn, condition, plexReader!.Description, tag);
         }
 
         private static SdrfIsobaricDesign Refused(List<string> refusals, List<string> notes, string? keyColumn,
-            List<string> conditionColumns, PlexReader? plexReader, IsobaricMassTag? tag) =>
-            new(new List<SdrfIsobaricFile>(), refusals, notes, keyColumn, conditionColumns,
+            SdrfDesignRules.ConditionRule condition, PlexReader? plexReader, IsobaricMassTag? tag) =>
+            new(new List<SdrfIsobaricFile>(), refusals, notes, keyColumn, condition,
                 plexReader?.Description ?? "(not declared)", tag);
 
         private sealed class ParsedRow
@@ -479,8 +495,9 @@ namespace Readers
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string fileName, string keyColumn, IsobaricMassTag tag,
-            PlexReader plexReader, List<string> conditionColumns, bool conditionDeclared,
-            SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals)
+            PlexReader plexReader, SdrfDesignRules.ConditionRule condition,
+            SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals,
+            List<(string Column, string Value, string FileName)> keptUnknown)
         {
             int before = refusals.Count;
             string where = $"Line {line}{SdrfDesignRules.Describe(fileName)}";
@@ -510,7 +527,7 @@ namespace Readers
             var (roleSignals, preparationSignals, studySampleSignals) =
                 SdrfDesignRules.ReadReferenceSignals(row, label == null ? null : cell => NamesChannel(cell, label, tag));
             var referenceSignals = cleared.Kept(roleSignals, preparationSignals);
-            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, condition, refusals, keptUnknown,
                 isReference: referenceSignals.Count > 0);
             string? plex = plexReader.Read(row, fileName, where, refusals);
 

@@ -37,10 +37,24 @@ namespace Readers
         /// <c>genotype</c> means <c>factor value[genotype]</c>, as MetaMorpheus's <c>--sdrfCondition</c> reads it.
         /// The <c>factor value[</c> prefix is matched in any case and written as the specification names it. Any
         /// other name holding a <c>[</c>, such as <c>characteristics[cell type]</c>, is used as given. Otherwise
-        /// as <see cref="SdrfLabelFreeDesignOptions.ConditionColumns"/>: leave null or empty to use the document's
-        /// only factor column.
+        /// as <see cref="SdrfLabelFreeDesignOptions.ConditionColumns"/>: leave null or empty to build it from every
+        /// factor value column, in the document's order.
         /// </summary>
         public IReadOnlyList<string>? ConditionColumns { get; init; }
+
+        /// <summary>
+        /// The one condition every sample belongs to, when the user states it, as
+        /// <see cref="SdrfLabelFreeDesignOptions.SingleCondition"/> (ruled 2026-11-11, QP-S42 b): never assumed, and not
+        /// given with <see cref="ConditionColumns"/>.
+        /// </summary>
+        public string? SingleCondition { get; init; }
+
+        /// <summary>
+        /// The user states that files whose condition cell is <c>not available</c>, <c>not applicable</c> or blank are a
+        /// condition of their own, as <see cref="SdrfLabelFreeDesignOptions.UnknownFactorIsOwnCondition"/> (ruled
+        /// 2026-11-11, QP-S44). Without it they are refused.
+        /// </summary>
+        public bool UnknownFactorIsOwnCondition { get; init; }
 
         /// <summary>
         /// Optional: searched file (as given) -> the acquired file it came from, when the caller knows it. Passed to
@@ -203,8 +217,8 @@ namespace Readers
         /// <param name="sdrf">The SDRF.</param>
         /// <param name="searchedFiles">The files the search will read, as paths or bare names, exactly as the search
         /// names them (a calibrated search names its <c>-calib.mzML</c> files).</param>
-        /// <param name="options">The kit, plex source and condition columns; null for a label-free search with the
-        /// document's only factor column.</param>
+        /// <param name="options">The kit, plex source and how the condition is built; null for a label-free search whose
+        /// condition is built from every factor value column.</param>
         public static SdrfSearchDesign Read(SdrfDocument sdrf, IEnumerable<string> searchedFiles, SdrfSearchDesignOptions? options = null)
         {
             if (sdrf == null)
@@ -260,6 +274,8 @@ namespace Readers
                     PlexFileNamePattern = options.PlexFileNamePattern,
                     SinglePlex = options.SinglePlex,
                     ConditionColumns = conditionColumns,
+                    SingleCondition = options.SingleCondition,
+                    UnknownFactorIsOwnCondition = options.UnknownFactorIsOwnCondition,
                     SearchedFiles = searched,
                 });
                 return new SdrfSearchDesign(null, isobaric, scoping, new List<string>(), notes, joinReport);
@@ -268,6 +284,8 @@ namespace Readers
             var labelFree = SdrfLabelFreeDesign.Read(scoped, new SdrfLabelFreeDesignOptions
             {
                 ConditionColumns = conditionColumns,
+                SingleCondition = options.SingleCondition,
+                UnknownFactorIsOwnCondition = options.UnknownFactorIsOwnCondition,
                 SearchedFiles = searched,
             });
             return new SdrfSearchDesign(labelFree, null, scoping, new List<string>(), notes, joinReport);

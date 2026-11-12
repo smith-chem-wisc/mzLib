@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Readers
 {
@@ -160,66 +161,311 @@ namespace Readers
             return string.IsNullOrWhiteSpace(cell) ? string.Empty : Path.GetFileName(cell.Trim());
         }
 
-        // MAP-07 as amended by QP-S14: the declared columns, in order; else the only factor column.
-        internal static List<string> ResolveConditionColumns(SdrfHeader header, IReadOnlyList<string>? declared,
-            List<string> refusals)
+        /// <summary>How a design's condition was chosen, which decides what a refusal offers as the way on.</summary>
+        internal enum ConditionSource
+        {
+            /// <summary>The caller declared the columns.</summary>
+            Declared,
+            /// <summary>None was declared and the SDRF has one factor value column.</summary>
+            OnlyColumn,
+            /// <summary>None was declared and the SDRF has several factor value columns: all of them (QP-S42 c).</summary>
+            EveryColumn,
+            /// <summary>The caller stated that every sample is one condition (QP-S42 b).</summary>
+            Stated,
+            /// <summary>No condition could be chosen; the design is refused.</summary>
+            None,
+        }
+
+        /// <summary>
+        /// How a design's condition is built (MAP-07, as amended by QP-S14 and by the rulings of 2026-11-11, QP-S42 to
+        /// QP-S44): the columns whose values are joined, or the one condition the caller stated, and whether a factor
+        /// value nobody stated is kept as a level of its own.
+        /// </summary>
+        internal sealed class ConditionRule
+        {
+            internal ConditionRule(List<string> columns, ConditionSource source, string? singleCondition, bool unknownIsOwnCondition)
+            {
+                Columns = columns;
+                Source = source;
+                SingleCondition = singleCondition;
+                UnknownIsOwnCondition = unknownIsOwnCondition;
+            }
+
+            /// <summary>The columns read, in join order. Empty when the condition was stated or none could be chosen.</summary>
+            internal List<string> Columns { get; }
+
+            internal ConditionSource Source { get; }
+
+            /// <summary>The one condition every sample belongs to, when the caller stated it; else null.</summary>
+            internal string? SingleCondition { get; }
+
+            /// <summary>The caller stated that a factor value nobody stated is a level of its own (QP-S44).</summary>
+            internal bool UnknownIsOwnCondition { get; }
+
+            /// <summary>The report's "Condition from" line.</summary>
+            internal string Description => SingleCondition != null
+                ? $"one condition, '{SingleCondition}', as stated"
+                : Columns.Count == 0 ? "(none)" : string.Join(" + ", Columns);
+        }
+
+        /// <summary>The <c>not available</c> a blank factor value is kept as, when the caller states such files are their own condition.</summary>
+        internal const string BlankFactorValue = "not available";
+
+        // sdrf's census (2026-11-07) leaves these out of "condition-like": they differ between the replicates of one group
+        // by nature. Used only to point a refusal at what might be the groups, never to build one.
+        private static readonly Regex ReplicateLevelCharacteristic = new(
+            @"replicate|pooled sample|sample type|individual|\[sex\]|\[age\]|ancestry|cell identifier|sample id|biosample|mass\]|" +
+            @"weight|bmi|height|ethnicity|race|sample (name|number)|patient|donor|subject|animal",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// Chooses how the condition is built (MAP-07): the declared columns, in order; else the only factor value column;
+        /// else every factor value column, in the SDRF's order, with a note (QP-S42 c). With no factor value column and
+        /// none declared, the design is refused, and the refusal names any condition-like characteristic that differs
+        /// between <paramref name="rows"/> (QP-S42 b). A stated single condition makes every sample that condition and
+        /// sets every factor value column aside, with a note naming them (ruled 2026-11-11); it cannot be given with
+        /// declared columns.
+        /// </summary>
+        internal static ConditionRule ResolveConditionColumns(SdrfHeader header, IReadOnlyList<SdrfRow> rows,
+            IReadOnlyList<string>? declared, string? singleCondition, bool unknownIsOwnCondition,
+            List<string> refusals, List<string> notes)
         {
             var factorColumns = header
                 .Where(name => name.StartsWith(SdrfLabelFreeDesign.FactorValuePrefix, StringComparison.Ordinal))
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
+            string factorList = string.Join(", ", factorColumns.Select(c => $"'{c}'"));
             string available = factorColumns.Count == 0
                 ? "the SDRF has no factor value columns"
-                : "its factor value columns are " + string.Join(", ", factorColumns.Select(c => $"'{c}'"));
+                : "its factor value columns are " + factorList;
+            bool declaredAny = declared != null && declared.Count > 0;
 
-            if (declared != null && declared.Count > 0)
+            if (singleCondition != null)
             {
-                var missing = declared.Where(c => !header.Contains(c)).ToList();
+                string name = singleCondition.Trim();
+                if (name.Length == 0)
+                {
+                    refusals.Add("The single condition is blank. Name the one condition every sample belongs to.");
+                    return new ConditionRule(new List<string>(), ConditionSource.None, null, unknownIsOwnCondition);
+                }
+
+                if (declaredAny)
+                {
+                    refusals.Add($"Condition columns ({string.Join(", ", declared!.Select(c => $"'{c}'"))}) and a single condition " +
+                                 $"('{name}') were both given. Give one: the columns build the condition from the SDRF, and a " +
+                                 "single condition makes every sample one condition.");
+                    return new ConditionRule(new List<string>(), ConditionSource.None, null, unknownIsOwnCondition);
+                }
+
+                if (factorColumns.Count > 0)
+                    notes.Add($"Every sample is condition '{name}', as stated, so the SDRF's factor value column(s) {factorList} " +
+                              "are set aside.");
+                return new ConditionRule(new List<string>(), ConditionSource.Stated, name, unknownIsOwnCondition);
+            }
+
+            if (declaredAny)
+            {
+                var missing = declared!.Where(c => !header.Contains(c)).ToList();
                 foreach (var column in missing)
                     refusals.Add($"The declared condition column '{column}' is not in the SDRF; {available}.");
 
-                var repeated = declared.GroupBy(c => c, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key);
+                var repeated = declared!.GroupBy(c => c, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key);
                 foreach (var column in repeated)
                     refusals.Add($"The condition column '{column}' is declared more than once.");
 
-                return declared.ToList();
+                return new ConditionRule(declared!.ToList(), ConditionSource.Declared, null, unknownIsOwnCondition);
             }
 
             if (factorColumns.Count == 1)
-                return factorColumns;
+                return new ConditionRule(factorColumns, ConditionSource.OnlyColumn, null, unknownIsOwnCondition);
 
-            refusals.Add(factorColumns.Count == 0
-                ? "No condition: the SDRF has no factor value columns and none was declared. Declare the column(s) the condition is built from."
-                : $"Several factor value columns and none declared ({string.Join(", ", factorColumns.Select(c => $"'{c}'"))}). " +
-                  "Declare which of them make up the condition; using all of them could split conditions on a nuisance factor.");
-            return new List<string>();
+            if (factorColumns.Count > 1)
+            {
+                notes.Add($"No condition column was declared, so the condition is built from every factor value column, in the " +
+                          $"SDRF's order: {string.Join(" + ", factorColumns.Select(c => $"'{c}'"))}. Declare the column(s) to " +
+                          "build it from fewer.");
+                return new ConditionRule(factorColumns, ConditionSource.EveryColumn, null, unknownIsOwnCondition);
+            }
+
+            refusals.Add("No condition: the SDRF has no factor value columns and none was declared." +
+                         DifferingCharacteristics(header, rows) +
+                         " Declare the column(s) the condition is built from, or state that every sample is one condition " +
+                         "(SingleCondition).");
+            return new ConditionRule(new List<string>(), ConditionSource.None, null, unknownIsOwnCondition);
         }
 
         /// <summary>
-        /// Reads one row's factor values for the condition (MAP-07). An empty or unknown value is a
-        /// refusal (SDRF-P1), and the refusal names its remedy, which depends on how the column was chosen.
-        /// A pooled reference's unknown value (a pool of every condition says <c>not applicable</c>) is kept as written:
-        /// a reference is in no comparison, so its condition pairs it with nothing, and a pool is never refused (GR-20).
+        /// The condition-like characteristics whose stated values differ between the rows, for the no-condition refusal
+        /// (QP-S42 b): " These characteristics differ between the samples, so they may be what tells the groups apart:
+        /// ...", or empty when none does. Unknown words and blanks are not values. A guide for the reader of the refusal
+        /// only: the groups are never built from it.
         /// </summary>
-        internal static List<string> ReadFactorValues(SdrfRow row, int line, string fileName, List<string> conditionColumns,
-            bool conditionDeclared, List<string> refusals, bool isReference = false)
+        private static string DifferingCharacteristics(SdrfHeader header, IReadOnlyList<SdrfRow> rows)
         {
+            var differing = new List<string>();
+            foreach (var column in header
+                         .Where(name => name.StartsWith("characteristics[", StringComparison.OrdinalIgnoreCase)
+                                        && !ReplicateLevelCharacteristic.IsMatch(name))
+                         .Distinct(StringComparer.Ordinal))
+            {
+                var values = rows
+                    .Select(r => (r[column] ?? string.Empty).Trim())
+                    .Where(v => v.Length > 0 && !IsUnknownWord(v))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (values.Count < 2)
+                    continue;
+                differing.Add($"'{column}' ({string.Join(", ", values.Take(3))}" +
+                              (values.Count > 3 ? $", and {values.Count - 3} more" : string.Empty) + ")");
+            }
+
+            return differing.Count == 0
+                ? string.Empty
+                : " These characteristics differ between the samples, so they may be what tells the groups apart: " +
+                  string.Join("; ", differing) + ".";
+        }
+
+        /// <summary>
+        /// Reads one row's factor values for the condition (MAP-07); with a stated single condition, that condition is
+        /// the row's only value. An empty or unknown value is a refusal (SDRF-P1), and the refusal names its remedy, which
+        /// depends on how the column was chosen, unless the caller stated that such files are a condition of their own
+        /// (QP-S44): then the value is kept as a level (a blank as <c>not available</c>) and recorded in
+        /// <paramref name="keptUnknown"/> for one note. A pooled reference's unknown value (a pool of every condition says
+        /// <c>not applicable</c>) is kept as written: a reference is in no comparison, so its condition pairs it with
+        /// nothing, and a pool is never refused (GR-20).
+        /// </summary>
+        internal static List<string> ReadFactorValues(SdrfRow row, int line, string fileName, ConditionRule condition,
+            List<string> refusals, List<(string Column, string Value, string FileName)> keptUnknown, bool isReference = false)
+        {
+            if (condition.SingleCondition != null)
+                return new List<string> { condition.SingleCondition };
+
             var factorValues = new List<string>();
-            foreach (var column in conditionColumns)
+            foreach (var column in condition.Columns)
             {
                 string value = (row[column] ?? string.Empty).Trim();
                 if (value.Length == 0)
-                    refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is empty.");
+                {
+                    if (condition.UnknownIsOwnCondition)
+                    {
+                        keptUnknown.Add((column, string.Empty, fileName));
+                        value = BlankFactorValue;
+                    }
+                    else
+                        refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is empty. Fill it in, or state that files whose " +
+                                     "factor nobody stated are a condition of their own (UnknownFactorIsOwnCondition).");
+                }
                 else if (IsUnknownWord(value) && !isReference)
-                    refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is '{value}'. A condition cannot be built from an unknown " +
-                                 (conditionDeclared
-                                     ? "factor; fill it in, or leave the column out of the declared condition columns to pool these rows."
-                                     : "factor. It was used because it is the only factor value column and none was declared; " +
-                                       "fill it in, or declare the column(s) the condition should be built from instead."));
+                {
+                    if (condition.UnknownIsOwnCondition)
+                        keptUnknown.Add((column, value, fileName));
+                    else
+                        refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is '{value}'. A condition cannot be built from an unknown " +
+                                     condition.Source switch
+                                     {
+                                         ConditionSource.Declared =>
+                                             "factor; fill it in, leave the column out of the declared condition columns to pool these rows, ",
+                                         ConditionSource.EveryColumn =>
+                                             "factor. It was used because none was declared, so every factor value column makes the " +
+                                             "condition; fill it in, declare the column(s) the condition should be built from instead, ",
+                                         _ =>
+                                             "factor. It was used because it is the only factor value column and none was declared; " +
+                                             "fill it in, declare the column(s) the condition should be built from instead, ",
+                                     } +
+                                     "or state that files whose factor nobody stated are a condition of their own (UnknownFactorIsOwnCondition).");
+                }
                 factorValues.Add(value);
             }
 
             return factorValues;
+        }
+
+        /// <summary>
+        /// One note per column and value for the factor values kept as a level of their own, as the caller stated (QP-S44),
+        /// naming the files, so a condition called <c>not available</c> is never a surprise in the output.
+        /// </summary>
+        internal static void NoteKeptUnknownFactorValues(List<(string Column, string Value, string FileName)> keptUnknown,
+            List<string> notes)
+        {
+            foreach (var group in keptUnknown
+                         .GroupBy(k => (k.Column, Value: k.Value.ToLowerInvariant()))
+                         .OrderBy(g => g.Key.Column, StringComparer.Ordinal).ThenBy(g => g.Key.Value, StringComparer.Ordinal))
+            {
+                var files = group.Select(k => k.FileName).Distinct(StringComparer.Ordinal).ToList();
+                string what = group.Key.Value.Length == 0
+                    ? $"is empty for {files.Count} file(s), written '{BlankFactorValue}' and"
+                    : $"is '{group.First().Value}' for {files.Count} file(s),";
+                notes.Add($"'{group.Key.Column}' {what} kept as a level of its own, as stated, so those files make a condition of " +
+                          $"their own: {string.Join(", ", files.Take(10).Select(f => $"'{f}'"))}" +
+                          (files.Count > 10 ? $", and {files.Count - 10} more." : "."));
+            }
+        }
+
+        // QP-S45 (ruled 2026-11-11): the words before a number that make a file name read like a fraction, or like a repeat
+        // injection, of one sample. sdrf's census (2026-11-07) used the same families; 'b' alone is left out, being as often
+        // a batch or a biological replicate as a band.
+        private static readonly HashSet<string> FractionWords = new(StringComparer.OrdinalIgnoreCase)
+            { "f", "fr", "fx", "frac", "fraction", "band", "slice", "gel", "scx", "sax", "hprp", "hph", "hilic", "sec", "ief" };
+        private static readonly HashSet<string> RepeatInjectionWords = new(StringComparer.OrdinalIgnoreCase)
+            { "r", "rep", "replicate", "run", "inj", "injection", "tr", "tech", "techrep" };
+        private static readonly Regex NameToken = new(@"\d+|[A-Za-z]+|[^A-Za-z\d]+", RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// A hint for files refused for sharing one condition, replicate, fraction and technical replicate (QP-S45, ruled
+        /// 2026-11-11): when their names differ only by one number, and the word before it reads like a fraction (F02,
+        /// F03) or a repeat injection (rep1, rep2), or the number ends the name after a hyphen (-01, -02), the hint says
+        /// so and names the column that tells them apart. Null otherwise. A guess from names, so it is only ever a hint,
+        /// never a renumbering.
+        /// </summary>
+        internal static string? SharedReplicateHint(IReadOnlyList<string> fileNames)
+        {
+            var tokens = fileNames
+                .Select(f => NameToken.Matches(Path.GetFileNameWithoutExtension(f)).Select(m => m.Value).ToList())
+                .ToList();
+            if (tokens.Count < 2 || tokens.Any(t => t.Count != tokens[0].Count))
+                return null;
+
+            int differing = -1;
+            for (int k = 0; k < tokens[0].Count; k++)
+            {
+                if (tokens.All(t => string.Equals(t[k], tokens[0][k], StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                if (differing >= 0 || !tokens.All(t => char.IsDigit(t[k][0])))
+                    return null;
+                differing = k;
+            }
+            if (differing < 0)
+                return null;
+            var numbers = tokens.Select(t => t[differing].TrimStart('0')).ToList();
+            if (numbers.Distinct(StringComparer.Ordinal).Count() != numbers.Count)
+                return null;
+
+            // The word right before the number, directly (F02) or across one '_' or '-' (rep_1, X-01).
+            var first = tokens[0];
+            string separator = differing >= 1 && !char.IsLetterOrDigit(first[differing - 1][0]) ? first[differing - 1] : string.Empty;
+            int wordAt = separator.Length == 0 ? differing - 1 : differing - 2;
+            string word = wordAt >= 0 && char.IsLetter(first[wordAt][0]) && (separator.Length == 0 || separator is "_" or "-")
+                ? first[wordAt]
+                : string.Empty;
+            int digits = tokens.Max(t => t[differing].Length);
+
+            string column;
+            string kind;
+            string shownWord;
+            if (FractionWords.Contains(word) && digits <= 3)
+                (column, kind, shownWord) = (SdrfLabelFreeDesign.FractionColumn, "a fraction", word);
+            else if (RepeatInjectionWords.Contains(word) && digits <= 2)
+                (column, kind, shownWord) = (SdrfLabelFreeDesign.TechnicalReplicateColumn, "a repeat injection", word);
+            else if (separator == "-" && differing == first.Count - 1 && digits <= 2)
+                (column, kind, shownWord) = (SdrfLabelFreeDesign.TechnicalReplicateColumn, "a repeat injection", string.Empty);
+            else
+                return null;
+
+            string examples = string.Join(", ", tokens.Take(3).Select(t =>
+                $"'{(shownWord.Length > 0 ? t[wordAt] : string.Empty)}{separator}{t[differing]}'"));
+            string plural = kind == "a fraction" ? "fractions" : "repeat injections";
+            return $"Their names differ only by a number that reads like {kind} ({examples}): if they are {plural} of one sample, " +
+                   $"give each its '{column}'.";
         }
 
         /// <summary>The condition a row's factor values make: joined with <c>_</c> in declared order.</summary>
