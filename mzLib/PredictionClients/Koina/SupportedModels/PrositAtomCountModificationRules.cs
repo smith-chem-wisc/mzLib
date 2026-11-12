@@ -32,9 +32,9 @@ namespace PredictionClients.Koina.SupportedModels;
 ///      It refuses the pair when the residue has no attachment group (<see cref="AttachmentGroups"/>), when the
 ///      composition holds an element other than H C N O P S or a symbol it cannot read, or when gain has a negative
 ///      atom count.
-/// Koina's parser gives both termini the empty residue (modifications.py, ProformaParser.parse_sequence), so an
-/// N-terminal and a C-terminal modification with the same id share one table row ("_1") and one attachment group.
-/// That is why C-terminal tokens are accepted here: "PEPTIDEK-[UNIMOD:34]" and "-[UNIMOD:1]" return 200 live.
+/// zero_shot.py (lines 11-12) leaves the C-terminus unsupported, so C-terminal tokens are refused here. Koina's parser
+/// gives both termini the empty residue (modifications.py, ProformaParser.parse_sequence), so a C-terminal modification
+/// is encoded with the N-terminal table row ("_1") and attachment group, and "PEPTIDEK-[UNIMOD:34]" returns 200 anyway.
 ///
 /// Tokens are written as KoinaModelBase writes them: "E[UNIMOD:954]" on a residue, "[UNIMOD:1]-" on the N-terminus
 /// and "-[UNIMOD:2]" on the C-terminus.
@@ -45,7 +45,8 @@ namespace PredictionClients.Koina.SupportedModels;
 /// against the sha above and regenerate. The script read the two tables, dict_attachment_loss and parse_composition's
 /// constants with Python's ast.literal_eval (it never ran Koina's code), applied the same parsing to each
 /// delta_composition in unimod.obo, and compared the result with mzLib's Omics/Resources/unimod.xml.
-/// A check against every (position, id) pair for mzLib's 1,560 UNIMOD ids, 34,408 tokens, agreed with this class on all.
+/// A check against every (position, id) pair for mzLib's 1,560 UNIMOD ids agreed with this class on every N-terminal and
+/// residue pair.
 /// </remarks>
 internal static class PrositAtomCountModificationRules
 {
@@ -58,7 +59,7 @@ internal static class PrositAtomCountModificationRules
 
     /// <summary>
     /// The trained pairs, from the keys of dict_ptm_atom_count_gain (the same keys as dict_ptm_atom_count_loss).
-    /// A terminal key "_N" gives both "[UNIMOD:N]-" and "-[UNIMOD:N]". K_12118, K_19903 and K_129317 are left out,
+    /// A terminal key "_N" is the N-terminal token "[UNIMOD:N]-". K_12118, K_19903 and K_129317 are left out,
     /// because those ids are not in unimod.obo and fail the lookup. K_5634 stays: lookup_sequence_m skips the lookup
     /// for UNIMOD:5634.
     /// </summary>
@@ -71,8 +72,7 @@ internal static class PrositAtomCountModificationRules
         "K[UNIMOD:2016]", "K[UNIMOD:5634]", "L[UNIMOD:34]", "M[UNIMOD:35]", "N[UNIMOD:7]", "N[UNIMOD:34]", "P[UNIMOD:21]", "P[UNIMOD:35]",
         "Q[UNIMOD:7]", "Q[UNIMOD:28]", "Q[UNIMOD:34]", "R[UNIMOD:7]", "R[UNIMOD:34]", "R[UNIMOD:36]", "R[UNIMOD:267]", "S[UNIMOD:21]",
         "S[UNIMOD:43]", "T[UNIMOD:21]", "T[UNIMOD:43]", "W[UNIMOD:35]", "Y[UNIMOD:21]", "[UNIMOD:1]-", "[UNIMOD:58]-", "[UNIMOD:59]-",
-        "[UNIMOD:214]-", "[UNIMOD:411]-", "[UNIMOD:730]-", "[UNIMOD:737]-", "[UNIMOD:2016]-", "-[UNIMOD:1]", "-[UNIMOD:58]", "-[UNIMOD:59]",
-        "-[UNIMOD:214]", "-[UNIMOD:411]", "-[UNIMOD:730]", "-[UNIMOD:737]", "-[UNIMOD:2016]",
+        "[UNIMOD:214]-", "[UNIMOD:411]-", "[UNIMOD:730]-", "[UNIMOD:737]-", "[UNIMOD:2016]-",
     };
 
     /// <summary>
@@ -171,12 +171,10 @@ internal static class PrositAtomCountModificationRules
     /// </summary>
     private static string? RefusalReason(ModificationPositionType position, string residue, int id)
     {
-        string token = position switch
-        {
-            ModificationPositionType.NTerminus => $"[UNIMOD:{id}]-",
-            ModificationPositionType.CTerminus => $"-[UNIMOD:{id}]",
-            _ => $"{residue}[UNIMOD:{id}]"
-        };
+        if (position == ModificationPositionType.CTerminus)
+            return "Koina's zero-shot encoding does not support the C-terminus";
+
+        string token = position == ModificationPositionType.NTerminus ? $"[UNIMOD:{id}]-" : $"{residue}[UNIMOD:{id}]";
         if (TrainedTokens.Contains(token))
             return null;
 
@@ -197,12 +195,7 @@ internal static class PrositAtomCountModificationRules
         var negative = EncodedElements.Where(element => group.CountWithIsotopes(element) + delta.CountWithIsotopes(element) < 0).ToList();
         if (negative.Count > 0)
         {
-            string site = position switch
-            {
-                ModificationPositionType.NTerminus => "the N-terminus",
-                ModificationPositionType.CTerminus => "the C-terminus",
-                _ => $"residue {residue}"
-            };
+            string site = position == ModificationPositionType.NTerminus ? "the N-terminus" : $"residue {residue}";
             return $"the attachment group of {site} ({group.Formula}) plus UNIMOD:{id} ({delta.Formula}) has a negative {string.Join(", ", negative)} count";
         }
 
