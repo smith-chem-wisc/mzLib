@@ -82,12 +82,12 @@ namespace UsefulProteomicsDatabases.Taxonomy
             }
         }
 
-        /// <summary>Writes a tree's taxa to a file; a path ending in ".gz" is written as gzip.</summary>
-        public static void WriteNodes(string path, TaxonomyTree tree)
-        {
-            using TextWriter output = CreateText(path);
-            WriteNodes(output, tree);
-        }
+        /// <summary>
+        /// Writes a tree's taxa to a file; a path ending in ".gz" is written as gzip. An existing file is replaced only
+        /// once the whole table is written, so a failed write leaves it as it was.
+        /// </summary>
+        public static void WriteNodes(string path, TaxonomyTree tree) =>
+            WriteFile(path, output => WriteNodes(output, tree));
 
         /// <summary>Writes a map's proteomes, in ordinal order of identifier.</summary>
         /// <exception cref="ArgumentException">A proteome identifier, organism or type contains a tab or line break.</exception>
@@ -110,12 +110,12 @@ namespace UsefulProteomicsDatabases.Taxonomy
             }
         }
 
-        /// <summary>Writes a map's proteomes to a file; a path ending in ".gz" is written as gzip.</summary>
-        public static void WriteProteomes(string path, ProteomeTaxonMap proteomes)
-        {
-            using TextWriter output = CreateText(path);
-            WriteProteomes(output, proteomes);
-        }
+        /// <summary>
+        /// Writes a map's proteomes to a file; a path ending in ".gz" is written as gzip. An existing file is replaced
+        /// only once the whole table is written, so a failed write leaves it as it was.
+        /// </summary>
+        public static void WriteProteomes(string path, ProteomeTaxonMap proteomes) =>
+            WriteFile(path, output => WriteProteomes(output, proteomes));
 
         /// <summary>Reads a node table and builds its tree.</summary>
         /// <exception cref="FileNotFoundException">The file does not exist.</exception>
@@ -268,11 +268,32 @@ namespace UsefulProteomicsDatabases.Taxonomy
             return new StreamReader(content);
         }
 
-        private static TextWriter CreateText(string path)
+        /// <summary>Writes beside <paramref name="path"/> first, then moves the finished file into place.</summary>
+        private static void WriteFile(string path, Action<TextWriter> write)
         {
             ArgumentNullException.ThrowIfNull(path);
+            string partial = path + ".partial";
+            try
+            {
+                using (TextWriter output = CreateText(partial, gzip: path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)))
+                {
+                    write(output);
+                }
+                File.Move(partial, path, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(partial))
+                {
+                    File.Delete(partial);
+                }
+            }
+        }
+
+        private static TextWriter CreateText(string path, bool gzip)
+        {
             Stream file = File.Create(path);
-            Stream content = path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
+            Stream content = gzip
                 ? new GZipStream(file, CompressionLevel.SmallestSize)
                 : file;
             return new StreamWriter(content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { NewLine = "\n" };

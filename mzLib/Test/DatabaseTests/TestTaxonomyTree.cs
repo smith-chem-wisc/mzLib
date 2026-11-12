@@ -392,5 +392,9 @@ public class TestTaxonomyTree
         Assert.That(TaxonomicRank.AreSameRank("strain", "serotype"), Is.False,
             "both sit below species, but they are different kinds of group");
         Assert.That(TaxonomicRank.AreSameRank("strain", "strain"), Is.True);
+        Assert.That(TaxonomicRank.AreSameRank("cohort", "subcohort"), Is.False);
+        Assert.That(TaxonomicRank.Compare("cohort", "subcohort"), Is.LessThan(0));
+        Assert.That(TaxonomicRank.Compare("subcohort", "superorder"), Is.LessThan(0));
+        Assert.That(TaxonomicRank.AreSameRank("forma", "forma specialis"), Is.False);
     }
 }

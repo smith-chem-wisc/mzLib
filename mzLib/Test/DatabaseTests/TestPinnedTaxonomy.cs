@@ -136,6 +136,35 @@ public class TestPinnedTaxonomy
         Assert.That(TaxonomyTree.LoadPinned().AncestorAtRank(SarsCov2, "realm").Taxon!.ScientificName, Is.EqualTo("Riboviria"));
     }
 
+    /// <summary>
+    /// Zebrafish sits under a cohort (Otomorpha) and, below it, a subcohort (Ostariophysi). The walk up meets the
+    /// subcohort first, so the two ranks must not count as one level.
+    /// </summary>
+    [Test]
+    public void ZebrafishCohortIsNotItsSubcohort()
+    {
+        const long Zebrafish = 7955;
+
+        Assert.That(NameAt(Zebrafish, "subcohort"), Is.EqualTo("Ostariophysi"));
+        Assert.That(NameAt(Zebrafish, "cohort"), Is.EqualTo("Otomorpha"));
+    }
+
+    /// <summary>No ranked taxon in the snapshot sits below another of the same rank.</summary>
+    [Test]
+    public void NoTaxonHasAnAncestorOfItsOwnRank()
+    {
+        TaxonomyTree tree = TaxonomyTree.LoadPinned();
+
+        var clashes = tree.Nodes
+            .Where(n => TaxonomicRank.IsRanked(n.Rank))
+            .SelectMany(n => tree.Ancestors(n.TaxonId)
+                .Where(a => TaxonomicRank.AreSameRank(a.Rank, n.Rank))
+                .Select(a => $"{n.TaxonId} ({n.Rank}) under {a.TaxonId} ({a.Rank})"))
+            .ToList();
+
+        Assert.That(clashes, Is.Empty);
+    }
+
     [Test]
     public void TopLevelGroupsAreTheDomainsAndViruses()
     {

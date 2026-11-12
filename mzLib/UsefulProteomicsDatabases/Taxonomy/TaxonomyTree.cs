@@ -90,7 +90,11 @@ namespace UsefulProteomicsDatabases.Taxonomy
             }
         }
 
-        /// <summary>Where the tree's taxa came from.</summary>
+        /// <summary>
+        /// Where the tree's taxa came from. It describes the base tree only: a tree made by
+        /// <see cref="WithOverlay(IEnumerable{TaxonomyNode})"/> keeps its base's provenance, so taxa a caller added are
+        /// not recorded in it.
+        /// </summary>
         public TaxonomyProvenance Provenance { get; }
 
         /// <summary>How many taxa the tree holds.</summary>
@@ -105,8 +109,8 @@ namespace UsefulProteomicsDatabases.Taxonomy
         /// <summary>
         /// Builds a tree from its taxa.
         /// </summary>
-        /// <exception cref="InvalidDataException">An identifier appears twice, a parent is not among the taxa, or the
-        /// parent links form a cycle.</exception>
+        /// <exception cref="InvalidDataException">A taxon has no name, an identifier appears twice, a parent is not
+        /// among the taxa, or the parent links form a cycle.</exception>
         public static TaxonomyTree FromNodes(IEnumerable<TaxonomyNode> nodes, TaxonomyProvenance provenance)
         {
             ArgumentNullException.ThrowIfNull(nodes);
@@ -150,10 +154,11 @@ namespace UsefulProteomicsDatabases.Taxonomy
         /// <remarks>
         /// Adding is allowed; redefining is not. An addition whose identifier the tree already has must be identical
         /// to the taxon there, or it is refused: a silently replaced parent would move every organism beneath it.
-        /// An addition may name a parent in this tree or among the additions.
+        /// An addition may name a parent in this tree or among the additions. The new tree keeps this tree's
+        /// <see cref="Provenance"/>, which therefore does not describe the additions.
         /// </remarks>
-        /// <exception cref="InvalidDataException">An addition redefines an existing taxon, repeats, names a parent
-        /// that is in neither set, or closes a cycle.</exception>
+        /// <exception cref="InvalidDataException">An addition redefines an existing taxon, repeats, has no name, names
+        /// a parent that is in neither set, or closes a cycle.</exception>
         public TaxonomyTree WithOverlay(IEnumerable<TaxonomyNode> additions)
         {
             ArgumentNullException.ThrowIfNull(additions);
@@ -411,11 +416,18 @@ namespace UsefulProteomicsDatabases.Taxonomy
             return long.TryParse(text?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out taxonId) && taxonId > 0;
         }
 
-        /// <summary>Refuses a parent that is absent and a cycle. Each taxon is walked once.</summary>
+        /// <summary>
+        /// Refuses a taxon with no name (the node table cannot hold one), a parent that is absent and a cycle. Each
+        /// taxon is walked once.
+        /// </summary>
         private static void Validate(Dictionary<long, TaxonomyNode> nodes)
         {
             foreach (TaxonomyNode node in nodes.Values)
             {
+                if (string.IsNullOrEmpty(node.ScientificName))
+                {
+                    throw new InvalidDataException($"Taxon {Id(node.TaxonId)} has no scientific_name.");
+                }
                 if (node.ParentTaxonId is long parent && !nodes.ContainsKey(parent))
                 {
                     throw new InvalidDataException(

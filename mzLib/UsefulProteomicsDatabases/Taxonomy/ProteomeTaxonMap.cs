@@ -50,7 +50,11 @@ namespace UsefulProteomicsDatabases.Taxonomy
             _byTaxon = _ordered.ToLookup(p => p.TaxonId);
         }
 
-        /// <summary>Where the proteomes came from.</summary>
+        /// <summary>
+        /// Where the proteomes came from. It describes the base map only: a map made by
+        /// <see cref="WithOverlay(IEnumerable{ProteomeTaxon})"/> keeps its base's provenance, so proteomes a caller
+        /// added are not recorded in it.
+        /// </summary>
         public TaxonomyProvenance Provenance { get; }
 
         /// <summary>How many proteomes the map holds.</summary>
@@ -139,7 +143,8 @@ namespace UsefulProteomicsDatabases.Taxonomy
         /// <remarks>
         /// The rule is the tree's (<see cref="TaxonomyTree.WithOverlay(IEnumerable{TaxonomyNode})"/>): adding is
         /// allowed, redefining is not. An addition whose identifier the map already has must be identical to the
-        /// proteome there.
+        /// proteome there. The new map keeps this map's <see cref="Provenance"/>, which therefore does not describe
+        /// the additions.
         /// </remarks>
         /// <exception cref="InvalidDataException">An addition redefines an existing proteome, repeats, or has no identifier.</exception>
         public ProteomeTaxonMap WithOverlay(IEnumerable<ProteomeTaxon> additions)

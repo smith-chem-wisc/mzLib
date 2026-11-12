@@ -221,10 +221,6 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// The target's sequence attributes without its displayed isoform: a decoy's sequence is no UniProt isoform, so
-        /// it must not claim the target's (and the writer would otherwise write it out for the decoy accession).
-        /// </summary>
-        /// <summary>
         /// The database references a sequence derived from <paramref name="protein"/> keeps: its NCBI taxonomy
         /// reference and nothing else.
         /// </summary>
@@ -242,6 +238,10 @@ namespace UsefulProteomicsDatabases
                 .ToList()
             ?? new List<DatabaseReference>();
 
+        /// <summary>
+        /// The target's sequence attributes without its displayed isoform: a decoy's sequence is no UniProt isoform, so
+        /// it must not claim the target's (and the writer would otherwise write it out for the decoy accession).
+        /// </summary>
         private static UniProtSequenceAttributes DecoySequenceAttributes(UniProtSequenceAttributes target)
         {
             if (target.DisplayedIsoformId == null)

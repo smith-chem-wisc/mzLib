@@ -490,12 +490,40 @@ public class UniProtTaxonomyClientTests
         Assert.Throws<ArgumentNullException>(() => new UniProtTaxonomyClient(null));
     }
 
-    [Test]
-    public void TheParameterlessClient_OwnsAndDisposesItsConnection()
+    /// <summary>Records whether the <see cref="HttpClient"/> over it was disposed (which disposes its handler).</summary>
+    private sealed class DisposalRecordingHandler : HttpMessageHandler
     {
-        var client = new UniProtTaxonomyClient();
+        public bool Disposed { get; private set; }
 
-        Assert.DoesNotThrow(client.Dispose);
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            Disposed = true;
+            base.Dispose(disposing);
+        }
+    }
+
+    [Test]
+    public void AClientDisposesAConnectionItOwns()
+    {
+        var handler = new DisposalRecordingHandler();
+
+        new UniProtTaxonomyClient(new HttpClient(handler), ownsHttpClient: true).Dispose();
+
+        Assert.That(handler.Disposed, Is.True);
+    }
+
+    [Test]
+    public void AClientLeavesACallersConnectionOpen()
+    {
+        var handler = new DisposalRecordingHandler();
+        using var httpClient = new HttpClient(handler);
+
+        new UniProtTaxonomyClient(httpClient).Dispose();
+
+        Assert.That(handler.Disposed, Is.False);
     }
 }
 

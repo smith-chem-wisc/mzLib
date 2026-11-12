@@ -51,8 +51,9 @@ namespace UsefulProteomicsDatabases.Taxonomy
             ["superclass"] = 28,
             ["class"] = 30,
             ["subclass"] = 35,
-            ["infraclass"] = 37,
-            ["cohort"] = 38,
+            ["infraclass"] = 36,
+            ["cohort"] = 37,
+            ["subcohort"] = 38,
             ["superorder"] = 39,
             ["order"] = 40,
             ["suborder"] = 45,
@@ -73,6 +74,7 @@ namespace UsefulProteomicsDatabases.Taxonomy
             ["subspecies"] = 75,
             ["varietas"] = 76,
             ["forma"] = 77,
+            ["forma specialis"] = BelowSubspecies,
             ["strain"] = BelowSubspecies,
             ["serotype"] = BelowSubspecies,
             ["serogroup"] = BelowSubspecies,
@@ -80,8 +82,6 @@ namespace UsefulProteomicsDatabases.Taxonomy
             ["genotype"] = BelowSubspecies,
             ["isolate"] = BelowSubspecies,
             ["pathogroup"] = BelowSubspecies,
-            ["forma specialis"] = 77,
-            ["subcohort"] = 38,
         };
 
         /// <summary>

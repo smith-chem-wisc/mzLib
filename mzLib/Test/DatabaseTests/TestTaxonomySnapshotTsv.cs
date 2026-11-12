@@ -185,6 +185,42 @@ public class TestTaxonomySnapshotTsv
         Assert.Throws<ArgumentException>(() => TaxonomySnapshotTsv.WriteNodes(new StringWriter(), tree));
     }
 
+    [Test]
+    [TestCase("nodes.tsv")]
+    [TestCase("nodes.tsv.gz")]
+    public void Nodes_AFailedWriteLeavesTheOldFile(string fileName)
+    {
+        string path = Path.Combine(_directory, fileName);
+        TaxonomySnapshotTsv.WriteNodes(path, Tree());
+        TaxonomyTree unwritable = TaxonomyTree.FromNodes(
+            new[] { new TaxonomyNode(2, null, "domain", "Bac\tteria", null, false) }, Provenance);
+
+        Assert.Throws<ArgumentException>(() => TaxonomySnapshotTsv.WriteNodes(path, unwritable));
+
+        Assert.That(TaxonomyTree.Load(path).Nodes, Is.EqualTo(Tree().Nodes));
+        Assert.That(Directory.GetFiles(_directory), Is.EqualTo(new[] { path }), "no partial file is left behind");
+    }
+
+    [Test]
+    public void Nodes_ATaxonWithNoNameIsRefusedBeforeItCanBeWritten()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => TaxonomyTree.FromNodes(
+            new[] { new TaxonomyNode(2, null, "domain", "", null, false) }, Provenance));
+        Assert.That(ex.Message, Does.Contain("scientific_name"));
+        Assert.Throws<InvalidDataException>(() => Tree().WithOverlay(
+            new[] { new TaxonomyNode(99999999, null, "domain", "", null, false) }));
+    }
+
+    [Test]
+    public void Nodes_ACorruptGzipFileIsNamedInTheError()
+    {
+        string path = Write("nodes.tsv.gz", "#!taxonomy_nodes_format 1\n#!source test\n" + NodesHeader);
+
+        var ex = Assert.Throws<InvalidDataException>(() => TaxonomyTree.Load(path));
+        Assert.That(ex.Message, Does.Contain("nodes.tsv.gz"));
+        Assert.That(ex.InnerException, Is.InstanceOf<InvalidDataException>());
+    }
+
     // ---- proteomes -----------------------------------------------------------
 
     [Test]
@@ -219,6 +255,22 @@ public class TestTaxonomySnapshotTsv
 
         Assert.That(read.Proteomes, Is.EqualTo(written.Proteomes));
         Assert.That(read.Provenance, Is.EqualTo(Provenance));
+    }
+
+    [Test]
+    public void Proteomes_AFailedWriteLeavesTheOldFile()
+    {
+        string path = Path.Combine(_directory, "proteomes.tsv");
+        TaxonomySnapshotTsv.WriteProteomes(path, Proteomes());
+        ProteomeTaxonMap unwritable = ProteomeTaxonMap.FromProteomes(new[]
+        {
+            new ProteomeTaxon("UP000000001", 9606, "Homo sapiens", null, null),
+            new ProteomeTaxon("UP000000002", 9606, "Homo\tsapiens", null, null),
+        }, Provenance);
+
+        Assert.Throws<ArgumentException>(() => TaxonomySnapshotTsv.WriteProteomes(path, unwritable));
+
+        Assert.That(ProteomeTaxonMap.Load(path).Proteomes, Is.EqualTo(Proteomes().Proteomes));
     }
 
     private static IEnumerable<TestCaseData> BadProteomeFiles()

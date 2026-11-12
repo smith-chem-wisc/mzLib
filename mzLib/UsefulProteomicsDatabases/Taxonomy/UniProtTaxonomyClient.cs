@@ -104,7 +104,8 @@ namespace UsefulProteomicsDatabases.Taxonomy
         {
         }
 
-        private UniProtTaxonomyClient(HttpClient httpClient, bool ownsHttpClient)
+        /// <summary>Internal so tests can check that an owned connection is disposed and a borrowed one is not.</summary>
+        internal UniProtTaxonomyClient(HttpClient httpClient, bool ownsHttpClient)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _ownsHttpClient = ownsHttpClient;

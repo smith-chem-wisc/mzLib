@@ -39,6 +39,22 @@ namespace UsefulProteomicsDatabases.Annotation
         }
 
         /// <summary>
+        /// The next line, with a decoding failure (a corrupt ".gz", say) reported against the file and line like every
+        /// other refusal.
+        /// </summary>
+        private static string ReadLine(TextReader reader, string fileName, int lineNumber)
+        {
+            try
+            {
+                return reader.ReadLine();
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new InvalidDataException($"{fileName} line {lineNumber}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
         /// Reads a table from text already open, for a source that is not a plain file on disk: a gzipped file or an
         /// embedded resource. <paramref name="fileName"/> is what error messages call it. The reader is not disposed.
         /// </summary>
@@ -54,7 +70,7 @@ namespace UsefulProteomicsDatabases.Annotation
 
             int lineNumber = 0;
             string line;
-            while ((line = reader.ReadLine()) != null)
+            while ((line = ReadLine(reader, fileName, lineNumber + 1)) != null)
             {
                 lineNumber++;
                 if (!columnsRead)
