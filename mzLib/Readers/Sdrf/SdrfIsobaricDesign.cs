@@ -353,7 +353,29 @@ namespace Readers
                 throw new ArgumentNullException(nameof(sdrf));
             if (options == null)
                 throw new ArgumentNullException(nameof(options));
+            return ReadRows(sdrf, options, sourceLines: null);
+        }
 
+        /// <summary>
+        /// Projects the rows an SDRF join kept (<see cref="SdrfSearchScope.Restrict"/>) onto an isobaric design, as
+        /// <see cref="Read(SdrfDocument, SdrfIsobaricDesignOptions)"/> does with <c>scoping.Document</c>, except that every
+        /// line number in the report is the input SDRF's own (<see cref="SdrfSearchScoping.SourceLines"/>), the line the user
+        /// has open. It takes the scoping itself, not a document beside it, so the rows read and the lines reported cannot
+        /// come from two different joins. A scoping built directly, with no source lines, is read as its document.
+        /// </summary>
+        /// <exception cref="ArgumentException">The scoping gives source lines, but not one per row of its document.</exception>
+        public static SdrfIsobaricDesign Read(SdrfSearchScoping scoping, SdrfIsobaricDesignOptions options)
+        {
+            if (scoping == null)
+                throw new ArgumentNullException(nameof(scoping));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+            return ReadRows(scoping.Document, options, SdrfDesignRules.SourceLinesOf(scoping));
+        }
+
+        /// <param name="sourceLines">The input SDRF's line of each row, or null to number the rows as the document's own.</param>
+        private static SdrfIsobaricDesign ReadRows(SdrfDocument sdrf, SdrfIsobaricDesignOptions options, IReadOnlyList<int>? sourceLines)
+        {
             var refusals = new List<string>();
             var notes = new List<string>();
             var header = sdrf.Header;
@@ -405,7 +427,7 @@ namespace Readers
 
             for (int i = 0; i < rows.Count; i++)
             {
-                int line = i + 2;
+                int line = sourceLines?[i] ?? i + 2;
                 string fileName = SdrfDesignRules.FileNameOf(rows[i], keyColumn!);
                 if (searchedByName != null && !searchedByName.ContainsKey(fileName))
                 {

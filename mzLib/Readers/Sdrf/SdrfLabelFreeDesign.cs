@@ -247,6 +247,32 @@ namespace Readers
         {
             if (sdrf == null)
                 throw new ArgumentNullException(nameof(sdrf));
+            return ReadRows(sdrf, options, sourceLines: null, rowsSetAside: null);
+        }
+
+        /// <summary>
+        /// Projects the rows an SDRF join kept (<see cref="SdrfSearchScope.Restrict"/>) onto a label-free design, as
+        /// <see cref="Read(SdrfDocument, SdrfLabelFreeDesignOptions?)"/> does with <c>scoping.Document</c>, except that the
+        /// report speaks of the file the user has open: every line number is the input SDRF's own
+        /// (<see cref="SdrfSearchScoping.SourceLines"/>), and a note on a gap in replicate or fraction numbers says how many
+        /// rows the join set aside (<see cref="SdrfSearchScoping.RowsSetAside"/>), so the gap may be a sample whose file is not
+        /// searched. It takes the scoping itself, not a document beside it, so the rows read and the lines reported cannot come
+        /// from two different joins. A scoping built directly, with no source lines, is read as its document.
+        /// </summary>
+        /// <exception cref="ArgumentException">The scoping gives source lines, but not one per row of its document.</exception>
+        public static SdrfLabelFreeDesign Read(SdrfSearchScoping scoping, SdrfLabelFreeDesignOptions? options = null)
+        {
+            if (scoping == null)
+                throw new ArgumentNullException(nameof(scoping));
+            var sourceLines = SdrfDesignRules.SourceLinesOf(scoping);
+            return ReadRows(scoping.Document, options, sourceLines, sourceLines == null ? null : scoping.RowsSetAside);
+        }
+
+        /// <param name="sourceLines">The input SDRF's line of each row, or null to number the rows as the document's own.</param>
+        /// <param name="rowsSetAside">The rows a join set aside before the read, or null when not known.</param>
+        private static SdrfLabelFreeDesign ReadRows(SdrfDocument sdrf, SdrfLabelFreeDesignOptions? options,
+            IReadOnlyList<int>? sourceLines, int? rowsSetAside)
+        {
             options ??= new SdrfLabelFreeDesignOptions();
 
             var refusals = new List<string>();
@@ -292,7 +318,7 @@ namespace Readers
 
             for (int i = 0; i < rows.Count; i++)
             {
-                int line = i + 2;
+                int line = sourceLines?[i] ?? i + 2;
                 string fileName = SdrfDesignRules.FileNameOf(rows[i], keyColumn!);
                 if (searchedByName != null && !searchedByName.ContainsKey(fileName))
                 {
@@ -327,7 +353,10 @@ namespace Readers
             if (refusals.Count > 0)
                 return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
-            var bioreps = NumberBiologicalReplicates(parsed, rowsWereDropped: dropped.Count > 0, notes, refusals);
+            var setAside = rowsSetAside is { } joined
+                ? new SdrfDesignRules.SetAsideRows(joined + dropped.Count, Counted: true)
+                : new SdrfDesignRules.SetAsideRows(dropped.Count, Counted: false);
+            var bioreps = NumberBiologicalReplicates(parsed, setAside, notes, refusals);
             if (refusals.Count > 0)
                 return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
@@ -339,7 +368,7 @@ namespace Readers
                 .ToList();
 
             RefuseWhatMetaMorpheusWouldReject(files, refusals);
-            NoteFractionAndTechrepGaps(files, rowsWereDropped: dropped.Count > 0, notes);
+            NoteFractionAndTechrepGaps(files, setAside, notes);
 
             return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, condition);
         }
@@ -448,7 +477,7 @@ namespace Readers
         /// Reports what it added, any condition whose given numbers are not 1..N, and any sample name whose only number
         /// is not its replicate.
         /// </summary>
-        private static Dictionary<ParsedRow, int> NumberBiologicalReplicates(List<ParsedRow> rows, bool rowsWereDropped,
+        private static Dictionary<ParsedRow, int> NumberBiologicalReplicates(List<ParsedRow> rows, SdrfDesignRules.SetAsideRows setAside,
             List<string> notes, List<string> refusals)
         {
             var numbers = new Dictionary<ParsedRow, int>();
@@ -504,9 +533,7 @@ namespace Readers
                 if (present.Select((v, i) => v != i + 1).Any(gap => gap))
                 {
                     notes.Add($"Condition '{condition.Key}': biological replicates {string.Join(", ", present)}, kept as the SDRF numbers them. " +
-                              (rowsWereDropped
-                                  ? "Rows were dropped from the SDRF, so a missing number may be a sample whose file is not searched."
-                                  : "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+                              setAside.SampleGapReason);
                 }
 
                 foreach (var sample in condition.Where(r => r.BiologicalReplicate.HasValue && r.SourceName.Length > 0)
@@ -557,11 +584,9 @@ namespace Readers
         // A biological replicate's fractions, and a fraction's technical replicates, that are not 1..N: kept as the
         // SDRF numbers them and noted, in the same words as a gap in biological replicates
         // (NumberBiologicalReplicates). A missing last fraction of one sample is no gap; its own numbers are 1..N.
-        private static void NoteFractionAndTechrepGaps(List<SpectraFileInfo> files, bool rowsWereDropped, List<string> notes)
+        private static void NoteFractionAndTechrepGaps(List<SpectraFileInfo> files, SdrfDesignRules.SetAsideRows setAside, List<string> notes)
         {
-            string why = rowsWereDropped
-                ? "Rows were dropped from the SDRF, so a missing number may be a file that is not searched."
-                : "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files.";
+            string why = setAside.FileGapReason;
 
             foreach (var condition in files.GroupBy(f => f.Condition, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
             {
