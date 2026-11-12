@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Test" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Chromatography\Chromatography.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
 	<ProjectReference Include="..\Chemistry\Chemistry.csproj" />
