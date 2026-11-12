@@ -21,7 +21,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Prosit2024IntensityCit : FragmentIntensityModel
     {
         private static readonly UnimodSequenceFormatSchema CitSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4, 7 };
+        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide_no_termini/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "R[UNIMOD:7]", "C[UNIMOD:4]", "Q[UNIMOD:7]", "N[UNIMOD:7]" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(CitSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2024_intensity_cit";
@@ -36,6 +38,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }

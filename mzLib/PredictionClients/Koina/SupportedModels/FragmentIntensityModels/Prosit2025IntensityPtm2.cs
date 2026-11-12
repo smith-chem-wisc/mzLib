@@ -20,10 +20,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Prosit2025IntensityPtm2 : FragmentIntensityModel
     {
         private static readonly UnimodSequenceFormatSchema PTMSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        // Source of truth: koina repo, models/Prosit/Prosit_Preprocess_peptide_ptm2/1/sequence_conversion.py
-        // ALPHABET_MOD = {"M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:9990]", "[UNIMOD:9990]-"}
-        // The Koina preprocess rejects any modification outside this set ("Some modifications not supported").
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 4, 35, 9990 };
+        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide_ptm2/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:9990]", "[UNIMOD:9990]-" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(PTMSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2025_intensity_ptm2";
@@ -38,6 +37,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }

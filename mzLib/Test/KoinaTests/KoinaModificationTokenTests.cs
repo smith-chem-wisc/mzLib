@@ -74,6 +74,24 @@ namespace Test.KoinaTests
     [TestFixture]
     public class KoinaModificationTokenTests
     {
+        // UniSpec's and Chronologer's preprocessing predict an allowed id on any residue, and the PTMs_gl models' zero-shot
+        // preprocessing places an id on residues no fixed list names, so these declare no residue tokens.
+        [Test]
+        public void EveryModelThatListsItsIds_DeclaresTokens_ExceptUniSpecChronologerAndPTMsGl()
+        {
+            var listingIdsWithoutTokens = ModificationTokenCases.AllModels()
+                .Where(t =>
+                {
+                    var model = ModificationTokenCases.Instantiate(t);
+                    return !ModificationTokenCases.AcceptsAllIds(model)
+                        && ModificationTokenCases.AllowedIds(model).Count > 0
+                        && ModificationTokenCases.Tokens(model) == null;
+                })
+                .Select(t => t.Name);
+
+            Assert.That(listingIdsWithoutTokens, Is.EquivalentTo(new[] { nameof(UniSpec), nameof(ChronologerRT), nameof(Prosit2024IntensityPTMsGl), nameof(Prosit2024iRTPTMsGl) }));
+        }
+
         [TestCaseSource(typeof(ModificationTokenCases), nameof(ModificationTokenCases.TokenDeclaringModels))]
         public void AllowedUnimodIds_AreTheIdsOfTheDeclaredTokens(Type modelType)
         {
@@ -170,6 +188,21 @@ namespace Test.KoinaTests
             Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:35"));
         }
 
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
+        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[UNIMOD:737]-PEPSIDEK[UNIMOD:737]")]
+        public void Tmt_LabelOnUndeclaredResidue_LeavesTheRequiredNTerminalLabelAlone(SequenceConversionHandlingMode mode, string? expected)
+        {
+            var model = new TmtProbe(mode);
+
+            var fromMzLib = model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Unimod:TMT6plex on S]IDEK[Multiplex Label:TMT6-plex on K]", null, out var mzLibApi, out _);
+            var fromProForma = model.Clean("[UNIMOD:737]-PEPS[UNIMOD:737]IDEK[UNIMOD:737]", ProFormaSequenceParser.Instance, out var proFormaApi, out _);
+
+            Assert.That(mzLibApi, Is.EqualTo(expected));
+            Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
+            Assert.That(fromMzLib is null, Is.EqualTo(expected is null));
+            Assert.That(fromProForma is null, Is.EqualTo(expected is null));
+        }
+
         private sealed class HcdProbe : Prosit2020IntensityHCD
         {
             public HcdProbe(SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ReturnNull)
@@ -179,6 +212,14 @@ namespace Test.KoinaTests
                 => TryCleanSequence(sequence, sourceParser, out api, out warning);
         }
 
+        private sealed class TmtProbe : Prosit2020IntensityTMT
+        {
+            public TmtProbe(SequenceConversionHandlingMode mode)
+                : base(modHandlingMode: mode) { }
+
+            public string? Clean(string sequence, ISequenceParser? sourceParser, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, sourceParser, out api, out warning);
+        }
     }
 
     [TestFixture]
@@ -210,6 +251,14 @@ namespace Test.KoinaTests
                     outcomes = retentionTimeModel
                         .Predict(sequences.Select(s => new RetentionTimePredictionInput(s) { SequenceParser = proForma }).ToList())
                         .Select(p => (p.PredictedRetentionTime.HasValue, p.Warning)).ToList();
+                    break;
+                case CrosslinkFragmentIntensityModel crosslinkModel:
+                    // A crosslinked peptide carries its crosslinker exactly once, so one peptide holds every token.
+                    var crosslinked = ModificationTokenCases.PeptideWith(model, tokens.ToArray());
+                    sequences = new List<string> { crosslinked, undeclared };
+                    outcomes = crosslinkModel
+                        .Predict(sequences.Select(s => new CrosslinkIntensityPredictionInput(s, crosslinked, 2, 30)).ToList())
+                        .Select(p => (p.FragmentIntensities is { Count: > 0 }, p.Warning)).ToList();
                     break;
                 default:
                     Assert.Fail($"{modelType.Name} declares modification tokens but this test cannot build its inputs.");
