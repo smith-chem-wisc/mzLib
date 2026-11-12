@@ -202,7 +202,10 @@ public sealed class MslLibrary : IDisposable
 	/// </returns>
 	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
-	/// <exception cref="FormatException">The file is not an .msl file or is too short to hold a header.</exception>
+	/// <exception cref="FormatException">
+	///   The file is not an .msl file, is too short to hold a header, or has a format version this
+	///   reader does not support.
+	/// </exception>
 	public static bool CanLoadIndexOnly(string filePath)
 	{
 		ArgumentNullException.ThrowIfNull(filePath);
@@ -804,6 +807,115 @@ public sealed class MslLibrary : IDisposable
 		// (the loader copies it), so it can be returned as is.
 		IReadOnlyList<MslLibraryEntry> skeletons = _rawLibrary.Entries;
 		return precursorIdx >= 0 && precursorIdx < skeletons.Count ? skeletons[precursorIdx] : null;
+	}
+
+	/// <summary>
+	/// Returns the number of fragment ions stored for <paramref name="precursorIdx"/>, so a caller
+	/// can size the buffer for <see cref="ReadFragments"/>.
+	///
+	/// <para>
+	/// It reads nothing from disk. In index-only mode the count comes from the precursor record and
+	/// the LRU cache is not touched; in full-load mode it comes from the entry in memory.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorIdx">
+	///   Zero-based precursor index, as for <see cref="GetEntry(int)"/>.
+	/// </param>
+	/// <returns>The entry's fragment count (at most 32,767).</returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="precursorIdx"/> is outside [0, <see cref="PrecursorCount"/>).
+	/// </exception>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public int GetFragmentCount(int precursorIdx)
+	{
+		ThrowIfDisposed();
+
+		MslLibraryData? raw = _rawLibrary;
+		if (raw is not null && raw.IsIndexOnly)
+		{
+			ThrowIfPrecursorOutOfRange(precursorIdx, raw.Count);
+			return raw.GetFragmentCount(precursorIdx);
+		}
+
+		return InMemoryFragments(precursorIdx)?.Count ?? 0;
+	}
+
+	/// <summary>
+	/// Copies the fragment ions of <paramref name="precursorIdx"/> into
+	/// <paramref name="destination"/> and returns how many it wrote. It allocates nothing, so a
+	/// search that reads millions of entries does not create millions of objects.
+	///
+	/// <para>
+	/// The values are those of <see cref="GetEntry(int)"/>'s <c>MatchedFragmentIons</c>, in the same
+	/// order (the order in the file), as <see cref="MslFragmentValue"/> structs.
+	/// <list type="bullet">
+	///   <item>In index-only mode the fragments are read from the file (memory-mapped on local
+	///   drives, positional reads elsewhere) into a small stack buffer and decoded into
+	///   <paramref name="destination"/>. The LRU cache is neither read nor filled.</item>
+	///   <item>In full-load mode, and for a compressed file opened with
+	///   <see cref="LoadIndexOnly(string)"/> (which loads it in full), they are copied from the
+	///   entry in memory.</item>
+	/// </list>
+	/// </para>
+	///
+	/// <para>
+	/// Size <paramref name="destination"/> with <see cref="GetFragmentCount"/>, or use one buffer of
+	/// 32,767 (the most fragments an entry can hold). Safe to call from several threads at once.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorIdx">
+	///   Zero-based precursor index, as for <see cref="GetEntry(int)"/>.
+	/// </param>
+	/// <param name="destination">Receives the fragments, starting at index 0.</param>
+	/// <returns>The number of fragments written, which is the entry's fragment count.</returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="precursorIdx"/> is outside [0, <see cref="PrecursorCount"/>).
+	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   <paramref name="destination"/> is shorter than the entry's fragment count. Nothing is written.
+	/// </exception>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public int ReadFragments(int precursorIdx, Span<MslFragmentValue> destination)
+	{
+		ThrowIfDisposed();
+
+		MslLibraryData? raw = _rawLibrary;
+		if (raw is not null && raw.IsIndexOnly)
+		{
+			ThrowIfPrecursorOutOfRange(precursorIdx, raw.Count);
+			return raw.ReadFragments(precursorIdx, destination);
+		}
+
+		List<MslFragmentIon>? ions = InMemoryFragments(precursorIdx);
+		int count = ions?.Count ?? 0;
+		if (destination.Length < count)
+			throw new ArgumentException(
+				$"The destination holds {destination.Length} fragments; precursor {precursorIdx} has {count}.",
+				nameof(destination));
+
+		for (int k = 0; k < count; k++)
+			destination[k] = new MslFragmentValue(ions![k]);
+		return count;
+	}
+
+	/// <summary>
+	/// Fragments of an entry held in memory (full load, the compressed-file fallback, or a library
+	/// built in memory). The index returns the stored entry itself, not a copy.
+	/// </summary>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="precursorIdx"/> is out of range.</exception>
+	private List<MslFragmentIon>? InMemoryFragments(int precursorIdx)
+	{
+		MslLibraryEntry entry = _index!.GetEntry(precursorIdx)
+			?? throw new ArgumentOutOfRangeException(nameof(precursorIdx),
+				$"Index {precursorIdx} is out of range [0, {PrecursorCount}).");
+		return entry.MatchedFragmentIons;
+	}
+
+	private static void ThrowIfPrecursorOutOfRange(int precursorIdx, int count)
+	{
+		if ((uint)precursorIdx >= (uint)count)
+			throw new ArgumentOutOfRangeException(nameof(precursorIdx),
+				$"Index {precursorIdx} is out of range [0, {count}).");
 	}
 
 	/// <summary>Live index statistics, including the <see cref="GetEntry(int)"/> cache counters (tests only).</summary>
