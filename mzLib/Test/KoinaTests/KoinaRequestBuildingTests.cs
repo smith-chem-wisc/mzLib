@@ -289,8 +289,8 @@ namespace Test.KoinaTests
                         checkedRestrictedModels++;
                 }
             });
-            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(16), "Expected all 16 accept-all models to resolve oxidation and be checked.");
-            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(20), "Expected all 20 restricted models that allow oxidation to resolve it and be checked.");
+            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(18), "Expected all 18 accept-all models to resolve oxidation and be checked.");
+            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(18), "Expected all 18 restricted models that allow oxidation to resolve it and be checked.");
         }
 
         [Test]
