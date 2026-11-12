@@ -1,0 +1,5 @@
+generated_utc 2026-11-10 15:10:52 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+lme4 2.0.6 ; lmerTest 3.2.1
+script make_nuisance_coefficient_fixtures.R (inputs: lmm_nested_*, lmm_sample_only_* values and samples)
+fits as make_nested_lmm_fixtures.R: y ~ common + peptide (treatment-coded, ordinal first level) + random, REML, bobyqa rhoend 1e-12
