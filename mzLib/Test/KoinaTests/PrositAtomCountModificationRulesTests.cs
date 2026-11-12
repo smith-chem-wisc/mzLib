@@ -41,7 +41,7 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Trained pairs, including those on residues with no attachment group (P, N, E) and on either terminus.
+        /// Trained pairs, including those on residues with no attachment group (P, N, E) and on the N-terminus.
         /// K[UNIMOD:5634] is trained and Koina skips its UNIMOD lookup, so it passes although mzLib has no such id.
         /// </summary>
         [TestCase("M[UNIMOD:35]")]
@@ -53,7 +53,6 @@ namespace Test.KoinaTests
         [TestCase("R[UNIMOD:267]")]
         [TestCase("K[UNIMOD:5634]")]
         [TestCase("[UNIMOD:737]-")]
-        [TestCase("-[UNIMOD:1]")]
         public void TrainedTokens_AreAccepted(string token)
         {
             Assert.That(RefusalReason(token), Is.Null);
@@ -70,7 +69,6 @@ namespace Test.KoinaTests
         [TestCase("M[UNIMOD:5]")]
         [TestCase("Y[UNIMOD:35]")]
         [TestCase("[UNIMOD:36]-")]
-        [TestCase("-[UNIMOD:34]")]
         public void ZeroShotTokens_AreAccepted(string token)
         {
             Assert.That(RefusalReason(token), Is.Null);
@@ -102,7 +100,7 @@ namespace Test.KoinaTests
 
         [TestCase("S[UNIMOD:295]")]   // dHex
         [TestCase("S[UNIMOD:1436]")]  // Me dHex Hex HexNAc
-        [TestCase("-[UNIMOD:1948]")]  // Sulf
+        [TestCase("[UNIMOD:1948]-")]  // Sulf
         public void CompositionKoinaCannotRead_IsRefused(string token)
         {
             Assert.That(RefusalReason(token), Does.Contain("cannot read the composition"));
@@ -111,13 +109,23 @@ namespace Test.KoinaTests
         [TestCase("[UNIMOD:27]-", "the N-terminus")]
         [TestCase("[UNIMOD:28]-", "the N-terminus")]
         [TestCase("[UNIMOD:385]-", "the N-terminus")]
-        [TestCase("-[UNIMOD:2]", "the C-terminus")]
         [TestCase("S[UNIMOD:23]", "residue S")]
         [TestCase("W[UNIMOD:351]", "residue W")]
         public void NegativeAtomCount_IsRefused(string token, string site)
         {
             Assert.That(RefusalReason(token),
                 Does.Contain($"the attachment group of {site}").And.Contain("negative"));
+        }
+
+        /// <summary>
+        /// Koina's zero-shot step leaves the C-terminus unsupported, so no C-terminal token is accepted, trained row or not.
+        /// </summary>
+        [TestCase("-[UNIMOD:1]")]
+        [TestCase("-[UNIMOD:34]")]
+        [TestCase("-[UNIMOD:2]")]
+        public void CTerminalToken_IsRefused(string token)
+        {
+            Assert.That(RefusalReason(token), Does.Contain("does not support the C-terminus"));
         }
 
         /// <summary>
@@ -151,7 +159,7 @@ namespace Test.KoinaTests
         }
 
         [TestCase("PEPTIDEK")]
-        [TestCase("[UNIMOD:1]-PEPC[UNIMOD:4]TM[UNIMOD:35]IDEK-[UNIMOD:34]")]
+        [TestCase("[UNIMOD:1]-PEPC[UNIMOD:4]TM[UNIMOD:35]IDEK")]
         public void SequenceKoinaAcceptsWhole_IsSentAsIs(string sequence)
         {
             var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
@@ -190,7 +198,6 @@ namespace Test.KoinaTests
         [TestCase("[UNIMOD:27]-EPEPTIDEK", "E[UNIMOD:27]PEPTIDEK", "[UNIMOD:27]EPEPTIDEK")]
         [TestCase("[UNIMOD:28]-QPEPTIDEK", "Q[UNIMOD:28]PEPTIDEK", "[UNIMOD:28]QPEPTIDEK")]
         [TestCase("[UNIMOD:27]-E", "E[UNIMOD:27]", "[UNIMOD:27]E")]
-        [TestCase("[UNIMOD:28]-QPEPTIDEK-[UNIMOD:34]", "Q[UNIMOD:28]PEPTIDEK-[UNIMOD:34]", "[UNIMOD:28]QPEPTIDEK-[UNIMOD:34]")]
         public void PyroGlu_IsSentWhereKoinaTrainedIt(string sequence, string sent, string returned)
         {
             var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
@@ -314,17 +321,18 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Koina accepts a C-terminal modification it can encode and refuses one it cannot.
+        /// No C-terminal modification is sent, including one Koina would answer with 200.
         /// </summary>
         [TestCaseSource(nameof(SixModels))]
-        public void CTerminalModifications_FollowTheRule(Func<SequenceConversionHandlingMode, IProbe> create)
+        public void CTerminalModifications_AreRefused(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ReturnNull);
 
-            probe.Predict(ProForma, "PEPTIDEK-[UNIMOD:34]", "PEPTIDEK-[UNIMOD:2]");
+            var warnings = probe.Predict(ProForma, "PEPTIDEK-[UNIMOD:34]", "PEPTIDEK-[UNIMOD:2]", "PEPTIDEK");
 
-            Assert.That(probe.Mask, Is.EqualTo(new[] { true, false }));
-            Assert.That(probe.Sent, Is.EqualTo(new[] { "PEPTIDEK-[UNIMOD:34]" }));
+            Assert.That(probe.Mask, Is.EqualTo(new[] { false, false, true }));
+            Assert.That(probe.Sent, Is.EqualTo(new[] { "PEPTIDEK" }));
+            Assert.That(warnings[0], Does.Contain("-[UNIMOD:34]").And.Contain("C-terminus"));
         }
 
         /// <summary>

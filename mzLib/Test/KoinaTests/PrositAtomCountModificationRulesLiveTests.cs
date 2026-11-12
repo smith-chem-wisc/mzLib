@@ -15,8 +15,8 @@ namespace Test.KoinaTests
     /// <summary>
     /// Live canary for PrositAtomCountModificationRules: one batch per Prosit 2025 22PTM/40PTM and 2024 PTMs_gl model, with
     /// good peptides, N-terminal pyro-Glu from E and from Q (sent on the residue), ids only zero-shot encodes, and
-    /// E[UNIMOD:954], which Koina answers with HTTP 400 for the whole batch. The batch must succeed, with E[UNIMOD:954]
-    /// refused client-side.
+    /// E[UNIMOD:954], which Koina answers with HTTP 400 for the whole batch. The batch must succeed, with E[UNIMOD:954] and a
+    /// C-terminal modification refused client-side.
     /// </summary>
     [TestFixture]
     [Category("ExternalService")]
@@ -29,7 +29,7 @@ namespace Test.KoinaTests
             "PEPTIDEK",
             "PEPM[UNIMOD:35]TIDEK",
             "PEPC[UNIMOD:21]TIDEK",  // zero-shot
-            "PEPTIDEK-[UNIMOD:34]",  // C-terminal, zero-shot
+            "PEPTIDEK-[UNIMOD:34]",  // C-terminal, refused before sending
             "[UNIMOD:27]-EPEPTIDEK", // sent as E[UNIMOD:27]PEPTIDEK
             "[UNIMOD:28]-QPEPTIDEK", // sent as Q[UNIMOD:28]PEPTIDEK
             "PEPK[UNIMOD:64]TIDEK",  // zero-shot
@@ -38,7 +38,7 @@ namespace Test.KoinaTests
             "PEPE[UNIMOD:954]TIDEK", // refused before sending
         };
 
-        private static readonly bool[] ExpectedMask = { true, true, true, true, true, true, true, true, true, false };
+        private static readonly bool[] ExpectedMask = { true, true, true, false, true, true, true, true, true, false };
 
         private static IEnumerable<TestCaseData> RetentionTimeModels()
         {
@@ -60,9 +60,11 @@ namespace Test.KoinaTests
             var predictions = model.Predict(Batch.Select(s => new RetentionTimePredictionInput(s) { SequenceParser = ProFormaSequenceParser.Instance }).ToList());
 
             Assert.That(model.ValidInputsMask, Is.EqualTo(ExpectedMask));
-            Assert.That(predictions.Take(9).All(p => p.PredictedRetentionTime != null), Is.True);
+            Assert.That(predictions.Where((_, i) => ExpectedMask[i]).All(p => p.PredictedRetentionTime != null), Is.True);
             Assert.That(predictions[4].ValidatedFullSequence, Is.EqualTo("E[UNIMOD:27]PEPTIDEK"));
             Assert.That(predictions[5].ValidatedFullSequence, Is.EqualTo("Q[UNIMOD:28]PEPTIDEK"));
+            Assert.That(predictions[3].PredictedRetentionTime, Is.Null);
+            Assert.That(predictions[3].Warning!.Message, Does.Contain("C-terminus"));
             Assert.That(predictions[9].PredictedRetentionTime, Is.Null);
             Assert.That(predictions[9].Warning!.Message, Does.Contain("E[UNIMOD:954]"));
         }
@@ -73,9 +75,11 @@ namespace Test.KoinaTests
             var predictions = model.Predict(Batch.Select(s => new FragmentIntensityPredictionInput(s, 2, 30, null, "HCD") { SequenceParser = ProFormaSequenceParser.Instance }).ToList());
 
             Assert.That(model.ValidInputsMask, Is.EqualTo(ExpectedMask));
-            Assert.That(predictions.Take(9).All(p => p.FragmentIntensities is { Count: > 0 }), Is.True);
+            Assert.That(predictions.Where((_, i) => ExpectedMask[i]).All(p => p.FragmentIntensities is { Count: > 0 }), Is.True);
             Assert.That(predictions[4].ValidatedFullSequence, Is.EqualTo("E[UNIMOD:27]PEPTIDEK"));
             Assert.That(predictions[5].ValidatedFullSequence, Is.EqualTo("Q[UNIMOD:28]PEPTIDEK"));
+            Assert.That(predictions[3].FragmentIntensities, Is.Null);
+            Assert.That(predictions[3].Warning!.Message, Does.Contain("C-terminus"));
             Assert.That(predictions[9].FragmentIntensities, Is.Null);
             Assert.That(predictions[9].Warning!.Message, Does.Contain("E[UNIMOD:954]"));
         }
