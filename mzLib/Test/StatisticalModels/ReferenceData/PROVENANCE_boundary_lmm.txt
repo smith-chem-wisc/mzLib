@@ -1,0 +1,7 @@
+generated_utc 2026-11-10 19:17:19 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+lme4 2.0.6
+script make_boundary_lmm_fixtures.R
+data: MSstatsTMT controlled mixtures SPS-MS3 (MassIVE MSV000084264), proteins O75569 and Q9H479, prepared as QuantProject's model A
+lmer REML, bobyqa rhoend 1e-12; lme4's default, bobyqa and Nelder_Mead optimizers all reach the same optimum for both proteins
+lmm_boundary_runner_values.tsv: the same two proteins as QuantProject's STAT1 runner builds them (ion in its plex run, channel sample within channel; global channel median whose target leaves out reference channels, so y is shifted by one constant, 0.0092, from lmm_boundary_values.tsv), dumped 2026-11-10; the REML optimum and the condition coefficients do not depend on that shift or on the labels, so lmm_boundary_results.tsv holds for both files

@@ -325,7 +325,7 @@ public sealed class TestMslCoverageGaps
 	[Test]
 	public void Reader_DecodeNeutralLoss_H2O_RoundTrips()
 	{
-		const double h2oLoss = -18.010565;
+		const double h2oLoss = 18.010565;
 		var entry = MakePeptideEntry();
 		entry.MatchedFragmentIons[0].NeutralLoss = h2oLoss;
 
@@ -346,7 +346,7 @@ public sealed class TestMslCoverageGaps
 	[Test]
 	public void Reader_DecodeNeutralLoss_NH3_RoundTrips()
 	{
-		const double nh3Loss = -17.026549;
+		const double nh3Loss = 17.026549;
 		var entry = MakePeptideEntry();
 		entry.MatchedFragmentIons[0].NeutralLoss = nh3Loss;
 
