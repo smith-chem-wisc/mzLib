@@ -75,6 +75,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     public virtual bool AcceptsAllUnimodModifications => false;
 
     /// <summary>
+    /// Modified residues and termini the model has a token for, as Koina writes them ("M[UNIMOD:35]", "[UNIMOD:737]-"); null = anywhere.
+    /// </summary>
+    public virtual IReadOnlySet<string>? AllowedModificationTokens => null;
+
+    /// <summary>
     /// UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.
     /// </summary>
     public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
@@ -428,7 +433,8 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
-            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id))
+                && AllowedModificationTokens?.Contains(ModificationToken(resolved, id, cleaned.BaseSequence)) != false)
             {
                 accepted.Add(resolved);
                 acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
@@ -553,6 +559,16 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         }
         return i;
     }
+
+    private static string ModificationToken(CanonicalModification mod, int unimodId, string residues) => mod.PositionType switch
+    {
+        ModificationPositionType.NTerminus => $"[UNIMOD:{unimodId}]-",
+        ModificationPositionType.CTerminus => $"-[UNIMOD:{unimodId}]",
+        _ => $"{residues[mod.ResidueIndex!.Value]}[UNIMOD:{unimodId}]"
+    };
+
+    protected static IReadOnlySet<int> UnimodIdsOf(IEnumerable<string> modificationTokens) =>
+        modificationTokens.Select(token => int.Parse(Regex.Match(token, @"UNIMOD:(\d+)").Groups[1].Value)).ToHashSet();
 
     #endregion
 
