@@ -168,6 +168,112 @@ namespace Test.FileReadingTests
             Assert.That(cells["ensembl_xref_info_type"], Is.EqualTo("DIRECT"));
         }
 
+        // ---- agreement: agrees, silent or disagrees, so "false" no longer means two things ----
+
+        [Test]
+        public void GeneRows_NameTheAgreement_SilentApartFromDisagrees()
+        {
+            var resolver = new EnsemblGeneResolver(_genes, StandardTable());
+            var known = resolver.Resolve(Entry("P11111",
+                Transcript("ENST1.1", "ENSG00000000001.1"),
+                Transcript("ENST9.1", "ENSG00000000002.1")), "sha").ToDictionary(r => r.GeneId);
+            var unknown = resolver.Resolve(Entry("P22222", Transcript("ENST1.1", "ENSG00000000001.1")), "sha").Single();
+
+            Assert.That(known["ENSG00000000001"].EnsemblXrefAgreement, Is.EqualTo(EnsemblXrefAgreement.Agrees));
+            Assert.That(known["ENSG00000000002"].EnsemblXrefAgreement, Is.EqualTo(EnsemblXrefAgreement.Disagrees),
+                "the xref knows P11111 and links it to another gene");
+            Assert.That(unknown.EnsemblXrefAgreement, Is.EqualTo(EnsemblXrefAgreement.Silent),
+                "the xref has no row for P22222 at all");
+            Assert.That(new[] { known["ENSG00000000002"].EnsemblXrefAgrees, unknown.EnsemblXrefAgrees }, Is.All.False,
+                "the boolean column is unchanged: both are false, which is why the agreement exists");
+        }
+
+        [Test]
+        public void XrefKnowsTheAccessionOnlyOffTheGeneSet_Disagrees()
+        {
+            var r = new EnsemblGeneResolver(_genes, XrefOnlyTable())
+                .Resolve(Entry("P66666", Transcript("ENST1.1", "ENSG00000000001.1")), "sha").Single();
+
+            Assert.That((r.EnsemblXrefAgrees, r.EnsemblXrefAgreement), Is.EqualTo(((bool?)false, (EnsemblXrefAgreement?)EnsemblXrefAgreement.Disagrees)),
+                "Ensembl has heard of P66666; it names a gene outside the set, which is still not this one");
+        }
+
+        [Test]
+        public void IsoformAccession_AgreementUsesTheSameKeysAsAgrees()
+        {
+            var resolver = new EnsemblGeneResolver(_genes, StandardTable());
+            EnsemblXrefAgreement? For(string accession, string versionedGeneId) =>
+                resolver.Resolve(Entry(accession, Transcript("ENST1.1", versionedGeneId)), "sha")
+                    .Single(r => r.Source == EnsemblGeneResolver.SearchDatabaseSource).EnsemblXrefAgreement;
+
+            Assert.That(For("P11111-2", "ENSG00000000002.1"), Is.EqualTo(EnsemblXrefAgreement.Disagrees), "its own xref row names gene 1");
+            Assert.That(For("P11111-5", "ENSG00000000001.1"), Is.EqualTo(EnsemblXrefAgreement.Agrees), "no row of its own; its entry's agrees");
+            Assert.That(For("P22222-2", "ENSG00000000001.1"), Is.EqualTo(EnsemblXrefAgreement.Silent), "neither it nor its entry is in the xref");
+        }
+
+        [Test]
+        public void WithoutAnXrefOrAGene_ThereIsNoAgreement()
+        {
+            var noXref = new EnsemblGeneResolver(_genes).Resolve(Entry("P11111", Transcript("ENST1.1", "ENSG00000000001.1")), "sha").Single();
+            var noGene = new EnsemblGeneResolver(_genes, StandardTable()).Resolve(Entry("P11111"), "sha")
+                .Single(r => r.Source == EnsemblGeneResolver.SearchDatabaseSource);
+
+            Assert.That(noXref.EnsemblXrefAgreement, Is.Null, "unknown, not silent: no cross-reference was read");
+            Assert.That((noGene.Outcome, noGene.EnsemblXrefAgreement), Is.EqualTo((GeneResolutionOutcome.NotInSource, (EnsemblXrefAgreement?)null)),
+                "there is no gene to agree about, even though the xref knows P11111");
+        }
+
+        [Test]
+        public void Agreement_IsAgreesExactlyWhereTheBooleanIsTrue()
+        {
+            var proteins = XrefOnlyProteins().Concat(new[]
+            {
+                Entry("P44444", Transcript("ENST2.1", "ENSG00000000002.1")),
+                Entry("P99999", Transcript("ENST1.1", "ENSG00000000001.1")),
+            });
+            var rows = new EnsemblGeneResolver(_genes, XrefOnlyTable()).ResolveAll(proteins, "sha").ToList();
+
+            Assert.That(rows.Select(r => (r.EnsemblXrefAgrees, r.EnsemblXrefAgreement)), Has.All.Matches<(bool?, EnsemblXrefAgreement?)>(p =>
+                p.Item1 == null ? p.Item2 == null
+                : p.Item1 == true ? p.Item2 == EnsemblXrefAgreement.Agrees
+                : p.Item2 is EnsemblXrefAgreement.Silent or EnsemblXrefAgreement.Disagrees));
+            Assert.That(rows.Where(r => r.Source == EnsemblGeneResolver.EnsemblXrefSource).Select(r => r.EnsemblXrefAgreement),
+                Is.All.EqualTo(EnsemblXrefAgreement.Agrees), "a gene only the xref links is one it agrees with");
+            Assert.That(rows.Select(r => r.EnsemblXrefAgreement).Distinct(), Is.SupersetOf(new EnsemblXrefAgreement?[]
+                { EnsemblXrefAgreement.Agrees, EnsemblXrefAgreement.Silent, EnsemblXrefAgreement.Disagrees, null }),
+                "the fixture exercises every state");
+        }
+
+        [Test]
+        public void Tsv_AppendsTheAgreementColumn()
+        {
+            var resolver = new EnsemblGeneResolver(_genes, StandardTable());
+            var output = new StringWriter();
+            GeneResolutionTsv.Write(output, new[] { "P11111", "P22222" }
+                .SelectMany(a => resolver.Resolve(Entry(a, Transcript("ENST9.1", "ENSG00000000002.1")), "sha"))
+                .Concat(resolver.Resolve(Entry("P99999"), "sha")));
+
+            var lines = output.ToString().Replace("\r", "").TrimEnd('\n').Split('\n');
+            Assert.That(lines[0].Split('\t'), Is.EqualTo(new[]
+            {
+                "accession", "entry_accession", "isoform", "namespace", "outcome", "n_genes", "gene_id", "versioned_gene_id",
+                "gene_symbol", "gene_biotype", "off_primary_genes", "uniprot_gene_name", "source", "search_database_sha256",
+                "gene_set_release", "gene_set_sha256", "ensembl_xref_agrees", "ensembl_xref_info_type", "ensembl_xref_sha256",
+                "ensembl_xref_agreement",
+            }), "appended after the columns the table already had, each of which keeps its name and position");
+            Assert.That(lines.Skip(1).Select(l => l.Split('\t').Last()), Is.EqualTo(new[] { "disagrees", "agrees", "silent", "" }),
+                "P11111's XML gene, then the gene only the xref links, then P22222, then a row without a gene (an empty cell)");
+        }
+
+        [Test]
+        public void AgreementNames_AreTheTableValues()
+        {
+            Assert.That(Enum.GetValues<EnsemblXrefAgreement>().Select(a => GeneResolutionTsv.AgreementName(a)),
+                Is.EqualTo(new[] { "agrees", "silent", "disagrees" }));
+            Assert.That(GeneResolutionTsv.AgreementName(null), Is.Null);
+            Assert.Throws<ArgumentOutOfRangeException>(() => GeneResolutionTsv.AgreementName((EnsemblXrefAgreement)99));
+        }
+
         // ---- genes only the xref links: rows of their own, never a changed outcome ----
 
         private EnsemblXrefTable XrefOnlyTable() => EnsemblXrefTable.Load(WriteGz("Rattus_norvegicus.GRCr8.116.uniprot.tsv.gz",
