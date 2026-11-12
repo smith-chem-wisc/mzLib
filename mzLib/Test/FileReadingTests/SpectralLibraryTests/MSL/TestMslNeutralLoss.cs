@@ -93,11 +93,11 @@ public class TestMslNeutralLoss
 	/// all-codes parameterized test in TestMslRoundTrip.
 	/// </summary>
 	[TestCase(0.0, "None", TestName = "NamedLoss_None")]
-	[TestCase(-18.010565, "H2O", TestName = "NamedLoss_H2O")]
-	[TestCase(-17.026549, "NH3", TestName = "NamedLoss_NH3")]
-	[TestCase(-97.976895, "H3PO4", TestName = "NamedLoss_H3PO4")]
-	[TestCase(-79.966331, "HPO3", TestName = "NamedLoss_HPO3")]
-	[TestCase(-97.976895 + -18.010565, "H3PO4AndH2O", TestName = "NamedLoss_H3PO4AndH2O")]
+	[TestCase(18.010565, "H2O", TestName = "NamedLoss_H2O")]
+	[TestCase(17.026549, "NH3", TestName = "NamedLoss_NH3")]
+	[TestCase(97.976895, "H3PO4", TestName = "NamedLoss_H3PO4")]
+	[TestCase(79.966331, "HPO3", TestName = "NamedLoss_HPO3")]
+	[TestCase(97.976895 + 18.010565, "H3PO4AndH2O", TestName = "NamedLoss_H3PO4AndH2O")]
 	public void NamedLoss_RoundTrips_WithCorrectMass(double loss, string codeName)
 	{
 		string path = TempPath($"named_{codeName}");
@@ -116,13 +116,13 @@ public class TestMslNeutralLoss
 
 	/// <summary>
 	/// NeutralLossCode.H3PO4AndH2O (value = 5, renamed from PlusH2O in Fix 1)
-	/// must represent −115.987460 Da — NOT −18.010565 Da (water-only).
+	/// must represent 115.987460 Da — NOT 18.010565 Da (water-only).
 	/// </summary>
 	[Test]
 	public void H3PO4AndH2O_IsNotWaterOnly_MassIsCorrect()
 	{
-		const double combinedLoss = -97.976895 + -18.010565;   // = −115.987460
-		const double waterOnly = -18.010565;
+		const double combinedLoss = 97.976895 + 18.010565;   // = 115.987460
+		const double waterOnly = 18.010565;
 
 		string path = TempPath("H3PO4AndH2O_not_water");
 		MslWriter.Write(path, new[] { EntryWithLoss(combinedLoss) });
@@ -239,11 +239,11 @@ public class TestMslNeutralLoss
 		var losses = new (string name, double mass)[]
 		{
 			("None",        0.0),
-			("H2O",        -18.010565),
-			("NH3",        -17.026549),
-			("H3PO4",      -97.976895),
-			("HPO3",       -79.966331),
-			("H3PO4AndH2O",-115.987460),
+			("H2O",        18.010565),
+			("NH3",        17.026549),
+			("H3PO4",      97.976895),
+			("HPO3",       79.966331),
+			("H3PO4AndH2O",115.987460),
 		};
 
 		const double tolerance = 0.01;
@@ -315,7 +315,7 @@ public class TestMslNeutralLoss
 	public void NamedLoss_FileFlagHasExtAnnotations_ClearWhenNoCustom()
 	{
 		string path = TempPath("flag_clear_named");
-		MslWriter.Write(path, new[] { EntryWithLoss(-18.010565) });   // H2O — named
+		MslWriter.Write(path, new[] { EntryWithLoss(18.010565) });   // H2O — named
 
 		MslFileHeader header = MslReader.ReadHeaderOnly(path);
 
@@ -334,7 +334,7 @@ public class TestMslNeutralLoss
 	[Test]
 	public void NamedLoss_ResiduePosition_PreservedInRoundTrip()
 	{
-		var entry = EntryWithLoss(-18.010565);   // H2O — named
+		var entry = EntryWithLoss(18.010565);   // H2O — named
 		entry.MatchedFragmentIons[0].ResiduePosition = 7;
 
 		string path = TempPath("residue_pos_named");

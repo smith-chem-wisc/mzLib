@@ -200,6 +200,9 @@ namespace StatisticalModels
         /// method, √(se² / c² + estimate² Var(c) / c⁴). The second term is shared by every effect rescaled by the same c,
         /// so rescaled effects of one dataset are not independent of each other. NaN for both when the scale was not
         /// estimated or is zero.
+        /// <para>The formula has no covariance term: it assumes <paramref name="estimate"/> and c are uncorrelated. That holds
+        /// for an effect that was not one of the features c was fitted on. For a calibration feature itself, its estimate
+        /// helped fit c, so the two do covary, and the returned standard error leaves that covariance out.</para>
         /// </summary>
         public static (double Estimate, double StandardError) Rescale(double estimate, double standardError, EffectScaleResult scale)
         {

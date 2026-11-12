@@ -8,7 +8,9 @@ namespace Readers
     /// <summary>
     /// One row of MetaMorpheus's DIA precursor table (AllDiaPrecursors.tsv): one library precursor identified in one run.
     /// The schema was agreed with dataRepo (dia 003). Column names reuse MetaMorpheus's psmtsv headers where the concept
-    /// exists; retention columns carry their unit, and iRT and minutes are never mixed in one column.
+    /// exists (<see cref="SpectrumMatchFromTsvHeader"/>), and the rest are <see cref="DiaTsvHeader"/>; retention columns
+    /// carry their unit, and iRT and minutes are never mixed in one column. Columns are read by name, so their order in a
+    /// file does not matter; the writer writes them in the order the properties are declared here.
     /// </summary>
     public record DiaPrecursorFromTsv
     {
@@ -23,64 +25,64 @@ namespace Readers
         };
 
         /// <summary>The run key: the spectra file's name exactly as deposited, extension included, never shortened.</summary>
-        [Name("File Name"), Index(0)]
+        [Name(SpectrumMatchFromTsvHeader.FileName)]
         public string FileName { get; set; } = "";
 
         /// <summary>The precursor's sequence with modifications, in MetaMorpheus notation.</summary>
-        [Name("Full Sequence"), Index(1)]
+        [Name(SpectrumMatchFromTsvHeader.FullSequence)]
         public string FullSequence { get; set; } = "";
 
-        [Name("Base Sequence"), Index(2)]
+        [Name(SpectrumMatchFromTsvHeader.BaseSequence)]
         public string BaseSequence { get; set; } = "";
 
-        [Name("Precursor Charge"), Index(3)]
+        [Name(SpectrumMatchFromTsvHeader.PrecursorCharge)]
         public int PrecursorCharge { get; set; }
 
         /// <summary>The library precursor's m/z.</summary>
-        [Name("Precursor MZ"), Index(4)]
+        [Name(SpectrumMatchFromTsvHeader.PrecursorMz)]
         public double PrecursorMz { get; set; }
 
         /// <summary>The library's protein accessions, `|`-joined; the order means nothing.</summary>
-        [Name("Protein Accession"), Index(5)]
+        [Name(SpectrumMatchFromTsvHeader.ProteinAccession)]
         public string ProteinAccession { get; set; } = "";
 
         /// <summary>T target, D decoy, ET entrapment target, ED entrapment decoy, C contaminant.</summary>
-        [Name("Decoy/Contaminant/Target"), Index(6)]
+        [Name(SpectrumMatchFromTsvHeader.DecoyContaminantTarget)]
         public string Label { get; set; } = "";
 
         /// <summary>The classifier score the q-values are computed on; higher is better.</summary>
-        [Name("Score"), Index(7)]
+        [Name(SpectrumMatchFromTsvHeader.Score)]
         public double Score { get; set; }
 
         /// <summary>Precursor q-value from target-decoy competition within this run.</summary>
-        [Name("QValue_Precursor_Run"), Index(8)]
+        [Name(DiaTsvHeader.QValuePrecursorRun)]
         public double QValuePrecursorRun { get; set; }
 
         /// <summary>Precursor q-value from target-decoy competition across all runs searched together.</summary>
-        [Name("QValue_Precursor_Global"), Index(9)]
+        [Name(DiaTsvHeader.QValuePrecursorGlobal)]
         public double QValuePrecursorGlobal { get; set; }
 
         /// <summary>The library's iRT for the precursor.</summary>
-        [Name("LibraryIrt"), Index(10)]
+        [Name(DiaTsvHeader.LibraryIrt)]
         public double LibraryIrt { get; set; }
 
         /// <summary>The apex's retention time on the library's iRT scale, under this run's calibration.</summary>
-        [Name("ApexIrt"), Index(11)]
+        [Name(DiaTsvHeader.ApexIrt)]
         public double ApexIrt { get; set; }
 
         /// <summary>The apex's retention time in this run, minutes.</summary>
-        [Name("ApexRtMin"), Index(12)]
+        [Name(DiaTsvHeader.ApexRtMin)]
         public double ApexRtMin { get; set; }
 
         /// <summary>The one-based scan number of the apex MS2 scan, so a row can point at a spectrum through a USI.</summary>
-        [Name("ApexScanNumber"), Index(13)]
+        [Name(DiaTsvHeader.ApexScanNumber)]
         public int ApexScanNumber { get; set; }
 
         /// <summary>
         /// The precursor's quantity: its fragments' summed peak areas. Empty when not reported; a 0 is an integrated area
         /// of exactly 0 over a detected peak.
         /// </summary>
-        [Name("Precursor Quantity"), Index(14)]
+        [Name(DiaTsvHeader.PrecursorQuantity)]
         public double? PrecursorQuantity { get; set; }
     }
 }
