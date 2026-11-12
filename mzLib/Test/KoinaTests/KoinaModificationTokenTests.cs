@@ -57,7 +57,7 @@ namespace Test.KoinaTests
         {
             var tokens = Tokens(model)!;
             int id = IdOf(tokens.First(t => !t.EndsWith('-')));
-            return "ACDEFGHIKLMNPQRSTVWY".Select(residue => $"{residue}[UNIMOD:{id}]").First(t => !tokens.Contains(t));
+            return "ACDEFGHIKLMNPQRSTVWY".Select(residue => $"{residue}[UNIMOD:{id}]").Append($"[UNIMOD:{id}]-").First(t => !tokens.Contains(t));
         }
 
         public static string? Clean(object model, string sequence, ISequenceParser? parser, out string? apiSequence, out WarningException? warning)
@@ -74,10 +74,9 @@ namespace Test.KoinaTests
     [TestFixture]
     public class KoinaModificationTokenTests
     {
-        // UniSpec's and Chronologer's preprocessing predict an allowed id on any residue, and the PTMs_gl models' zero-shot
-        // preprocessing places an id on residues no fixed list names, so these declare no residue tokens.
+        // The PTMs_gl models' zero-shot preprocessing places an id on residues no fixed list names, so they declare no tokens.
         [Test]
-        public void EveryModelThatListsItsIds_DeclaresTokens_ExceptUniSpecChronologerAndPTMsGl()
+        public void EveryModelThatListsItsIds_DeclaresTokens_ExceptPTMsGl()
         {
             var listingIdsWithoutTokens = ModificationTokenCases.AllModels()
                 .Where(t =>
@@ -89,7 +88,7 @@ namespace Test.KoinaTests
                 })
                 .Select(t => t.Name);
 
-            Assert.That(listingIdsWithoutTokens, Is.EquivalentTo(new[] { nameof(UniSpec), nameof(ChronologerRT), nameof(Prosit2024IntensityPTMsGl), nameof(Prosit2024iRTPTMsGl) }));
+            Assert.That(listingIdsWithoutTokens, Is.EquivalentTo(new[] { nameof(Prosit2024IntensityPTMsGl), nameof(Prosit2024iRTPTMsGl) }));
         }
 
         [TestCaseSource(typeof(ModificationTokenCases), nameof(ModificationTokenCases.TokenDeclaringModels))]
@@ -201,6 +200,23 @@ namespace Test.KoinaTests
             Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
             Assert.That(fromMzLib is null, Is.EqualTo(expected is null));
             Assert.That(fromProForma is null, Is.EqualTo(expected is null));
+        }
+
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
+        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "PEPTIDEK")]
+        public void UniSpec_NTerminalAcetyl_IsHeldBackFromMzLibAndProFormaSources(SequenceConversionHandlingMode mode, string? expected)
+        {
+            var model = new UniSpec(modHandlingMode: mode);
+
+            var fromMzLib = ModificationTokenCases.Clean(model, "[Unimod:Acetyl on X]PEPTIDEK", null, out var mzLibApi, out var mzLibWarning);
+            var fromProForma = ModificationTokenCases.Clean(model, "[UNIMOD:1]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
+
+            Assert.That(mzLibApi, Is.EqualTo(expected));
+            Assert.That(proFormaApi, Is.EqualTo(expected));
+            Assert.That(fromMzLib is null, Is.EqualTo(expected is null));
+            Assert.That(fromProForma is null, Is.EqualTo(expected is null));
+            Assert.That(mzLibWarning?.Message, Does.Contain("Acetyl"));
+            Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:1"));
         }
 
         private sealed class HcdProbe : Prosit2020IntensityHCD
