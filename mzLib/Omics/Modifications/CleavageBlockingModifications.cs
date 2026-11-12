@@ -206,5 +206,14 @@ namespace Omics.Modifications
             && modification is not null
             && modification.BlocksCleavage
             && agent.CleavesCTerminalTo(BlockedResidue(modification));
+
+        /// <summary>
+        /// True for carbamylation, which urea also adds after digestion, so a peptide can end in it at a cut.
+        /// </summary>
+        public static bool MayFormAfterDigestion(Modification modification)
+        {
+            string id = (modification.OriginalId ?? string.Empty).ToLowerInvariant();
+            return id.Contains("carbamyl") || id.Contains("carbamoyl");
+        }
     }
 }
