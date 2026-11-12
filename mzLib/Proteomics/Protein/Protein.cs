@@ -499,6 +499,10 @@ namespace Proteomics
             CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications, this,
                 allKnownFixedModifications);
 
+            // Enumeration takes the policy's values, not the policy: FullDigestion is in Omics, shared with RNA, and
+            // cannot see this Proteomics type. CleavageSites is null, so FullDigestion uses the protease's own sites,
+            // unless the cleavage-promoting correction is on, which For allows only in Full digestion, the one branch
+            // that reads it.
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
                 this,
                 digestionParameters.MaxMissedCleavages + cleavageBlockingPolicy.GenerationSlack,
