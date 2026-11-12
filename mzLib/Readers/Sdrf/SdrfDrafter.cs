@@ -171,6 +171,10 @@ namespace Readers
         /// another, and joined they would be one condition. Where two files the columns told apart would get one value, the
         /// columns stay as they were (measured 2026-11-07 on 1,147 cached deposits).</para>
         ///
+        /// <para>A joined value is written with one source and one method, so the parts of every joined value must agree on
+        /// both. A file whose genotype was read from its name and whose treatment came from a paper would otherwise be written
+        /// as read from its name, while citing the paper. Where any file's parts disagree, the columns stay as they were.</para>
+        ///
         /// <para>Biological replicates are deliberately not touched. Families number their samples apart, so two samples of
         /// one written condition can share a number, and a design reader refuses that. Numbering them apart was measured and
         /// rejected (2026-11-07, 1,147 cached deposits): a design reader takes every number as stated, and the names cannot
@@ -181,6 +185,8 @@ namespace Readers
         {
             static bool Placed(SdrfDraftCell cell) => cell.Source != SdrfDraftSource.NotAvailable;
             if (draft.FactorColumns.Count < 2 || !draft.Rows.Any(r => r.Factors.Any(Placed) && !r.Factors.All(Placed)))
+                return draft;
+            if (draft.Rows.Any(r => r.Factors.Where(Placed).Select(c => (c.Source, c.Method)).Distinct().Count() > 1))
                 return draft;
             var rows = draft.Rows.Select(r =>
             {

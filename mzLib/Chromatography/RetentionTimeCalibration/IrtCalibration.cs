@@ -331,16 +331,26 @@ public sealed record IrtCalibrationModel
     /// <summary>The latest retention time among the anchors the fit used; the map is fitted up to here.</summary>
     public RtMinutes LastAnchor => new(_knotRt[^1]);
 
+    /// <summary>Maps a run retention time onto iRT. A missing time (NaN) maps to NaN.</summary>
     public Irt ToIrt(RtMinutes retentionTime) => new(Evaluate(_knotRt, _knotIrt, retentionTime.Value, _slopeBefore, _slopeAfter));
 
+    /// <summary>Maps an iRT back onto this run's minutes. A missing time (NaN) maps to NaN.</summary>
     public RtMinutes ToRtMinutes(Irt indexedRetentionTime) =>
         new(Evaluate(_knotIrt, _knotRt, indexedRetentionTime.Value, 1 / _slopeBefore, 1 / _slopeAfter));
 
-    /// <summary>True outside the anchors' span, where the map is a straight-line continuation rather than fitted.</summary>
-    public bool IsExtrapolated(RtMinutes retentionTime) => retentionTime.Value < _knotRt[0] || retentionTime.Value > _knotRt[^1];
+    /// <summary>
+    /// True outside the anchors' span, where the map is a straight-line continuation rather than fitted.
+    /// A missing time (NaN) is never inside the span, so it is extrapolated.
+    /// </summary>
+    public bool IsExtrapolated(RtMinutes retentionTime) =>
+        double.IsNaN(retentionTime.Value) || retentionTime.Value < _knotRt[0] || retentionTime.Value > _knotRt[^1];
 
     private static double Evaluate(double[] from, double[] to, double value, double slopeBefore, double slopeAfter)
     {
+        // NaN fails every comparison below, and Array.BinarySearch sorts it before every knot,
+        // which indexed from[-1]. A missing time has no image: return NaN.
+        if (double.IsNaN(value))
+            return double.NaN;
         if (value <= from[0])
             return to[0] + slopeBefore * (value - from[0]);
         if (value >= from[^1])
