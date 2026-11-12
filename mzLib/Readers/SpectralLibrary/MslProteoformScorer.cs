@@ -130,8 +130,8 @@ public record MslProteoformScoringResult
 /// </summary>
 public static class MslProteoformScorer
 {
-	/// <summary>Proton mass in daltons used for neutral mass computation.</summary>
-	private const double ProtonMass = 1.007276;
+	/// <summary>Proton mass in daltons used for neutral mass computation: mzLib's one constant.</summary>
+	private const double ProtonMass = Chemistry.Constants.ProtonMass;
 
 	// ── Public API ────────────────────────────────────────────────────────────
 

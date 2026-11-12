@@ -155,35 +155,12 @@ namespace PredictionClients.Koina.AbstractClasses
             #endregion
 
             var predictions = new List<PeptideDetectabilityPrediction>();
+            IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
             if (validInputs.Count > 0)
             {
-                #region Request Batching, Throttling Setup
-                var batchedRequests = ToBatchedRequests(validInputs);
-                var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                // We calculate a dynamic timeout based on the number of batches at (BenchmarkedTimeForOneMaxBatchSizeInMilliseconds x 2)ms/batch
-                // for buffer to ensure we don't hit timeouts during processing plus throttling time.
-                // Note: the time per batch is benchmarked for the entire Predict() method, so it includes some overhead beyond just the API call. Large peptide
-                // requests will not necessarily scale linearly, so this is a rough estimate to provide a reasonable timeout and is an aggressive 
-                // upper bound to avoid timeouts.
-                #endregion
-
                 #region Throttled API Requests and Response Processing
-                var responses = new List<string>();
-                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count));
-
-                for (int i = 0; i < batchChunks.Count; i++)
-                {
-                    var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
-                    responses.AddRange(responseChunk);
-
-                    if (i < batchChunks.Count - 1) // No need to throttle after the last batch
-                    {
-                        await Task.Delay(ThrottlingDelayInMilliseconds);
-                    }
-                }
-
-                predictions = ResponseToPredictions(responses, validInputs);
+                // An input the model refuses is set false in ValidInputsMask, and the rest keep their predictions.
+                (predictions, refusedInputs) = await RequestPredictionsAsync(validInputs, ValidInputsMask, ResponseToPredictions);
                 #endregion
             }
 
@@ -210,6 +187,10 @@ namespace PredictionClients.Koina.AbstractClasses
                     ));
                 }
             }
+
+            // An input the model refused carries Koina's reason rather than a validation warning.
+            foreach (var (index, warning) in refusedInputs)
+                realignedPredictions[index] = realignedPredictions[index] with { Warning = warning };
             #endregion
 
             Predictions = realignedPredictions;

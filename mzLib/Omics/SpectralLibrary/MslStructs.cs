@@ -109,13 +109,16 @@ public struct MslFileHeader
 
 	/// <summary>
 	/// Offset 16, 4 bytes. Number of protein records in the protein table.
-	/// Zero means the protein table is absent (FileFlags bit 1 should also be 0).
+	/// The writer gives the empty accession its own record, so a library whose precursors
+	/// carry no protein reports 1, not 0. Whether protein data is present is
+	/// <see cref="MslFormat.FileFlagHasProteinData"/> in <see cref="FileFlags"/>, not this count.
 	/// </summary>
 	public int NProteins;
 
 	/// <summary>
 	/// Offset 20, 4 bytes. Count of unique elution group IDs across all precursors.
 	/// Precursors that share the same stripped sequence share an elution group ID.
+	/// An empty stripped sequence counts as one group.
 	/// </summary>
 	public int NElutionGroups;
 
@@ -123,6 +126,7 @@ public struct MslFileHeader
 	/// Offset 24, 4 bytes. Total number of entries in the string table.
 	/// The string table stores all modified sequences, stripped sequences, protein
 	/// accessions, names, and gene names in a flat array indexed by int32 index.
+	/// The count includes the empty string the writer always stores at index 0.
 	/// </summary>
 	public int NStrings;
 

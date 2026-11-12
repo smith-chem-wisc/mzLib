@@ -175,8 +175,10 @@ namespace StatisticalModels
             RobustIterationsValues = new int[features];
             RobustConvergedValues = new bool?[features];
             RobustFellBackValues = new bool?[features];
+            NuisanceValues = new double[features][];
         }
 
+        internal double[]?[] NuisanceValues { get; }
         internal double[]?[] WeightValues { get; }
         internal int[] RobustIterationsValues { get; }
         internal bool?[] RobustConvergedValues { get; }
@@ -234,6 +236,17 @@ namespace StatisticalModels
 
         /// <summary>REML estimate of common coefficient <paramref name="coefficient"/> of <paramref name="feature"/>.</summary>
         public double Coefficient(int feature, int coefficient) => CoefficientValues[feature * CommonNames.Count + coefficient];
+
+        /// <summary>
+        /// REML estimates of <paramref name="feature"/>'s nuisance coefficients (e.g. each peptide's offset from the
+        /// reference peptide), in the order of its problem's nuisance columns: for a problem from
+        /// <see cref="NestedMixedModelProblem.FromNuisanceLabels"/>, the labels <see cref="NestedMixedModelProblem.NuisanceLevels"/>
+        /// [1..], the first being the reference with no column. With <see cref="Coefficient"/> they give the feature's
+        /// fitted fixed part, so an average over its peptides (an estimated marginal mean) can be formed. Empty for a
+        /// fitted problem with no nuisance column; null for a feature that was not fitted
+        /// (<see cref="Status"/> is not <see cref="FeatureFitStatus.Fitted"/>).
+        /// </summary>
+        public IReadOnlyList<double>? NuisanceCoefficients(int feature) => NuisanceValues[feature];
 
         /// <summary>
         /// Element (i, j) of (XᵀV⁻¹X)⁻¹ for the common columns, with V the observations' covariance divided by the residual
@@ -347,6 +360,18 @@ namespace StatisticalModels
                 throw new ArgumentException("A contrast weight is not finite.", name);
         }
     }
+
+    /// <summary>
+    /// One mixed-model fit, the contrasts tested on it and the condition terms that give its features' variance df, as a
+    /// part of a pooled moderation
+    /// (<see cref="NestedMixedModel.ModerateContrasts(IReadOnlyList{MixedModelModerationPart}, double)"/>).
+    /// </summary>
+    /// <param name="Fit">Output of <see cref="NestedMixedModel.Fit"/>.</param>
+    /// <param name="Contrasts">Weights on this fit's common columns; names unique within the part; may be empty.</param>
+    /// <param name="VarianceDfRows">The condition terms, as weights on this fit's common columns, whose joint
+    /// Satterthwaite F df is each feature's variance df; at least one.</param>
+    public sealed record MixedModelModerationPart(NestedMixedModelFit Fit, IReadOnlyList<ContrastWeights> Contrasts,
+        IReadOnlyList<IReadOnlyList<double>> VarianceDfRows);
 
     /// <summary>
     /// A linear mixed model fitted separately for each feature, each with its own design: the response (e.g. every
@@ -500,6 +525,90 @@ namespace StatisticalModels
                 }
                 return new FeatureContrast(estimate, Math.Sqrt(unscaled), fit.Satterthwaite(f, w, out _));
             });
+        }
+
+        /// <summary>
+        /// Moderated contrasts over several mixed-model fits that share one variance prior: exactly
+        /// <see cref="ModerateContrasts(NestedMixedModelFit, IReadOnlyList{ContrastWeights}, IReadOnlyList{IReadOnlyList{double}}, double)"/>,
+        /// with the prior, the df cap and Benjamini–Hochberg taken over every part together. Use it when features are fitted
+        /// on different common columns (each on the columns its own observed samples can estimate, so a feature missing
+        /// a group or batch is not refused as a whole), so they cannot share one fit, but their variances still share one
+        /// prior, as limma's do across genes with different missing values.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Pooled.</b> Each part's fitted features with a finite, positive joint Satterthwaite df of its
+        /// <see cref="MixedModelModerationPart.VarianceDfRows"/> enter the prior, in part order. The df cap is the sum of
+        /// those df. Benjamini–Hochberg runs per contrast name over the features of every part that tests it. A part's
+        /// contrasts and variance-df rows are weights on its own common columns; parts may test different contrasts, and a
+        /// part with none still informs the prior.
+        /// </para>
+        /// <para>
+        /// <b>Few features.</b> The prior counts those usable features only: with fewer than 3, no prior is fitted
+        /// (d0 = 0), so each keeps its own variance and its contrasts their own Satterthwaite df; with none, every value is
+        /// NaN. Nothing is thrown for too few features (QuantProject STAT1 ruling 5, 2026-11-10). The single-fit overload
+        /// is unchanged: it counts every feature of its fit and throws below 2 usable ones.
+        /// </para>
+        /// <para>
+        /// <b>Same numbers as one fit.</b> With one part and at least 3 usable features this gives exactly what the
+        /// single-fit overload gives; features split over several parts in their original order give the same numbers as
+        /// one fit of them all.
+        /// </para>
+        /// </remarks>
+        /// <param name="parts">At least one: each a fit, its contrasts and the condition terms of its variance df.</param>
+        /// <param name="confidenceLevel">Two-sided interval level, strictly between 0 and 1.</param>
+        /// <returns>Per part, in order, one result per contrast of that part, in its order.</returns>
+        public static IReadOnlyList<IReadOnlyList<ModeratedContrast>> ModerateContrasts(
+            IReadOnlyList<MixedModelModerationPart> parts, double confidenceLevel = 0.95)
+        {
+            ArgumentNullException.ThrowIfNull(parts);
+            EmpiricalBayes.CheckLevel(confidenceLevel);
+            if (parts.Count == 0) throw new ArgumentException("No part was given.", nameof(parts));
+            var pooled = new List<EmpiricalBayes.PooledPart>(parts.Count);
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i] ?? throw new ArgumentException($"Part {i} is null.", nameof(parts));
+                var fit = part.Fit ?? throw new ArgumentException($"Part {i} has no fit.", nameof(parts));
+                var contrasts = part.Contrasts ?? throw new ArgumentException($"Part {i} has no contrast list.", nameof(parts));
+                var rows = part.VarianceDfRows ?? throw new ArgumentException($"Part {i} has no variance-df rows.", nameof(parts));
+                int p = fit.CommonNames.Count;
+                if (contrasts.Count > 0)
+                    EmpiricalBayes.CheckContrasts(contrasts, confidenceLevel, c =>
+                    {
+                        if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
+                            throw new ArgumentException($"Contrast '{c.Name}' of part {i} needs {p} finite weights.", nameof(parts));
+                    });
+                if (rows.Count == 0) throw new ArgumentException($"Part {i} has no variance-df rows.", nameof(parts));
+                foreach (var r in rows)
+                    if (r is null || r.Count != p || r.Any(w => !double.IsFinite(w)))
+                        throw new ArgumentException($"Each variance-df row of part {i} needs {p} finite weights.", nameof(parts));
+
+                int n = fit.FeatureCount;
+                var s2 = new double[n];
+                var df = new double[n];
+                var usable = new List<int>();
+                for (int f = 0; f < n; f++)
+                {
+                    s2[f] = double.NaN;
+                    if (fit.Status[f] != FeatureFitStatus.Fitted) continue;
+                    double d = fit.JointSatterthwaiteDf(f, rows);
+                    if (!(double.IsFinite(d) && d > 0)) continue;
+                    s2[f] = fit.ResidualVariance[f];
+                    df[f] = d;
+                    usable.Add(f);
+                }
+                pooled.Add(new EmpiricalBayes.PooledPart(contrasts, s2, df, usable, fit.Status, (f, w) =>
+                {
+                    double unscaled = 0, estimate = 0;
+                    for (int a = 0; a < p; a++)
+                    {
+                        estimate += w[a] * fit.Coefficient(f, a);
+                        for (int b = 0; b < p; b++) unscaled += w[a] * w[b] * fit.UnscaledCovariance(f, a, b);
+                    }
+                    return new FeatureContrast(estimate, Math.Sqrt(unscaled), fit.Satterthwaite(f, w, out _));
+                }));
+            }
+            return EmpiricalBayes.ModeratePooled(pooled, confidenceLevel);
         }
 
         /// <summary>
@@ -705,6 +814,9 @@ namespace StatisticalModels
                 fit.Jacobians[f] = jac;
                 fit.VarParCovariances[f] = a2;
                 fit.StructureValues[f] = structure;
+                var nuisanceCoefficients = new double[_p - _common];
+                for (int i = 0; i < nuisanceCoefficients.Length; i++) nuisanceCoefficients[i] = best.Beta![_common + i];
+                fit.NuisanceValues[f] = nuisanceCoefficients;
                 fit.StatusValues[f] = FeatureFitStatus.Fitted;
             }
 
