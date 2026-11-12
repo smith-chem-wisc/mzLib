@@ -373,17 +373,22 @@ namespace UsefulProteomicsDatabases
         /// ends, as MassIVE's HTTPS endpoint does (sdrf 028).
         /// </para>
         /// <para>
-        /// <b>Resumable.</b> The bytes go to "&lt;file&gt;.partial", beside a ".partial.validator" holding the
-        /// server's <c>SIZE</c> and <c>MDTM</c> when the transfer began. A later attempt, in this call or a later one,
-        /// resumes with <c>REST</c> only while both still match; otherwise it starts again from byte 0. Cancelling, or a
-        /// transient failure, keeps both files for the next call; any other failure removes them.
+        /// <b>Resumable.</b> The bytes go to "&lt;file&gt;.partial", beside a ".partial.validator" naming the file's
+        /// path on the server, which begins with its dataset's folder, and holding the server's <c>SIZE</c> and
+        /// <c>MDTM</c> when the transfer began. A later attempt, in this call or a later one, resumes with <c>REST</c>
+        /// only while all three still match; otherwise it starts again from byte 0. So a partial left by another
+        /// dataset's file of the same relative name, which lands on the same destination, is never resumed, even at the
+        /// same size and time stamp. Cancelling, or a transient failure, keeps both files for the next call; any other
+        /// failure removes them.
         /// </para>
         /// </remarks>
         /// <param name="file">A file from <see cref="GetDatasetFilesAsync"/>. Must not be null or a link.</param>
         /// <param name="destinationDirectory">The directory to write below; created if it does not exist.</param>
         /// <param name="overwrite">
-        /// When true (the default) an existing destination file is replaced. When false, an existing destination file
-        /// of the listed size is left untouched and no request is made; one of another size is downloaded again.
+        /// When true (the default) an existing destination file is replaced. It governs the finished file, not a
+        /// ".partial": one this client left for the same remote file is resumed either way, since its validator binds it
+        /// to that file, and one left for any other file is discarded either way. When false, an existing destination
+        /// file of the listed size is left untouched and no request is made; one of another size is downloaded again.
         /// </param>
         /// <param name="cancellationToken">Cancels the download.</param>
         /// <returns>The full path of the written (or already-present) file.</returns>
@@ -446,8 +451,10 @@ namespace UsefulProteomicsDatabases
 
                     string modified = await ModifiedAsync(ftp, file.ServerPath, described, cancellationToken).ConfigureAwait(false)
                         ?? throw new MzLibException($"MassIVE's FTP server no longer has {described}.");
-                    var current = new FtpValidator(expectedSize, modified);
+                    var current = new FtpValidator(file.ServerPath, expectedSize, modified);
 
+                    // Only a partial of this same remote file is resumed. Two datasets' files of one relative name land
+                    // on one destination, and can share a SIZE and an MDTM too; a splice of the two would pass the size check.
                     long offset = 0;
                     if (current.Equals(onDisk) && File.Exists(partialPath))
                     {
@@ -675,15 +682,19 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// What a <c>.partial</c> was started under on the FTP server: its <c>SIZE</c> and <c>MDTM</c> then. A resume is
-        /// made only while both still match. Kept in the ".partial.validator" sidecar PRIDE's downloads use, as one line,
-        /// "ftp size=&lt;bytes&gt; mdtm=&lt;stamp&gt;".
+        /// What a <c>.partial</c> was started from on the FTP server: the file's path there (the host is fixed,
+        /// <see cref="FtpHost"/>, and the path begins with the dataset's folder), and its <c>SIZE</c> and <c>MDTM</c> then.
+        /// A resume is made only while all three still match. Kept in the ".partial.validator" sidecar PRIDE's downloads
+        /// use, as one line, "ftp size=&lt;bytes&gt; mdtm=&lt;stamp&gt; path=&lt;server path&gt;". Any other line,
+        /// including the "ftp size=&lt;bytes&gt; mdtm=&lt;stamp&gt;" this client wrote before it named the file, is not
+        /// read, so its partial is deleted rather than resumed.
         /// </summary>
-        private sealed record FtpValidator(long Size, string Modified)
+        private sealed record FtpValidator(string ServerPath, long Size, string Modified)
         {
-            private static readonly Regex Line = new(@"^ftp size=(?<size>\d+) mdtm=(?<mdtm>\S+)$", RegexOptions.CultureInvariant);
+            // The path goes last because it may hold spaces.
+            private static readonly Regex Line = new(@"^ftp size=(?<size>\d+) mdtm=(?<mdtm>\S+) path=(?<path>/.+)$", RegexOptions.CultureInvariant);
 
-            public override string ToString() => $"ftp size={Size.ToString(CultureInfo.InvariantCulture)} mdtm={Modified}";
+            public override string ToString() => $"ftp size={Size.ToString(CultureInfo.InvariantCulture)} mdtm={Modified} path={ServerPath}";
 
             public void Write(string validatorPath) => File.WriteAllText(validatorPath, ToString());
 
@@ -698,9 +709,9 @@ namespace UsefulProteomicsDatabases
                 {
                     if (File.Exists(partialPath) && File.Exists(validatorPath))
                     {
-                        Match match = Line.Match(File.ReadAllText(validatorPath).Trim());
+                        Match match = Line.Match(File.ReadAllText(validatorPath).TrimEnd('\r', '\n'));
                         if (match.Success && long.TryParse(match.Groups["size"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out long size))
-                            validator = new FtpValidator(size, match.Groups["mdtm"].Value);
+                            validator = new FtpValidator(match.Groups["path"].Value, size, match.Groups["mdtm"].Value);
                     }
                 }
                 catch (IOException) { }

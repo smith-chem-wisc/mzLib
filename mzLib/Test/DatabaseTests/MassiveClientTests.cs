@@ -875,7 +875,7 @@ public class MassiveClientTests
             Assert.That(ServiceFailure.IsTransient(e), Is.True);
             Assert.That(e!.Message, Does.Contain("ended before the download completed"));
             Assert.That(new FileInfo(path + ".partial").Length, Is.EqualTo(400));
-            Assert.That(File.ReadAllText(path + ".partial.validator"), Is.EqualTo("ftp size=1000 mdtm=20150212140541"));
+            Assert.That(File.ReadAllText(path + ".partial.validator"), Is.EqualTo($"ftp size=1000 mdtm=20150212140541 path={RawFile}"));
         });
 
         ftp.OpenOverride = null;
@@ -895,7 +895,7 @@ public class MassiveClientTests
         string path = Path.Combine(_tempDir, "raw", "wGH0001.raw");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path + ".partial", Source.Take(400).ToArray());
-        File.WriteAllText(path + ".partial.validator", "ftp size=1000 mdtm=20140101000000");
+        File.WriteAllText(path + ".partial.validator", $"ftp size=1000 mdtm=20140101000000 path={RawFile}");
         using var client = ClientOver(ftp);
 
         await client.DownloadFileAsync(RawEntry(), _tempDir);
@@ -904,6 +904,58 @@ public class MassiveClientTests
         {
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
             Assert.That(ftp.Log.Last(), Is.EqualTo($"RETR {RawFile} @0"), "the MDTM no longer matches");
+        });
+    }
+
+    [Test]
+    public async Task Download_PartialOfTheSameNameFromAnotherDataset_IsNotResumed()
+    {
+        // #1574 review (Alexander-Sol): dataset A's raw/wGH0001.raw drops at 400 bytes, then dataset B's file of the same
+        // relative name, SIZE and MDTM is downloaded into the same destination. Resuming A's partial would give 1,000
+        // bytes, A's first 400 and B's last 600, and the size check cannot see that.
+        const string otherRoot = "/v04/MSV000090384";
+        const string otherFile = otherRoot + "/raw/wGH0001.raw";
+        byte[] other = Source.Reverse().ToArray();
+        FakeFtp ftp = ServerWithRawFile();
+        ftp.Files[otherFile] = other;
+        ftp.OpenOverride = (_, _) => new DroppingStream(Source, 0, 400);
+        using var client = ClientOver(ftp, maxRetries: 0);
+        string path = Path.Combine(_tempDir, "raw", "wGH0001.raw");
+
+        Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(RawEntry(), _tempDir));
+        Assert.That(new FileInfo(path + ".partial").Length, Is.EqualTo(400), "dataset A's partial is kept for a resume");
+
+        ftp.OpenOverride = null;
+        string written = await client.DownloadFileAsync(new MassiveFile("MSV000090384", otherRoot, "raw/wGH0001.raw", 1000), _tempDir, overwrite: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(written, Is.EqualTo(path), "both datasets' files land on the same destination");
+            Assert.That(File.ReadAllBytes(written), Is.EqualTo(other), "dataset B's bytes, none of A's");
+            Assert.That(ftp.Log.Last(), Is.EqualTo($"RETR {otherFile} @0"), "a partial of another remote file is never resumed");
+            Assert.That(File.Exists(path + ".partial.validator"), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Download_PartialWithAValidatorThatNamesNoFile_StartsAgainFromZero()
+    {
+        // The validator this client wrote before the #1574 review held only "ftp size=<n> mdtm=<stamp>" (no release
+        // carries it). One left on disk says nothing of which file the partial belongs to, so it is never resumed, even
+        // when its size and stamp match. Its bytes here are another file's, so a resume would show in the output.
+        FakeFtp ftp = ServerWithRawFile();
+        string path = Path.Combine(_tempDir, "raw", "wGH0001.raw");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path + ".partial", Source.Reverse().Take(400).ToArray());
+        File.WriteAllText(path + ".partial.validator", "ftp size=1000 mdtm=20150212140541");
+        using var client = ClientOver(ftp);
+
+        await client.DownloadFileAsync(RawEntry(), _tempDir);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Source));
+            Assert.That(ftp.Log.Last(), Is.EqualTo($"RETR {RawFile} @0"));
         });
     }
 
