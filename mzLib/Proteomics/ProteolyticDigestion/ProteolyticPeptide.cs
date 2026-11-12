@@ -100,7 +100,7 @@ namespace Proteomics.ProteolyticDigestion
                     int reportedMissedCleavages = MissedCleavages;
                     if (cleavageBlockingPolicy.IsActive
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
-                        && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, cleavageBlockingPolicy,
+                        && IsUnreachableThroughBlockedCleavage(variableModPattern, fixedModDictionary, peptideLength, cleavageBlockingPolicy,
                             out reportedMissedCleavages))
                     {
                         continue;
@@ -181,7 +181,8 @@ namespace Proteomics.ProteolyticDigestion
         /// the real, unblocked sites the peptidoform spans.
         /// </remarks>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
-            int peptideLength, CleavageBlockingPolicy policy, out int openMissedCleavages)
+            Dictionary<int, Modification> fixedModifications, int peptideLength, CleavageBlockingPolicy policy,
+            out int openMissedCleavages)
         {
             bool cTerminalResidueBlocked = false;
             int blockedInternalSites = 0;
@@ -211,12 +212,21 @@ namespace Proteomics.ProteolyticDigestion
 
             // Assigned before any early return: the caller reads this on the surviving path, and a
             // dropped peptidoform's count is simply never used.
-            openMissedCleavages = MissedCleavages - Math.Min(blockedInternalSites, MissedCleavages);
+            // A site lacking its required modification (StcE's P2 O-glycan) is not a site either. Unlike blocking, this
+            // reads the fixed modifications too: a fixed glycan meets a requirement.
+            int unoccupiedInternalSites = policy.UnoccupiedSites(OneBasedStartResidue, OneBasedEndResidue, variableModPattern,
+                fixedModifications);
+            openMissedCleavages = MissedCleavages - Math.Min(blockedInternalSites + unoccupiedInternalSites, MissedCleavages);
 
             // A peptide ending at the protein's own C-terminus was not produced by a cleavage, so no
             // modification there can invalidate it.
             bool cTerminusIsAnInternalCut = OneBasedEndResidue < Protein.Length;
             if (cTerminalResidueBlocked && cTerminusIsAnInternalCut)
+            {
+                return true;
+            }
+
+            if (!policy.CutsHaveRequiredModifications(OneBasedStartResidue, OneBasedEndResidue, variableModPattern, fixedModifications))
             {
                 return true;
             }
