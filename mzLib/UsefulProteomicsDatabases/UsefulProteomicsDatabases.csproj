@@ -48,6 +48,12 @@
     <EmbeddedResource Include="Resources\pride_cv.obo">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
+    <EmbeddedResource Include="Resources\taxonomy_nodes.tsv.gz">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\proteome_taxa.tsv.gz">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ensembl\views.sql" LogicalName="UsefulProteomicsDatabases.Ensembl.views.sql" />
   </ItemGroup>
 
