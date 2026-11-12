@@ -37,6 +37,21 @@ namespace Test.FileReadingTests.ReadersInfrastructure
         }
 
         [Test]
+        [TestCase("sample_centroid", true)]
+        [TestCase("sample-centroid", true)]
+        [TestCase("sample.centroid", true)]
+        [TestCase("sample centroid", true)]
+        [TestCase("samplecentroid", false)]   // no delimiter: "sample" is only a prefix, as "A1" is of "A10"
+        public void MatchAcceptsASuffixOnlyAtADelimiter(string runName, bool expectMatch)
+        {
+            var matched = RunFileMatcher.Match(new[] { runName }, new List<string> { @"C:\data\sample.raw" });
+
+            Assert.That(matched.ContainsKey(runName), Is.EqualTo(expectMatch));
+            if (expectMatch)
+                Assert.That(matched[runName], Is.EqualTo(@"C:\data\sample.raw"));
+        }
+
+        [Test]
         public void MatchTakesEachRunNameOnce()
         {
             // A report repeats its run name on every row, and readers pass it in row by row
