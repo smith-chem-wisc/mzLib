@@ -34,13 +34,24 @@ namespace UsefulProteomicsDatabases.Annotation
             {
                 throw new FileNotFoundException("Annotation table not found.", path);
             }
-            string fileName = Path.GetFileName(path);
+            using var reader = new StreamReader(path);
+            return Read(reader, Path.GetFileName(path), formatKey, formatVersion, requiredKeys, optionalKeys, columns, parseRow);
+        }
+
+        /// <summary>
+        /// Reads a table from text already open, for a source that is not a plain file on disk: a gzipped file or an
+        /// embedded resource. <paramref name="fileName"/> is what error messages call it. The reader is not disposed.
+        /// </summary>
+        public static AnnotationTable<T> Read<T>(TextReader reader, string fileName, string formatKey, int formatVersion,
+            IReadOnlyCollection<string> requiredKeys, IReadOnlyCollection<string> optionalKeys,
+            IReadOnlyList<string> columns, Func<string[], string, int, T> parseRow)
+        {
+            ArgumentNullException.ThrowIfNull(reader);
             var allowed = new HashSet<string>(requiredKeys.Concat(optionalKeys).Concat(ProducerKeys).Append(formatKey), StringComparer.Ordinal);
             var header = new Dictionary<string, string>(StringComparer.Ordinal);
             var rows = new List<T>();
             bool columnsRead = false;
 
-            using var reader = new StreamReader(path);
             int lineNumber = 0;
             string line;
             while ((line = reader.ReadLine()) != null)
