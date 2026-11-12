@@ -17,7 +17,9 @@ namespace StatisticalModels
         Sample,
         /// <summary>
         /// One random intercept per individual: <c>(1 | individual)</c>. Individuals were given but each has a single
-        /// sample among the feature's values, so a sample-within-individual intercept would be the same grouping.
+        /// sample among the feature's values, so a sample-within-individual intercept would be the same grouping; or, when
+        /// only estimable terms are fitted, the sample-within-individual term could not be estimated (e.g. one value per
+        /// sample) and was left out.
         /// </summary>
         Individual,
         /// <summary>
@@ -25,6 +27,12 @@ namespace StatisticalModels
         /// GR-6), so comparisons within and between individuals are both estimable.
         /// </summary>
         IndividualAndSample,
+        /// <summary>
+        /// No random intercept: only estimable terms were to be fitted (<see cref="NestedMixedModel.Fit"/>) and none of the
+        /// feature's is, so its fixed part is fitted alone by (weighted) least squares. σ² is the REML estimate, the residual
+        /// sum of squares over n − p, and every Satterthwaite df is the residual df n − p, as R's <c>lm</c>.
+        /// </summary>
+        None,
     }
 
     /// <summary>
@@ -401,7 +409,8 @@ namespace StatisticalModels
     /// <b>Not fittable.</b> Too few observations for the fixed effects (<see cref="FeatureFitStatus.TooFewObservations"/>);
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
-    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
+    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same), unless only estimable terms are fitted, when
+    /// such a term is left out instead (see <see cref="Fit"/>); a criterion that cannot be evaluated, or a
     /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Robust reweighting that does
     /// not settle, because it reaches its round limit or a later round's refit fails or its residuals' MAD is zero, falls
     /// back to msqrob2's default of one round and is fitted on the first round's weights
@@ -436,13 +445,45 @@ namespace StatisticalModels
         /// default, one round, and is flagged (<see cref="NestedMixedModelFit.RobustFellBack"/>; GR-22 amended 2026-11-03);
         /// one whose first round cannot be formed is <see cref="FeatureFitStatus.NotConverged"/>.
         /// </param>
+        /// <param name="estimableRandomTermsOnly">
+        /// Fit each feature with only the random terms its data can estimate (QuantProject STAT1 ruling 16), instead of
+        /// refusing it as <see cref="FeatureFitStatus.TooFewGroups"/>. A term is estimable by lme4's own two checks, which
+        /// refuse the model otherwise: at least 2 levels, and fewer levels than observations. The sample-within-individual
+        /// term is left out first (<see cref="RandomStructure.Individual"/>), then the individual
+        /// (<see cref="RandomStructure.Sample"/>, the sample within it), and with none left the fixed part is fitted alone
+        /// (<see cref="RandomStructure.None"/>). E.g. a TMT protein with one ion in each plex run has one value per channel
+        /// sample in each run, so only its individual (animal) term is estimable. Off by default: every feature then gets
+        /// its full structure or is refused, as lme4.
+        /// </param>
         public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
-            int maxThreads = -1, bool robust = false) =>
-            Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations);
+            int maxThreads = -1, bool robust = false, bool estimableRandomTermsOnly = false) =>
+            Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations, estimableRandomTermsOnly);
+
+        /// <summary>
+        /// The random structure <see cref="Fit"/> gives <paramref name="problem"/>'s observations with a finite response,
+        /// with or without <paramref name="estimableRandomTermsOnly"/>, before anything is fitted; null when it has no
+        /// observation, or when a term it needs cannot be estimated (fewer than 2 levels or as many levels as observations),
+        /// so that <see cref="Fit"/> reports <see cref="FeatureFitStatus.TooFewGroups"/>. A caller compares the two to tell
+        /// a feature fitted with fewer random terms than its labels call for (QuantProject STAT1 ruling 17 moderates
+        /// such features in a family of their own).
+        /// </summary>
+        public static RandomStructure? StructureOf(NestedMixedModelProblem problem, bool estimableRandomTermsOnly = false)
+        {
+            ArgumentNullException.ThrowIfNull(problem);
+            var rows = Enumerable.Range(0, problem.Response.Count).Where(i => double.IsFinite(problem.Response[i])).ToArray();
+            if (rows.Length == 0) return null;
+            var (structure, terms) = FeatureModel.ChooseStructure(problem, rows, estimableRandomTermsOnly);
+            foreach (var t in terms)
+            {
+                int levels = t.Distinct(StringComparer.Ordinal).Count();
+                if (levels < 2 || levels >= rows.Length) return null;
+            }
+            return structure;
+        }
 
         /// <summary>As the public overload, with the reweighting round limit set (tests reach the limit with it).</summary>
         internal static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
-            int maxThreads, bool robust, int maxRobustIterations)
+            int maxThreads, bool robust, int maxRobustIterations, bool estimableRandomTermsOnly = false)
         {
             ArgumentNullException.ThrowIfNull(problems);
             ArgumentNullException.ThrowIfNull(commonNames);
@@ -460,7 +501,7 @@ namespace StatisticalModels
             Parallel.ForEach(Partitioner.Create(0, Math.Max(problems.Count, 1)), options, range =>
             {
                 for (int f = range.Item1; f < Math.Min(range.Item2, problems.Count); f++)
-                    new FeatureModel(problems[f], commonNames.Count, robust, maxRobustIterations).Fit(f, fit);
+                    new FeatureModel(problems[f], commonNames.Count, robust, maxRobustIterations, estimableRandomTermsOnly).Fit(f, fit);
             });
             return fit;
         }
@@ -647,6 +688,7 @@ namespace StatisticalModels
             private readonly int _common;
             private readonly bool _robust;
             private readonly int _maxRobustIterations;
+            private readonly bool _estimableOnly;
             private int _m, _p, _q;
             private int[] _termOfColumn = Array.Empty<int>();
             private Matrix<double> _ztz = null!, _ztx = null!, _xtx = null!, _x = null!;
@@ -655,12 +697,14 @@ namespace StatisticalModels
             private double[] _w = Array.Empty<double>();
             private double _sumLogW;
 
-            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust, int maxRobustIterations)
+            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust, int maxRobustIterations,
+                bool estimableOnly = false)
             {
                 _problem = problem;
                 _common = common;
                 _robust = robust;
                 _maxRobustIterations = maxRobustIterations;
+                _estimableOnly = estimableOnly;
             }
 
             public void Fit(int f, NestedMixedModelFit fit)
@@ -677,28 +721,7 @@ namespace StatisticalModels
                 if (!LinearModel.IsFullRank(x)) { fit.StatusValues[f] = FeatureFitStatus.RankDeficient; return; }
                 var y = Vector<double>.Build.Dense(_m, i => _problem.Response[rows[i]]);
 
-                // Random terms: individual and/or sample (within individual), levels in ordinal order.
-                var sample = rows.Select(i => _problem.Sample[i]).ToArray();
-                var terms = new List<string[]>();
-                RandomStructure structure;
-                if (_problem.Individual is null)
-                {
-                    terms.Add(sample);
-                    structure = RandomStructure.Sample;
-                }
-                else
-                {
-                    var individual = rows.Select(i => _problem.Individual[i]!).ToArray();
-                    bool oneSampleEach = individual.Zip(sample).GroupBy(t => t.First, StringComparer.Ordinal)
-                        .All(g => g.Select(t => t.Second).Distinct(StringComparer.Ordinal).Count() == 1);
-                    terms.Add(individual);
-                    structure = RandomStructure.Individual;
-                    if (!oneSampleEach)
-                    {
-                        terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
-                        structure = RandomStructure.IndividualAndSample;
-                    }
-                }
+                var (structure, terms) = ChooseStructure(_problem, rows, _estimableOnly);
                 var columns = new List<int[]>(); // per term: column index (within Z) of each observation
                 var termOfColumn = new List<int>();
                 int q = 0;
@@ -780,31 +803,46 @@ namespace StatisticalModels
                 fit.ResidualVarianceValues[f] = sigma2;
                 fit.RemlValues[f] = best.Criterion;
                 if (structure == RandomStructure.Sample) fit.SampleVarianceValues[f] = theta[0] * theta[0] * sigma2;
-                else
+                else if (structure != RandomStructure.None)
                 {
                     fit.IndividualVarianceValues[f] = theta[0] * theta[0] * sigma2;
                     if (structure == RandomStructure.IndividualAndSample) fit.SampleVarianceValues[f] = theta[1] * theta[1] * sigma2;
                 }
 
-                // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
-                int k = theta.Length + 1;
-                var phi = theta.Append(Math.Sqrt(sigma2)).ToArray();
-                var h = Richardson.Hessian(DevianceInPhi, phi);
-                var evd = Matrix<double>.Build.DenseOfArray(h).Evd(Symmetricity.Symmetric);
-                var a2 = new double[k * k];
-                for (int e = 0; e < k; e++)
+                double[] jac, a2;
+                if (structure == RandomStructure.None)
                 {
-                    double lambda = evd.EigenValues[e].Real;
-                    if (!(lambda > 1e-8)) continue;
-                    var v = evd.EigenVectors.Column(e);
-                    for (int i = 0; i < k; i++)
-                        for (int j = 0; j < k; j++) a2[i * k + j] += 2 * v[i] * v[j] / lambda;
+                    // Least squares, φ = (σ): Cov(β) = σ²(X′WX)⁻¹, so ∂Cov/∂σ = 2σ(X′WX)⁻¹; the REML deviance
+                    // r²/σ² + (n − p)·log(2πσ²) + … has second derivative 4(n − p)/σ² at its optimum, so 2·H⁻¹ is
+                    // σ²/(2(n − p)), and every Satterthwaite df comes out as the residual df n − p, as lm's.
+                    double sigma = Math.Sqrt(sigma2);
+                    jac = new double[p * p];
+                    for (int i = 0; i < p; i++)
+                        for (int j = 0; j < p; j++) jac[i * p + j] = 2 * sigma * best.AInverse![i, j];
+                    a2 = new[] { sigma2 / (2.0 * (_m - _p)) };
                 }
-                var jac = new double[k * p * p];
-                for (int t = 0; t < k; t++)
+                else
                 {
-                    var d = Richardson.Derivative(CovarianceInPhi, phi, t);
-                    Array.Copy(d, 0, jac, t * p * p, p * p);
+                    // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
+                    int k = theta.Length + 1;
+                    var phi = theta.Append(Math.Sqrt(sigma2)).ToArray();
+                    var h = Richardson.Hessian(DevianceInPhi, phi);
+                    var evd = Matrix<double>.Build.DenseOfArray(h).Evd(Symmetricity.Symmetric);
+                    a2 = new double[k * k];
+                    for (int e = 0; e < k; e++)
+                    {
+                        double lambda = evd.EigenValues[e].Real;
+                        if (!(lambda > 1e-8)) continue;
+                        var v = evd.EigenVectors.Column(e);
+                        for (int i = 0; i < k; i++)
+                            for (int j = 0; j < k; j++) a2[i * k + j] += 2 * v[i] * v[j] / lambda;
+                    }
+                    jac = new double[k * p * p];
+                    for (int t = 0; t < k; t++)
+                    {
+                        var d = Richardson.Derivative(CovarianceInPhi, phi, t);
+                        Array.Copy(d, 0, jac, t * p * p, p * p);
+                    }
                 }
                 if (jac.Any(z => !double.IsFinite(z)) || a2.Any(z => !double.IsFinite(z)))
                 {
@@ -820,23 +858,81 @@ namespace StatisticalModels
                 fit.StatusValues[f] = FeatureFitStatus.Fitted;
             }
 
+            /// <summary>
+            /// The random terms of a problem's observations <paramref name="rows"/>, as labels per observation, and their
+            /// structure: individual and/or sample (within individual). With <paramref name="estimableOnly"/>, a term that
+            /// fails lme4's two checks (at least 2 levels, fewer levels than observations) is left out, the inner term
+            /// first, then the individual; with none left, <see cref="RandomStructure.None"/> (STAT1 ruling 16).
+            /// </summary>
+            internal static (RandomStructure Structure, List<string[]> Terms) ChooseStructure(NestedMixedModelProblem problem,
+                int[] rows, bool estimableOnly)
+            {
+                var sample = rows.Select(i => problem.Sample[i]).ToArray();
+                var terms = new List<string[]>();
+                RandomStructure structure;
+                if (problem.Individual is null)
+                {
+                    terms.Add(sample);
+                    structure = RandomStructure.Sample;
+                }
+                else
+                {
+                    var individual = rows.Select(i => problem.Individual[i]!).ToArray();
+                    bool oneSampleEach = individual.Zip(sample).GroupBy(t => t.First, StringComparer.Ordinal)
+                        .All(g => g.Select(t => t.Second).Distinct(StringComparer.Ordinal).Count() == 1);
+                    terms.Add(individual);
+                    structure = RandomStructure.Individual;
+                    if (!oneSampleEach)
+                    {
+                        terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
+                        structure = RandomStructure.IndividualAndSample;
+                    }
+                }
+                if (!estimableOnly) return (structure, terms);
+                int m = rows.Length;
+                bool Estimable(string[] labels)
+                {
+                    int levels = labels.Distinct(StringComparer.Ordinal).Count();
+                    return levels >= 2 && levels < m;
+                }
+                if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[1]))
+                {
+                    terms.RemoveAt(1);
+                    structure = RandomStructure.Individual;
+                }
+                else if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                {
+                    terms.RemoveAt(0);
+                    structure = RandomStructure.Sample;
+                }
+                if (structure != RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                {
+                    terms.Clear();
+                    structure = RandomStructure.None;
+                }
+                return (structure, terms);
+            }
+
             private readonly record struct Result(bool Ok, double Criterion, double LogDetL, double LogDetRx, double R2,
                 Vector<double>? Beta, Matrix<double>? AInverse, Vector<double>? LambdaU);
 
             /// <summary>Weighted cross-products: Z′WZ, Z′WX, Z′Wy, X′WX, X′Wy, with W = diag(<see cref="_w"/>).</summary>
             private void BuildCrossProducts()
             {
-                _ztz = Matrix<double>.Build.Dense(_q, _q);
-                _ztx = Matrix<double>.Build.Dense(_q, _p);
-                _zty = Vector<double>.Build.Dense(_q);
-                for (int i = 0; i < _m; i++)
-                    foreach (var a in _columns)
-                    {
-                        int ca = a[i];
-                        _zty[ca] += _w[i] * _y[i];
-                        for (int j = 0; j < _p; j++) _ztx[ca, j] += _w[i] * _x[i, j];
-                        foreach (var b in _columns) _ztz[ca, b[i]] += _w[i];
-                    }
+                if (_q > 0)
+                {
+                    _ztz = Matrix<double>.Build.Dense(_q, _q);
+                    _ztx = Matrix<double>.Build.Dense(_q, _p);
+                    _zty = Vector<double>.Build.Dense(_q);
+                    for (int i = 0; i < _m; i++)
+                        foreach (var a in _columns)
+                        {
+                            int ca = a[i];
+                            _zty[ca] += _w[i] * _y[i];
+                            for (int j = 0; j < _p; j++) _ztx[ca, j] += _w[i] * _x[i, j];
+                            foreach (var b in _columns) _ztz[ca, b[i]] += _w[i];
+                        }
+                }
                 var wx = Matrix<double>.Build.Dense(_m, _p, (i, j) => _w[i] * _x[i, j]);
                 _xtx = wx.TransposeThisAndMultiply(_x);
                 _xty = wx.TransposeThisAndMultiply(_y);
@@ -859,6 +955,7 @@ namespace StatisticalModels
 
             private Result Evaluate(double[] theta)
             {
+                if (_q == 0) return EvaluateLeastSquares();
                 try
                 {
                     var lambda = Vector<double>.Build.Dense(_q, j => theta[_termOfColumn[j]]);
@@ -903,6 +1000,32 @@ namespace StatisticalModels
                 }
             }
 
+            /// <summary>
+            /// <see cref="Evaluate"/> with no random term (<see cref="RandomStructure.None"/>): weighted least squares, and the
+            /// REML criterion of that model, so the same σ², deviance and derivative code applies.
+            /// </summary>
+            private Result EvaluateLeastSquares()
+            {
+                try
+                {
+                    var cholA = _xtx.Cholesky();
+                    var beta = cholA.Solve(_xty);
+                    var e = _y - _x * beta;
+                    double r2 = 0;
+                    for (int i = 0; i < _m; i++) r2 += _w[i] * e[i] * e[i];
+                    if (!(r2 > 0)) return default;
+                    int dfr = _m - _p;
+                    double criterion = cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr)) - _sumLogW;
+                    if (!double.IsFinite(criterion)) return default;
+                    return new Result(true, criterion, 0, cholA.DeterminantLn, r2, beta,
+                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)), null);
+                }
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+                {
+                    return default;
+                }
+            }
+
             private double Criterion(double[] theta)
             {
                 var r = Evaluate(theta);
@@ -938,6 +1061,7 @@ namespace StatisticalModels
             /// <summary>θ minimising the REML criterion; null when the simplex search did not converge.</summary>
             private double[]? Minimise(int k)
             {
+                if (k == 0) return Array.Empty<double>();
                 if (k == 1)
                 {
                     int bestI = 0;
@@ -993,15 +1117,19 @@ namespace StatisticalModels
             private const int SimplexEvaluations = 4000;
 
             /// <summary>
-            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ); θ is clamped at 0 inside the
-            /// criterion and a θ the criterion cannot be evaluated at counts as the worst value. Null when the search has not
-            /// converged within <see cref="SimplexEvaluations"/>.
+            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ). The criterion is taken at |θ|:
+            /// it depends on each θ only through θ², so a component and its negative are the same model. Reflecting keeps the
+            /// surface smooth across θ = 0, where clamping at 0 made every negative θ equal to the boundary: a flat region in
+            /// which the simplex could see equal values at all its vertices and stop on the boundary with a worse criterion
+            /// than an interior optimum beside it (two real proteins, ReferenceComparisonNestedLmmTests). A θ the criterion
+            /// cannot be evaluated at counts as the worst value. Null when the search has not converged within
+            /// <see cref="SimplexEvaluations"/>.
             /// </summary>
             private double[]? NelderMead(double[] start)
             {
                 double F(Vector<double> v)
                 {
-                    double c = Criterion(v.Select(z => Math.Max(0, z)).ToArray());
+                    double c = Criterion(v.Select(Math.Abs).ToArray());
                     return double.IsFinite(c) ? c : double.MaxValue;
                 }
                 var step = Vector<double>.Build.Dense(start.Length, i => Math.Max(0.1, 0.2 * start[i]));
@@ -1009,7 +1137,7 @@ namespace StatisticalModels
                 {
                     var result = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(F), Vector<double>.Build.DenseOfArray(start),
                         step, SimplexTolerance, SimplexEvaluations);
-                    return result.MinimizingPoint.Select(z => Math.Max(0, z)).ToArray();
+                    return result.MinimizingPoint.Select(Math.Abs).ToArray();
                 }
                 catch (MaximumIterationsException)
                 {
