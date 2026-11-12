@@ -238,9 +238,10 @@ namespace Omics.Digestion
             }
         }
 
-        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, bool cleaveFirstResidue, bool retainFirstResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
+        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, bool cleaveFirstResidue, bool retainFirstResidue, CleavageSpecificity truncationSpecificity, string initialDescription,
+            List<int> cleavageSites = null)
         {
-            List<int> cleavageIndices = GetDigestionSiteIndices(parent.BaseSequence);
+            List<int> cleavageIndices = cleavageSites ?? GetDigestionSiteIndices(parent.BaseSequence);
 
             for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
             {

@@ -496,8 +496,13 @@ namespace Proteomics
             // MetaMorpheus defaults an ungated slack would enumerate at 4 missed cleavages instead of 2 --
             // roughly 1.7x the unmodified peptides before modification combinatorics, carried into the
             // fragment index -- in searches where nothing configured can block anything.
-            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications, this);
+            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications, this,
+                allKnownFixedModifications);
 
+            // Enumeration takes the policy's values, not the policy: FullDigestion is in Omics, shared with RNA, and
+            // cannot see this Proteomics type. CleavageSites is null, so FullDigestion uses the protease's own sites,
+            // unless the cleavage-promoting correction is on, which For allows only in Full digestion, the one branch
+            // that reads it.
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
                 this,
                 digestionParameters.MaxMissedCleavages + cleavageBlockingPolicy.GenerationSlack,
@@ -507,7 +512,8 @@ namespace Proteomics
                 digestionParameters.SpecificProtease,
                 digestionParameters.FragmentationTerminus,
                 digestionParameters.SearchModeType,
-                topDownTruncationSearch);
+                topDownTruncationSearch,
+                cleavageBlockingPolicy.CleavageSites);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
