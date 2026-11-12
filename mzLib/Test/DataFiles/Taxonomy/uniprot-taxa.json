@@ -1,0 +1,31 @@
+{
+ "results": [
+  {
+   "scientificName": "Homo sapiens",
+   "taxonId": 9606,
+   "parent": {
+    "scientificName": "Homo",
+    "taxonId": 9605
+   },
+   "rank": "species"
+  },
+  {
+   "scientificName": "Escherichia coli (strain K12)",
+   "taxonId": 83333,
+   "parent": {
+    "scientificName": "Escherichia coli",
+    "taxonId": 562
+   },
+   "rank": "strain"
+  },
+  {
+   "scientificName": "Severe acute respiratory syndrome coronavirus 2",
+   "taxonId": 2697049,
+   "parent": {
+    "scientificName": "Betacoronavirus pandemicum",
+    "taxonId": 3418604
+   },
+   "rank": "no rank"
+  }
+ ]
+}
