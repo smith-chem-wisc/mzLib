@@ -163,6 +163,29 @@ public static class MslFormat
 	}
 
 	/// <summary>
+	/// How far a precursor's stored retention time has been checked against independent
+	/// measurements. Set by a calibrated library update; stored in bits 4-5 of the precursor flags
+	/// byte. Every file written before these bits existed reads as <see cref="None"/>.
+	/// </summary>
+	public enum RetentionTimeStatus : byte
+	{
+		/// <summary>No measured time: the time is missing (NaN) or predicted.</summary>
+		None = 0,
+
+		/// <summary>One dataset measured the time.</summary>
+		ObservedOnce = 1,
+
+		/// <summary>A later, different dataset measured the time again and agreed.</summary>
+		Confirmed = 2,
+
+		/// <summary>
+		/// A later dataset, or the prediction, strongly disagreed with the time, but one disagreement
+		/// was not enough to replace it.
+		/// </summary>
+		Challenged = 3
+	}
+
+	/// <summary>
 	/// Named neutral-loss codes for the 3-bit neutral_loss_code field occupying bits 2–4 of
 	/// the fragment flags byte. Only the seven values below are assigned; all others are reserved.
 	/// For the Custom value the actual mass shift is stored in the MslFragmentIon.NeutralLoss
@@ -225,12 +248,20 @@ public static class MslFormat
 	// bit 3     : is_entrapment    – entrapment precursor (with bit 0: 00 = T, 01 = D, 10 = ET, 11 = ED);
 	//                                readers that predate this bit ignore it and see a target/decoy by bit 0,
 	//                                so it was added without a format-version bump
-	// bits 4–7  : reserved         – must be written as 0; ignored on read
+	// bits 4–5  : rt_status        – RetentionTimeStatus of the stored time (0 = None)
+	// bit 6     : rt_struck_by_prediction – the stored time was challenged by the prediction rather
+	//                                than by another dataset; cleared when a dataset confirms or replaces it
+	//                                Bits 4-6 were added without a format-version bump, like bit 3: older
+	//                                readers ignore them, and an older writer stores them as 0.
+	// bit 7     : reserved         – must be written as 0; ignored on read
 
 	private const byte PrecFlagIsDecoy = 0b_0000_0001;
 	private const byte PrecFlagIsProteotypic = 0b_0000_0010;
 	private const byte PrecFlagRtCalibrated = 0b_0000_0100;
 	private const byte PrecFlagIsEntrapment = 0b_0000_1000;
+	private const byte PrecFlagRtStatusMask = 0b_0011_0000; // bits 4–5
+	private const int PrecFlagRtStatusShift = 4;
+	private const byte PrecFlagRtStruckByPrediction = 0b_0100_0000;
 
 	// ──────────────────────────────────────────────────────────────────────
 	// File-level flags int32 layout (bytes 8–11 of file header)
@@ -476,6 +507,51 @@ public static class MslFormat
 	/// </summary>
 	/// <param name="flags">The raw precursor flags byte read from offset 54 of an MslPrecursorRecord.</param>
 	public static bool DecodeIsEntrapment(byte flags) => (flags & PrecFlagIsEntrapment) != 0;
+
+	/// <summary>
+	/// Encodes the precursor flags byte including the retention-time status (bits 4-5) and the
+	/// struck-by-prediction flag (bit 6). See
+	/// <see cref="EncodePrecursorFlags(bool, bool, bool, bool)"/> for bits 0-3.
+	/// </summary>
+	/// <param name="isDecoy">Sets bit 0.</param>
+	/// <param name="isProteotypic">Sets bit 1.</param>
+	/// <param name="rtCalibrated">Sets bit 2 (the RT field holds run-specific minutes, not iRT).</param>
+	/// <param name="isEntrapment">Sets bit 3.</param>
+	/// <param name="rtStatus">Stored in bits 4-5.</param>
+	/// <param name="rtStruckByPrediction">Sets bit 6.</param>
+	/// <returns>A single byte with bits set according to the parameters above.</returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="rtStatus"/> is not a defined <see cref="RetentionTimeStatus"/>.
+	/// </exception>
+	public static byte EncodePrecursorFlags(bool isDecoy, bool isProteotypic, bool rtCalibrated, bool isEntrapment,
+		RetentionTimeStatus rtStatus, bool rtStruckByPrediction)
+	{
+		if (!Enum.IsDefined(rtStatus))
+			throw new ArgumentOutOfRangeException(nameof(rtStatus), rtStatus,
+				"The retention-time status must be a defined RetentionTimeStatus value.");
+
+		byte result = EncodePrecursorFlags(isDecoy, isProteotypic, rtCalibrated, isEntrapment);
+		result |= (byte)((byte)rtStatus << PrecFlagRtStatusShift);
+
+		if (rtStruckByPrediction)
+			result |= PrecFlagRtStruckByPrediction;
+
+		return result;
+	}
+
+	/// <summary>
+	/// Returns the retention-time status stored in bits 4-5 of a precursor flags byte;
+	/// <see cref="RetentionTimeStatus.None"/> for every file written before these bits existed.
+	/// </summary>
+	/// <param name="flags">The raw precursor flags byte read from offset 54 of an MslPrecursorRecord.</param>
+	public static RetentionTimeStatus DecodeRetentionTimeStatus(byte flags)
+		=> (RetentionTimeStatus)((flags & PrecFlagRtStatusMask) >> PrecFlagRtStatusShift);
+
+	/// <summary>
+	/// Returns true when the struck-by-prediction bit (bit 6) of a precursor flags byte is set.
+	/// </summary>
+	/// <param name="flags">The raw precursor flags byte read from offset 54 of an MslPrecursorRecord.</param>
+	public static bool DecodeRtStruckByPrediction(byte flags) => (flags & PrecFlagRtStruckByPrediction) != 0;
 
 	/// <summary>
 	/// Maps a neutral-loss mass in daltons to the nearest named
