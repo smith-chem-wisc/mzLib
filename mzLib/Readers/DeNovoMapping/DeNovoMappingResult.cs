@@ -57,7 +57,9 @@ public class DeNovoMappingResult
     public double StdDevPredictionScore { get; set; } = double.NaN;
 
     /// <summary>
-    /// Observed minus Chronologer-predicted retention time for each target prediction that has both.
+    /// Observed minus predicted retention time, in minutes, for each target prediction that has both. The prediction is
+    /// Chronologer's, mapped onto minutes by its file's calibration; predictions from files that could not be calibrated
+    /// are left out.
     /// </summary>
     [TypeConverter(typeof(CommaDelimitedDoubleListConverter))]
     public List<double> RetentionTimeErrors { get; set; } = new();
@@ -95,9 +97,16 @@ public class DeNovoMappingResult
     private static (double Mean, double Median, double StdDev) Summarize(List<double> values)
     {
         double mean = values.Average();
-        double median = values.OrderBy(x => x).ElementAt(values.Count / 2);
+        double median = Median(values);
         double stdDev = Math.Sqrt(values.Select(x => Math.Pow(x - mean, 2)).Average());
         return (mean, median, stdDev);
+    }
+
+    private static double Median(List<double> values)
+    {
+        var sorted = values.OrderBy(x => x).ToArray();
+        int middle = sorted.Length / 2;
+        return sorted.Length % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
     }
 }
 

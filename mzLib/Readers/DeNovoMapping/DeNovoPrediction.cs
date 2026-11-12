@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Chemistry;
 using Chromatography.RetentionTimePrediction;
@@ -12,7 +13,11 @@ namespace Readers.DeNovoMapping;
 /// </summary>
 public class DeNovoPrediction : IRetentionPredictable
 {
-    public DeNovoPrediction(CasanovoMzTabRecord record, string fileKey, bool replaceIWithL)
+    /// <param name="retentionTimeToMinutes">
+    /// Factor that turns the record's retention time into minutes; mzTab reports seconds unless its colunit-psm says
+    /// otherwise (see <see cref="DeNovoRetentionTimeMapper.MzTabRetentionTimeToMinutes"/>).
+    /// </param>
+    public DeNovoPrediction(CasanovoMzTabRecord record, string fileKey, bool replaceIWithL, double retentionTimeToMinutes = 1 / 60.0)
     {
         Record = record;
         FileKey = fileKey;
@@ -24,7 +29,7 @@ public class DeNovoPrediction : IRetentionPredictable
         // Casanovo reports a score in [-1, 0) when the precursor mass is outside its tolerance.
         // Shift those into [0, 1) so every score lies between 0 and 1.
         Score = record.Score < 0 ? record.Score + 1 : record.Score;
-        ObservedRetentionTime = record.RetentionTime;
+        ObservedRetentionTime = record.RetentionTime * retentionTimeToMinutes;
     }
 
     public CasanovoMzTabRecord Record { get; }
@@ -50,9 +55,14 @@ public class DeNovoPrediction : IRetentionPredictable
     public double? ObservedRetentionTime { get; set; }
 
     /// <summary>
-    /// Chronologer prediction, in Chronologer's own units (% acetonitrile equivalent).
+    /// Chronologer prediction, in Chronologer's own units (% acetonitrile equivalent), not minutes.
     /// </summary>
     public double? PredictedRetentionTime { get; set; }
+
+    /// <summary>
+    /// <see cref="PredictedRetentionTime"/> mapped onto minutes by its file's calibration. Null when either is missing.
+    /// </summary>
+    public double? CalibratedRetentionTime { get; set; }
 
     public string BaseSequence { get; }
     public string FullSequence => Record.FullSequence;
@@ -89,6 +99,7 @@ public class DeNovoPrediction : IRetentionPredictable
     private static void AppendMass(StringBuilder builder, Modification mod)
     {
         double mass = mod.MonoisotopicMass ?? 0;
-        builder.Append(mass > 0 ? $"[+{mass.RoundedDouble(6)}]" : $"[{mass.RoundedDouble(6)}]");
+        string formatted = mass.RoundedDouble(6)?.ToString(CultureInfo.InvariantCulture);
+        builder.Append(mass > 0 ? $"[+{formatted}]" : $"[{formatted}]");
     }
 }

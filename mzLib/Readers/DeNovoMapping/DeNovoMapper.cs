@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Chromatography.RetentionTimeCalibration;
 using Omics;
 using Omics.Modifications;
 using Proteomics;
@@ -11,7 +12,8 @@ namespace Readers.DeNovoMapping;
 /// Maps Casanovo de novo predictions onto protein databases. A prediction maps to a database when its
 /// peptide (I/L-normalized, modifications ignored) is produced by digesting a protein in it. Each database
 /// gets one <see cref="DeNovoMappingResult"/>: how many predictions hit its targets and its decoys, their
-/// scores, and the retention-time error of the target hits.
+/// scores, and the retention-time error of the target hits in minutes. A decoy peptide that equals a target
+/// peptide of the same database is not a decoy, as in <c>MslLibraryBuilder</c>.
 /// </summary>
 /// <example>
 /// <code>
@@ -27,7 +29,7 @@ public class DeNovoMapper
 
     /// <summary>
     /// Reads the mzTab files and, when <see cref="DeNovoMappingParameters.MapRetentionTimes"/> is set,
-    /// assigns observed and predicted retention times.
+    /// assigns observed and predicted retention times and calibrates the predictions to each file's minutes.
     /// </summary>
     public DeNovoMapper(IEnumerable<string> mzTabPaths, DeNovoMappingParameters? parameters = null)
         : this(mzTabPaths.Select(p => new CasanovoMzTabFile(p)), parameters)
@@ -37,28 +39,39 @@ public class DeNovoMapper
     public DeNovoMapper(IEnumerable<CasanovoMzTabFile> mzTabFiles, DeNovoMappingParameters? parameters = null)
     {
         _parameters = parameters ?? new DeNovoMappingParameters();
-        var retentionTimeMapper = new DeNovoRetentionTimeMapper(_parameters.RetentionTimePredictor);
+        var mzTabList = mzTabFiles.ToList();
         var predictions = new List<DeNovoPrediction>();
+        var predictionsByMzTab = new List<(CasanovoMzTabFile MzTab, List<DeNovoPrediction> Predictions)>();
 
-        foreach (var mzTab in mzTabFiles)
+        foreach (var mzTab in mzTabList)
         {
             string fileKey = Path.GetFileNameWithoutExtension(mzTab.FilePath);
+            double toMinutes = DeNovoRetentionTimeMapper.MzTabRetentionTimeToMinutes(mzTab);
             var filePredictions = mzTab.Results
-                .Select(r => new DeNovoPrediction(r, fileKey, _parameters.ReplaceIWithL))
+                .Select(r => new DeNovoPrediction(r, fileKey, _parameters.ReplaceIWithL, toMinutes))
                 .Where(p => p.MappingSequence.Length > 0)
                 .ToList();
 
-            if (_parameters.MapRetentionTimes)
-                retentionTimeMapper.MapObservedRetentionTimes(mzTab, filePredictions, _parameters.SpectraFilePaths, _parameters.MaxThreads);
-
+            predictionsByMzTab.Add((mzTab, filePredictions));
             predictions.AddRange(filePredictions);
         }
 
-        if (_parameters.MapRetentionTimes)
-            retentionTimeMapper.PredictRetentionTimes(predictions, _parameters.MaxThreads);
-
         Predictions = predictions;
-        Warnings.AddRange(retentionTimeMapper.Warnings);
+
+        // All retention-time work happens here, so the mapper (and a predictor it creates) lives only this long.
+        if (_parameters.MapRetentionTimes)
+        {
+            using var retentionTimeMapper = new DeNovoRetentionTimeMapper(_parameters.RetentionTimePredictor);
+            foreach (var (mzTab, filePredictions) in predictionsByMzTab)
+                retentionTimeMapper.MapObservedRetentionTimes(mzTab, filePredictions, _parameters.SpectraFilePaths, _parameters.MaxThreads);
+
+            retentionTimeMapper.PredictRetentionTimes(predictions, _parameters.MaxThreads);
+            retentionTimeMapper.FitCalibrations(predictions, _parameters.CalibrationScoreThreshold);
+
+            RetentionTimeCalibrations = retentionTimeMapper.Calibrations.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+            Warnings.AddRange(retentionTimeMapper.Warnings);
+        }
+
         _predictionsBySequence = predictions
             .Select((p, i) => (p.MappingSequence, i))
             .GroupBy(t => t.MappingSequence, StringComparer.Ordinal)
@@ -66,6 +79,14 @@ public class DeNovoMapper
     }
 
     public IReadOnlyList<DeNovoPrediction> Predictions { get; }
+
+    /// <summary>
+    /// Each mzTab file's calibration from predicted retention time to minutes, keyed by
+    /// <see cref="DeNovoPrediction.FileKey"/>. Empty when retention times are not mapped; files that could not be
+    /// fitted are absent.
+    /// </summary>
+    public IReadOnlyDictionary<string, IrtCalibrationModel> RetentionTimeCalibrations { get; } =
+        new Dictionary<string, IrtCalibrationModel>();
 
     /// <summary>
     /// Problems that did not stop the mapping, such as a spectra file that could not be found.
@@ -89,7 +110,8 @@ public class DeNovoMapper
 
     /// <summary>
     /// Maps the predictions onto proteins that are already loaded. Decoy proteins
-    /// (<see cref="IBioPolymer.IsDecoy"/>) count as decoys; supply them to get decoy counts.
+    /// (<see cref="IBioPolymer.IsDecoy"/>) count as decoys; supply them to get decoy counts. Decoy peptides
+    /// that equal one of these targets' peptides are dropped, so a prediction is never both target and decoy.
     /// </summary>
     public DeNovoMappingResult MapDatabase(string databaseIdentifier, IEnumerable<IBioPolymer> proteins,
         CancellationToken cancellationToken = default)
@@ -107,23 +129,35 @@ public class DeNovoMapper
             CancellationToken = cancellationToken,
         };
 
-        Parallel.ForEach(proteinList, options, protein =>
+        // Digest first: a decoy peptide is only a decoy if no target in this database produces it too.
+        var digests = new HashSet<string>[proteinList.Count];
+        Parallel.For(0, proteinList.Count, options, i =>
         {
-            bool isDecoy = protein.IsDecoy;
+            digests[i] = DigestToMappingSequences(proteinList[i]);
+            if (!proteinList[i].IsDecoy)
+            {
+                foreach (var peptide in digests[i])
+                    databaseTargetPeptides.TryAdd(peptide, 0);
+            }
+        });
+
+        Parallel.For(0, proteinList.Count, options, i =>
+        {
+            bool isDecoy = proteinList[i].IsDecoy;
             bool proteinMatched = false;
 
-            foreach (var peptide in DigestToMappingSequences(protein))
+            foreach (var peptide in digests[i])
             {
-                if (!isDecoy)
-                    databaseTargetPeptides.TryAdd(peptide, 0);
+                if (isDecoy && databaseTargetPeptides.ContainsKey(peptide))
+                    continue;
 
                 if (!_predictionsBySequence.TryGetValue(peptide, out var predictionIndices))
                     continue;
 
                 // Several threads may set the same flag; they all write true, so no lock is needed.
                 var hits = isDecoy ? decoyHit : targetHit;
-                foreach (int i in predictionIndices)
-                    hits[i] = true;
+                foreach (int p in predictionIndices)
+                    hits[p] = true;
 
                 if (!isDecoy)
                 {
@@ -133,7 +167,7 @@ public class DeNovoMapper
             }
 
             if (proteinMatched)
-                mappedTargetProteins.TryAdd(protein.Accession, 0);
+                mappedTargetProteins.TryAdd(proteinList[i].Accession, 0);
         });
 
         var result = new DeNovoMappingResult
@@ -145,7 +179,7 @@ public class DeNovoMapper
             UniqueProteinsMapped = mappedTargetProteins.Count,
         };
 
-        // Each prediction counts once as a target and/or once as a decoy, however many proteins share its peptide.
+        // Each prediction counts once, as a target or a decoy, however many proteins share its peptide.
         for (int i = 0; i < Predictions.Count; i++)
         {
             var prediction = Predictions[i];
@@ -153,8 +187,8 @@ public class DeNovoMapper
             {
                 result.TargetPredictions++;
                 result.TargetPredictionScores.Add(prediction.Score);
-                if (prediction is { ObservedRetentionTime: not null, PredictedRetentionTime: not null })
-                    result.RetentionTimeErrors.Add(prediction.ObservedRetentionTime.Value - prediction.PredictedRetentionTime.Value);
+                if (prediction is { ObservedRetentionTime: { } observed, CalibratedRetentionTime: { } calibrated })
+                    result.RetentionTimeErrors.Add(observed - calibrated);
             }
 
             if (decoyHit[i])
@@ -164,7 +198,7 @@ public class DeNovoMapper
             }
 
             if (targetHit[i] || decoyHit[i])
-                result.PredictionCountsByFile[prediction.FileKey] = result.PredictionCountsByFile.GetValueOrDefault(prediction.FileKey) + (targetHit[i] ? 1 : 0) + (decoyHit[i] ? 1 : 0);
+                result.PredictionCountsByFile[prediction.FileKey] = result.PredictionCountsByFile.GetValueOrDefault(prediction.FileKey) + 1;
         }
 
         result.FinalizeValues();
