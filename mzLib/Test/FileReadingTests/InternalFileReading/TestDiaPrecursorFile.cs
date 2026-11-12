@@ -132,5 +132,25 @@ namespace Test.FileReadingTests.InternalFileReading
 
             Assert.Throws<MzLibUtil.MzLibException>(() => new DiaPrecursorFile(path).LoadResults());
         }
+
+        /// <summary>
+        /// Columns are read by name, not by position: a table whose columns arrive in another order reads the same rows,
+        /// an unreported quantity included.
+        /// </summary>
+        [Test]
+        public void ColumnsAreReadByNameInAnyOrder()
+        {
+            var rows = new List<DiaPrecursorFromTsv> { Row("a.raw", "T", 12345.5), Row("b.raw", "D", null) };
+            string path = Path.Combine(Folder, "AllDiaPrecursors.tsv");
+            new DiaPrecursorFile(path, rows, contaminantsAssessed: true).WriteResults(path);
+            var lines = File.ReadAllLines(path);
+            File.WriteAllLines(path, lines.Take(1).Concat(lines.Skip(1).Select(l => string.Join('\t', l.Split('\t').Reverse()))));
+
+            var read = new DiaPrecursorFile(path);
+            read.LoadResults();
+
+            Assert.That(File.ReadAllLines(path)[1], Does.StartWith("Precursor Quantity\t"), "the columns really were reordered");
+            Assert.That(read.Results, Is.EqualTo(rows));
+        }
     }
 }
