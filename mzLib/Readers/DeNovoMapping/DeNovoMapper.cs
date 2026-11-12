@@ -129,51 +129,47 @@ public class DeNovoMapper
             CancellationToken = cancellationToken,
         };
 
-        // Digest first: a decoy peptide is only a decoy if no target in this database produces it too.
-        var digests = new HashSet<string>[proteinList.Count];
-        Parallel.For(0, proteinList.Count, options, i =>
-        {
-            digests[i] = DigestToMappingSequences(proteinList[i]);
-            if (!proteinList[i].IsDecoy)
-            {
-                foreach (var peptide in digests[i])
-                    databaseTargetPeptides.TryAdd(peptide, 0);
-            }
-        });
+        var targets = proteinList.Where(p => !p.IsDecoy).ToList();
+        var decoys = proteinList.Where(p => p.IsDecoy).ToList();
 
-        Parallel.For(0, proteinList.Count, options, i =>
+        // Targets first: a decoy peptide is only a decoy if no target in this database produces it too.
+        // Several threads may set the same hit flag; they all write true, so no lock is needed.
+        Parallel.ForEach(targets, options, protein =>
         {
-            bool isDecoy = proteinList[i].IsDecoy;
             bool proteinMatched = false;
-
-            foreach (var peptide in digests[i])
+            foreach (var peptide in DigestToMappingSequences(protein))
             {
-                if (isDecoy && databaseTargetPeptides.ContainsKey(peptide))
-                    continue;
-
+                databaseTargetPeptides.TryAdd(peptide, 0);
                 if (!_predictionsBySequence.TryGetValue(peptide, out var predictionIndices))
                     continue;
 
-                // Several threads may set the same flag; they all write true, so no lock is needed.
-                var hits = isDecoy ? decoyHit : targetHit;
                 foreach (int p in predictionIndices)
-                    hits[p] = true;
-
-                if (!isDecoy)
-                {
-                    mappedTargetPeptides.TryAdd(peptide, 0);
-                    proteinMatched = true;
-                }
+                    targetHit[p] = true;
+                mappedTargetPeptides.TryAdd(peptide, 0);
+                proteinMatched = true;
             }
 
             if (proteinMatched)
-                mappedTargetProteins.TryAdd(proteinList[i].Accession, 0);
+                mappedTargetProteins.TryAdd(protein.Accession, 0);
+        });
+
+        Parallel.ForEach(decoys, options, protein =>
+        {
+            foreach (var peptide in DigestToMappingSequences(protein))
+            {
+                if (databaseTargetPeptides.ContainsKey(peptide)
+                    || !_predictionsBySequence.TryGetValue(peptide, out var predictionIndices))
+                    continue;
+
+                foreach (int p in predictionIndices)
+                    decoyHit[p] = true;
+            }
         });
 
         var result = new DeNovoMappingResult
         {
             DatabaseIdentifier = databaseIdentifier,
-            DatabaseProteinCount = proteinList.Count(p => !p.IsDecoy),
+            DatabaseProteinCount = targets.Count,
             DatabasePeptideCount = databaseTargetPeptides.Count,
             UniquePeptidesMapped = mappedTargetPeptides.Count,
             UniqueProteinsMapped = mappedTargetProteins.Count,

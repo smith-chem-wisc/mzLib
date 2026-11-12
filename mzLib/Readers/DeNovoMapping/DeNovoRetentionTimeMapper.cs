@@ -153,7 +153,7 @@ public class DeNovoRetentionTimeMapper : IDisposable
     {
         foreach (var line in mzTab.HeaderLines)
         {
-            var fields = line.Split('	');
+            var fields = line.Split('\t');
             if (fields.Length < 3 || fields[1] != "colunit-psm"
                 || !fields[2].StartsWith("retention_time=", StringComparison.OrdinalIgnoreCase))
                 continue;
