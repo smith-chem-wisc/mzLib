@@ -581,16 +581,7 @@ namespace UsefulProteomicsDatabases
                 throw new FileNotFoundException(
                     "No downloaded UniProt proteome list exists at that path.", completePathToAvailableUniProtProteomes);
 
-            string fileExtension = Path.GetExtension(completePathToAvailableUniProtProteomes);
-            IEnumerable<string> lines = fileExtension switch
-            {
-                ".gz" => ReadAllGZippedLines(completePathToAvailableUniProtProteomes),
-                ".zip" => ReadAllZippedLines(completePathToAvailableUniProtProteomes),
-                ".txt" => File.ReadAllLines(completePathToAvailableUniProtProteomes),
-                _ => throw new ArgumentException(
-                    $"'{fileExtension}' is not a proteome-list extension; expected .gz, .zip or .txt.",
-                    nameof(completePathToAvailableUniProtProteomes)),
-            };
+            IEnumerable<string> lines = ReadProteomeListLines(completePathToAvailableUniProtProteomes);
 
             Dictionary<string, string> dictionaryOfAvailableProteomes = new();
             foreach (string item in lines)
@@ -606,6 +597,110 @@ namespace UsefulProteomicsDatabases
                 dictionaryOfAvailableProteomes[lineValuesArray[0]] = lineValuesArray[1];
             }
             return dictionaryOfAvailableProteomes;
+        }
+
+        /// <summary>
+        /// Reads a downloaded UniProt proteome catalogue into one <see cref="UniProtProteomeEntry"/> per proteome,
+        /// keyed by Proteome ID. Unlike <see cref="UniprotProteomesList"/>, which keeps only the organism name, this
+        /// keeps every column the catalogue carries: the organism's NCBI taxonomy ID, the protein count and, when the
+        /// file has them, the BUSCO and CPD completeness columns. Accepts the file gzipped (".gz"), zipped (".zip") or
+        /// plain (".txt").
+        /// </summary>
+        /// <remarks>
+        /// Columns are found by their header name, compared without regard to case, because UniProt has served this
+        /// header as both "Proteome ID" and "Proteome Id" and has added and dropped the completeness columns. Only
+        /// the proteome ID and organism columns are required. A line shorter than the header is read as far as it
+        /// goes, a line with no tab is skipped, and when a proteome ID repeats the last line wins, which is what
+        /// <see cref="UniprotProteomesList"/> does with the same file.
+        /// </remarks>
+        /// <param name="completePathToAvailableUniProtProteomes">Path to a file written by <see cref="DownloadAvailableUniProtProteomes(string)"/>.</param>
+        /// <returns>Proteome ID to its catalogue entry. Never null.</returns>
+        /// <exception cref="ArgumentException">The path is blank, or names a file whose extension is not .gz, .zip or .txt.</exception>
+        /// <exception cref="FileNotFoundException">No file exists at that path.</exception>
+        /// <exception cref="MzLibException">The file has no header line naming the proteome ID and organism columns.</exception>
+        public static IReadOnlyDictionary<string, UniProtProteomeEntry> UniprotProteomeCatalog(string completePathToAvailableUniProtProteomes)
+        {
+            if (string.IsNullOrWhiteSpace(completePathToAvailableUniProtProteomes))
+                throw new ArgumentException("A path to a downloaded proteome list is required.",
+                    nameof(completePathToAvailableUniProtProteomes));
+            if (!File.Exists(completePathToAvailableUniProtProteomes))
+                throw new FileNotFoundException(
+                    "No downloaded UniProt proteome list exists at that path.", completePathToAvailableUniProtProteomes);
+
+            string fileName = Path.GetFileName(completePathToAvailableUniProtProteomes);
+            var catalog = new Dictionary<string, UniProtProteomeEntry>(StringComparer.Ordinal);
+            int proteomeIdColumn = -1, organismColumn = -1, taxonIdColumn = -1, proteinCountColumn = -1, buscoColumn = -1, cpdColumn = -1;
+            bool headerRead = false;
+
+            foreach (string line in ReadProteomeListLines(completePathToAvailableUniProtProteomes))
+            {
+                string[] cells = line.Split('\t');
+                if (cells.Length < 2)
+                    continue;
+
+                if (!headerRead)
+                {
+                    proteomeIdColumn = ColumnNamed(cells, "Proteome ID");
+                    organismColumn = ColumnNamed(cells, "Organism");
+                    taxonIdColumn = ColumnNamed(cells, "Organism ID");
+                    proteinCountColumn = ColumnNamed(cells, "Protein count");
+                    buscoColumn = ColumnNamed(cells, "BUSCO");
+                    cpdColumn = ColumnNamed(cells, "CPD");
+                    if (proteomeIdColumn < 0 || organismColumn < 0)
+                        throw new MzLibException(
+                            $"'{fileName}' is not a UniProt proteome list: its first line does not name the " +
+                            "'Proteome ID' and 'Organism' columns.");
+                    headerRead = true;
+                    continue;
+                }
+
+                string proteomeId = CellAt(cells, proteomeIdColumn);
+                if (proteomeId == null)
+                    continue;
+
+                long? proteinCount = long.TryParse(CellAt(cells, proteinCountColumn), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out long parsedCount) ? parsedCount : null;
+
+                catalog[proteomeId] = new UniProtProteomeEntry(
+                    proteomeId,
+                    CellAt(cells, organismColumn) ?? "",
+                    CellAt(cells, taxonIdColumn),
+                    proteinCount,
+                    CellAt(cells, buscoColumn),
+                    CellAt(cells, cpdColumn));
+            }
+
+            if (!headerRead)
+                throw new MzLibException($"'{fileName}' is not a UniProt proteome list: it has no header line.");
+
+            return catalog;
+        }
+
+        /// <summary>The lines of a downloaded proteome catalogue, whichever of the three accepted forms it is in.</summary>
+        private static IEnumerable<string> ReadProteomeListLines(string completePathToAvailableUniProtProteomes)
+        {
+            string fileExtension = Path.GetExtension(completePathToAvailableUniProtProteomes);
+            return fileExtension switch
+            {
+                ".gz" => ReadAllGZippedLines(completePathToAvailableUniProtProteomes),
+                ".zip" => ReadAllZippedLines(completePathToAvailableUniProtProteomes),
+                ".txt" => File.ReadAllLines(completePathToAvailableUniProtProteomes),
+                _ => throw new ArgumentException(
+                    $"'{fileExtension}' is not a proteome-list extension; expected .gz, .zip or .txt.",
+                    nameof(completePathToAvailableUniProtProteomes)),
+            };
+        }
+
+        private static int ColumnNamed(string[] header, string name) =>
+            Array.FindIndex(header, cell => string.Equals(cell.Trim(), name, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>The trimmed cell at <paramref name="column"/>, or null when the column is absent, the line is too short or the cell is blank.</summary>
+        private static string CellAt(string[] cells, int column)
+        {
+            if (column < 0 || column >= cells.Length)
+                return null;
+            string value = cells[column].Trim();
+            return value.Length == 0 ? null : value;
         }
 
         /// <summary>

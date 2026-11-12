@@ -117,6 +117,63 @@ namespace Test.FileReadingTests
             }
         }
 
+        /// <summary>
+        /// Regression: only the reversed decoy inherited the taxonomy. A sliding decoy was built with
+        /// no database references at all, so a database searched with slide decoys lost the organism
+        /// of every decoy.
+        /// </summary>
+        [Test]
+        public void SlideDecoys_InheritTheTaxonomyOfTheirTarget()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"slidedecoytaxon_{System.Guid.NewGuid():N}.fasta");
+            try
+            {
+                File.WriteAllText(path,
+                    ">sp|P12345|TEST_HUMAN Test OS=Homo sapiens OX=9606 GN=TST PE=1 SV=2\nMPEPTIDEKPEPTIDERAAGGK\n");
+
+                var proteins = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.Slide, false, out _);
+
+                var decoy = proteins.Single(p => p.IsDecoy);
+                Assert.That(decoy.NcbiTaxonomyId, Is.EqualTo("9606"),
+                    "a decoy is a rearranged sequence from this organism's database");
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        [Test]
+        public void SlideDecoys_DoNotInheritUnrelatedDatabaseReferences()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(Data("DatabaseTests", "disulfidetests.xml"),
+                true, DecoyType.Slide, null, false, null, out _);
+
+            var target = proteins.First(p => !p.IsDecoy);
+            var decoy = proteins.First(p => p.IsDecoy);
+            Assert.That(target.DatabaseReferences.Select(r => r.Type).Distinct().Count(), Is.GreaterThan(1),
+                "the fixture must carry references other than the taxonomy, or this proves nothing");
+            Assert.That(decoy.NcbiTaxonomyId, Is.EqualTo("10090"));
+            Assert.That(decoy.DatabaseReferences.Select(r => r.Type).Distinct(),
+                Is.EquivalentTo(new[] { ProteinDbLoader.NcbiTaxonomyDatabaseReferenceType }));
+        }
+
+        [Test]
+        public void Decoys_OfATargetWithNoTaxonomy_HaveNoDatabaseReferences()
+        {
+            var target = new Proteomics.Protein("MPEPTIDEKPEPTIDERAAGGK", "P12345");
+
+            foreach (DecoyType decoyType in new[] { DecoyType.Reverse, DecoyType.Slide })
+            {
+                var decoy = DecoyProteinGenerator.GenerateDecoys(
+                    new System.Collections.Generic.List<Proteomics.Protein> { target }, decoyType, 1).Single();
+
+                Assert.That(decoy.NcbiTaxonomyId, Is.Null, decoyType.ToString());
+                Assert.That(decoy.DatabaseReferences, Is.Empty, decoyType.ToString());
+            }
+        }
+
         [Test]
         public void Decoys_DoNotInheritUnrelatedDatabaseReferences()
         {
