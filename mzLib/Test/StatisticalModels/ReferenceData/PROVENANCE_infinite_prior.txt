@@ -1,0 +1,7 @@
+generated_utc 2026-11-10 14:01:40 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+limma 3.68.5
+seed 20261110 (the first from 20261110 whose legacy, untrended prior df is infinite)
+script make_infinite_prior_fixtures.R
+eBayes(lmFit(Y, design), trend = FALSE, robust = FALSE, legacy = TRUE); fitFDist's infinite-df branch: s20 <- mean(x)
+prior variance 0.039235185083145468 = mean of the variances 0.039235185083145468; limma before 2017 (exp(mean(e))) would give 0.041946703844538524

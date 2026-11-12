@@ -396,6 +396,14 @@ public static class MslWriter
 					// ── Step 4: Fragment validation, sort, normalize ────────────
 					List<MslFragmentIon> frags = entry.MatchedFragmentIons ?? new List<MslFragmentIon>(0);
 
+					if (frags.Count > 0)
+					{
+						frags.Sort(CompareFragmentsForWrite);
+						NormalizeIntensities(frags);
+					}
+
+					// Custom losses are numbered after the sort, so the table index stored in each
+					// fragment does not depend on the order the fragments arrived in.
 					foreach (MslFragmentIon frag in frags)
 					{
 						if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
@@ -403,12 +411,6 @@ public static class MslWriter
 							if (!customLossIndex.ContainsKey(frag.NeutralLoss))
 								customLossIndex[frag.NeutralLoss] = nextCustomIdx++;
 						}
-					}
-
-					if (frags.Count > 0)
-					{
-						frags.Sort((a, b) => a.Mz.CompareTo(b.Mz));
-						NormalizeIntensities(frags);
 					}
 
 					// ── Step 5: Write fragment block to fragment temp file ─────
@@ -442,7 +444,9 @@ public static class MslWriter
 											   isDecoy: entry.IsDecoy,
 											   isProteotypic: entry.IsProteotypic,
 											   rtCalibrated: entry.RtIsCalibrated,
-											   isEntrapment: entry.IsEntrapment),
+											   isEntrapment: entry.IsEntrapment,
+											   rtStatus: entry.RtStatus,
+											   rtStruckByPrediction: entry.RtStruckByPrediction),
 						SourceType = (byte)entry.Source,
 						PrecursorMz = (float)entry.PrecursorMz,
 						Irt = (float)entry.RetentionTime,
@@ -931,6 +935,12 @@ public static class MslWriter
 				$"entries[{index}] ('{entry.FullSequence}') has charge {entry.ChargeState}, outside the " +
 				$"stored 16-bit range [{short.MinValue}, {short.MaxValue}].", "entries");
 
+		// Two bits hold the status; an undefined value would spill into the next flag bit.
+		if (!Enum.IsDefined(entry.RtStatus))
+			throw new ArgumentException(
+				$"entries[{index}] ('{entry.FullSequence}') has retention-time status {(int)entry.RtStatus}, " +
+				"which is not a defined MslFormat.RetentionTimeStatus.", "entries");
+
 		if (entry.MatchedFragmentIons is null)
 			return;
 
@@ -977,6 +987,10 @@ public static class MslWriter
 			if (float.IsInfinity((float)entry.RetentionTime))
 				errors.Add($"Entry [{i}] '{entry.FullSequence}': RetentionTime must be finite, or NaN for " +
 						   $"no retention time (got {entry.RetentionTime}).");
+
+			if (!Enum.IsDefined(entry.RtStatus))
+				errors.Add($"Entry [{i}] '{entry.FullSequence}': RtStatus must be a defined " +
+						   $"MslFormat.RetentionTimeStatus (got {(int)entry.RtStatus}).");
 
 			if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 			{
@@ -1131,7 +1145,9 @@ public static class MslWriter
 										   isDecoy: entry.IsDecoy,
 										   isProteotypic: entry.IsProteotypic,
 										   rtCalibrated: entry.RtIsCalibrated,
-										   isEntrapment: entry.IsEntrapment),
+										   isEntrapment: entry.IsEntrapment,
+										   rtStatus: entry.RtStatus,
+										   rtStruckByPrediction: entry.RtStruckByPrediction),
 				SourceType = (byte)entry.Source
 			};
 
@@ -1396,6 +1412,44 @@ public static class MslWriter
 		MslCrc32.Compute(data.AsSpan(0, length));
 
 	// ────────────────────────────────────────────────────────────────────────
+	// Fragment order
+	// ────────────────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// The order in which fragments are written within an entry: ascending m/z, with ties broken
+	/// by every other stored field. Two fragments compare equal only when they would be written as
+	/// identical bytes, so the written order does not depend on the input order, and writing the
+	/// same content twice gives the same file. Sorting on m/z alone left fragments of exactly equal
+	/// m/z (for example b4 1+ and b8 2+ of a poly-alanine peptide) in whatever order
+	/// <see cref="List{T}.Sort(Comparison{T})"/>, which is unstable, happened to leave them.
+	/// Intensity is compared before normalization; dividing every intensity by the same maximum
+	/// does not change the order.
+	/// </summary>
+	internal static int CompareFragmentsForWrite(MslFragmentIon a, MslFragmentIon b)
+	{
+		int c = a.Mz.CompareTo(b.Mz);
+		if (c != 0) return c;
+		c = a.ProductType.CompareTo(b.ProductType);
+		if (c != 0) return c;
+		c = a.FragmentNumber.CompareTo(b.FragmentNumber);
+		if (c != 0) return c;
+		c = a.Charge.CompareTo(b.Charge);
+		if (c != 0) return c;
+		// Terminal ions (no secondary type) sort before internal ions.
+		c = Nullable.Compare(a.SecondaryProductType, b.SecondaryProductType);
+		if (c != 0) return c;
+		c = a.SecondaryFragmentNumber.CompareTo(b.SecondaryFragmentNumber);
+		if (c != 0) return c;
+		c = a.NeutralLoss.CompareTo(b.NeutralLoss);
+		if (c != 0) return c;
+		c = a.ResiduePosition.CompareTo(b.ResiduePosition);
+		if (c != 0) return c;
+		c = a.Intensity.CompareTo(b.Intensity);
+		if (c != 0) return c;
+		return a.ExcludeFromQuant.CompareTo(b.ExcludeFromQuant);
+	}
+
+	// ────────────────────────────────────────────────────────────────────────
 	// Intensity normalization
 	// ────────────────────────────────────────────────────────────────────────
 
@@ -1634,6 +1688,11 @@ public static class MslWriter
 				if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 					continue;
 
+				entry.MatchedFragmentIons.Sort(CompareFragmentsForWrite);
+				NormalizeIntensities(entry.MatchedFragmentIons);
+
+				// Custom losses are numbered after the sort, so the table index stored in each
+				// fragment does not depend on the order the fragments arrived in.
 				foreach (MslFragmentIon frag in entry.MatchedFragmentIons)
 				{
 					if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
@@ -1643,9 +1702,6 @@ public static class MslWriter
 						HasCustomLosses = true;
 					}
 				}
-
-				entry.MatchedFragmentIons.Sort((a, b) => a.Mz.CompareTo(b.Mz));
-				NormalizeIntensities(entry.MatchedFragmentIons);
 			}
 
 			// ── Step 5: Offset computation ────────────────────────────────────

@@ -202,7 +202,10 @@ public sealed class MslLibrary : IDisposable
 	/// </returns>
 	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
-	/// <exception cref="FormatException">The file is not an .msl file or is too short to hold a header.</exception>
+	/// <exception cref="FormatException">
+	///   The file is not an .msl file, is too short to hold a header, or has a format version this
+	///   reader does not support.
+	/// </exception>
 	public static bool CanLoadIndexOnly(string filePath)
 	{
 		ArgumentNullException.ThrowIfNull(filePath);
@@ -248,9 +251,53 @@ public sealed class MslLibrary : IDisposable
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
 	/// <exception cref="FormatException">Magic, version, or structural validation failed.</exception>
 	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch (data corruption).</exception>
-	public static MslLibrary LoadIndexOnly(string filePath)
+	public static MslLibrary LoadIndexOnly(string filePath) =>
+		LoadIndexOnly(filePath, DefaultIndexOnlyCacheSize);
+
+	/// <summary>
+	/// Number of full entries that <see cref="LoadIndexOnly(string)"/> keeps in its entry cache.
+	/// </summary>
+	public const int DefaultIndexOnlyCacheSize = 10_000;
+
+	/// <summary>
+	/// Opens a .msl file in index-only mode, as <see cref="LoadIndexOnly(string)"/>, with an entry
+	/// cache of the given size.
+	///
+	/// <para>
+	/// In index-only mode <see cref="GetEntry(int)"/> reads an entry's fragments from disk and keeps
+	/// the entry in a cache, so that a second request for the same entry does not read the file
+	/// again. The cache holds at most <paramref name="maxCachedEntries"/> entries and, when full,
+	/// discards the entry that was added first. Whether it helps depends on the access pattern: a
+	/// caller that reads each entry about once, or that re-reads an entry only after many other
+	/// reads (a DIA search over overlapping isolation windows, for example), gets no hits and pays
+	/// for the cache in memory and synchronization. Pass 0 to turn the cache off.
+	/// </para>
+	///
+	/// <para>
+	/// The cache size has no effect on a compressed file, which is always loaded in full (see
+	/// <see cref="LoadIndexOnly(string)"/>); a fully loaded library needs no cache.
+	/// </para>
+	/// </summary>
+	/// <param name="filePath">
+	///   Absolute or relative path to the .msl file. Must not be null or empty.
+	/// </param>
+	/// <param name="maxCachedEntries">
+	///   Maximum number of full entries kept in the cache; 0 turns the cache off.
+	///   <see cref="DefaultIndexOnlyCacheSize"/> is the size used by <see cref="LoadIndexOnly(string)"/>.
+	/// </param>
+	/// <returns>
+	///   An <see cref="MslLibrary"/> in index-only mode for uncompressed files, or in full-load
+	///   mode for compressed files.
+	/// </returns>
+	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCachedEntries"/> is negative.</exception>
+	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
+	/// <exception cref="FormatException">Magic, version, or structural validation failed.</exception>
+	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch (data corruption).</exception>
+	public static MslLibrary LoadIndexOnly(string filePath, int maxCachedEntries)
 	{
 		ArgumentNullException.ThrowIfNull(filePath);
+		ArgumentOutOfRangeException.ThrowIfNegative(maxCachedEntries);
 
 		// Delegate to MslReader. For uncompressed files this returns a true index-only
 		// MslLibraryData (IsIndexOnly = true) with an open FileStream for on-demand reads.
@@ -294,7 +341,8 @@ public sealed class MslLibrary : IDisposable
 		// Defer the sequence/charge dictionary: building it here would call the loader for EVERY entry,
 		// which in index-only mode reads every fragment block from disk — defeating index-only. It is
 		// built lazily if TryGetBySequenceCharge is ever called.
-		index = MslIndex.Build(rawLib.Entries, loader, deferSeqChargeIndex: true);
+		index = MslIndex.Build(rawLib.Entries, loader, deferSeqChargeIndex: true,
+			maxBufferSize: maxCachedEntries);
 		proteoformIndex = BuildProteoformIndexIfNeeded(rawLib.Entries, loader);
 
 		return new MslLibrary(index, rawLib.Header, isIndexOnly: true,
@@ -761,6 +809,115 @@ public sealed class MslLibrary : IDisposable
 		return precursorIdx >= 0 && precursorIdx < skeletons.Count ? skeletons[precursorIdx] : null;
 	}
 
+	/// <summary>
+	/// Returns the number of fragment ions stored for <paramref name="precursorIdx"/>, so a caller
+	/// can size the buffer for <see cref="ReadFragments"/>.
+	///
+	/// <para>
+	/// It reads nothing from disk. In index-only mode the count comes from the precursor record and
+	/// the LRU cache is not touched; in full-load mode it comes from the entry in memory.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorIdx">
+	///   Zero-based precursor index, as for <see cref="GetEntry(int)"/>.
+	/// </param>
+	/// <returns>The entry's fragment count (at most 32,767).</returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="precursorIdx"/> is outside [0, <see cref="PrecursorCount"/>).
+	/// </exception>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public int GetFragmentCount(int precursorIdx)
+	{
+		ThrowIfDisposed();
+
+		MslLibraryData? raw = _rawLibrary;
+		if (raw is not null && raw.IsIndexOnly)
+		{
+			ThrowIfPrecursorOutOfRange(precursorIdx, raw.Count);
+			return raw.GetFragmentCount(precursorIdx);
+		}
+
+		return InMemoryFragments(precursorIdx)?.Count ?? 0;
+	}
+
+	/// <summary>
+	/// Copies the fragment ions of <paramref name="precursorIdx"/> into
+	/// <paramref name="destination"/> and returns how many it wrote. It allocates nothing, so a
+	/// search that reads millions of entries does not create millions of objects.
+	///
+	/// <para>
+	/// The values are those of <see cref="GetEntry(int)"/>'s <c>MatchedFragmentIons</c>, in the same
+	/// order (the order in the file), as <see cref="MslFragmentValue"/> structs.
+	/// <list type="bullet">
+	///   <item>In index-only mode the fragments are read from the file (memory-mapped on local
+	///   drives, positional reads elsewhere) into a small stack buffer and decoded into
+	///   <paramref name="destination"/>. The LRU cache is neither read nor filled.</item>
+	///   <item>In full-load mode, and for a compressed file opened with
+	///   <see cref="LoadIndexOnly(string)"/> (which loads it in full), they are copied from the
+	///   entry in memory.</item>
+	/// </list>
+	/// </para>
+	///
+	/// <para>
+	/// Size <paramref name="destination"/> with <see cref="GetFragmentCount"/>, or use one buffer of
+	/// 32,767 (the most fragments an entry can hold). Safe to call from several threads at once.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorIdx">
+	///   Zero-based precursor index, as for <see cref="GetEntry(int)"/>.
+	/// </param>
+	/// <param name="destination">Receives the fragments, starting at index 0.</param>
+	/// <returns>The number of fragments written, which is the entry's fragment count.</returns>
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   <paramref name="precursorIdx"/> is outside [0, <see cref="PrecursorCount"/>).
+	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   <paramref name="destination"/> is shorter than the entry's fragment count. Nothing is written.
+	/// </exception>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public int ReadFragments(int precursorIdx, Span<MslFragmentValue> destination)
+	{
+		ThrowIfDisposed();
+
+		MslLibraryData? raw = _rawLibrary;
+		if (raw is not null && raw.IsIndexOnly)
+		{
+			ThrowIfPrecursorOutOfRange(precursorIdx, raw.Count);
+			return raw.ReadFragments(precursorIdx, destination);
+		}
+
+		List<MslFragmentIon>? ions = InMemoryFragments(precursorIdx);
+		int count = ions?.Count ?? 0;
+		if (destination.Length < count)
+			throw new ArgumentException(
+				$"The destination holds {destination.Length} fragments; precursor {precursorIdx} has {count}.",
+				nameof(destination));
+
+		for (int k = 0; k < count; k++)
+			destination[k] = new MslFragmentValue(ions![k]);
+		return count;
+	}
+
+	/// <summary>
+	/// Fragments of an entry held in memory (full load, the compressed-file fallback, or a library
+	/// built in memory). The index returns the stored entry itself, not a copy.
+	/// </summary>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="precursorIdx"/> is out of range.</exception>
+	private List<MslFragmentIon>? InMemoryFragments(int precursorIdx)
+	{
+		MslLibraryEntry entry = _index!.GetEntry(precursorIdx)
+			?? throw new ArgumentOutOfRangeException(nameof(precursorIdx),
+				$"Index {precursorIdx} is out of range [0, {PrecursorCount}).");
+		return entry.MatchedFragmentIons;
+	}
+
+	private static void ThrowIfPrecursorOutOfRange(int precursorIdx, int count)
+	{
+		if ((uint)precursorIdx >= (uint)count)
+			throw new ArgumentOutOfRangeException(nameof(precursorIdx),
+				$"Index {precursorIdx} is out of range [0, {count}).");
+	}
+
 	/// <summary>Live index statistics, including the <see cref="GetEntry(int)"/> cache counters (tests only).</summary>
 	internal MslIndexStatistics IndexStatisticsForTesting => _index!.GetStatistics();
 
@@ -1119,6 +1276,14 @@ public sealed class MslLibrary : IDisposable
 	/// <see cref="MslLibraryEntry.Nce"/> (0).
 	/// </para>
 	///
+	/// <para>
+	/// <b>Retention-time status:</b> this method checks no evidence, so an entry whose time it
+	/// writes (a replacement with an incoming time, or a novel entry) gets
+	/// <see cref="MslFormat.RetentionTimeStatus.None"/>. An entry whose time it keeps (a retained
+	/// entry, or a replacement whose spectrum has no time) keeps its
+	/// <see cref="MslLibraryEntry.RtStatus"/> and <see cref="MslLibraryEntry.RtStruckByPrediction"/>.
+	/// </para>
+	///
 	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
 	/// concurrent write to <paramref name="outputPath"/> is in progress.</para>
 	/// </summary>
@@ -1280,12 +1445,17 @@ public sealed class MslLibrary : IDisposable
 																  rtNormalisationApplied);
 						// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
 						replacement.RtIsCalibrated = rtNormalisationApplied ? originalEntry.RtIsCalibrated : true;
+						// RtStatus stays None: the original's status described the time just replaced,
+						// and this method checks no evidence for the new one.
 					}
 					else
 					{
 						// No incoming time: never overwrite a known time with a missing one.
 						replacement.RetentionTime = originalEntry.RetentionTime;
 						replacement.RtIsCalibrated = originalEntry.RtIsCalibrated;
+						// The time is kept, so what is known about it is kept too.
+						replacement.RtStatus = originalEntry.RtStatus;
+						replacement.RtStruckByPrediction = originalEntry.RtStruckByPrediction;
 					}
 					replacement.Source = MslFormat.SourceType.Empirical;
 

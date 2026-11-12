@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -41,14 +43,23 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         private readonly bool[] _chargeDirectedSites;
 
+        private readonly Protein _protein;
+
+        // The variable and fixed modifications; null unless the cleavage-promoting correction is on.
+        private readonly List<Modification> _configuredModifications;
+
         private CleavageBlockingPolicy(DigestionAgent protease, int maxMissedCleavages, int generationSlack,
-            bool[] sites, bool[] chargeDirectedSites)
+            bool[] sites, bool[] chargeDirectedSites, Protein protein, List<Modification> configuredModifications,
+            List<int> cleavageSites)
         {
             _protease = protease;
             MaxMissedCleavages = maxMissedCleavages;
             GenerationSlack = generationSlack;
             _sites = sites;
             _chargeDirectedSites = chargeDirectedSites;
+            _protein = protein;
+            _configuredModifications = configuredModifications;
+            CleavageSites = cleavageSites;
         }
 
         /// <summary>
@@ -65,6 +76,9 @@ namespace Proteomics.ProteolyticDigestion
         /// The protein being digested. The policy is per protein: it records which residues are real
         /// protease sites there, so a blocked residue that was never a site (a K before P under trypsin|P)
         /// cannot cancel a genuine missed cleavage, and it reads the modifications annotated on it.
+        /// </param>
+        /// <param name="fixedModifications">
+        /// Read only by the cleavage-promoting correction, where a fixed glycan meets a requirement.
         /// </param>
         /// <remarks>
         /// Only the modifications digestion places OPTIONALLY activate the policy, and only they can block
@@ -84,21 +98,47 @@ namespace Proteomics.ProteolyticDigestion
         /// before enumeration, which is a different mechanism.
         /// </remarks>
         public static CleavageBlockingPolicy For(DigestionParams digestionParams, IEnumerable<Modification> variableModifications,
-            Protein protein)
+            Protein protein, IEnumerable<Modification> fixedModifications = null)
         {
-            if (digestionParams is null
-                || !digestionParams.RespectCleavageBlockingModifications
-                || digestionParams.SearchModeType != CleavageSpecificity.Full
-                || !(AnyCanBlockCleavage(variableModifications, digestionParams.Protease)
-                    || AnyAnnotatedCanBlockCleavage(protein, digestionParams.Protease)))
+            if (digestionParams is null || digestionParams.SearchModeType != CleavageSpecificity.Full)
+            {
+                return default;
+            }
+
+            DigestionAgent protease = digestionParams.Protease;
+            bool blocking = digestionParams.RespectCleavageBlockingModifications
+                && (AnyCanBlockCleavage(variableModifications, protease) || AnyAnnotatedCanBlockCleavage(protein, protease));
+            bool promoting = digestionParams.RespectCleavagePromotingModifications
+                && protease.DigestionMotifs.Any(motif => motif.CleavageRequirements.Count > 0);
+            if (!blocking && !promoting)
             {
                 return default;
             }
 
             string sequence = protein?.BaseSequence ?? string.Empty;
-            bool[] sites = Sites(digestionParams.Protease, sequence);
-            return new CleavageBlockingPolicy(digestionParams.Protease, digestionParams.MaxMissedCleavages, digestionParams.MaxMods,
-                sites, ChargeDirectedSites(digestionParams.Protease, sequence, sites));
+            List<int> cleavageSites = protease.GetDigestionSiteIndices(sequence);
+            bool[] sites = Sites(cleavageSites, sequence.Length);
+            bool[] chargeDirectedSites = blocking ? ChargeDirectedSites(protease, sequence, sites) : null;
+            int generationSlack = blocking ? digestionParams.MaxMods : 0;
+            List<Modification> configured = null;
+            if (promoting)
+            {
+                // A site no required modification can reach is not a site, so it leaves the list before enumeration.
+                // A site one can reach may still be unoccupied in a given peptidoform: the slack enumerates the
+                // read-throughs across those, and the drop discounts them again.
+                configured = (variableModifications ?? Enumerable.Empty<Modification>())
+                    .Concat(fixedModifications ?? Enumerable.Empty<Modification>()).ToList();
+                cleavageSites = cleavageSites.Where(site => site == 0 || site == sequence.Length
+                    || Justifies(protease, sequence, site, (requirement, residue) => CouldCarry(protein, configured, requirement, residue)))
+                    .ToList();
+                sites = Sites(cleavageSites, sequence.Length);
+                // A read-through may also span blocked sites, which the blocking slack already pays for.
+                generationSlack += ReadThroughSlack(protease, sequence, cleavageSites, digestionParams.MaxLength,
+                    digestionParams.MaxMissedCleavages + generationSlack);
+            }
+
+            return new CleavageBlockingPolicy(protease, digestionParams.MaxMissedCleavages, generationSlack, sites,
+                chargeDirectedSites, protein, configured, promoting ? cleavageSites : null);
         }
 
         private static bool AnyAnnotatedCanBlockCleavage(Protein protein, DigestionAgent protease) =>
@@ -108,10 +148,10 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// <see cref="DigestionAgent.GetDigestionSiteIndices"/> as a lookup, termini included.
         /// </summary>
-        private static bool[] Sites(DigestionAgent protease, string sequence)
+        private static bool[] Sites(List<int> cleavageSites, int sequenceLength)
         {
-            var sites = new bool[sequence.Length + 1];
-            foreach (int site in protease.GetDigestionSiteIndices(sequence))
+            var sites = new bool[sequenceLength + 1];
+            foreach (int site in cleavageSites)
             {
                 sites[site] = true;
             }
@@ -223,9 +263,119 @@ namespace Proteomics.ProteolyticDigestion
         /// inert policy, and false wherever the protease never cut -- so the discount counts real sites only.
         /// </summary>
         public bool Blocks(Modification modification, int oneBasedResidue) =>
-            IsActive
+            _chargeDirectedSites is not null
             && oneBasedResidue > 0 && oneBasedResidue < _chargeDirectedSites.Length
             && _chargeDirectedSites[oneBasedResidue]
             && CleavageBlockingModifications.BlocksCleavageBy(modification, _protease);
+
+        /// <summary>
+        /// The sites FullDigestion enumerates when the cleavage-promoting correction is on: the protease's, less those
+        /// no required modification can reach. Null otherwise, and FullDigestion uses the protease's own.
+        /// </summary>
+        public List<int> CleavageSites { get; }
+
+        /// <summary>False when a terminus of this peptidoform is a cut it lacks the required modification for.</summary>
+        internal bool CutsHaveRequiredModifications(int start, int end, Dictionary<int, Modification> variableMods,
+            Dictionary<int, Modification> fixedMods)
+        {
+            if (_configuredModifications is null)
+            {
+                return true;
+            }
+
+            bool nTerminusIsACut = start > 1 && !(start == 2 && _protein[0] == 'M') && !IsTruncationBoundary(start - 1);
+            bool cTerminusIsACut = end < _protein.Length && !IsTruncationBoundary(end);
+            return (!nTerminusIsACut || Justifies(start - 1, start, end, variableMods, fixedMods))
+                && (!cTerminusIsACut || Justifies(end, start, end, variableMods, fixedMods));
+        }
+
+        /// <summary>The sites inside this peptidoform that lack their required modification, so are not missed cleavages.</summary>
+        internal int UnoccupiedSites(int start, int end, Dictionary<int, Modification> variableMods,
+            Dictionary<int, Modification> fixedMods)
+        {
+            int unoccupied = 0;
+            for (int site = start; _configuredModifications is not null && site < end; site++)
+            {
+                if (_sites[site] && !Justifies(site, start, end, variableMods, fixedMods))
+                {
+                    unoccupied++;
+                }
+            }
+
+            return unoccupied;
+        }
+
+        // Inside the peptidoform a requirement is met by what it carries; outside, by what could be there.
+        private bool Justifies(int cut, int start, int end, Dictionary<int, Modification> variableMods,
+            Dictionary<int, Modification> fixedMods)
+        {
+            Protein protein = _protein;
+            List<Modification> configured = _configuredModifications;
+            return Justifies(_protease, protein.BaseSequence, cut, (requirement, residue) =>
+                residue >= start && residue <= end
+                    ? (variableMods.TryGetValue(residue - start + 2, out Modification placed)
+                        || fixedMods.TryGetValue(residue - start + 2, out placed))
+                      && requirement.IsSatisfiedBy(placed)
+                    : CouldCarry(protein, configured, requirement, residue));
+        }
+
+        // True if a motif that cuts here has all its requirements met.
+        private static bool Justifies(DigestionAgent protease, string sequence, int cut, Func<CleavageRequirement, int, bool> isMet) =>
+            protease.DigestionMotifs.Any(motif => cut >= motif.CutIndex
+                && motif.Fits(sequence, cut - motif.CutIndex) is (true, false)
+                && motif.CleavageRequirements.All(requirement => isMet(requirement, requirement.ConstrainedResidue(cut))));
+
+        private static bool CouldCarry(Protein protein, List<Modification> configured, CleavageRequirement requirement, int residue) =>
+            residue >= 1 && residue <= protein.Length
+            && ((protein.OneBasedFixedModifications.TryGetValue(residue, out Modification permanent) && requirement.IsSatisfiedBy(permanent))
+                || (protein.OneBasedPossibleLocalizedModifications.TryGetValue(residue, out List<Modification> annotated)
+                    && annotated.Any(requirement.IsSatisfiedBy))
+                || configured.Any(modification => requirement.IsSatisfiedBy(modification)
+                    && ModificationLocalization.ModFits(modification, protein.BaseSequence, residue, protein.Length, residue)));
+
+        private bool IsTruncationBoundary(int cut)
+        {
+            foreach (TruncationProduct product in _protein.TruncationProducts)
+            {
+                if (product.OneBasedBeginPosition - 1 == cut || product.OneBasedEndPosition == cut)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // The most sites only a required modification lets the protease cut that one read-through can span, so that
+        // the unoccupied form across them is enumerated. Without a length limit a read-through is capped at 60 residues.
+        private static int ReadThroughSlack(DigestionAgent protease, string sequence, List<int> sites, int maxLength,
+            int maxMissedCleavages)
+        {
+            bool[] requirementOnly = sites
+                .Select(site => site > 0 && site < sequence.Length && !Justifies(protease, sequence, site, (_, _) => false))
+                .ToArray();
+            int lengthLimit = maxLength == int.MaxValue ? 60 : maxLength;
+            int most = 0, first = 0, ordinaryInside = 0, requirementOnlyInside = 0;
+            for (int last = 1; last < sites.Count; last++)
+            {
+                if (last - 1 > first)
+                {
+                    if (requirementOnly[last - 1]) requirementOnlyInside++; else ordinaryInside++;
+                }
+
+                while (sites[last] - sites[first] > lengthLimit || ordinaryInside > maxMissedCleavages)
+                {
+                    first++;
+                    if (first < last)
+                    {
+                        if (requirementOnly[first]) requirementOnlyInside--; else ordinaryInside--;
+                    }
+                }
+
+                most = Math.Max(most, requirementOnlyInside);
+            }
+
+            return most;
+        }
     }
 }

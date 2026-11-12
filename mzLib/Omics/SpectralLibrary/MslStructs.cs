@@ -349,8 +349,10 @@ public struct MslPrecursorRecord
 	/// <summary>
 	/// Offset 54, 1 byte. Bitfield of precursor-level Boolean properties.
 	/// bit 0: is_decoy; bit 1: is_proteotypic; bit 2: rt_is_calibrated (0 = iRT, 1 = run RT in minutes);
-	/// bit 3: is_entrapment; bits 4–7: reserved.
-	/// Use MslFormat.EncodePrecursorFlags / DecodePrecursorFlags / DecodeIsEntrapment to read or write this field.
+	/// bit 3: is_entrapment; bits 4–5: rt_status (MslFormat.RetentionTimeStatus);
+	/// bit 6: rt_struck_by_prediction; bit 7: reserved.
+	/// Use MslFormat.EncodePrecursorFlags / DecodePrecursorFlags / DecodeIsEntrapment /
+	/// DecodeRetentionTimeStatus / DecodeRtStruckByPrediction to read or write this field.
 	/// </summary>
 	public byte PrecursorFlags;
 
