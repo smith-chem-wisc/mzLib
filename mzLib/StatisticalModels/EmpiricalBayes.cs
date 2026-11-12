@@ -53,7 +53,8 @@ namespace StatisticalModels
         public VariancePriorEstimator Estimator { get; }
 
         /// <summary>Prior degrees of freedom d0. Positive infinity when the observed variances are no more
-        /// dispersed than sampling alone explains, in which case every feature takes the prior variance. Zero with fewer
+        /// dispersed than sampling alone explains, in which case every feature takes the prior variance: without a
+        /// trend, the mean of the features' variances, as limma's (since 2017). Zero with fewer
         /// than 3 features, as in limma: no prior is fitted and each feature keeps its own variance.</summary>
         public double Df { get; }
 
@@ -126,6 +127,14 @@ namespace StatisticalModels
     /// <param name="Name">Unique within one call.</param>
     /// <param name="Weights">Finite, not all zero; e.g. (0, −1, 1, 0) for the third coefficient minus the second.</param>
     public sealed record ContrastWeights(string Name, IReadOnlyList<double> Weights);
+
+    /// <summary>
+    /// One linear-model fit and the contrasts tested on it, as a part of a pooled moderation
+    /// (<see cref="EmpiricalBayes.ModerateContrasts(IReadOnlyList{LinearModelModerationPart}, double)"/>).
+    /// </summary>
+    /// <param name="Fit">Output of <see cref="LinearModel.Fit"/>.</param>
+    /// <param name="Contrasts">Weights on this fit's coefficients; names unique within the part; may be empty.</param>
+    public sealed record LinearModelModerationPart(LinearModelFit Fit, IReadOnlyList<ContrastWeights> Contrasts);
 
     /// <summary>
     /// One fitted feature's part in a contrast c, as a model gives it to the shared moderation
@@ -336,9 +345,16 @@ namespace StatisticalModels
 
             double excess = residualVariance - use.Average(i => Polygamma.Trigamma(df[i] / 2));
             double d0 = excess > 0 ? 2 * Polygamma.TrigammaInverse(excess) : double.PositiveInfinity;
+            // An infinite d0 without a trend takes the plain mean of the (floored) variances, the maximum-likelihood
+            // scale in that case, as limma's fitFDist has since limma 3.32.0 (2017; s20 <- mean(x)); limma before
+            // that returned exp(mean), the limit of the finite-d0 formula, usually a little larger. With a trend limma
+            // keeps the fitted trend, exp(mean), and so does this.
+            double pooled = double.IsPositiveInfinity(d0) && covariate == null
+                ? use.Average(i => Math.Max(variances[i], floor))
+                : double.NaN;
             for (int k = 0; k < use.Length; k++)
                 scale[use[k]] = double.IsPositiveInfinity(d0)
-                    ? Math.Exp(mean[k])
+                    ? covariate == null ? pooled : Math.Exp(mean[k])
                     : Math.Exp(mean[k] + SpecialFunctions.DiGamma(d0 / 2) - Math.Log(d0 / 2));
 
             return new VariancePrior(d0, scale, covariate != null, basis);
@@ -467,6 +483,145 @@ namespace StatisticalModels
         }
 
         /// <summary>
+        /// Moderated tests of contrasts over several linear-model fits that share one variance prior: limma's
+        /// <c>eBayes(legacy = TRUE, trend = FALSE)</c> over every feature of every fit, as if they were one fit. Use it when
+        /// features are fitted on different designs (e.g. each on the columns its own observed samples can estimate), so
+        /// they cannot share one fit, but their variances still share one prior.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Pooled.</b> The prior is fitted once, from every fitted feature of every part in part order, as
+        /// <see cref="FitPrior"/> with <see cref="VariancePriorEstimator.MomentsLegacy"/> and no trend. The df cap is the
+        /// sum of the residual df of those features, and Benjamini–Hochberg runs per contrast name over the features of
+        /// every part that tests it. Each part's contrasts are its own weights on its own coefficients; parts may test
+        /// different contrasts, and a part with none still informs the prior.
+        /// </para>
+        /// <para>
+        /// <b>Few features.</b> The prior counts FITTED features only: with fewer than 3, no prior is fitted (d0 = 0), so
+        /// each keeps its own variance and df, which is limma's result when it is given the fitted features alone; with
+        /// none, every value is NaN. Nothing is thrown for too few features (QuantProject STAT1 ruling 5, 2026-11-10).
+        /// </para>
+        /// <para>
+        /// <b>Same numbers as one fit.</b> With one part and at least 3 fitted features this gives exactly what
+        /// <see cref="ModerateContrasts(LinearModelFit, IReadOnlyList{ContrastWeights}, bool, int?, VariancePriorEstimator, double)"/>
+        /// gives with no trend; features split over several parts in their original order give the same numbers as one fit
+        /// of them all.
+        /// </para>
+        /// </remarks>
+        /// <param name="parts">At least one: each a fit and the contrasts tested on it.</param>
+        /// <param name="confidenceLevel">Two-sided interval level, strictly between 0 and 1. Default 0.95.</param>
+        /// <returns>Per part, in order, one result per contrast of that part, in its order.</returns>
+        public static IReadOnlyList<IReadOnlyList<ModeratedContrast>> ModerateContrasts(
+            IReadOnlyList<LinearModelModerationPart> parts, double confidenceLevel = 0.95)
+        {
+            ArgumentNullException.ThrowIfNull(parts);
+            CheckLevel(confidenceLevel);
+            if (parts.Count == 0) throw new ArgumentException("No part was given.", nameof(parts));
+            var pooled = new List<PooledPart>(parts.Count);
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i] ?? throw new ArgumentException($"Part {i} is null.", nameof(parts));
+                var fit = part.Fit ?? throw new ArgumentException($"Part {i} has no fit.", nameof(parts));
+                var contrasts = part.Contrasts ?? throw new ArgumentException($"Part {i} has no contrast list.", nameof(parts));
+                int p = fit.CoefficientNames.Count;
+                if (contrasts.Count > 0)
+                    CheckContrasts(contrasts, confidenceLevel, c =>
+                    {
+                        if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
+                            throw new ArgumentException($"Contrast '{c.Name}' of part {i} needs {p} finite weights.", nameof(parts));
+                    });
+                int n = fit.FeatureCount;
+                var s2 = new double[n];
+                var df = new double[n];
+                var usable = new List<int>();
+                for (int f = 0; f < n; f++)
+                {
+                    s2[f] = double.NaN;
+                    if (fit.Status[f] != FeatureFitStatus.Fitted) continue;
+                    s2[f] = fit.Sigma[f] * fit.Sigma[f];
+                    df[f] = fit.DfResidual[f];
+                    usable.Add(f);
+                }
+                pooled.Add(new PooledPart(contrasts, s2, df, usable, fit.Status,
+                    (f, w) => new FeatureContrast(fit.ContrastEstimate(f, w), fit.ContrastStdevUnscaled(f, w), df[f])));
+            }
+            return ModeratePooled(pooled, confidenceLevel);
+        }
+
+        /// <summary>
+        /// One fit's share of a pooled moderation: its contrasts; every feature's variance and its df (read for the usable
+        /// features only); the usable features, ascending; every feature's status; and the model's contrast.
+        /// </summary>
+        internal sealed record PooledPart(IReadOnlyList<ContrastWeights> Contrasts, double[] Variances, double[] Df,
+            IReadOnlyList<int> Usable, IReadOnlyList<FeatureFitStatus> Status, Func<int, double[], FeatureContrast> ContrastOf);
+
+        /// <summary>
+        /// The moderation the pooled <c>ModerateContrasts</c> overloads share. The prior is fitted from the usable features
+        /// of every part, concatenated in part order, so <see cref="FitPrior"/> counts usable features only: fewer than 3
+        /// fit no prior (d0 = 0); 1 keeps its own variance; none leaves every value NaN. Then each part is moderated by
+        /// <see cref="ModerateContrastsCore"/> with that prior, the df cap and the df-differ flag of all parts together, and
+        /// Benjamini–Hochberg is redone per contrast name over every part.
+        /// </summary>
+        internal static IReadOnlyList<IReadOnlyList<ModeratedContrast>> ModeratePooled(IReadOnlyList<PooledPart> parts,
+            double confidenceLevel)
+        {
+            var s2 = new List<double>();
+            var d = new List<double>();
+            foreach (var part in parts)
+                foreach (int f in part.Usable)
+                {
+                    s2.Add(part.Variances[f]);
+                    d.Add(part.Df[f]);
+                }
+            double d0;
+            IReadOnlyList<double> scale;
+            if (s2.Count >= 2)
+            {
+                var prior = FitPrior(s2, d, null, null, VariancePriorEstimator.MomentsLegacy);
+                d0 = prior.Df;
+                scale = prior.Scale;
+            }
+            else
+            {
+                d0 = 0; // 0 or 1 usable feature: no prior, as FitPrior gives for 2
+                scale = s2;
+            }
+            double dfCap = d.Sum();
+            bool dfDiffer = d.Any(x => x != d[0]);
+
+            var results = new List<IReadOnlyList<ModeratedContrast>>(parts.Count);
+            int next = 0;
+            foreach (var part in parts)
+            {
+                var partScale = Enumerable.Repeat(double.NaN, part.Status.Count).ToArray();
+                foreach (int f in part.Usable) partScale[f] = scale[next++];
+                var partPrior = new VariancePrior(d0, partScale, false, 1, VariancePriorEstimator.MomentsLegacy);
+                results.Add(ModerateContrastsCore(part.Contrasts, partPrior, part.Variances, part.Df, part.Usable, part.Status,
+                    confidenceLevel, part.ContrastOf, dfCap, dfDiffer));
+            }
+
+            foreach (string name in parts.SelectMany(p => p.Contrasts).Select(c => c.Name).Distinct(StringComparer.Ordinal))
+            {
+                var members = results.SelectMany(r => r).Where(c => string.Equals(c.Name, name, StringComparison.Ordinal)).ToList();
+                var adjusted = MultipleTesting.BenjaminiHochberg(members.SelectMany(c => c.PValues).ToArray());
+                int offset = 0;
+                foreach (var c in members)
+                {
+                    Array.Copy(adjusted, offset, c.AdjustedValues, 0, c.AdjustedValues.Length);
+                    offset += c.AdjustedValues.Length;
+                }
+            }
+            return results;
+        }
+
+        /// <summary>Refuses a confidence level not strictly between 0 and 1.</summary>
+        internal static void CheckLevel(double confidenceLevel)
+        {
+            if (!(confidenceLevel > 0 && confidenceLevel < 1))
+                throw new ArgumentOutOfRangeException(nameof(confidenceLevel), confidenceLevel, "The confidence level must be strictly between 0 and 1.");
+        }
+
+        /// <summary>
         /// The checks every <c>ModerateContrasts</c> makes of its request: a level strictly between 0 and 1; at least one
         /// contrast; names not blank and unique; weights that <paramref name="checkWeights"/> accepts (it throws otherwise),
         /// not all zero.
@@ -505,13 +660,18 @@ namespace StatisticalModels
         /// <param name="status">Every feature's fit status; its length is the feature count.</param>
         /// <param name="confidenceLevel">Already checked.</param>
         /// <param name="contrastOf">The model's estimate, unscaled SD and df of a contrast (its weights) for a feature.</param>
+        /// <param name="dfCapOverride">The df cap when the prior was fitted over more features than these (a pooled
+        /// moderation, <see cref="ModeratePooled"/>); null caps at the sum of d over <paramref name="features"/>.</param>
+        /// <param name="dfDifferOverride">Whether the d of every moderated feature differ, for a pooled moderation; null
+        /// judges <paramref name="features"/> alone.</param>
         internal static IReadOnlyList<ModeratedContrast> ModerateContrastsCore(IReadOnlyList<ContrastWeights> contrasts,
             VariancePrior prior, IReadOnlyList<double> variances, IReadOnlyList<double> df, IReadOnlyList<int> features,
-            IReadOnlyList<FeatureFitStatus> status, double confidenceLevel, Func<int, double[], FeatureContrast> contrastOf)
+            IReadOnlyList<FeatureFitStatus> status, double confidenceLevel, Func<int, double[], FeatureContrast> contrastOf,
+            double? dfCapOverride = null, bool? dfDifferOverride = null)
         {
             int n = status.Count;
-            double dfCap = features.Sum(f => df[f]);
-            bool dfDiffer = features.Any(f => df[f] != df[features[0]]);
+            double dfCap = dfCapOverride ?? features.Sum(f => df[f]);
+            bool dfDiffer = dfDifferOverride ?? features.Any(f => df[f] != df[features[0]]);
             double upper = (1 + confidenceLevel) / 2;
 
             var results = new List<ModeratedContrast>(contrasts.Count);
