@@ -433,14 +433,17 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
-            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id))
-                && AllowedModificationTokens?.Contains(ModificationToken(resolved, id, cleaned.BaseSequence)) != false)
+            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
             {
-                accepted.Add(resolved);
-                acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+                var sent = SequenceConverter.Serializer.Schema.PlaceModification(resolved, cleaned);
+                if (AllowedModificationTokens?.Contains(ModificationToken(sent, id, cleaned.BaseSequence)) != false)
+                {
+                    accepted.Add(sent);
+                    acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+                    continue;
+                }
             }
-            else
-                incompatible.Add(resolved);
+            incompatible.Add(resolved);
         }
 
         if (incompatible.Count > 0)
@@ -577,7 +580,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         IReadOnlySet<int> allowedUnimodIds)
     {
         var lookup = CreateLookup(allowedUnimodIds);
-        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        var serializer = new UnimodSequenceSerializer(WithPyroGluOnFirstResidue(schema), lookup);
         return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
     }
 
@@ -589,9 +592,20 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     {
         var allMods = Mods.UnimodModifications.ToList();
         var lookup = new UnimodModificationLookup(allMods);
-        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        var serializer = new UnimodSequenceSerializer(WithPyroGluOnFirstResidue(schema), lookup);
         return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
     }
+
+    // Checked live 2026-11-12: every Koina model that takes pyro-Glu predicts it on its residue (E[UNIMOD:27], Q[UNIMOD:28]),
+    // and the N-terminal forms give 400, are dropped or are misread.
+    private static UnimodSequenceFormatSchema WithPyroGluOnFirstResidue(UnimodSequenceFormatSchema schema) => new(schema.LabelStyle)
+    {
+        ModOpenBracket = schema.ModOpenBracket,
+        ModCloseBracket = schema.ModCloseBracket,
+        NTermSeparator = schema.NTermSeparator,
+        CTermSeparator = schema.CTermSeparator,
+        PyroGluOnFirstResidue = true
+    };
 
     private static IModificationLookup CreateLookup(IReadOnlySet<int> allowedUnimodIds)
     {

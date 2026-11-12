@@ -229,6 +229,22 @@ public class SerializationTests
         Assert.That(result, Does.Contain(expectedToken));
     }
 
+    [TestCase("[Common Artifact:Water Loss on E]EPTIDE", "[UNIMOD:27]EPTIDE", "E[UNIMOD:27]PTIDE")]
+    [TestCase("[Common Biological:Glu to PyroGlu on Q]QPTIDE", "[UNIMOD:28]QPTIDE", "Q[UNIMOD:28]PTIDE")]
+    [TestCase("[Common Biological:Glu to PyroGlu on Q]Q[Common Artifact:Deamidation on Q]PTIDE", "[UNIMOD:28]Q[UNIMOD:7]PTIDE", "[UNIMOD:28]Q[UNIMOD:7]PTIDE")]
+    public void UnimodSerializer_PyroGlu_StaysNTerminal_AndOnlyAnOptInSchemaPlacesItOnItsResidue(string mzLib, string byDefault, string onItsResidue)
+    {
+        var canonical = _mzLibParser.Parse(mzLib);
+        Assert.That(canonical, Is.Not.Null);
+        var resolved = canonical.Value.WithModifications(canonical.Value.Modifications.Select(UnimodSequenceSerializer.Instance.ResolveModification));
+        CanonicalSequence PlacedBy(UnimodSequenceFormatSchema schema) =>
+            resolved.WithModifications(resolved.Modifications.Select(mod => schema.PlaceModification(mod, resolved)));
+
+        Assert.That(SequenceConversionService.Default.Serialize(canonical.Value, "Unimod"), Is.EqualTo(byDefault));
+        Assert.That(SequenceConversionService.Default.Serialize(PlacedBy(UnimodSequenceFormatSchema.Instance), "Unimod"), Is.EqualTo(byDefault));
+        Assert.That(SequenceConversionService.Default.Serialize(PlacedBy(new UnimodSequenceFormatSchema { PyroGluOnFirstResidue = true }), "Unimod"), Is.EqualTo(onItsResidue));
+    }
+
     [Test]
     public void UnimodSerializer_FromMzLib_ResolvesUnimodId()
     {
