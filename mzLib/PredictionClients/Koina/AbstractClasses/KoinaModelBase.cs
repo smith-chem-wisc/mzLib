@@ -430,12 +430,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         // peptide predicted from an mzLib sequence keeps that sequence's names; the resolved one otherwise (ProForma).
         var acceptedAsLabelled = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
+        var refused = new List<string>();
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
             {
                 var sent = SequenceConverter.Serializer.Schema.PlaceModification(resolved, cleaned);
+                if (DecideModification(cleaned, sent) is { } reason)
+                {
+                    refused.Add($"{ModificationToken(sent, id, cleaned.BaseSequence)} ({reason})");
+                    continue;
+                }
                 if (AllowedModificationTokens?.Contains(ModificationToken(sent, id, cleaned.BaseSequence)) != false)
                 {
                     accepted.Add(sent);
@@ -460,6 +466,19 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
             foreach (var mod in incompatible)
                 conversionWarnings.AddWarning($"Removing unsupported modification: {mod}");
+        }
+
+        string? removedMessage = null;
+        if (refused.Count > 0)
+        {
+            if (ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements)
+            {
+                var message = $"{ModelName} cannot place {string.Join("; ", refused)}.";
+                HandleFailure(ModHandlingMode, message);
+                warning = BuildWarning(conversionWarnings, message);
+                return null;
+            }
+            removedMessage = $"Removing modifications {ModelName} cannot place: {string.Join("; ", refused)}.";
         }
         cleaned = cleaned.WithModifications(accepted);
 
@@ -503,9 +522,15 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             .Select(k => acceptedAsLabelled[k]));
         string? cleanedFullSequence = MzLibSequenceSerializer.Instance.Serialize(predicted, conversionWarnings, SequenceConversionHandlingMode.ThrowException);
 
-        warning = BuildWarning(conversionWarnings, null);
+        warning = BuildWarning(conversionWarnings, removedMessage);
         return cleanedFullSequence;
     }
+
+    /// <summary>
+    /// Decides one modification with an allowed UNIMOD id before its token is checked: null to keep it, or why Koina refuses it.
+    /// </summary>
+    /// <param name="modification">The modification where Koina will be sent it.</param>
+    protected virtual string? DecideModification(CanonicalSequence sequence, CanonicalModification modification) => null;
 
     private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
     {

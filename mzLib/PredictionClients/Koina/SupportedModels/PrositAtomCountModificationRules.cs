@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Modifications;
@@ -7,17 +6,19 @@ using Omics.SequenceConversion;
 namespace PredictionClients.Koina.SupportedModels;
 
 /// <summary>
-/// The modifications Koina's Prosit 2025 22PTM and 40PTM models (iRT and intensity) can place, residue by residue.
-/// mzLib declares these four models accept-all for UNIMOD ids, because Koina's notes.yaml says "All unimod
-/// modifications are supported". The server still refuses some (residue, id) pairs, and one refused peptide fails
-/// the whole request with HTTP 400. This class holds Koina's rule so mzLib can refuse those peptides before sending.
+/// The modifications Koina's atom-count Prosit models (2024 PTMs_gl, 2025 22PTM and 40PTM; iRT and intensity) can place.
 /// </summary>
 /// <remarks>
-/// Source: wilhelm-lab/koina at d17616997e45f6684a41a898c598e85d06130397. All four ensembles run the same two
+/// mzLib declares these six models accept-all for UNIMOD ids: Koina's notes.yaml for the 2025 models says "All unimod
+/// modifications are supported", and PTMs_gl runs the same preprocessing. The server still refuses some (residue, id)
+/// pairs, and one refused peptide fails the whole request with HTTP 400. This class holds Koina's rule so mzLib can
+/// refuse those peptides before sending.
+///
+/// Source: wilhelm-lab/koina at d17616997e45f6684a41a898c598e85d06130397. All six ensembles run the same two
 /// preprocessing steps, Prosit_Preprocess_ac_gain and Prosit_Preprocess_ac_loss, so they share one rule:
 ///   https://github.com/wilhelm-lab/koina/blob/d17616997e45f6684a41a898c598e85d06130397/models/Prosit/Prosit_2025_irt_40PTM/config.pbtxt
-///   (and Prosit_2025_irt_22PTM, Prosit_2025_intensity_22PTM, Prosit_2025_intensity_40PTM; the 22PTM and 40PTM
-///   models differ only in the core network, and at this sha the iRT 40PTM ensemble even calls the 22PTM core).
+///   (and Prosit_2025_irt_22PTM, Prosit_2025_intensity_22PTM, Prosit_2025_intensity_40PTM, Prosit_2024_irt_PTMs_gl and
+///   Prosit_2024_intensity_PTMs_gl; at this sha the iRT 40PTM ensemble even calls the 22PTM core).
 ///
 /// Koina encodes each modified position by the atoms it gains and loses. For each position it does, in order:
 ///   0. Looks the id up in its UNIMOD table, models/Deeplc/Deeplc_Preprocess_AC/1/unimod.obo (dated 2022-10-20,
@@ -35,27 +36,19 @@ namespace PredictionClients.Koina.SupportedModels;
 /// N-terminal and a C-terminal modification with the same id share one table row ("_1") and one attachment group.
 /// That is why C-terminal tokens are accepted here: "PEPTIDEK-[UNIMOD:34]" and "-[UNIMOD:1]" return 200 live.
 ///
-/// Tokens use the format of mzLib PR #1443: "E[UNIMOD:954]" on a residue, "[UNIMOD:1]-" on the N-terminus and
-/// "-[UNIMOD:2]" on the C-terminus. When #1443's KoinaModelBase.AllowedModificationTokens lands, this rule can move
-/// there and the four models can drop their TryCleanSequence overrides. The hook needs either a virtual predicate
-/// (answered by <see cref="RefusalReason"/>) or a set (every token <see cref="RefusalReason"/> accepts, for the
-/// UNIMOD ids in mzLib's catalog).
+/// Tokens are written as KoinaModelBase writes them: "E[UNIMOD:954]" on a residue, "[UNIMOD:1]-" on the N-terminus
+/// and "-[UNIMOD:2]" on the C-terminus.
 ///
-/// The data below was generated from those files, not typed in. Refresh it whenever Koina changes
-/// Prosit_Preprocess_ac_gain/1/model.py, Prosit_Preprocess_ac_loss/1/model.py, Prosit_Preprocess_ac_gain/1/zero_shot.py
-/// or models/Deeplc/Deeplc_Preprocess_AC/1/unimod.obo: diff those four files against the sha above and rerun the
-/// generator. The generator is in the PR that added this file. It reads the two tables, dict_attachment_loss and
-/// parse_composition's constants with Python's ast.literal_eval (it never runs Koina's code), applies the same
-/// parsing to each delta_composition in unimod.obo, and compares the result with mzLib's Omics/Resources/unimod.xml.
+/// The data below was generated from those files, not typed in, by a script that is not in this repository. Refresh it
+/// whenever Koina changes Prosit_Preprocess_ac_gain/1/model.py, Prosit_Preprocess_ac_loss/1/model.py,
+/// Prosit_Preprocess_ac_gain/1/zero_shot.py or models/Deeplc/Deeplc_Preprocess_AC/1/unimod.obo: diff those four files
+/// against the sha above and regenerate. The script read the two tables, dict_attachment_loss and parse_composition's
+/// constants with Python's ast.literal_eval (it never ran Koina's code), applied the same parsing to each
+/// delta_composition in unimod.obo, and compared the result with mzLib's Omics/Resources/unimod.xml.
 /// A check against every (position, id) pair for mzLib's 1,560 UNIMOD ids, 34,408 tokens, agreed with this class on all.
 /// </remarks>
-internal static class Prosit2025ModificationRules
+internal static class PrositAtomCountModificationRules
 {
-    /// <summary>
-    /// The base-class cleaning step that this rule follows: KoinaModelBase.TryCleanSequence's signature.
-    /// </summary>
-    internal delegate string? SequenceCleaner(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning);
-
     /// <summary>
     /// The newest id in Koina's unimod.obo (2022-10-20). mzLib's unimod.xml has 47 newer ids (2073-2147) the server
     /// cannot look up. Every id up to 2072 in mzLib's catalog is also in Koina's file, so "known to Koina" is
@@ -130,21 +123,6 @@ internal static class Prosit2025ModificationRules
         1965, 1966, 1967, 1969,
     };
 
-    /// <summary>
-    /// mzLib writes pyro-Glu as an N-terminal modification: "[UNIMOD:27]-E..." and "[UNIMOD:28]-Q...". Koina's
-    /// models/Prosit/Prosit_Preprocess_ac_gain/1/modifications.py at the sha above (ProformaParser.parse_sequence,
-    /// then Unimod.lookup_sequence_m) gives that the empty residue, so the key is "_27" or "_28". Neither is trained,
-    /// and zero-shot refuses both, because H(2) N minus the water or ammonia goes negative. The trained table has the
-    /// same chemistry on the residue, E_27 and Q_28, so the modification is sent there. All four ensembles return
-    /// 200 for "E[UNIMOD:27]PEPTIDEK" and "Q[UNIMOD:28]PEPTIDEK" and 400 for the N-terminal forms (checked
-    /// 2026-11-09). Each rewrite applies only to its own residue.
-    /// </summary>
-    private static readonly (string NTerminal, string OnResidue)[] PyroGluRewrites =
-    {
-        ("[UNIMOD:27]-E", "E[UNIMOD:27]"),
-        ("[UNIMOD:28]-Q", "Q[UNIMOD:28]"),
-    };
-
     private static readonly string[] EncodedElements = { "H", "C", "N", "O", "P", "S" };
     private static readonly Regex ElementSymbol = new(@"[A-Z][a-z]?", RegexOptions.Compiled);
     private static readonly Regex TokenPattern = new(
@@ -172,11 +150,36 @@ internal static class Prosit2025ModificationRules
         if (!match.Success)
             throw new ArgumentException($"'{token}' is not a modification token like \"E[UNIMOD:954]\", \"[UNIMOD:1]-\" or \"-[UNIMOD:2]\".", nameof(token));
 
+        var position = match.Groups["residue"].Success ? ModificationPositionType.Residue
+            : token[0] == '[' ? ModificationPositionType.NTerminus : ModificationPositionType.CTerminus;
+        return RefusalReason(position, match.Groups["residue"].Value, int.Parse(match.Groups["id"].Value));
+    }
+
+    /// <summary>
+    /// Why Koina refuses this modification, where it will be sent, or null when it accepts it.
+    /// </summary>
+    internal static string? Decide(CanonicalSequence sequence, CanonicalModification modification)
+    {
+        string residue = modification.PositionType == ModificationPositionType.Residue
+            ? sequence.BaseSequence[modification.ResidueIndex!.Value].ToString()
+            : "";
+        return RefusalReason(modification.PositionType, residue, modification.UnimodId!.Value);
+    }
+
+    /// <summary>
+    /// The rule for one position; <paramref name="residue"/> is "" on either terminus, as Koina keys it.
+    /// </summary>
+    private static string? RefusalReason(ModificationPositionType position, string residue, int id)
+    {
+        string token = position switch
+        {
+            ModificationPositionType.NTerminus => $"[UNIMOD:{id}]-",
+            ModificationPositionType.CTerminus => $"-[UNIMOD:{id}]",
+            _ => $"{residue}[UNIMOD:{id}]"
+        };
         if (TrainedTokens.Contains(token))
             return null;
 
-        int id = int.Parse(match.Groups["id"].Value);
-        string residue = match.Groups["residue"].Value; // "" on either terminus, as Koina keys it
         if (id > NewestUnimodIdOnKoina || !UnimodFormulas.Value.TryGetValue(id, out var delta))
             return $"UNIMOD:{id} is not in Koina's UNIMOD table";
 
@@ -194,115 +197,15 @@ internal static class Prosit2025ModificationRules
         var negative = EncodedElements.Where(element => group.CountWithIsotopes(element) + delta.CountWithIsotopes(element) < 0).ToList();
         if (negative.Count > 0)
         {
-            string site = residue.Length > 0 ? $"residue {residue}" : token[0] == '[' ? "the N-terminus" : "the C-terminus";
+            string site = position switch
+            {
+                ModificationPositionType.NTerminus => "the N-terminus",
+                ModificationPositionType.CTerminus => "the C-terminus",
+                _ => $"residue {residue}"
+            };
             return $"the attachment group of {site} ({group.Formula}) plus UNIMOD:{id} ({delta.Formula}) has a negative {string.Join(", ", negative)} count";
         }
 
         return null;
     }
-
-    /// <summary>
-    /// The modifications in a sequence in Koina's notation (as UnimodSequenceSerializer writes it) that Koina refuses.
-    /// Empty when the server accepts every one.
-    /// </summary>
-    internal static IReadOnlyList<RefusedModification> FindRefusedModifications(string koinaSequence)
-    {
-        var refused = new List<RefusedModification>();
-        int residueIndex = -1; // the residue last read; -1 before the first
-        for (int i = 0; i < koinaSequence.Length; i++)
-        {
-            if (koinaSequence[i] != '[')
-            {
-                if (koinaSequence[i] != '-')
-                    residueIndex++;
-                continue;
-            }
-
-            int end = koinaSequence.IndexOf(']', i) + 1;
-            string modification = koinaSequence[i..end];
-            // The token, and the text to cut from the sequence to remove it: a terminal one takes its "-" along.
-            var (position, token, start) = residueIndex < 0 ? (ModificationPositionType.NTerminus, modification + "-", i)
-                : koinaSequence[i - 1] == '-' ? (ModificationPositionType.CTerminus, "-" + modification, i - 1)
-                : (ModificationPositionType.Residue, koinaSequence[i - 1] + modification, i);
-            if (RefusalReason(token) is { } reason)
-            {
-                int length = position == ModificationPositionType.Residue ? modification.Length : modification.Length + 1;
-                refused.Add(new RefusedModification(token, position, position == ModificationPositionType.Residue ? residueIndex : null,
-                    start, length, reason));
-            }
-            i = end - 1;
-        }
-        return refused;
-    }
-
-    /// <summary>
-    /// Moves N-terminal pyro-Glu onto its residue, where Koina has it trained; see <see cref="PyroGluRewrites"/>.
-    /// Leaves the sequence alone when the residue does not match or already carries a modification.
-    /// </summary>
-    internal static string PlacePyroGluOnItsResidue(string koinaSequence)
-    {
-        foreach (var (nTerminal, onResidue) in PyroGluRewrites)
-        {
-            if (koinaSequence.StartsWith(nTerminal, StringComparison.Ordinal) && !koinaSequence.AsSpan(nTerminal.Length).StartsWith("["))
-                return onResidue + koinaSequence[nTerminal.Length..];
-        }
-        return koinaSequence;
-    }
-
-    /// <summary>
-    /// TryCleanSequence for the four models: the base cleaning, then pyro-Glu onto its residue, then this rule.
-    /// A refused modification goes through the handling mode the way base refuses one: ThrowException throws,
-    /// RemoveIncompatibleElements drops it from both sequences, anything else returns null with a warning.
-    /// </summary>
-    internal static string? TryCleanSequence(
-        string modelName,
-        SequenceConversionHandlingMode mode,
-        string sequence,
-        ISequenceParser? sourceParser,
-        SequenceCleaner baseClean,
-        out string? apiSequence,
-        out WarningException? warning)
-    {
-        var cleaned = baseClean(sequence, sourceParser, out apiSequence, out warning);
-        if (cleaned == null || apiSequence == null)
-            return cleaned;
-
-        apiSequence = PlacePyroGluOnItsResidue(apiSequence);
-        var refused = FindRefusedModifications(apiSequence);
-        if (refused.Count == 0)
-            return cleaned;
-
-        string refusals = string.Join("; ", refused.Select(r => $"{r.Token} ({r.Reason})"));
-        if (mode == SequenceConversionHandlingMode.RemoveIncompatibleElements)
-        {
-            // Remove them from both sequences, at the same positions, so the sequence returned and the one sent still
-            // describe the same peptide. The mzLib one is edited as parsed modifications, not cleaned again: base cannot
-            // resolve every label it writes for a ProForma input ("[UNIMOD:4]") when it reads it back.
-            var parsed = MzLibSequenceParser.Instance.Parse(cleaned, null, SequenceConversionHandlingMode.ThrowException)!.Value;
-            var kept = parsed.Modifications.Where(mod => !refused.Any(r => r.Position == mod.PositionType
-                && (r.Position != ModificationPositionType.Residue || r.ResidueIndex == mod.ResidueIndex)));
-            cleaned = MzLibSequenceSerializer.Instance.Serialize(parsed.WithModifications(kept), null, SequenceConversionHandlingMode.ThrowException);
-            foreach (var r in refused.OrderByDescending(r => r.Start))
-                apiSequence = apiSequence.Remove(r.Start, r.Length);
-            warning = WithMessage($"Removing modifications {modelName} cannot place: {refusals}.", warning);
-            return cleaned;
-        }
-
-        string message = $"{modelName} cannot place {refusals}.";
-        if (mode == SequenceConversionHandlingMode.ThrowException)
-            throw new ArgumentException(message);
-
-        apiSequence = null;
-        warning = WithMessage(message, warning);
-        return null;
-    }
-
-    private static WarningException WithMessage(string message, WarningException? warning) =>
-        new(warning == null ? message : $"{message} {warning.Message}");
 }
-
-/// <summary>
-/// A modification Koina refuses: its token, where it sits (ResidueIndex for a residue, null on a terminus), the
-/// characters that remove it from the Koina sequence (Start, Length) and why it is refused.
-/// </summary>
-internal sealed record RefusedModification(string Token, ModificationPositionType Position, int? ResidueIndex, int Start, int Length, string Reason);

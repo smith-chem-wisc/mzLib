@@ -17,12 +17,12 @@ using Readers.ProForma;
 namespace Test.KoinaTests
 {
     /// <summary>
-    /// Offline tests for the (residue, UNIMOD) pairs Koina's Prosit 2025 22PTM and 40PTM models refuse, and for how the
-    /// four models refuse them before sending. Expected outcomes were checked against the live server on 2026-11-09:
-    /// every "refused" case below returned HTTP 400 there, and every "accepted" case returned 200.
+    /// Offline tests for the (residue, UNIMOD) pairs Koina's Prosit 2024 PTMs_gl and 2025 22PTM and 40PTM models refuse, and
+    /// for how the six models refuse them before sending. Expected outcomes were checked against the live server on 2026-11-09
+    /// and, for PTMs_gl, 2026-11-11: every "refused" case below returned HTTP 400 there, and every "accepted" case returned 200.
     /// </summary>
     [TestFixture]
-    public class Prosit2025ModificationRulesTests
+    public class PrositAtomCountModificationRulesTests
     {
         private const string ZincOnE = "PEPE[UNIMOD:954]TIDEK";
         private const string OxidizedM = "PEPM[Common Variable:Oxidation on M]TIDEK";
@@ -46,7 +46,7 @@ namespace Test.KoinaTests
         [TestCase("-[UNIMOD:1]")]
         public void TrainedTokens_AreAccepted(string token)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token), Is.Null);
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token), Is.Null);
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace Test.KoinaTests
         [TestCase("-[UNIMOD:34]")]
         public void ZeroShotTokens_AreAccepted(string token)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token), Is.Null);
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token), Is.Null);
         }
 
         [TestCase("E[UNIMOD:954]")]
@@ -74,7 +74,7 @@ namespace Test.KoinaTests
         [TestCase("G[UNIMOD:21]")]
         public void ResidueWithoutAttachmentGroup_IsRefused(string token)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token),
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token),
                 Does.Contain($"residue {token[0]} has no attachment group").And.Contain(token));
         }
 
@@ -86,7 +86,7 @@ namespace Test.KoinaTests
         [TestCase("Y[UNIMOD:340]", "Br")]
         public void ElementOutsideHCNOPS_IsRefused(string token, string element)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token),
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token),
                 Does.Contain($"contains {element}").And.Contain("only H, C, N, O, P and S"));
         }
 
@@ -95,7 +95,7 @@ namespace Test.KoinaTests
         [TestCase("-[UNIMOD:1948]")]  // Sulf
         public void CompositionKoinaCannotRead_IsRefused(string token)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token), Does.Contain("cannot read the composition"));
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token), Does.Contain("cannot read the composition"));
         }
 
         [TestCase("[UNIMOD:27]-", "the N-terminus")]
@@ -106,7 +106,7 @@ namespace Test.KoinaTests
         [TestCase("W[UNIMOD:351]", "residue W")]
         public void NegativeAtomCount_IsRefused(string token, string site)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token),
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token),
                 Does.Contain($"the attachment group of {site}").And.Contain("negative"));
         }
 
@@ -120,7 +120,7 @@ namespace Test.KoinaTests
         [TestCase("K[UNIMOD:15]")]    // a gap in UNIMOD's numbering
         public void IdKoinaDoesNotKnow_IsRefused(string token)
         {
-            Assert.That(Prosit2025ModificationRules.RefusalReason(token), Does.Contain("is not in Koina's UNIMOD table"));
+            Assert.That(PrositAtomCountModificationRules.RefusalReason(token), Does.Contain("is not in Koina's UNIMOD table"));
         }
 
         [TestCase("E954")]
@@ -128,7 +128,7 @@ namespace Test.KoinaTests
         [TestCase("EE[UNIMOD:954]")]
         public void RefusalReason_RejectsAStringThatIsNotAToken(string notAToken)
         {
-            Assert.Throws<ArgumentException>(() => Prosit2025ModificationRules.RefusalReason(notAToken));
+            Assert.Throws<ArgumentException>(() => PrositAtomCountModificationRules.RefusalReason(notAToken));
         }
 
         #endregion
@@ -136,28 +136,32 @@ namespace Test.KoinaTests
         #region Sequences
 
         [Test]
-        public void FindRefusedModifications_NamesEachRefusedTokenWhereItSits()
+        public void EachRefusedModification_IsNamedInOrder()
         {
-            var refused = Prosit2025ModificationRules.FindRefusedModifications("[UNIMOD:27]-EPEM[UNIMOD:35]E[UNIMOD:954]K-[UNIMOD:2]");
+            var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
 
-            Assert.That(refused.Select(r => r.Token), Is.EqualTo(new[] { "[UNIMOD:27]-", "E[UNIMOD:954]", "-[UNIMOD:2]" }));
-            Assert.That(refused.Select(r => r.Position), Is.EqualTo(new[]
-            {
-                ModificationPositionType.NTerminus, ModificationPositionType.Residue, ModificationPositionType.CTerminus
-            }));
-            Assert.That(refused.Select(r => r.ResidueIndex), Is.EqualTo(new int?[] { null, 4, null }));
+            var cleaned = probe.Clean("[UNIMOD:28]-EPEM[UNIMOD:35]E[UNIMOD:954]K-[UNIMOD:2]", ProForma, out var api, out var warning);
+
+            Assert.That(cleaned, Is.Null);
+            Assert.That(api, Is.Null);
+            Assert.That(warning!.Message, Does.Match(@"cannot place \[UNIMOD:28\]- \(.*\); E\[UNIMOD:954\] \(.*\); -\[UNIMOD:2\] \("));
+            Assert.That(warning.Message, Does.Not.Contain("M[UNIMOD:35]"));
         }
 
         [TestCase("PEPTIDEK")]
         [TestCase("[UNIMOD:1]-PEPC[UNIMOD:4]TM[UNIMOD:35]IDEK-[UNIMOD:34]")]
-        public void FindRefusedModifications_IsEmptyWhenKoinaAcceptsEverything(string koinaSequence)
+        public void SequenceKoinaAcceptsWhole_IsSentAsIs(string sequence)
         {
-            Assert.That(Prosit2025ModificationRules.FindRefusedModifications(koinaSequence), Is.Empty);
+            var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
+
+            Assert.That(probe.Clean(sequence, ProForma, out var api, out var warning), Is.Not.Null);
+            Assert.That(api, Is.EqualTo(sequence));
+            Assert.That(warning, Is.Null);
         }
 
         /// <summary>
         /// Sequences the MSL rat pilot sent to Prosit_2025_irt_40PTM, each of which Koina answered with HTTP 400, and the
-        /// pair it named. Each is refused here, so it would not have been sent.
+        /// pair it named. Each is refused here, naming only that pair, so it would not have been sent.
         /// </summary>
         [TestCase("GGDDLD[UNIMOD:530]PNYVLSSR", "D[UNIMOD:530]")]
         [TestCase("LISWYD[UNIMOD:954]NEYGYSNR", "D[UNIMOD:954]")]
@@ -172,43 +176,56 @@ namespace Test.KoinaTests
         [TestCase("K[UNIMOD:122]AGHPFMWNE[UNIMOD:956]HLGYVLTC[UNIMOD:4]PSNLGTGLR", "E[UNIMOD:956]")]
         public void PilotSequencesKoinaRejected_AreRefused(string sent, string pairKoinaNamed)
         {
-            Assert.That(Prosit2025ModificationRules.FindRefusedModifications(sent).Select(r => r.Token), Is.EqualTo(new[] { pairKoinaNamed }));
+            var probe = new PilotProbe();
+
+            Assert.That(probe.Clean(sent, ProForma, out _, out var warning), Is.Null);
+            Assert.That(warning!.Message, Does.StartWith($"{probe.ModelName} cannot place {pairKoinaNamed} (").And.Not.Contain("; "));
         }
 
-        [TestCase("[UNIMOD:27]-EPEPTIDEK", "E[UNIMOD:27]PEPTIDEK")]
-        [TestCase("[UNIMOD:28]-QPEPTIDEK", "Q[UNIMOD:28]PEPTIDEK")]
-        [TestCase("[UNIMOD:27]-E", "E[UNIMOD:27]")]
-        [TestCase("[UNIMOD:28]-QPEPTIDEK-[UNIMOD:34]", "Q[UNIMOD:28]PEPTIDEK-[UNIMOD:34]")]
-        public void PlacePyroGluOnItsResidue_MovesItWhereKoinaTrainedIt(string nTerminal, string onResidue)
+        /// <summary>
+        /// Koina receives pyro-Glu on its residue; the mzLib sequence returned keeps it N-terminal.
+        /// </summary>
+        [TestCase("[UNIMOD:27]-EPEPTIDEK", "E[UNIMOD:27]PEPTIDEK", "[UNIMOD:27]EPEPTIDEK")]
+        [TestCase("[UNIMOD:28]-QPEPTIDEK", "Q[UNIMOD:28]PEPTIDEK", "[UNIMOD:28]QPEPTIDEK")]
+        [TestCase("[UNIMOD:27]-E", "E[UNIMOD:27]", "[UNIMOD:27]E")]
+        [TestCase("[UNIMOD:28]-QPEPTIDEK-[UNIMOD:34]", "Q[UNIMOD:28]PEPTIDEK-[UNIMOD:34]", "[UNIMOD:28]QPEPTIDEK-[UNIMOD:34]")]
+        public void PyroGlu_IsSentWhereKoinaTrainedIt(string sequence, string sent, string returned)
         {
-            Assert.That(Prosit2025ModificationRules.PlacePyroGluOnItsResidue(nTerminal), Is.EqualTo(onResidue));
-            Assert.That(Prosit2025ModificationRules.FindRefusedModifications(onResidue), Is.Empty);
+            var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
+
+            Assert.That(probe.Clean(sequence, ProForma, out var api, out var warning), Is.EqualTo(returned));
+            Assert.That(api, Is.EqualTo(sent));
+            Assert.That(warning, Is.Null);
         }
 
         /// <summary>
         /// Only Glu->pyro-Glu (27) on E and Gln->pyro-Glu (28) on Q move. Anything else, or a residue that already
-        /// carries a modification, goes to the rule as written.
+        /// carries a modification, goes to the rule as written, which refuses it on the N-terminus.
         /// </summary>
-        [TestCase("[UNIMOD:27]-QPEPTIDEK")]
-        [TestCase("[UNIMOD:28]-EPEPTIDEK")]
-        [TestCase("[UNIMOD:27]-E[UNIMOD:34]PEPTIDEK")]
-        [TestCase("[UNIMOD:385]-CPEPTIDEK")]
-        [TestCase("PEPTIDEK")]
-        public void PlacePyroGluOnItsResidue_LeavesEverythingElseAlone(string koinaSequence)
+        [TestCase("[UNIMOD:27]-QPEPTIDEK", "[UNIMOD:27]-")]
+        [TestCase("[UNIMOD:28]-EPEPTIDEK", "[UNIMOD:28]-")]
+        [TestCase("[UNIMOD:27]-E[UNIMOD:34]PEPTIDEK", "[UNIMOD:27]-")]
+        [TestCase("[UNIMOD:385]-CPEPTIDEK", "[UNIMOD:385]-")]
+        public void EverythingElse_StaysWhereItIs(string sequence, string refused)
         {
-            Assert.That(Prosit2025ModificationRules.PlacePyroGluOnItsResidue(koinaSequence), Is.EqualTo(koinaSequence));
+            var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
+
+            Assert.That(probe.Clean(sequence, ProForma, out _, out var warning), Is.Null);
+            Assert.That(warning!.Message, Does.Contain($"cannot place {refused} (the attachment group of the N-terminus"));
         }
 
         #endregion
 
-        #region The four models
+        #region The six models
 
-        private static IEnumerable<TestCaseData> FourModels()
+        private static IEnumerable<TestCaseData> SixModels()
         {
             yield return new TestCaseData((Func<SequenceConversionHandlingMode, IProbe>)(mode => new Irt40Probe(mode))).SetArgDisplayNames("Prosit_2025_irt_40PTM");
             yield return new TestCaseData((Func<SequenceConversionHandlingMode, IProbe>)(mode => new Irt22Probe(mode))).SetArgDisplayNames("Prosit_2025_irt_22PTM");
             yield return new TestCaseData((Func<SequenceConversionHandlingMode, IProbe>)(mode => new Intensity40Probe(mode))).SetArgDisplayNames("Prosit_2025_intensity_40PTM");
             yield return new TestCaseData((Func<SequenceConversionHandlingMode, IProbe>)(mode => new Intensity22Probe(mode))).SetArgDisplayNames("Prosit_2025_intensity_22PTM");
+            yield return new TestCaseData((Func<SequenceConversionHandlingMode, IProbe>)(mode => new IrtPtmsGlProbe(mode))).SetArgDisplayNames("Prosit_2024_irt_PTMs_gl");
+            yield return new TestCaseData((Func<SequenceConversionHandlingMode, IProbe>)(mode => new IntensityPtmsGlProbe(mode))).SetArgDisplayNames("Prosit_2024_intensity_PTMs_gl");
         }
 
         /// <summary>
@@ -217,7 +234,7 @@ namespace Test.KoinaTests
         /// place is refused. ProForma input, as the MSL pipeline sends it: on master, base resolves "Metal:Zinc on E"
         /// in mzLib notation to no UNIMOD id and refuses it before this rule runs.
         /// </summary>
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void ReturnNull_RefusedInputIsMaskedAndNotSent(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ReturnNull);
@@ -229,7 +246,7 @@ namespace Test.KoinaTests
             Assert.That(warnings[1], Does.Contain(probe.ModelName).And.Contain("E[UNIMOD:954]").And.Contain("residue E has no attachment group"));
         }
 
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void ReturnNull_ReturnsNullWithAWarning(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ReturnNull);
@@ -241,7 +258,7 @@ namespace Test.KoinaTests
             Assert.That(warning!.Message, Does.Contain("E[UNIMOD:954]"));
         }
 
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void ThrowException_Throws(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ThrowException);
@@ -256,7 +273,7 @@ namespace Test.KoinaTests
         /// Each refused modification is dropped and the rest kept, in the sequence sent and in the mzLib sequence
         /// returned, which keep describing the same peptide. The pyro-Glu still moves to its residue first.
         /// </summary>
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void RemoveIncompatibleElements_DropsOnlyTheRefusedModifications(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.RemoveIncompatibleElements);
@@ -280,7 +297,7 @@ namespace Test.KoinaTests
         /// mzLib's N-terminal pyro-Glu is sent on its residue, where Koina trained it. The mzLib sequence, which is what a
         /// library entry is built from, keeps it N-terminal.
         /// </summary>
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void NTerminalPyroGlu_IsSentOnItsResidue(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ReturnNull);
@@ -290,13 +307,14 @@ namespace Test.KoinaTests
             Assert.That(probe.Mask, Is.EqualTo(new[] { true, true, false }));
             Assert.That(probe.Sent, Is.EqualTo(new[] { "E[UNIMOD:27]PEPTIDEK", "Q[UNIMOD:28]PEPTIDEK" }));
             Assert.That(warnings[2], Does.Contain("[UNIMOD:28]-").And.Contain("the N-terminus"));
-            Assert.That(probe.Clean("[UNIMOD:27]-EPEPTIDEK", ProForma, out _, out _), Is.EqualTo("[UNIMOD:27]EPEPTIDEK"));
+            Assert.That(probe.Clean("[UNIMOD:27]-EPEPTIDEK", ProForma, out var api, out _), Is.EqualTo("[UNIMOD:27]EPEPTIDEK"));
+            Assert.That(api, Is.EqualTo("E[UNIMOD:27]PEPTIDEK"));
         }
 
         /// <summary>
         /// Koina accepts a C-terminal modification it can encode and refuses one it cannot.
         /// </summary>
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void CTerminalModifications_FollowTheRule(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ReturnNull);
@@ -310,7 +328,7 @@ namespace Test.KoinaTests
         /// <summary>
         /// Base's own refusals are untouched: an invalid residue is still refused by base, before this rule runs.
         /// </summary>
-        [TestCaseSource(nameof(FourModels))]
+        [TestCaseSource(nameof(SixModels))]
         public void BaseRefusals_AreLeftToBase(Func<SequenceConversionHandlingMode, IProbe> create)
         {
             var probe = create(SequenceConversionHandlingMode.ReturnNull);
@@ -322,7 +340,7 @@ namespace Test.KoinaTests
 
         #endregion
 
-        #region Probes: the four models with a captured transport
+        #region Probes: the six models with a captured transport
 
         public interface IProbe
         {
@@ -399,6 +417,35 @@ namespace Test.KoinaTests
                 Warnings(Predict(sequences.Select(s => new FragmentIntensityPredictionInput(s, 2, 30, null, "HCD") { SequenceParser = parser }).ToList()).Select(p => p.Warning));
             public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, true);
+        }
+
+        private sealed class IrtPtmsGlProbe : Prosit2024iRTPTMsGl, IProbe
+        {
+            public IrtPtmsGlProbe(SequenceConversionHandlingMode mode) : base(mode) { }
+            public List<string> Sent { get; } = new();
+            public bool[] Mask => ValidInputsMask;
+            public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
+                Warnings(Predict(sequences.Select(s => new RetentionTimePredictionInput(s) { SequenceParser = parser }).ToList()).Select(p => p.Warning));
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, false);
+        }
+
+        private sealed class IntensityPtmsGlProbe : Prosit2024IntensityPTMsGl, IProbe
+        {
+            public IntensityPtmsGlProbe(SequenceConversionHandlingMode mode) : base(mode) { }
+            public List<string> Sent { get; } = new();
+            public bool[] Mask => ValidInputsMask;
+            public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
+                Warnings(Predict(sequences.Select(s => new FragmentIntensityPredictionInput(s, 2, 30, null, "HCD") { SequenceParser = parser }).ToList()).Select(p => p.Warning));
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, true);
+        }
+
+        private sealed class PilotProbe : Prosit2025iRT40PTM
+        {
+            // The pilot sent one 37-residue peptide; the length limit is not under test here.
+            public override int MaxPeptideLength => 40;
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
         }
 
         #endregion

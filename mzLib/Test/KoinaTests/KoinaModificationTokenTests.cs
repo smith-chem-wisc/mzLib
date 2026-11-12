@@ -74,9 +74,8 @@ namespace Test.KoinaTests
     [TestFixture]
     public class KoinaModificationTokenTests
     {
-        // The PTMs_gl models' zero-shot preprocessing places an id on residues no fixed list names, so they declare no tokens.
         [Test]
-        public void EveryModelThatListsItsIds_DeclaresTokens_ExceptPTMsGl()
+        public void EveryModelThatListsItsIds_DeclaresTokens()
         {
             var listingIdsWithoutTokens = ModificationTokenCases.AllModels()
                 .Where(t =>
@@ -88,7 +87,7 @@ namespace Test.KoinaTests
                 })
                 .Select(t => t.Name);
 
-            Assert.That(listingIdsWithoutTokens, Is.EquivalentTo(new[] { nameof(Prosit2024IntensityPTMsGl), nameof(Prosit2024iRTPTMsGl) }));
+            Assert.That(listingIdsWithoutTokens, Is.Empty);
         }
 
         [TestCaseSource(typeof(ModificationTokenCases), nameof(ModificationTokenCases.TokenDeclaringModels))]
