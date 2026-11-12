@@ -403,6 +403,34 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].Warning, Is.Not.Null);
         }
 
+        /// <summary>
+        /// Koina receives pyro-Glu on its residue; the mzLib sequence returned keeps it N-terminal.
+        /// </summary>
+        [TestCase("[Unimod:Gln->pyro-Glu on Q]QPEPTIDEK", false, "Q[UNIMOD:28]PEPTIDEK", "[Unimod:Gln->pyro-Glu on Q]QPEPTIDEK")]
+        [TestCase("[UNIMOD:28]-QPEPTIDEK", true, "Q[UNIMOD:28]PEPTIDEK", "[UNIMOD:28]QPEPTIDEK")]
+        public void AlphaPeptDeepRT_NTerminalPyroGlu_IsSentOnItsResidue(string sequence, bool proForma, string sent, string returned)
+        {
+            var model = new AlphaPeptDeepRTGeneric();
+
+            var cleaned = ModificationTokenCases.Clean(model, sequence, proForma ? ProFormaSequenceParser.Instance : null, out var api, out var warning);
+
+            Assert.That(api, Is.EqualTo(sent));
+            Assert.That(cleaned, Is.EqualTo(returned));
+            Assert.That(warning, Is.Null);
+        }
+
+        [Test]
+        public void AlphaPeptDeepRT_NTerminalPyroGluOnAModifiedFirstResidue_StaysNTerminal()
+        {
+            var model = new AlphaPeptDeepRTGeneric();
+
+            var cleaned = ModificationTokenCases.Clean(model, "[UNIMOD:28]-Q[UNIMOD:7]PEPTIDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
+
+            Assert.That(api, Is.EqualTo("[UNIMOD:28]Q[UNIMOD:7]PEPTIDEK"));
+            Assert.That(cleaned, Is.EqualTo("[UNIMOD:28]Q[UNIMOD:7]PEPTIDEK"));
+            Assert.That(warning, Is.Null);
+        }
+
         private sealed class TmtProbe : Prosit2020IntensityTMT
         {
             public TmtProbe(SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ReturnNull)
@@ -451,6 +479,26 @@ namespace Test.KoinaTests
         {
             public string? Clean(string sequence, out string? api, out WarningException? warning)
                 => TryCleanSequence(sequence, null, out api, out warning);
+        }
+    }
+
+    [TestFixture]
+    [NUnit.Framework.Category("ExternalService")]
+    [NUnit.Framework.Category("Koina")]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public class KoinaPyroGluLiveTests : KoinaLiveTestFixture
+    {
+        [Test]
+        public void AlphaPeptDeepRT_PredictsNTerminalPyroGlu()
+        {
+            var predictions = new AlphaPeptDeepRTGeneric().Predict(new List<RetentionTimePredictionInput>
+            {
+                new("[Unimod:Gln->pyro-Glu on Q]QPEPTIDEK"),
+                new("QPEPTIDEK")
+            });
+
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, predictions[0].Warning?.Message);
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.EqualTo(predictions[1].PredictedRetentionTime));
         }
     }
 }
