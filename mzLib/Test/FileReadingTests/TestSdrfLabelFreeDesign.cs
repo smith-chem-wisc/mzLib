@@ -390,6 +390,73 @@ namespace Test.FileReadingTests
 
         // ---------------------------------------------------------------- files (MAP-12) and the search
 
+        /// <summary>
+        /// A searched path is known by its file name whichever separator it uses, on any platform: a search run on
+        /// Windows records <c>D:\search\a1.raw</c>, and its output is read on Linux too, where <see cref="Path.GetFileName(string)"/>
+        /// splits only <c>/</c> and returned the whole path as the name (bridge SDRF-B5). The design keeps the path the
+        /// search gave, and the written file names the file alone, as MetaMorpheus matches it. (On Windows both separators
+        /// split, so these cases cannot fail there; they guard every platform the suite runs on.)
+        /// </summary>
+        [TestCase(@"D:\search\a1.raw", @"D:\search\b1.raw")]
+        [TestCase("/data/search/a1.raw", "/data/search/b1.raw")]
+        public void ASearchedPathIsKnownByItsFileNameWhicheverSeparatorItUses(string a, string b)
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1"), ("b1.raw", "B", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { a, b } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.FullFilePathWithExtension), Is.EqualTo(new[] { a, b }), "the path the search gave");
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}_ExperimentalDesign.tsv");
+            try
+            {
+                design.WriteExperimentalDesignTsv(path);
+                Assert.That(File.ReadAllLines(path).Skip(1).Select(l => l.Split('\t')[0]), Is.EqualTo(new[] { "a1.raw", "b1.raw" }));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>An SDRF cell that carries a folder, written with either separator, names the file at its end.</summary>
+        [TestCase(@"D:\deposit\")]
+        [TestCase("/deposit/")]
+        public void AnSdrfCellWithAFolderNamesTheFileAtItsEnd(string folder)
+        {
+            var design = SdrfLabelFreeDesign.Read(Document((folder + "a1.raw", "A", "1", "1", "1"), (folder + "b1.raw", "B", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { "a1.raw", "b1.raw" } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.FullFilePathWithExtension), Is.EqualTo(new[] { "a1.raw", "b1.raw" }));
+        }
+
+        /// <summary>
+        /// A run that is a folder (Bruker's <c>.d</c>) written with a trailing separator, in the SDRF or by the search, is
+        /// known by the folder's name. <see cref="Path.GetFileName(string)"/> gives an empty name for <c>a1.d/</c> on every
+        /// platform, so the row named no file and the searched run had no row.
+        /// </summary>
+        [Test]
+        public void AFolderRunWrittenWithATrailingSeparatorIsKnownByItsName()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.d/", "A", "1", "1", "1"), (@"b1.d\", "B", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { @"C:\runs\a1.d\", "/runs/b1.d/" } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Is.Empty, "no row is dropped as naming no file");
+            Assert.That(design.Files.Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)), Is.EqualTo(new[] { "a1.d", "b1.d" }));
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}_ExperimentalDesign.tsv");
+            try
+            {
+                design.WriteExperimentalDesignTsv(path);
+                Assert.That(File.ReadAllLines(path).Skip(1).Select(l => l.Split('\t')[0]), Is.EqualTo(new[] { "a1.d", "b1.d" }),
+                    "the written design names each run, not an empty name");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
         [Test]
         public void TheSearchedDataFileIsTheKeyWhenPresent()
         {
