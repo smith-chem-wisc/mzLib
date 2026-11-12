@@ -444,7 +444,9 @@ public static class MslWriter
 											   isDecoy: entry.IsDecoy,
 											   isProteotypic: entry.IsProteotypic,
 											   rtCalibrated: entry.RtIsCalibrated,
-											   isEntrapment: entry.IsEntrapment),
+											   isEntrapment: entry.IsEntrapment,
+											   rtStatus: entry.RtStatus,
+											   rtStruckByPrediction: entry.RtStruckByPrediction),
 						SourceType = (byte)entry.Source,
 						PrecursorMz = (float)entry.PrecursorMz,
 						Irt = (float)entry.RetentionTime,
@@ -933,6 +935,12 @@ public static class MslWriter
 				$"entries[{index}] ('{entry.FullSequence}') has charge {entry.ChargeState}, outside the " +
 				$"stored 16-bit range [{short.MinValue}, {short.MaxValue}].", "entries");
 
+		// Two bits hold the status; an undefined value would spill into the next flag bit.
+		if (!Enum.IsDefined(entry.RtStatus))
+			throw new ArgumentException(
+				$"entries[{index}] ('{entry.FullSequence}') has retention-time status {(int)entry.RtStatus}, " +
+				"which is not a defined MslFormat.RetentionTimeStatus.", "entries");
+
 		if (entry.MatchedFragmentIons is null)
 			return;
 
@@ -979,6 +987,10 @@ public static class MslWriter
 			if (float.IsInfinity((float)entry.RetentionTime))
 				errors.Add($"Entry [{i}] '{entry.FullSequence}': RetentionTime must be finite, or NaN for " +
 						   $"no retention time (got {entry.RetentionTime}).");
+
+			if (!Enum.IsDefined(entry.RtStatus))
+				errors.Add($"Entry [{i}] '{entry.FullSequence}': RtStatus must be a defined " +
+						   $"MslFormat.RetentionTimeStatus (got {(int)entry.RtStatus}).");
 
 			if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 			{
@@ -1133,7 +1145,9 @@ public static class MslWriter
 										   isDecoy: entry.IsDecoy,
 										   isProteotypic: entry.IsProteotypic,
 										   rtCalibrated: entry.RtIsCalibrated,
-										   isEntrapment: entry.IsEntrapment),
+										   isEntrapment: entry.IsEntrapment,
+										   rtStatus: entry.RtStatus,
+										   rtStruckByPrediction: entry.RtStruckByPrediction),
 				SourceType = (byte)entry.Source
 			};
 
