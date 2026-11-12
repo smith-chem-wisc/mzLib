@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace Readers
 {
     /// <summary>
@@ -64,8 +62,6 @@ namespace Readers
         private const string DataFile = "comment[data file]";
         private const string SearchedDataFile = "comment[searched data file]";
 
-        private static readonly Regex Derivative = new(@"(?:-calib|-averaged)+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
         /// <summary>
         /// Keeps the rows whose acquisition the search read. Throws on a null argument, on an empty search,
         /// or on an SDRF with no <c>comment[data file]</c> column.
@@ -118,12 +114,12 @@ namespace Readers
                 line++;
                 var cells = row.Cells.Concat(Enumerable.Repeat("", Math.Max(0, header.Count - row.Cells.Count))).ToList();
                 string acquired = cells[dataFile];
-                string stem = Derivative.Replace(SdrfFileNamePattern.Stem(acquired), "");
+                string stem = SdrfFileNamePattern.AcquiredStem(acquired);
                 // Else the earlier search's own record of which searched file read this row (SearchedDataFileName's rule).
                 if (!readerOf.ContainsKey(stem))
                     foreach (int i in oldSearched.OrderBy(i => i))
                     {
-                        string before = Derivative.Replace(SdrfFileNamePattern.Stem(FileName(cells[i])), "");
+                        string before = SdrfFileNamePattern.AcquiredStem(cells[i]);
                         if (before.Length > 0 && readerOf.ContainsKey(before)) { stem = before; break; }
                     }
                 if (!readerOf.TryGetValue(stem, out var reader))
@@ -158,16 +154,11 @@ namespace Readers
         {
             if (acquiredNameOf != null && acquiredNameOf.TryGetValue(searched, out var acquired) && !string.IsNullOrWhiteSpace(acquired))
                 // Normalised like the row side: a known name may itself be a derivative (WT_1-calib.mzML).
-                return Derivative.Replace(SdrfFileNamePattern.Stem(FileName(acquired)), "");
-            return Derivative.Replace(SdrfFileNamePattern.Stem(FileName(searched)), "");
+                return SdrfFileNamePattern.AcquiredStem(acquired);
+            return SdrfFileNamePattern.AcquiredStem(searched);
         }
 
         /// <summary>The file name of a path written with either separator, on any platform.</summary>
-        private static string FileName(string path)
-        {
-            string p = path.Trim().TrimEnd('/', '\\');
-            int cut = Math.Max(p.LastIndexOf('/'), p.LastIndexOf('\\'));
-            return cut >= 0 ? p[(cut + 1)..] : p;
-        }
+        private static string FileName(string path) => SdrfFileNamePattern.FileName(path);
     }
 }

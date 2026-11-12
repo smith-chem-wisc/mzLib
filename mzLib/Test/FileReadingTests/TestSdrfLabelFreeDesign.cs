@@ -89,15 +89,36 @@ namespace Test.FileReadingTests
             }
         }
 
+        /// <summary>
+        /// QP-S42 (c), ruled 2026-11-11: with no column declared, every factor value column makes the condition, in the
+        /// SDRF's order, and a note says so. PXD067622 names genotype then treatment, so it reads exactly as declaring
+        /// both does; it used to be refused.
+        /// </summary>
         [Test]
-        public void Pxd067622WithNoDeclarationIsRefusedBecauseItHasTwoFactorColumns()
+        public void Pxd067622WithNoDeclarationCombinesBothFactorColumnsInTheSdrfsOrder()
         {
-            var design = SdrfLabelFreeDesign.Read(Fixture("PXD067622.sdrf.tsv"));
+            var undeclared = SdrfLabelFreeDesign.Read(Fixture("PXD067622.sdrf.tsv"));
+            var declared = SdrfLabelFreeDesign.Read(Fixture("PXD067622.sdrf.tsv"), Declared(Genotype, Treatment));
 
-            Assert.That(design.IsValid, Is.False);
-            Assert.That(design.Files, Is.Empty);
-            Assert.That(design.Refusals.Single(), Does.Contain("Several factor value columns and none declared")
-                .And.Contain(Genotype).And.Contain(Treatment));
+            Assert.That(undeclared.Refusals, Is.Empty, undeclared.Report());
+            Assert.That(undeclared.ConditionColumns, Is.EqualTo(new[] { Genotype, Treatment }));
+            Assert.That(undeclared.Files.Select(f => (f.FullFilePathWithExtension, f.Condition, f.BiologicalReplicate)),
+                Is.EqualTo(declared.Files.Select(f => (f.FullFilePathWithExtension, f.Condition, f.BiologicalReplicate))));
+            Assert.That(undeclared.Notes.Single(), Does.Contain("every factor value column")
+                .And.Contain($"'{Genotype}' + '{Treatment}'"));
+            Assert.That(declared.Notes, Is.Empty, "declared columns need no note");
+            Assert.That(undeclared.Report(), Does.Contain($"Condition from: {Genotype} + {Treatment}"));
+        }
+
+        [Test]
+        public void AnUnknownFactorInACombinedColumnSaysEveryFactorColumnWasUsed()
+        {
+            var design = SdrfLabelFreeDesign.Read(Fixture("PXD049018.sdrf.tsv"));
+
+            Assert.That(design.Refusals, Has.Count.EqualTo(20), "one per row: every treatment is 'not available'");
+            Assert.That(design.Refusals, Has.All.Contain($"'{Treatment}' is 'not available'"));
+            Assert.That(design.Refusals, Has.All.Contain("none was declared, so every factor value column makes the condition"));
+            Assert.That(design.Refusals, Has.All.Contain("(UnknownFactorIsOwnCondition)"));
         }
 
         /// <summary>
@@ -150,6 +171,27 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Has.Count.EqualTo(10), "one per band");
             Assert.That(design.Refusals[0], Does.Contain("biorep 1 fraction 1 techrep 1 is named by 2 files")
                 .And.Contain("MSB67868ABand_01.raw").And.Contain("MSB67869ABand_01.raw"));
+            Assert.That(design.Refusals, Has.None.Contain("reads like"),
+                "QP-S45: the names differ by the sample's number, not a fraction or an injection, so no hint");
+        }
+
+        /// <summary>
+        /// QP-S44: stating that files whose treatment nobody knows are a condition of their own does not make the two
+        /// pulldowns two conditions. Both are 'not available', so they are one condition, both replicate 1, and still
+        /// refused as sharing one replicate: the statement never invents what tells samples apart.
+        /// </summary>
+        [Test]
+        public void Pxd049018StatedOwnConditionIsOneConditionAndStillRefusesItsTwoSamplesAsOneReplicate()
+        {
+            var design = SdrfLabelFreeDesign.Read(Fixture("PXD049018.sdrf.tsv"), new SdrfLabelFreeDesignOptions
+            {
+                ConditionColumns = new[] { Genotype, Treatment },
+                UnknownFactorIsOwnCondition = true,
+            });
+
+            Assert.That(design.Refusals, Has.Count.EqualTo(10), "one per band, as with genotype alone");
+            Assert.That(design.Refusals[0], Does.StartWith("Condition 'Flag-TurboID-NES_not available' biorep 1 fraction 1"));
+            Assert.That(design.Notes, Has.Some.Contain($"'{Treatment}' is 'not available' for 20 file(s), kept as a level of its own"));
         }
 
         /// <summary>
@@ -290,7 +332,8 @@ namespace Test.FileReadingTests
 
             Assert.That(design.Refusals.Single(), Does.StartWith("Line 3 (a2.raw): 'factor value[condition]' is 'not available'.")
                 .And.Contain("it is the only factor value column and none was declared")
-                .And.Contain("declare the column(s) the condition should be built from"));
+                .And.Contain("declare the column(s) the condition should be built from")
+                .And.Contain("a condition of their own (UnknownFactorIsOwnCondition)"), "QP-S44: the third way on");
         }
 
         [Test]
@@ -300,7 +343,8 @@ namespace Test.FileReadingTests
                 Declared("factor value[condition]"));
 
             Assert.That(design.Refusals.Single(), Does.Contain(
-                "fill it in, or leave the column out of the declared condition columns to pool these rows."));
+                "fill it in, leave the column out of the declared condition columns to pool these rows, or state that files whose " +
+                "factor nobody stated are a condition of their own (UnknownFactorIsOwnCondition)."));
         }
 
         [Test]
@@ -345,6 +389,73 @@ namespace Test.FileReadingTests
         }
 
         // ---------------------------------------------------------------- files (MAP-12) and the search
+
+        /// <summary>
+        /// A searched path is known by its file name whichever separator it uses, on any platform: a search run on
+        /// Windows records <c>D:\search\a1.raw</c>, and its output is read on Linux too, where <see cref="Path.GetFileName(string)"/>
+        /// splits only <c>/</c> and returned the whole path as the name (bridge SDRF-B5). The design keeps the path the
+        /// search gave, and the written file names the file alone, as MetaMorpheus matches it. (On Windows both separators
+        /// split, so these cases cannot fail there; they guard every platform the suite runs on.)
+        /// </summary>
+        [TestCase(@"D:\search\a1.raw", @"D:\search\b1.raw")]
+        [TestCase("/data/search/a1.raw", "/data/search/b1.raw")]
+        public void ASearchedPathIsKnownByItsFileNameWhicheverSeparatorItUses(string a, string b)
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1"), ("b1.raw", "B", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { a, b } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.FullFilePathWithExtension), Is.EqualTo(new[] { a, b }), "the path the search gave");
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}_ExperimentalDesign.tsv");
+            try
+            {
+                design.WriteExperimentalDesignTsv(path);
+                Assert.That(File.ReadAllLines(path).Skip(1).Select(l => l.Split('\t')[0]), Is.EqualTo(new[] { "a1.raw", "b1.raw" }));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>An SDRF cell that carries a folder, written with either separator, names the file at its end.</summary>
+        [TestCase(@"D:\deposit\")]
+        [TestCase("/deposit/")]
+        public void AnSdrfCellWithAFolderNamesTheFileAtItsEnd(string folder)
+        {
+            var design = SdrfLabelFreeDesign.Read(Document((folder + "a1.raw", "A", "1", "1", "1"), (folder + "b1.raw", "B", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { "a1.raw", "b1.raw" } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.FullFilePathWithExtension), Is.EqualTo(new[] { "a1.raw", "b1.raw" }));
+        }
+
+        /// <summary>
+        /// A run that is a folder (Bruker's <c>.d</c>) written with a trailing separator, in the SDRF or by the search, is
+        /// known by the folder's name. <see cref="Path.GetFileName(string)"/> gives an empty name for <c>a1.d/</c> on every
+        /// platform, so the row named no file and the searched run had no row.
+        /// </summary>
+        [Test]
+        public void AFolderRunWrittenWithATrailingSeparatorIsKnownByItsName()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.d/", "A", "1", "1", "1"), (@"b1.d\", "B", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { @"C:\runs\a1.d\", "/runs/b1.d/" } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Is.Empty, "no row is dropped as naming no file");
+            Assert.That(design.Files.Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)), Is.EqualTo(new[] { "a1.d", "b1.d" }));
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}_ExperimentalDesign.tsv");
+            try
+            {
+                design.WriteExperimentalDesignTsv(path);
+                Assert.That(File.ReadAllLines(path).Skip(1).Select(l => l.Split('\t')[0]), Is.EqualTo(new[] { "a1.d", "b1.d" }),
+                    "the written design names each run, not an empty name");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
 
         [Test]
         public void TheSearchedDataFileIsTheKeyWhenPresent()
@@ -505,6 +616,116 @@ namespace Test.FileReadingTests
             var sdrf = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "1", "AC=MS:1002038;NT=label free sample", "a.raw", "A" }) });
 
             Assert.That(SdrfLabelFreeDesign.Read(sdrf).Refusals, Is.Empty);
+        }
+
+        // ---------------------------------------------------------------- a join's rows (SdrfSearchScoping, QP-S38)
+
+        /// <summary>
+        /// Read from the join itself, a refusal names the line of the SDRF file: b2.raw's bad number is on line 5, though it
+        /// is the third row the join kept. Read from the join's document, the same refusal says line 4.
+        /// </summary>
+        [Test]
+        public void AJoinsRowsAreReportedOnTheLinesOfTheSdrfFile()
+        {
+            var sdrf = Document(
+                ("a1.raw", "A", "1", "1", "1"),
+                ("a2.raw", "A", "2", "1", "1"),
+                ("b1.raw", "B", "1", "1", "1"),
+                ("b2.raw", "B", "x", "1", "1"));
+            var searched = new[] { "a1.raw", "b1.raw", "b2.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+            var options = new SdrfLabelFreeDesignOptions { SearchedFiles = searched };
+
+            var design = SdrfLabelFreeDesign.Read(scoping, options);
+
+            Assert.That(scoping.SourceLines, Is.EqualTo(new[] { 2, 4, 5 }));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 5 (b2.raw):"));
+            Assert.That(SdrfLabelFreeDesign.Read(scoping.Document, options).Refusals.Single(), Does.StartWith("Line 4 (b2.raw):"),
+                "the document alone can only number its own rows");
+        }
+
+        /// <summary>
+        /// A gap in the numbers of a join's rows: the note says how many rows the join set aside, so the gap may be a sample
+        /// whose file is not searched. Read from the join's document alone, the note wrongly says every row is searched.
+        /// </summary>
+        [Test]
+        public void AGapNoteSaysHowManyRowsTheJoinSetAside()
+        {
+            var sdrf = Document(
+                ("a1.raw", "A", "1", "1", "1"),
+                ("a2.raw", "A", "2", "1", "1"),
+                ("a3.raw", "A", "3", "1", "1"),
+                ("b1.raw", "B", "1", "1", "1"),
+                ("b2.raw", "B", "2", "1", "1"),
+                ("c1.raw", "C", "1", "1", "1"));
+            var searched = new[] { "a1.raw", "a3.raw", "b1.raw", "b2.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+
+            var design = SdrfLabelFreeDesign.Read(scoping, new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(scoping.RowsSetAside, Is.EqualTo(2));
+            Assert.That(design.Notes.Single(), Is.EqualTo("Condition 'A': biological replicates 1, 3, kept as the SDRF numbers them. " +
+                "2 SDRF row(s) were set aside because the search does not read their files, so a missing number may be a sample " +
+                "whose file is not searched."));
+            Assert.That(SdrfLabelFreeDesign.Read(scoping.Document, new SdrfLabelFreeDesignOptions { SearchedFiles = searched })
+                .Notes.Single(), Does.EndWith("Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+        }
+
+        [Test]
+        public void AFractionGapNoteSaysHowManyRowsTheJoinSetAside()
+        {
+            var sdrf = Document(
+                ("a1_f1.raw", "A", "1", "1", "1"),
+                ("a1_f2.raw", "A", "1", "2", "1"),
+                ("a1_f3.raw", "A", "1", "3", "1"));
+            var searched = new[] { "a1_f1.raw", "a1_f3.raw" };
+
+            var design = SdrfLabelFreeDesign.Read(SdrfSearchScope.Restrict(sdrf, searched),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes.Single(), Is.EqualTo("Condition 'A' biorep 1: fractions 1, 3, kept as the SDRF numbers them. " +
+                "1 SDRF row(s) were set aside because the search does not read their files, so a missing number may be a file " +
+                "that is not searched."));
+        }
+
+        [Test]
+        public void AJoinThatSetsNothingAsideSaysEveryRowIsSearched()
+        {
+            var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "3", "1", "1"));
+            var searched = new[] { "a1.raw", "a3.raw" };
+
+            var design = SdrfLabelFreeDesign.Read(SdrfSearchScope.Restrict(sdrf, searched),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+            Assert.That(design.Notes.Single(), Does.EndWith(
+                "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+        }
+
+        /// <summary>A scoping built directly carries no source lines and no count, so it is read as its document.</summary>
+        [Test]
+        public void AScopingBuiltDirectlyIsReadAsItsDocument()
+        {
+            var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "3", "1", "1"), ("b1.raw", "B", "x", "1", "1"));
+            var none = Array.Empty<string>();
+
+            var design = SdrfLabelFreeDesign.Read(new SdrfSearchScoping(sdrf, none, none, none, none));
+
+            Assert.That(design.Report(), Is.EqualTo(SdrfLabelFreeDesign.Read(sdrf).Report()));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 4 (b1.raw):"));
+        }
+
+        [Test]
+        public void SourceLinesThatAreNotOnePerRowAreRefusedAsAnArgument()
+        {
+            var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "2", "1", "1"));
+            var none = Array.Empty<string>();
+            var scoping = new SdrfSearchScoping(sdrf, none, none, none, none) { SourceLines = new[] { 2 } };
+
+            Assert.That(() => SdrfLabelFreeDesign.Read(scoping),
+                Throws.ArgumentException.With.Message.Contains("1 source line(s) for 2 row(s)"));
+            Assert.That(() => SdrfLabelFreeDesign.Read((SdrfSearchScoping)null!), Throws.ArgumentNullException);
         }
 
         // ---------------------------------------------------------------- the written file
@@ -990,6 +1211,175 @@ namespace Test.FileReadingTests
                 "Line 2: 'source name' is 'patient_07', whose only number (7) is not its biological replicate (1). " +
                 "Kept as the SDRF gives it; check which is meant."
             }));
+        }
+
+        // ---------------------------------------------------------------- the 2026-11-11 grouping rulings (QP-S42 to QP-S45)
+
+        /// <summary>An SDRF in memory with the given columns; each row gives one cell per column.</summary>
+        private static SdrfDocument Table(string[] columns, params string[][] rows)
+        {
+            var header = new SdrfHeader(columns);
+            return new SdrfDocument(header, rows.Select(r => new SdrfRow(header, r)));
+        }
+
+        private static readonly string[] NoFactorColumns =
+        {
+            "source name", "characteristics[organism]", "characteristics[organism part]", "characteristics[individual]",
+            "characteristics[disease]", "characteristics[biological replicate]", "comment[label]", "comment[data file]",
+        };
+
+        /// <summary>Two samples, one per file, with no factor value column: liver and heart of two mice; disease stated for one.</summary>
+        private static SdrfDocument LiverAndHeart(string secondOrganismPart = "heart") => Table(NoFactorColumns,
+            new[] { "mouse 1 liver", "Mus musculus", "liver", "mouse 1", "not available", "1", "label free sample", "a.raw" },
+            new[] { "mouse 2 " + secondOrganismPart, "Mus musculus", secondOrganismPart, "mouse 2", "normal", "2", "label free sample", "b.raw" });
+
+        /// <summary>
+        /// QP-S42 (b), ruled 2026-11-11: no factor value column is always refused, never read as one group. The refusal
+        /// names the condition-like characteristic that differs (organism part) as what may be the groups, leaves out one
+        /// that differs between replicates by nature (individual) and ones that do not differ (organism; disease, whose
+        /// only stated value is 'normal': 'not available' is not a value), and names both ways on.
+        /// </summary>
+        [Test]
+        public void NoFactorColumnIsRefusedNamingTheCharacteristicThatDiffersAndTheWaysOn()
+        {
+            var design = SdrfLabelFreeDesign.Read(LiverAndHeart());
+
+            Assert.That(design.IsValid, Is.False);
+            Assert.That(design.Refusals.Single(), Does.StartWith("No condition: the SDRF has no factor value columns and none was declared.")
+                .And.Contain("'characteristics[organism part]' (liver, heart)")
+                .And.Not.Contain("characteristics[individual]")
+                .And.Not.Contain("'characteristics[organism]'")
+                .And.Not.Contain("characteristics[disease]")
+                .And.Contain("Declare the column(s) the condition is built from")
+                .And.Contain("(SingleCondition)"));
+        }
+
+        [Test]
+        public void NoFactorColumnWithNothingDifferingIsRefusedWithoutNamingAnything()
+        {
+            var design = SdrfLabelFreeDesign.Read(LiverAndHeart(secondOrganismPart: "liver"));
+
+            Assert.That(design.Refusals.Single(), Does.Not.Contain("differ between the samples")
+                .And.Contain("(SingleCondition)"));
+        }
+
+        /// <summary>QP-S42 (b): the user may state one group, and the data are then processed as one condition.</summary>
+        [Test]
+        public void AStatedSingleConditionMakesEveryFileThatCondition()
+        {
+            var design = SdrfLabelFreeDesign.Read(LiverAndHeart(), new SdrfLabelFreeDesignOptions { SingleCondition = "proteome" });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.Condition), Is.EqualTo(new[] { "proteome", "proteome" }));
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 2 }), "numbers still the SDRF's");
+            Assert.That(design.SingleCondition, Is.EqualTo("proteome"));
+            Assert.That(design.ConditionColumns, Is.Empty);
+            Assert.That(design.Notes, Is.Empty, "no factor column was set aside");
+            Assert.That(design.Report(), Does.Contain("Condition from: one condition, 'proteome', as stated"));
+        }
+
+        /// <summary>
+        /// Ruled 2026-11-11: one group, stated, also sets aside the factor value columns an SDRF does have, and a note names
+        /// each one, so a setting left on from another deposit is visible.
+        /// </summary>
+        [Test]
+        public void AStatedSingleConditionSetsTheFactorColumnsAsideAndNamesThem()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1"), ("b1.raw", "B", "2", "1", "1")),
+                new SdrfLabelFreeDesignOptions { SingleCondition = "all" });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.Condition), Is.All.EqualTo("all"));
+            Assert.That(design.Notes.Single(), Is.EqualTo(
+                "Every sample is condition 'all', as stated, so the SDRF's factor value column(s) 'factor value[condition]' are set aside."));
+        }
+
+        [Test]
+        public void ASingleConditionGivenWithConditionColumnsIsRefused()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1")), new SdrfLabelFreeDesignOptions
+            {
+                ConditionColumns = new[] { "factor value[condition]" },
+                SingleCondition = "all",
+            });
+
+            Assert.That(design.Refusals.Single(), Does.Contain("and a single condition ('all') were both given"));
+        }
+
+        [TestCase("")]
+        [TestCase("  ")]
+        public void ABlankSingleConditionIsRefused(string blank)
+        {
+            var design = SdrfLabelFreeDesign.Read(LiverAndHeart(), new SdrfLabelFreeDesignOptions { SingleCondition = blank });
+
+            Assert.That(design.Refusals.Single(), Does.StartWith("The single condition is blank."));
+        }
+
+        /// <summary>QP-S44, ruled 2026-11-11: stated, files whose factor nobody stated are a condition of their own.</summary>
+        [Test]
+        public void FilesWhoseFactorIsUnknownAreAConditionOfTheirOwnWhenStated()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(
+                    ("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "2", "1", "1"),
+                    ("x1.raw", "not available", "1", "1", "1"), ("x2.raw", "not available", "2", "1", "1")),
+                new SdrfLabelFreeDesignOptions { UnknownFactorIsOwnCondition = true });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.Condition), Is.EqualTo(new[] { "A", "A", "not available", "not available" }));
+            Assert.That(design.Notes.Single(), Is.EqualTo(
+                "'factor value[condition]' is 'not available' for 2 file(s), kept as a level of its own, as stated, so those files " +
+                "make a condition of their own: 'x1.raw', 'x2.raw'."));
+        }
+
+        [Test]
+        public void ABlankFactorStatedAsItsOwnConditionIsReadAsNotAvailable()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1"), ("x1.raw", "", "1", "1", "1")),
+                new SdrfLabelFreeDesignOptions { UnknownFactorIsOwnCondition = true });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single(f => f.FullFilePathWithExtension == "x1.raw").Condition, Is.EqualTo("not available"));
+            Assert.That(design.Notes.Single(), Does.StartWith(
+                "'factor value[condition]' is empty for 1 file(s), written 'not available' and kept as a level of its own"));
+        }
+
+        [Test]
+        public void ABlankFactorIsRefusedAndTheRefusalOffersItsOwnCondition()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1"), ("x1.raw", "", "1", "1", "1")));
+
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 3 (x1.raw): 'factor value[condition]' is empty.")
+                .And.Contain("(UnknownFactorIsOwnCondition)"));
+        }
+
+        /// <summary>
+        /// QP-S45, ruled 2026-11-11: files the SDRF puts at one replicate are refused, never renumbered; when their names
+        /// differ only by a fraction-like or injection-like number the refusal says so and names the column to fix.
+        /// </summary>
+        [TestCase("X_F01.raw", "X_F02.raw", "a fraction ('F01', 'F02')", "comment[fraction identifier]")]
+        [TestCase("X_fr_1.raw", "X_fr_2.raw", "a fraction ('fr_1', 'fr_2')", "comment[fraction identifier]")]
+        [TestCase("X_rep1.raw", "X_rep2.raw", "a repeat injection ('rep1', 'rep2')", "comment[technical replicate]")]
+        [TestCase("X-01.raw", "X-02.raw", "a repeat injection ('-01', '-02')", "comment[technical replicate]")]
+        public void FilesSharingAReplicateWhoseNamesReadLikeFractionsOrInjectionsGetAHint(string first, string second,
+            string reading, string column)
+        {
+            var design = SdrfLabelFreeDesign.Read(Document((first, "A", "1", "1", "1"), (second, "A", "1", "1", "1")));
+
+            Assert.That(design.Refusals.Single(), Does.Contain("Different samples cannot share one replicate")
+                .And.EndWith($"Their names differ only by a number that reads like {reading}: if they are " +
+                             $"{(column.Contains("fraction") ? "fractions" : "repeat injections")} of one sample, give each its '{column}'."));
+        }
+
+        [TestCase("A.raw", "B.raw", Description = "no number")]
+        [TestCase("X_F01.raw", "Y_F02.raw", Description = "two places differ")]
+        [TestCase("sample7.raw", "sample8.raw", Description = "the word before the number is not a fraction or an injection")]
+        [TestCase("X_01.raw", "X_02.raw", Description = "an underscore, not a hyphen, before a bare number")]
+        [TestCase("X_F01.raw", "X_F001.raw", Description = "one number written two ways")]
+        public void FilesSharingAReplicateWhoseNamesSayNothingGetNoHint(string first, string second)
+        {
+            var design = SdrfLabelFreeDesign.Read(Document((first, "A", "1", "1", "1"), (second, "A", "1", "1", "1")));
+
+            Assert.That(design.Refusals.Single(), Does.EndWith("declare the factor that tells them apart."));
         }
     }
 }

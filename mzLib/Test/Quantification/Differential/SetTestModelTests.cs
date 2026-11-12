@@ -203,6 +203,32 @@ public class SetTestModelTests
         Assert.That(byDefault.Log2Effect, Is.Not.EqualTo(plain.Log2Effect));
     }
 
+    [Test]
+    public void FittingASetupThatIsNotRun_IsRefused()
+    {
+        var (setup, table, groups, _) = Scenario("balanced");
+        foreach (var bad in new[] { setup with { NotRun = SetNotRunReason.SpansStrata }, setup with { Design = null }, setup with { Contrast = null } })
+            Assert.That(() => SetModel.FitSet(bad, groups, table, out _), Throws.ArgumentException.With.Message.Contains("not run"));
+    }
+
+    [Test]
+    public void ATableMissingASampleOfTheSetup_IsRefused()
+    {
+        var setup = SetContrastSetup.Build(Freeze(Row("G1")).Parts.Single().Contrasts.Single(), FourSamples, AgeSpec);
+        var three = new[] { "o1", "o2", "y1" };
+        var table = Table(three, three.Select((s, i) => ("G1", "G1PEPA", s, All4[i])));
+        Assert.That(() => SetModel.FitSet(setup, new[] { "G1" }, table, out _),
+            Throws.ArgumentException.With.Message.Contains("no sample 'y2'"));
+    }
+
+    [TestCase("not_converged", null, null, null)]
+    [TestCase("fitted", null, 0.1, 12.0)]
+    [TestCase("fitted", 0.4, null, 12.0)]
+    [TestCase("fitted", 0.4, 0.1, null)]
+    public void ASinglesStat1RowWithoutAnEffect_IsRefused(string status, double? effect, double? se, double? df) =>
+        Assert.That(() => SetModel.FromStat1Row(Stat1("G1", status, effect, se, df)),
+            Throws.ArgumentException.With.Message.Contains("carries no effect"));
+
     // ── contexts to a stratum and a design ───────────────────────────────────
 
     private static List<AnalysisSample> Samples(params (string Id, string Age, string Tissue, string Treatment, string? Individual)[] s) =>
@@ -217,9 +243,10 @@ public class SetTestModelTests
         ("l1", "young", "liver", "a", null), ("l2", "young", "liver", "b", null), ("l3", "old", "liver", "a", null), ("l4", "old", "liver", "b", null),
         ("k1", "young", "kidney", "a", null), ("k2", "young", "kidney", "b", null), ("k3", "old", "kidney", "a", null), ("k4", "old", "kidney", "b", null));
 
-    private static SetContrastSetup Setup(string contexts, List<AnalysisSample> samples, string test = "old", string factor = "age group") =>
-        SetContrastSetup.Build(Freeze(Row("GeneA", contexts: contexts, test: test, factor: factor)).Parts.Single().Contrasts.Single(),
-            samples, AgeSpec);
+    private static SetContrastSetup Setup(string contexts, List<AnalysisSample> samples, string test = "old", string factor = "age group",
+        string reference = "young") =>
+        SetContrastSetup.Build(Freeze(Row("GeneA", contexts: contexts, test: test, reference: reference, factor: factor)).Parts.Single()
+            .Contrasts.Single(), samples, AgeSpec);
 
     [Test]
     public void AStratumFactorInContexts_SelectsTheStratum()
@@ -269,6 +296,37 @@ public class SetTestModelTests
         // treatment follows age group exactly, and contexts add it to the model.
         var aliased = Samples(("a", "young", "", "x", null), ("b", "young", "", "x", null), ("c", "old", "", "y", null), ("d", "old", "", "y", null));
         Assert.That(Setup("treatment=x|y", aliased).NotRun, Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+    }
+
+    [Test]
+    public void AReferenceLevelTheDesignDoesNotHave_IsNotRunAndNamed() =>
+        Assert.That(Setup("organism part=liver", TwoTissues, reference: "middle").NotRun, Is.EqualTo("not_in_design:age group=middle"));
+
+    [Test]
+    public void AContrastOnAFactorTheSpecLacks_EntersTheDesignWithTheContrastsReferenceLevel()
+    {
+        // AgeSpec names only age group; a contrast on treatment adds treatment, with reference level a.
+        var setup = Setup("organism part=liver", TwoTissues, test: "b", factor: "treatment", reference: "a");
+        Assert.That(setup.NotRun, Is.Null);
+        Assert.That(setup.Design!.ColumnNames, Is.EqualTo(new[] { "intercept", "age group=old", "treatment=b" }));
+        Assert.That(setup.NumeratorSamples, Is.EqualTo(new[] { "l2", "l4" }));
+        Assert.That(setup.DenominatorSamples, Is.EqualTo(new[] { "l1", "l3" }));
+    }
+
+    [Test]
+    public void ASampleLackingAContextsFactor_IsLeftOut()
+    {
+        // x1 has no organism part and x2 no treatment, so "organism part=liver; treatment=a|b" keeps neither.
+        var samples = TwoTissues.Take(4)
+            .Append(new AnalysisSample("x1") { Factors = new Dictionary<string, string> { ["age group"] = "old", ["treatment"] = "a" } })
+            .Append(new AnalysisSample("x2")
+            {
+                Factors = new Dictionary<string, string> { ["age group"] = "old" },
+                Strata = new Dictionary<string, string> { ["organism part"] = "liver" },
+            }).ToList();
+        var setup = Setup("organism part=liver; treatment=a|b", samples);
+        Assert.That(setup.NotRun, Is.Null);
+        Assert.That(setup.ContrastSamples, Is.EqualTo(new[] { "l1", "l2", "l3", "l4" }));
     }
 
     // ── the member states read from STAT1's rows ─────────────────────────────
@@ -465,9 +523,39 @@ public class SetTestModelTests
         Assert.That(t.Ci90High - 0.5, Is.EqualTo(1.6448536269514715 * 0.2).Within(1e-12));
     }
 
+    [TestCase(SetPrediction.AttenuatedDown, 1.0)]
+    [TestCase(SetPrediction.AttenuatedDown, 0.0)]
+    [TestCase(SetPrediction.AttenuatedDown, double.NaN)]
+    [TestCase(SetPrediction.AttenuatedDown, null)]
+    [TestCase(SetPrediction.AttenuatedUp, -1.0)]
+    [TestCase(SetPrediction.AttenuatedUp, 0.0)]
+    [TestCase(SetPrediction.AttenuatedUp, null)]
+    public void AnAttenuatedPredictionWithoutMrnaOnItsSide_IsRefused(SetPrediction prediction, double? mrnaMean) =>
+        Assert.That(() => SetVerdict.Test(prediction, Est(-0.5, 0.1), mrnaMean: mrnaMean),
+            Throws.ArgumentException.With.Message.Contains("on its side of 0"));
+
+    [TestCase(double.NaN, 0.1, 10.0)]
+    [TestCase(double.PositiveInfinity, 0.1, 10.0)]
+    [TestCase(0.5, 0.0, 10.0)]
+    [TestCase(0.5, double.NaN, 10.0)]
+    [TestCase(0.5, 0.1, 0.0)]
+    public void AnEstimateWithoutAFiniteEffectAPositiveSeAndPositiveDf_IsRefused(double b, double se, double df) =>
+        Assert.That(() => SetVerdict.Test(SetPrediction.Up, Est(b, se, df)),
+            Throws.ArgumentException.With.Message.Contains("finite effect"));
+
+    [TestCase(0.0, null)]
+    [TestCase(-0.5, null)]
+    [TestCase(double.PositiveInfinity, null)]
+    [TestCase(null, 0.0)]
+    [TestCase(null, 1.0)]
+    [TestCase(null, double.NaN)]
+    public void AMarginOrFractionOutOfRange_IsRefused(double? margin, double? attenuation) =>
+        Assert.That(() => SetVerdict.Test(SetPrediction.AttenuatedDown, Est(-0.5, 0.1), margin, attenuation, mrnaMean: -2),
+            Throws.InstanceOf<ArgumentOutOfRangeException>());
+
     [Test]
-    public void AnAttenuatedPredictionWithoutMrnaOnItsSide_IsRefused() =>
-        Assert.That(() => SetVerdict.Test(SetPrediction.AttenuatedDown, Est(-0.5, 0.1), mrnaMean: 1), Throws.ArgumentException);
+    public void AnUnknownPrediction_IsRefused() =>
+        Assert.That(() => SetVerdict.Test((SetPrediction)99, Est(0.5, 0.2)), Throws.InstanceOf<ArgumentOutOfRangeException>());
 
     // ── a part on a contrast: singles, the minimum, the guards, the verdict words ──
 
@@ -657,6 +745,35 @@ public class SetTestModelTests
     }
 
     [Test]
+    public void AttenuatedDown_WeighsASharedGroupOnceInMbar_AsInBetaBar()
+    {
+        // Alexander-Sol's case (#1572 review): three histone members share H4X through the all-members exception, each with
+        // mRNA -6, beside G1 and G2 at -1. β̄ has three equally weighted groups, so m̄ is (-6 - 1 - 1) / 3 = -8/3, not the
+        // member mean -4, and the default bound f·m̄ is -4/3, not -2.
+        var part = Freeze(Row("H4c1", "attenuated_down", mrna: "-6"), Row("H4c2", "attenuated_down", mrna: "-6"),
+            Row("H4c3", "attenuated_down", mrna: "-6"), Row("G1", "attenuated_down", mrna: "-1"),
+            Row("G2", "attenuated_down", mrna: "-1")).Parts.Single();
+        var contrast = part.Contrasts.Single();
+        var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
+        var (table, _) = Members(("H4X", Shifted(-0.4)), ("G1", Shifted(-0.5)), ("G2", Shifted(-0.3)));
+        var resolved = new[] { "H4c1", "H4c2", "H4c3" }
+            .Select(m => new SetMemberAssignment { Member = m, ProteinGroup = "H4X", ByAllMembersException = true })
+            .Append(new SetMemberAssignment { Member = "G1", ProteinGroup = "G1" })
+            .Append(new SetMemberAssignment { Member = "G2", ProteinGroup = "G2" }).ToList();
+        var rows = new Dictionary<string, DifferentialResult>
+        {
+            ["H4X"] = Stat1("H4X", "fitted"), ["G1"] = Stat1("G1", "fitted"), ["G2"] = Stat1("G2", "fitted"),
+        };
+
+        var outcome = SetTest.Run(part, contrast, setup, resolved, table, rows);
+
+        Assert.That(outcome.Untested, Is.Null);
+        Assert.That(outcome.Test!.Estimate.Terms, Is.EqualTo(3));
+        Assert.That(outcome.Test.MrnaMean!.Value, Is.EqualTo(-8.0 / 3).Within(1e-12));
+        Assert.That(outcome.Test.Bound, Is.EqualTo("0;" + (0.5 * (-8.0 / 3)).ToString("R", CultureInfo.InvariantCulture)));
+    }
+
+    [Test]
     public void AttenuatedDownWhoseMrnaRises_IsNotRun()
     {
         var (_, outcome) = RunPart("attenuated_down", "set", new[]
@@ -701,5 +818,115 @@ public class SetTestModelTests
         var rows = resolved.ToDictionary(r => r.ProteinGroup!, r => Stat1(r.ProteinGroup!, "fitted"));
         Assert.That(() => SetTest.Run(part, part.Contrasts.Single(), setup, resolved, table, rows),
             Throws.ArgumentException.With.Message.Contains("margin_log2"));
+    }
+
+    [Test]
+    public void Down_CountsOneSideMembersTheOtherWayRound()
+    {
+        var (_, outcome) = RunPart("down", "set", new[]
+        {
+            ("G1", Shifted(-1.0), "fitted"), ("G2", Shifted(-1.3), "fitted"), ("G3", Shifted(-0.8), "fitted"),
+            ("G4", All4, "absent_in_numerator"), ("G5", All4, "absent_in_denominator"), ("G6", All4, "absent_in_numerator"),
+        });
+        Assert.That(outcome.Untested, Is.Null);
+        Assert.That(outcome.Test!.Estimate.Terms, Is.EqualTo(3));
+        // Seen only at the reference level is a fall, so it agrees with down.
+        Assert.That(outcome.OneSideAgree, Is.EqualTo(2));
+        Assert.That(outcome.OneSideDisagree, Is.EqualTo(1));
+        Assert.That(outcome.BlockedBy, Is.Empty);
+    }
+
+    [Test]
+    public void AMemberWithoutAGroup_KeepsItsState_AndStaysOutOfTheEstimate()
+    {
+        var part = Freeze(Row("G1"), Row("G2"), Row("G3"), Row("Gx")).Parts.Single();
+        var contrast = part.Contrasts.Single();
+        var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
+        var (table, resolved) = Members(("G1", Shifted(1.0)), ("G2", Shifted(1.3)), ("G3", Shifted(0.8)));
+        var all = resolved.Append(new SetMemberAssignment { Member = "Gx", State = SetMemberState.NoGroup }).ToList();
+        var rows = resolved.ToDictionary(r => r.ProteinGroup!, r => Stat1(r.ProteinGroup!, "fitted"));
+
+        var outcome = SetTest.Run(part, contrast, setup, all, table, rows);
+
+        var gx = outcome.Members.Single(m => m.Assignment.Member == "Gx");
+        Assert.That(gx.State, Is.EqualTo(SetMemberState.NoGroup));
+        Assert.That(gx.Stat1Row, Is.Null);
+        Assert.That(gx.InEstimate, Is.False);
+        Assert.That(outcome.Untested, Is.Null);
+        Assert.That(outcome.Test!.Estimate.Terms, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void ASetModelThatCannotBeFormed_IsNotRunNamingWhy()
+    {
+        // Three one-peptide groups on four samples: (1|sample:member) has one level per value, so it cannot be told from
+        // the residual (too_few_groups, as lme4 refuses it), and the contrast is not run.
+        var part = Freeze(Row("G1"), Row("G2"), Row("G3")).Parts.Single();
+        var contrast = part.Contrasts.Single();
+        var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
+        var groups = new[] { (Group: "G1", Values: Shifted(1.0)), (Group: "G2", Values: Shifted(1.3)), (Group: "G3", Values: Shifted(0.8)) };
+        var table = Table(Four, groups.SelectMany(g => Four.Select((s, i) => (g.Group, g.Group + "PEPA", s, g.Values[i]))));
+        var resolved = groups.Select(g => new SetMemberAssignment { Member = g.Group, ProteinGroup = g.Group }).ToList();
+        var rows = groups.ToDictionary(g => g.Group, g => Stat1(g.Group, "fitted"));
+
+        Assert.That(SetModel.FitSet(setup, groups.Select(g => g.Group).ToList(), table, out string? notRun), Is.Null);
+        Assert.That(notRun, Is.EqualTo("not_converged:too_few_groups"));
+        Assert.That(SetTest.Run(part, contrast, setup, resolved, table, rows).Verdict(null),
+            Is.EqualTo((SetVerdictName.NotRun, "not_converged:too_few_groups")));
+    }
+
+    [Test]
+    public void AMemberInTheEstimateWithoutMrna_MakesAnAttenuatedPartNotRun_AndOneOutsideItDoesNot()
+    {
+        SetContrastOutcome Run(string g4Status)
+        {
+            var part = Freeze(Row("G1", "attenuated_down", mrna: "-2"), Row("G2", "attenuated_down", mrna: "-1"),
+                Row("G3", "attenuated_down", mrna: "-3"), Row("G4", "attenuated_down", mrna: "")).Parts.Single();
+            var contrast = part.Contrasts.Single();
+            var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
+            var (table, resolved) = Members(("G1", Shifted(-0.4)), ("G2", Shifted(-0.5)), ("G3", Shifted(-0.3)), ("G4", Shifted(-0.2)));
+            var rows = new Dictionary<string, DifferentialResult>
+            {
+                ["G1"] = Stat1("G1", "fitted"), ["G2"] = Stat1("G2", "fitted"), ["G3"] = Stat1("G3", "fitted"), ["G4"] = Stat1("G4", g4Status),
+            };
+            return SetTest.Run(part, contrast, setup, resolved, table, rows);
+        }
+
+        Assert.That(Run("fitted").Verdict(null), Is.EqualTo((SetVerdictName.NotRun, "mrna_not_usable:missing")));
+        var withoutG4 = Run("below_support:min_2_per_side");
+        Assert.That(withoutG4.Untested, Is.Null);
+        Assert.That(withoutG4.Test!.MrnaMean, Is.EqualTo(-2));
+    }
+
+    [Test]
+    public void AnAttenuatedSetWithNoTestedMember_IsNotTestable_WithoutNeedingMrna()
+    {
+        var (_, outcome) = RunPart("attenuated_down", "set", new[]
+        {
+            ("G1", All4, "below_support:min_2_per_side"), ("G2", All4, "absent_in_both"), ("G3", All4, "below_support:min_2_per_side"),
+        });
+        Assert.That(outcome.Verdict(null), Is.EqualTo((SetVerdictName.NotTestable, "fewer_than_3_tested")));
+    }
+
+    [Test]
+    public void AttenuatedUpWhoseMrnaFalls_IsNotRun()
+    {
+        var (_, outcome) = RunPart("attenuated_up", "set", new[]
+        {
+            ("G1", Shifted(0.4), "fitted"), ("G2", Shifted(0.5), "fitted"), ("G3", Shifted(0.3), "fitted"),
+        }, mrna: "-1.5");
+        Assert.That(outcome.Verdict(null), Is.EqualTo((SetVerdictName.NotRun, "mrna_not_usable:direction")));
+    }
+
+    [Test]
+    public void ASingleResolvedToTwoMembers_IsRefused()
+    {
+        var part = Freeze(Row("G1", kind: "single")).Parts.Single();
+        var contrast = part.Contrasts.Single();
+        var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
+        var (table, resolved) = Members(("G1", All4), ("G2", All4));
+        var rows = resolved.ToDictionary(r => r.ProteinGroup!, r => Stat1(r.ProteinGroup!, "fitted", 0.4, 0.1, 12));
+        Assert.That(() => SetTest.Run(part, contrast, setup, resolved, table, rows),
+            Throws.ArgumentException.With.Message.Contains("tested as a single but lists 2 members"));
     }
 }

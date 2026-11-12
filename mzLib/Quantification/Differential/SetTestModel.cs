@@ -647,13 +647,19 @@ public static class SetTest
         if (part.Prediction is SetPrediction.AttenuatedDown or SetPrediction.AttenuatedUp)
         {
             // Ruled by the user 2026-10-26: m̄ over the members in the estimate, so the bound matches what β̄ averages.
-            var names = inEstimate.Select(x => x.Assignment.Member).ToHashSet(StringComparer.Ordinal);
-            var mrna = contrast.Rows.Where(r => names.Contains(r.Member)).Select(r => r.MrnaLog2).ToList();
-            if (mrna.Count > 0 && mrna.Any(v => v is null))
+            // β̄ weighs each protein group 1/m, so m̄ does too: a group's mRNA change is the mean of its members' frozen
+            // mrna_log2, and m̄ is the mean over the groups. A group that several members share through the all-members
+            // exception therefore counts once here, as it does in β̄ and in the minimum.
+            var groupOf = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var x in inEstimate)
+                groupOf[x.Assignment.Member] = x.Assignment.ProteinGroup ?? x.Assignment.Member;
+            var mrna = contrast.Rows.Where(r => groupOf.ContainsKey(r.Member))
+                .Select(r => (Group: groupOf[r.Member], Log2: r.MrnaLog2)).ToList();
+            if (mrna.Count > 0 && mrna.Any(v => v.Log2 is null))
                 return outcome with { Untested = SetVerdictName.NotRun, UntestedReason = SetNotRunReason.MrnaNotUsablePrefix + "missing" };
             if (mrna.Count > 0)
             {
-                mrnaMean = mrna.Average(v => v!.Value);
+                mrnaMean = mrna.GroupBy(v => v.Group, StringComparer.Ordinal).Average(g => g.Average(v => v.Log2!.Value));
                 if (part.Prediction == SetPrediction.AttenuatedDown ? mrnaMean >= 0 : mrnaMean <= 0)
                     return outcome with { Untested = SetVerdictName.NotRun, UntestedReason = SetNotRunReason.MrnaNotUsablePrefix + "direction" };
             }
