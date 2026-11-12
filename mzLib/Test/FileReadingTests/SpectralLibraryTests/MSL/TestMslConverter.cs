@@ -346,7 +346,123 @@ public sealed class TestMslConverter
 		}
 	}
 
+	// ── Group 5: spectra that cannot be converted ─────────────────────────────
+
+	/// <summary>
+	/// An .msp entry with an empty name (<c>Name: /3</c>, as MetaMorpheus writes for a
+	/// precursor with no sequence) parses to a spectrum with an empty sequence, which
+	/// <see cref="MslLibraryEntry.TryFromLibrarySpectrum"/> refuses. The plain overload must
+	/// refuse the file with <see cref="InvalidDataException"/> naming that spectrum and why,
+	/// not fail later with a NullReferenceException.
+	/// </summary>
+	[Test]
+	public void FromMspFile_UnnamedEntry_ThrowsInvalidDataExceptionNamingIt()
+	{
+		string path = WriteMspWithUnnamedEntries("unnamed_strict.msp");
+
+		var ex = Assert.Throws<InvalidDataException>(() => MslConverter.FromMspFile(path));
+
+		Assert.That(ex!.Message, Does.Contain("'/3'"));
+		Assert.That(ex.Message, Does.Contain("Sequence is null or empty"));
+		Assert.That(ex.Message, Does.Contain(path));
+	}
+
+	/// <summary>
+	/// The overload with warnings converts every other spectrum, leaves the unnamed ones
+	/// out, and reports one warning per spectrum left out, naming it and why.
+	/// </summary>
+	[Test]
+	public void FromMspFile_WithWarnings_LeavesUnnamedEntriesOutAndReportsEach()
+	{
+		string path = WriteMspWithUnnamedEntries("unnamed_skip.msp");
+
+		using MslLibrary lib = MslConverter.FromMspFile(path, out List<string> warnings);
+
+		Assert.That(lib.PrecursorCount, Is.EqualTo(2));
+		Assert.That(lib.TryGetLibrarySpectrum("PEPTIDE", 2, out _), Is.True);
+		Assert.That(lib.TryGetLibrarySpectrum("SAMPLER", 2, out _), Is.True);
+
+		Assert.That(warnings, Has.Count.EqualTo(2));
+		Assert.That(warnings[0], Does.Contain("'/3'").And.Contain("865.4440")
+			.And.Contain("Sequence is null or empty").And.Contain("left out"));
+		Assert.That(warnings[1], Does.Contain("'/2'").And.Contain("1115.0569"));
+	}
+
+	/// <summary>
+	/// On a file whose spectra all convert, the overload with warnings gives the same
+	/// library as <see cref="MslConverter.FromMspFile(string)"/> and no warnings.
+	/// </summary>
+	[Test]
+	public void FromMspFile_WithWarnings_CleanFile_GivesFullLibraryAndNoWarnings()
+	{
+		using MslLibrary lib = MslConverter.FromMspFile(MspFilePath, out List<string> warnings);
+
+		Assert.That(warnings, Is.Empty);
+		Assert.That(lib.PrecursorCount, Is.EqualTo(ExpectedPrecursorCount));
+		Assert.That(lib.GetAllEntries().Sum(e => e.MatchedFragmentIons.Count),
+			Is.EqualTo(ExpectedTotalFragments));
+	}
+
+	/// <summary>
+	/// A file none of whose spectra can be converted is refused even by the overload with
+	/// warnings, as a file with no spectra is: there is no library to return.
+	/// </summary>
+	[Test]
+	public void FromMspFile_WithWarnings_NoSpectrumConverts_ThrowsInvalidDataException()
+	{
+		string path = Path.Combine(OutputDirectory, "unnamed_only.msp");
+		File.WriteAllLines(path, new[]
+		{
+			"Name: /2",
+			"MW: 500.0",
+			"Comment: Parent=500.0 RT=12.0",
+			"Num peaks: 1",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+		});
+
+		var ex = Assert.Throws<InvalidDataException>(
+			() => MslConverter.FromMspFile(path, out _));
+
+		Assert.That(ex!.Message, Does.Contain("None of the 1 spectra").And.Contain("'/2'"));
+	}
+
 	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Writes a four-entry .msp to <see cref="OutputDirectory"/>: PEPTIDE/2 and SAMPLER/2
+	/// are good; between them sit two entries with an empty name, <c>/3</c> (m/z 865.4440)
+	/// and <c>/2</c> (m/z 1115.0569), as found in MetaMorpheus-written libraries.
+	/// </summary>
+	private static string WriteMspWithUnnamedEntries(string fileName)
+	{
+		string path = Path.Combine(OutputDirectory, fileName);
+		File.WriteAllLines(path, new[]
+		{
+			"Name: PEPTIDE/2",
+			"MW: 400.2",
+			"Comment: Parent=400.2 RT=10.5",
+			"Num peaks: 2",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+			"227.10265\t0.5\t\"b2^1/0ppm\"",
+			"Name: /3",
+			"MW: 865.4439941449621",
+			"Comment: Parent=865.4439941449621 RT=21.045174",
+			"Num peaks: 2",
+			"175.11903444781927\t0.07615410186079787\t\"y1^1/0ppm\"",
+			"230.14998856992753\t0.36980247034654823\t\"b2^1/0ppm\"",
+			"Name: SAMPLER/2",
+			"MW: 401.2",
+			"Comment: Parent=401.2 RT=18.0",
+			"Num peaks: 1",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+			"Name: /2",
+			"MW: 1115.0569",
+			"Comment: Parent=1115.0569 RT=30.0",
+			"Num peaks: 1",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+		});
+		return path;
+	}
 
 	/// <summary>
 	/// Parses a "SEQUENCE/CHARGE" library spectrum name into its two components.
@@ -389,6 +505,8 @@ public sealed class TestMslConverter
 
 		string[] subfolders =
 		{
+			// Where Test.csproj copies the file; without it the fixture was always ignored.
+			Path.Combine("FileReadingTests", "SpectralLibraryTests", "SpectralLibraryData"),
 			"TestData",
 			Path.Combine("SpectralLibrary", "SpectralLibraryData"),
 			"SpectralLibraryData"
