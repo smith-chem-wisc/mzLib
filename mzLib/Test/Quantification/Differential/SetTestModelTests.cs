@@ -538,6 +538,35 @@ public class SetTestModelTests
     }
 
     [Test]
+    public void AttenuatedDown_WeighsASharedGroupOnceInMbar_AsInBetaBar()
+    {
+        // Alexander-Sol's case (#1572 review): three histone members share H4X through the all-members exception, each with
+        // mRNA -6, beside G1 and G2 at -1. β̄ has three equally weighted groups, so m̄ is (-6 - 1 - 1) / 3 = -8/3, not the
+        // member mean -4, and the default bound f·m̄ is -4/3, not -2.
+        var part = Freeze(Row("H4c1", "attenuated_down", mrna: "-6"), Row("H4c2", "attenuated_down", mrna: "-6"),
+            Row("H4c3", "attenuated_down", mrna: "-6"), Row("G1", "attenuated_down", mrna: "-1"),
+            Row("G2", "attenuated_down", mrna: "-1")).Parts.Single();
+        var contrast = part.Contrasts.Single();
+        var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
+        var (table, _) = Members(("H4X", Shifted(-0.4)), ("G1", Shifted(-0.5)), ("G2", Shifted(-0.3)));
+        var resolved = new[] { "H4c1", "H4c2", "H4c3" }
+            .Select(m => new SetMemberAssignment { Member = m, ProteinGroup = "H4X", ByAllMembersException = true })
+            .Append(new SetMemberAssignment { Member = "G1", ProteinGroup = "G1" })
+            .Append(new SetMemberAssignment { Member = "G2", ProteinGroup = "G2" }).ToList();
+        var rows = new Dictionary<string, DifferentialResult>
+        {
+            ["H4X"] = Stat1("H4X", "fitted"), ["G1"] = Stat1("G1", "fitted"), ["G2"] = Stat1("G2", "fitted"),
+        };
+
+        var outcome = SetTest.Run(part, contrast, setup, resolved, table, rows);
+
+        Assert.That(outcome.Untested, Is.Null);
+        Assert.That(outcome.Test!.Estimate.Terms, Is.EqualTo(3));
+        Assert.That(outcome.Test.MrnaMean!.Value, Is.EqualTo(-8.0 / 3).Within(1e-12));
+        Assert.That(outcome.Test.Bound, Is.EqualTo("0;" + (0.5 * (-8.0 / 3)).ToString("R", CultureInfo.InvariantCulture)));
+    }
+
+    [Test]
     public void AttenuatedDownWhoseMrnaRises_IsNotRun()
     {
         var (_, outcome) = RunPart("attenuated_down", "set", new[]
