@@ -29,6 +29,10 @@ namespace UsefulProteomicsDatabases.Taxonomy
             Domain, Kingdom, Phylum, Class, Order, Family, Genus, Species
         };
 
+        // The kinds of group below a subspecies. They share a depth, since none sits above another, but a strain
+        // is not a serotype: see AreSameRank.
+        private const int BelowSubspecies = 80;
+
         // Depth from the root; a larger number is a narrower group. Gaps leave room for the ranks between.
         private static readonly Dictionary<string, int> Depth = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -69,12 +73,15 @@ namespace UsefulProteomicsDatabases.Taxonomy
             ["subspecies"] = 75,
             ["varietas"] = 76,
             ["forma"] = 77,
-            ["strain"] = 80,
-            ["serotype"] = 80,
-            ["serogroup"] = 80,
-            ["biotype"] = 80,
-            ["genotype"] = 80,
-            ["isolate"] = 80,
+            ["strain"] = BelowSubspecies,
+            ["serotype"] = BelowSubspecies,
+            ["serogroup"] = BelowSubspecies,
+            ["biotype"] = BelowSubspecies,
+            ["genotype"] = BelowSubspecies,
+            ["isolate"] = BelowSubspecies,
+            ["pathogroup"] = BelowSubspecies,
+            ["forma specialis"] = 77,
+            ["subcohort"] = 38,
         };
 
         /// <summary>
@@ -92,7 +99,7 @@ namespace UsefulProteomicsDatabases.Taxonomy
             && Depth.TryGetValue(a.Trim(), out int depthOfA)
             && Depth.TryGetValue(b.Trim(), out int depthOfB)
             && depthOfA == depthOfB
-            && (depthOfA != 80 || string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase));
+            && (depthOfA != BelowSubspecies || string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
         /// Orders two rank names from the root down: negative when <paramref name="a"/> is the broader group, positive

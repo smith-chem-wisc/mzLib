@@ -136,6 +136,35 @@ public class TestPinnedTaxonomy
         Assert.That(TaxonomyTree.LoadPinned().AncestorAtRank(SarsCov2, "realm").Taxon!.ScientificName, Is.EqualTo("Riboviria"));
     }
 
+    [Test]
+    public void TopLevelGroupsAreTheDomainsAndViruses()
+    {
+        TaxonomyTree tree = TaxonomyTree.LoadPinned();
+
+        Assert.That(tree.TopLevelGroup(Human).Taxon!.ScientificName, Is.EqualTo("Eukaryota"));
+        Assert.That(tree.TopLevelGroup(EColiK12).Taxon!.ScientificName, Is.EqualTo("Bacteria"));
+        Assert.That(tree.TopLevelGroup(SarsCov2).Taxon!.ScientificName, Is.EqualTo("Viruses"));
+
+        var groups = ProteomeTaxonMap.LoadPinned().Proteomes
+            .Where(p => tree.Contains(p.TaxonId))
+            .GroupBy(p => tree.TopLevelGroup(p.TaxonId).Taxon!.ScientificName)
+            .ToDictionary(g => g.Key, g => g.Count());
+        Assert.That(groups.Keys, Is.EquivalentTo(new[] { "Bacteria", "Archaea", "Eukaryota", "Viruses" }));
+        Assert.That(groups["Bacteria"], Is.GreaterThan(10000));
+        Assert.That(groups["Viruses"], Is.GreaterThan(10000));
+    }
+
+    [Test]
+    public void HumanAndMouseMeetAboveTheirOrders()
+    {
+        TaxonomyTree tree = TaxonomyTree.LoadPinned();
+
+        TaxonomyNode shared = tree.LowestCommonAncestor(Human, Mouse).Taxon!;
+
+        Assert.That(shared.ScientificName, Is.EqualTo("Euarchontoglires"));
+        Assert.That(tree.LowestCommonAncestor(Human, SarsCov2).Status, Is.EqualTo(TaxonRankStatus.RankNotAssigned));
+    }
+
     /// <summary>The reason the status exists: thousands of reference viral proteomes have a family and no order.</summary>
     [Test]
     public void ManyVirusesHaveNoOrder()

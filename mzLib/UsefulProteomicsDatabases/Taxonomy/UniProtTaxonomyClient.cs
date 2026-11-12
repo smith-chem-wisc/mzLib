@@ -25,8 +25,12 @@ namespace UsefulProteomicsDatabases.Taxonomy
     /// with its taxon identifier, but that taxon is not in <paramref name="Tree"/>, so asking the tree about it
     /// answers <see cref="TaxonRankStatus.TaxonNotInTree"/> rather than inventing a place for it.
     /// </param>
+    /// <param name="ProteomesNotFound">
+    /// The identifiers, in ordinal order, that <see cref="UniProtTaxonomyClient.FetchProteomesAsync"/> was asked for
+    /// and UniProt did not return. Always empty for a fetch by query.
+    /// </param>
     public sealed record UniProtTaxonomySnapshot(TaxonomyTree Tree, ProteomeTaxonMap Proteomes,
-        IReadOnlyList<string> ProteomesWithoutLineage);
+        IReadOnlyList<string> ProteomesWithoutLineage, IReadOnlyList<string> ProteomesNotFound);
 
     /// <summary>
     /// Builds a <see cref="TaxonomyTree"/> and a <see cref="ProteomeTaxonMap"/> from UniProt's proteome catalogue.
@@ -72,6 +76,11 @@ namespace UsefulProteomicsDatabases.Taxonomy
         // Identifiers per taxonomy request. They travel in the URL, so the batch is bounded by its length:
         // 200 seven-digit identifiers is about 1,600 characters.
         private const int TaxaPerRequest = 200;
+
+        // Proteome identifiers per query when fetching a named set; "upid:UP000005640 OR " is 20 characters.
+        private const int ProteomesPerQuery = 100;
+
+        private static readonly Regex ProteomeIdPattern = new(@"^UP\d{9,}$", RegexOptions.Compiled);
 
         // A fetch that has not finished after this many pages is not paging: UniProt's whole catalogue is under
         // 3,000 pages of 500.
@@ -129,18 +138,84 @@ namespace UsefulProteomicsDatabases.Taxonomy
                 throw new ArgumentOutOfRangeException(nameof(pageSize), pageSize, $"The page size must be from 1 to {MaxPageSize}.");
             }
 
-            var nodes = new Dictionary<long, TaxonomyNode>();
-            var proteomes = new Dictionary<string, ProteomeTaxon>(StringComparer.Ordinal);
-            var withoutLineage = new List<string>();
-            var requested = new HashSet<string>(StringComparer.Ordinal);
-            string? release = null;
+            var read = new Listing();
+            await ReadQueryAsync(query, pageSize, read, cancellationToken).ConfigureAwait(false);
+            if (read.Proteomes.Count == 0)
+            {
+                throw new MzLibException($"UniProt has no proteome matching '{query}'.");
+            }
+            return await BuildAsync(read, query, Array.Empty<string>(), cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Reads a named set of proteomes and builds the taxonomy above them: the tree for exactly the databases a
+        /// search uses, whether or not they are reference proteomes.
+        /// </summary>
+        /// <remarks>
+        /// The tree mzLib ships covers reference proteomes only. A folder of downloaded proteomes usually holds a few
+        /// that are not, or that have lost reference status since; this places all of them, from one release, without
+        /// overlaying one release's taxa on another's. An identifier UniProt does not return is listed in
+        /// <see cref="UniProtTaxonomySnapshot.ProteomesNotFound"/> rather than failing the fetch.
+        /// </remarks>
+        /// <param name="proteomeIds">UniProt proteome identifiers, e.g. "UP000005640". Repeats are read once.</param>
+        /// <param name="cancellationToken">Cancels the fetch between or during requests.</param>
+        /// <exception cref="ArgumentException">There are no identifiers, or one is not of the form "UP" followed by digits.</exception>
+        /// <exception cref="MzLibException">UniProt returned none of the proteomes, or answered with something that is
+        /// not a proteome listing.</exception>
+        /// <exception cref="HttpRequestException">UniProt could not be reached, or failed, after retries.</exception>
+        public async Task<UniProtTaxonomySnapshot> FetchProteomesAsync(IEnumerable<string> proteomeIds,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(proteomeIds);
+            List<string> ids = proteomeIds.Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToList();
+            if (ids.Count == 0)
+            {
+                throw new ArgumentException("At least one proteome identifier is required.", nameof(proteomeIds));
+            }
+            foreach (string id in ids)
+            {
+                if (id == null || !ProteomeIdPattern.IsMatch(id))
+                {
+                    throw new ArgumentException($"'{id}' is not a UniProt proteome identifier such as UP000005640.", nameof(proteomeIds));
+                }
+            }
+
+            var read = new Listing();
+            for (int start = 0; start < ids.Count; start += ProteomesPerQuery)
+            {
+                string query = string.Join(" OR ", ids.Skip(start).Take(ProteomesPerQuery).Select(id => "upid:" + id));
+                await ReadQueryAsync(query, MaxPageSize, read, cancellationToken).ConfigureAwait(false);
+            }
+
+            List<string> notFound = ids.Where(id => !read.Proteomes.ContainsKey(id)).ToList();
+            if (read.Proteomes.Count == 0)
+            {
+                throw new MzLibException($"UniProt returned none of the {ids.Count} proteomes asked for.");
+            }
+            string described = ids.Count == 1 ? "upid:" + ids[0] : $"{ids.Count} proteomes by identifier";
+            return await BuildAsync(read, described, notFound, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>What has been read so far, across the pages of one or more queries.</summary>
+        private sealed class Listing
+        {
+            public Dictionary<long, TaxonomyNode> Nodes { get; } = new();
+            public Dictionary<string, ProteomeTaxon> Proteomes { get; } = new(StringComparer.Ordinal);
+            public List<string> WithoutLineage { get; } = new();
+            public HashSet<string> Requested { get; } = new(StringComparer.Ordinal);
+            public string? Release { get; set; }
+        }
+
+        /// <summary>Reads every page of one query into <paramref name="read"/>.</summary>
+        private async Task ReadQueryAsync(string query, int pageSize, Listing read, CancellationToken cancellationToken)
+        {
             string? requestUri = ProteomeSearchUrl + "?query=" + Uri.EscapeDataString(query)
                 + "&size=" + pageSize.ToString(CultureInfo.InvariantCulture);
 
             for (int page = 0; requestUri != null; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (page >= MaxPages || !requested.Add(requestUri))
+                if (page >= MaxPages || !read.Requested.Add(requestUri))
                 {
                     throw new MzLibException(
                         $"UniProt's proteome listing for '{query}' did not end: page {page + 1} repeats an earlier request or exceeds {MaxPages} pages.");
@@ -151,39 +226,40 @@ namespace UsefulProteomicsDatabases.Taxonomy
                     r => $"UniProt proteome request failed with status {(int)r.StatusCode} {r.ReasonPhrase} for query '{query}'.",
                     cancellationToken).ConfigureAwait(false);
 
-                release ??= HeaderValue(response, "x-uniprot-release");
+                read.Release ??= HeaderValue(response, "x-uniprot-release");
                 string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
                 JArray results = ParseResults(content, query);
                 foreach (JToken result in results)
                 {
-                    ReadProteome(result, nodes, proteomes, withoutLineage);
+                    ReadProteome(result, read.Nodes, read.Proteomes, read.WithoutLineage);
                 }
 
                 // An empty page ends the listing even if it carries a next link, so a server that keeps
                 // offering one cannot hold the fetch open.
                 requestUri = results.Count == 0 ? null : NextLinkOf(response);
             }
+        }
 
-            if (proteomes.Count == 0)
-            {
-                throw new MzLibException($"UniProt has no proteome matching '{query}'.");
-            }
+        /// <summary>Fills in the organisms' ranks and turns what was read into a tree and a map.</summary>
+        private async Task<UniProtTaxonomySnapshot> BuildAsync(Listing read, string query, IReadOnlyList<string> notFound,
+            CancellationToken cancellationToken)
+        {
+            await FillOrganismRanksAsync(read.Nodes, cancellationToken).ConfigureAwait(false);
 
-            await FillOrganismRanksAsync(nodes, cancellationToken).ConfigureAwait(false);
-
-            var provenance = new TaxonomyProvenance(ProteomeSearchUrl, release, query);
+            var provenance = new TaxonomyProvenance(ProteomeSearchUrl, read.Release, query);
             TaxonomyTree tree;
             try
             {
-                tree = TaxonomyTree.FromNodes(nodes.Values, provenance);
+                tree = TaxonomyTree.FromNodes(read.Nodes.Values, provenance);
             }
             catch (System.IO.InvalidDataException e)
             {
                 throw new MzLibException($"The lineages UniProt served for '{query}' do not form a tree: {e.Message}", e);
             }
-            withoutLineage.Sort(StringComparer.Ordinal);
-            return new UniProtTaxonomySnapshot(tree, ProteomeTaxonMap.FromProteomes(proteomes.Values, provenance), withoutLineage);
+            read.WithoutLineage.Sort(StringComparer.Ordinal);
+            return new UniProtTaxonomySnapshot(tree, ProteomeTaxonMap.FromProteomes(read.Proteomes.Values, provenance),
+                read.WithoutLineage, notFound);
         }
 
         /// <summary>

@@ -261,6 +261,64 @@ namespace UsefulProteomicsDatabases.Taxonomy
         }
 
         /// <summary>
+        /// The broadest named group <paramref name="taxonId"/> belongs to: its domain (Bacteria, Archaea, Eukaryota)
+        /// when it has one, otherwise the root of its lineage, which for a virus is "Viruses". This is the level a
+        /// search's databases are usually first split at, and no single rank gives it, because viruses have no domain.
+        /// </summary>
+        /// <returns>The group, or <see cref="TaxonRankStatus.TaxonNotInTree"/> when the tree does not hold the taxon.
+        /// Never <see cref="TaxonRankStatus.RankNotAssigned"/>: every taxon in the tree has a root.</returns>
+        public TaxonRankLookup TopLevelGroup(long taxonId)
+        {
+            if (!_nodes.TryGetValue(taxonId, out var node))
+            {
+                return new TaxonRankLookup(TaxonRankStatus.TaxonNotInTree, null);
+            }
+            while (true)
+            {
+                if (TaxonomicRank.AreSameRank(node.Rank, TaxonomicRank.Domain) || node.ParentTaxonId is not long parent)
+                {
+                    return new TaxonRankLookup(TaxonRankStatus.Found, node);
+                }
+                node = _nodes[parent];
+            }
+        }
+
+        /// <summary>
+        /// The nearest taxon that is an ancestor of both <paramref name="firstTaxonId"/> and
+        /// <paramref name="secondTaxonId"/>, counting each taxon as an ancestor of itself: the genus two species share,
+        /// the family two genera share. How far up it sits says how closely two organisms are related.
+        /// </summary>
+        /// <returns>
+        /// The shared taxon; <see cref="TaxonRankStatus.TaxonNotInTree"/> when the tree lacks either taxon; or
+        /// <see cref="TaxonRankStatus.RankNotAssigned"/> when both are in the tree but under different roots, as a
+        /// bacterium and a virus are, and so share nothing.
+        /// </returns>
+        public TaxonRankLookup LowestCommonAncestor(long firstTaxonId, long secondTaxonId)
+        {
+            if (!_nodes.TryGetValue(firstTaxonId, out var first) || !_nodes.TryGetValue(secondTaxonId, out var second))
+            {
+                return new TaxonRankLookup(TaxonRankStatus.TaxonNotInTree, null);
+            }
+            var above = new HashSet<long> { first.TaxonId };
+            foreach (TaxonomyNode ancestor in Ancestors(firstTaxonId))
+            {
+                above.Add(ancestor.TaxonId);
+            }
+            while (true)
+            {
+                if (above.Contains(second.TaxonId))
+                {
+                    return new TaxonRankLookup(TaxonRankStatus.Found, second);
+                }
+                if (second.ParentTaxonId is not long parent)
+                {
+                    return new TaxonRankLookup(TaxonRankStatus.RankNotAssigned, null);
+                }
+                second = _nodes[parent];
+            }
+        }
+
+        /// <summary>
         /// The taxon's place at each of the eight major ranks, in one object. False when the tree does not hold the
         /// taxon.
         /// </summary>

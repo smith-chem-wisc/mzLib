@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace UsefulProteomicsDatabases.Taxonomy
 {
@@ -33,6 +34,9 @@ namespace UsefulProteomicsDatabases.Taxonomy
 
         private static readonly Lazy<ProteomeTaxonMap> Pinned = new(() =>
             TaxonomySnapshotTsv.ReadProteomesResource(PinnedProteomesResource));
+
+        // "UP" and at least nine digits, not part of a longer run of letters or digits on either side.
+        private static readonly Regex ProteomeIdInText = new(@"(?<![A-Za-z0-9])UP\d{9,}(?![0-9])", RegexOptions.Compiled);
 
         private readonly Dictionary<string, ProteomeTaxon> _byProteome;
         private readonly List<ProteomeTaxon> _ordered;
@@ -127,6 +131,68 @@ namespace UsefulProteomicsDatabases.Taxonomy
         /// <see cref="TaxonomyTree.LoadPinned"/>, so every taxon it names is in that tree. Read once, on first use.
         /// </summary>
         public static ProteomeTaxonMap LoadPinned() => Pinned.Value;
+
+        /// <summary>
+        /// A new map holding this map's proteomes and those in <paramref name="additions"/>: proteomes the map lacks,
+        /// or a caller's own databases given made-up identifiers and placed on a taxon.
+        /// </summary>
+        /// <remarks>
+        /// The rule is the tree's (<see cref="TaxonomyTree.WithOverlay(IEnumerable{TaxonomyNode})"/>): adding is
+        /// allowed, redefining is not. An addition whose identifier the map already has must be identical to the
+        /// proteome there.
+        /// </remarks>
+        /// <exception cref="InvalidDataException">An addition redefines an existing proteome, repeats, or has no identifier.</exception>
+        public ProteomeTaxonMap WithOverlay(IEnumerable<ProteomeTaxon> additions)
+        {
+            ArgumentNullException.ThrowIfNull(additions);
+
+            var merged = new Dictionary<string, ProteomeTaxon>(_byProteome, StringComparer.Ordinal);
+            var added = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ProteomeTaxon proteome in additions)
+            {
+                if (string.IsNullOrEmpty(proteome.ProteomeId))
+                {
+                    throw new InvalidDataException("A proteome in the overlay has no identifier.");
+                }
+                if (_byProteome.TryGetValue(proteome.ProteomeId, out var existing))
+                {
+                    if (existing != proteome)
+                    {
+                        throw new InvalidDataException(
+                            $"Proteome {proteome.ProteomeId} is already in the map with a different definition. " +
+                            "An overlay may add proteomes but not redefine them.");
+                    }
+                    continue;
+                }
+                if (!added.Add(proteome.ProteomeId))
+                {
+                    throw new InvalidDataException($"Proteome {proteome.ProteomeId} appears twice in the overlay.");
+                }
+                merged[proteome.ProteomeId] = proteome;
+            }
+            return new ProteomeTaxonMap(merged, Provenance);
+        }
+
+        /// <summary>
+        /// A new map holding this map's proteomes and those in the proteome table at <paramref name="proteomesPath"/>;
+        /// see <see cref="WithOverlay(IEnumerable{ProteomeTaxon})"/> for the rules.
+        /// </summary>
+        /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+        /// <exception cref="InvalidDataException">The file is not a proteome table, or an addition is refused.</exception>
+        public ProteomeTaxonMap WithOverlay(string proteomesPath) =>
+            WithOverlay(TaxonomySnapshotTsv.ReadProteomes(proteomesPath).Proteomes);
+
+        /// <summary>
+        /// Finds a UniProt proteome identifier inside other text, which is how a downloaded database usually carries
+        /// one: "UP000005640.fasta", "UP000000625_83333.fasta.gz", "UP000464024_twin". The first one is returned.
+        /// </summary>
+        /// <returns>False when the text is null or holds no identifier ("UP" followed by nine or more digits).</returns>
+        public static bool TryFindProteomeId(string? text, out string proteomeId)
+        {
+            Match match = text == null ? Match.Empty : ProteomeIdInText.Match(text);
+            proteomeId = match.Success ? match.Value : null!;
+            return match.Success;
+        }
 
         /// <summary>Finds a proteome by identifier. The comparison is exact: "UP000005640", not "up000005640".</summary>
         public bool TryGetProteome(string proteomeId, out ProteomeTaxon proteome)

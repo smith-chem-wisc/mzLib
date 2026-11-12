@@ -87,6 +87,7 @@ public class UniProtTaxonomyClientTests
         Assert.That(snapshot.Proteomes.Proteomes.All(p => tree.Contains(p.TaxonId)), Is.True,
             "every proteome's taxon is in the tree built from the same pages");
         Assert.That(snapshot.ProteomesWithoutLineage, Is.Empty);
+        Assert.That(snapshot.ProteomesNotFound, Is.Empty);
 
         Assert.That(tree.AncestorAtRank(83333, TaxonomicRank.Family).Taxon!.ScientificName, Is.EqualTo("Enterobacteriaceae"));
         Assert.That(tree.AncestorAtRank(83333, TaxonomicRank.Species).Taxon!.ScientificName, Is.EqualTo("Escherichia coli"));
@@ -178,6 +179,97 @@ public class UniProtTaxonomyClientTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    // ---- a named set of proteomes ---------------------------------------------
+
+    [Test]
+    public async Task FetchProteomes_AsksForExactlyTheProteomesNamedAndSaysWhichWereNotThere()
+    {
+        var handler = new StubHandler(request => request.RequestUri.AbsoluteUri.Contains("/taxonomy/taxonIds/")
+            ? Json(Fixture("uniprot-taxa.json"))
+            : Json(Fixture("uniprot-proteomes-page1.json")));
+        using UniProtTaxonomyClient client = Client(handler);
+
+        UniProtTaxonomySnapshot snapshot = await client.FetchProteomesAsync(
+            new[] { "UP000005640", "UP999999999", "UP000000625", "UP000005640" });
+
+        Assert.That(handler.RequestedUris.First(), Is.EqualTo(
+            "https://rest.uniprot.org/proteomes/search?query=upid%3AUP000000625%20OR%20upid%3AUP000005640%20OR%20upid%3AUP999999999&size=500"),
+            "each identifier once, in order");
+        Assert.That(snapshot.Proteomes.Proteomes.Select(p => p.ProteomeId), Is.EqualTo(new[] { "UP000000625", "UP000005640" }));
+        Assert.That(snapshot.ProteomesNotFound, Is.EqualTo(new[] { "UP999999999" }));
+        Assert.That(snapshot.Tree.AncestorAtRank(9606, TaxonomicRank.Family).Taxon!.ScientificName, Is.EqualTo("Hominidae"));
+        Assert.That(snapshot.Tree.Provenance.Query, Is.EqualTo("3 proteomes by identifier"));
+    }
+
+    /// <summary>The identifiers travel in the query, so a long list is split over several requests and read into one tree.</summary>
+    [Test]
+    public async Task FetchProteomes_SplitsALongListOverSeveralQueries()
+    {
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.AbsoluteUri;
+            if (uri.Contains("/taxonomy/taxonIds/"))
+                return Json(Fixture("uniprot-taxa.json"));
+            return uri.Contains("UP000000625") ? Json(Fixture("uniprot-proteomes-page1.json")) : Json(Fixture("uniprot-proteomes-page2.json"));
+        });
+        using UniProtTaxonomyClient client = Client(handler);
+        var ids = Enumerable.Range(0, 150).Select(i => $"UP{700000000 + i}").Append("UP000000625").Append("UP000464024").ToList();
+
+        UniProtTaxonomySnapshot snapshot = await client.FetchProteomesAsync(ids);
+
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("/proteomes/search")), Is.EqualTo(2));
+        Assert.That(snapshot.Proteomes.Count, Is.EqualTo(3));
+        Assert.That(snapshot.ProteomesNotFound, Has.Count.EqualTo(150));
+        Assert.That(snapshot.Tree.Contains(2697049) && snapshot.Tree.Contains(83333), Is.True, "both queries feed one tree");
+    }
+
+    [Test]
+    public async Task FetchProteomes_ASingleProteomeRecordsItsQuery()
+    {
+        var handler = new StubHandler(request => request.RequestUri.AbsoluteUri.Contains("/taxonomy/taxonIds/")
+            ? Json(Fixture("uniprot-taxa.json"))
+            : Json(Fixture("uniprot-proteomes-page2.json")));
+        using UniProtTaxonomyClient client = Client(handler);
+
+        UniProtTaxonomySnapshot snapshot = await client.FetchProteomesAsync(new[] { "UP000464024" });
+
+        Assert.That(snapshot.Tree.Provenance.Query, Is.EqualTo("upid:UP000464024"));
+        Assert.That(snapshot.ProteomesNotFound, Is.Empty);
+    }
+
+    [Test]
+    public void FetchProteomes_NoneReturned_ThrowsMzLibException()
+    {
+        using UniProtTaxonomyClient client = Client(new StubHandler(_ => Json("{\"results\":[]}")));
+
+        var ex = Assert.ThrowsAsync<MzLibException>(() => client.FetchProteomesAsync(new[] { "UP999999999" }));
+        Assert.That(ex.Message, Does.Contain("none of the 1"));
+    }
+
+    [Test]
+    [TestCase("up000005640")]
+    [TestCase("UP000005640 OR reference:true")]
+    [TestCase("9606")]
+    [TestCase("")]
+    [TestCase(null)]
+    public void FetchProteomes_RefusesAnythingThatIsNotAProteomeIdentifier(string id)
+    {
+        var handler = new StubHandler(Recorded);
+        using UniProtTaxonomyClient client = Client(handler);
+
+        Assert.ThrowsAsync<ArgumentException>(() => client.FetchProteomesAsync(new[] { "UP000005640", id }));
+        Assert.That(handler.RequestedUris, Is.Empty, "nothing is sent before every identifier is checked");
+    }
+
+    [Test]
+    public void FetchProteomes_RefusesAnEmptyOrNullList()
+    {
+        using UniProtTaxonomyClient client = Client(new StubHandler(Recorded));
+
+        Assert.ThrowsAsync<ArgumentException>(() => client.FetchProteomesAsync(Array.Empty<string>()));
+        Assert.ThrowsAsync<ArgumentNullException>(() => client.FetchProteomesAsync(null));
     }
 
     // ---- answers the client cannot use: MzLibException ------------------------

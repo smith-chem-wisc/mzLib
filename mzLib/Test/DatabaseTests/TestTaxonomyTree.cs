@@ -142,6 +142,43 @@ public class TestTaxonomyTree
         Assert.Throws<ArgumentException>(() => Tree().AncestorAtRank(EColi, rank));
     }
 
+    /// <summary>Viruses have no domain, so no single rank splits a search's databases into bacteria, eukaryotes and viruses.</summary>
+    [Test]
+    public void TopLevelGroup_IsTheDomainOrFailingThatTheRoot()
+    {
+        TaxonomyTree tree = Tree();
+
+        Assert.That(tree.TopLevelGroup(EColiK12).Taxon!.ScientificName, Is.EqualTo("Bacteria"));
+        Assert.That(tree.TopLevelGroup(Bacteria).Taxon!.ScientificName, Is.EqualTo("Bacteria"));
+        Assert.That(tree.TopLevelGroup(OrphanVirus).Taxon!.ScientificName, Is.EqualTo("Viruses"));
+        Assert.That(tree.TopLevelGroup(CellularOrganisms).Taxon!.TaxonId, Is.EqualTo(CellularOrganisms), "a root above the domain is its own group");
+        Assert.That(tree.TopLevelGroup(1), Is.EqualTo(new TaxonRankLookup(TaxonRankStatus.TaxonNotInTree, null)));
+    }
+
+    [Test]
+    public void LowestCommonAncestor_IsTheNearestTaxonTwoOrganismsShare()
+    {
+        TaxonomyTree tree = Tree();
+
+        Assert.That(tree.LowestCommonAncestor(EColiK12, SalmonellaEnterica).Taxon!.TaxonId, Is.EqualTo(Enterobacteriaceae));
+        Assert.That(tree.LowestCommonAncestor(SalmonellaEnterica, EColiK12).Taxon!.TaxonId, Is.EqualTo(Enterobacteriaceae),
+            "the order of the two does not matter");
+        Assert.That(tree.LowestCommonAncestor(EColiK12, EColi).Taxon!.TaxonId, Is.EqualTo(EColi), "a taxon counts as its own ancestor");
+        Assert.That(tree.LowestCommonAncestor(EColi, EColi).Taxon!.TaxonId, Is.EqualTo(EColi));
+        Assert.That(tree.LowestCommonAncestor(EColiK12, Escherichia).Taxon!.TaxonId, Is.EqualTo(Escherichia));
+    }
+
+    [Test]
+    public void LowestCommonAncestor_TellsNothingSharedFromATaxonThatIsNotThere()
+    {
+        TaxonomyTree tree = Tree();
+
+        Assert.That(tree.LowestCommonAncestor(EColi, OrphanVirus),
+            Is.EqualTo(new TaxonRankLookup(TaxonRankStatus.RankNotAssigned, null)), "a bacterium and a virus are under different roots");
+        Assert.That(tree.LowestCommonAncestor(EColi, 1), Is.EqualTo(new TaxonRankLookup(TaxonRankStatus.TaxonNotInTree, null)));
+        Assert.That(tree.LowestCommonAncestor(1, EColi), Is.EqualTo(new TaxonRankLookup(TaxonRankStatus.TaxonNotInTree, null)));
+    }
+
     [Test]
     public void TryGetLineage_GivesTheEightMajorRanks()
     {

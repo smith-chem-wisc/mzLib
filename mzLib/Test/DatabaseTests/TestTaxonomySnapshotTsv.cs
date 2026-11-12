@@ -269,6 +269,69 @@ public class TestTaxonomySnapshotTsv
         Assert.Throws<InvalidDataException>(() => ProteomeTaxonMap.FromProteomes(new[] { one with { ProteomeId = "" } }, Provenance));
     }
 
+    /// <summary>A downloaded database carries its proteome in its file name; a twin or a taxon suffix must not hide it.</summary>
+    [Test]
+    [TestCase("UP000005640", "UP000005640")]
+    [TestCase("UP000005640.fasta", "UP000005640")]
+    [TestCase("UP000000625_83333.fasta.gz", "UP000000625")]
+    [TestCase("UP000464024_twin", "UP000464024")]
+    [TestCase(@"B:\Proteomes\All_Viruses_Reviewed\UP000009294.fasta", "UP000009294")]
+    [TestCase("uniprot-UP000005640-2026.xml", "UP000005640")]
+    [TestCase("UP000005640_UP000000625", "UP000005640")]
+    public void TryFindProteomeId_FindsTheIdentifierInAName(string text, string expected)
+    {
+        Assert.That(ProteomeTaxonMap.TryFindProteomeId(text, out string proteomeId), Is.True);
+        Assert.That(proteomeId, Is.EqualTo(expected));
+    }
+
+    [Test]
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("human.fasta")]
+    [TestCase("UP00000564")]
+    [TestCase("up000005640")]
+    [TestCase("SOUP000005640")]
+    [TestCase("GROUP1234567890")]
+    public void TryFindProteomeId_FindsNothingWhereThereIsNone(string text)
+    {
+        Assert.That(ProteomeTaxonMap.TryFindProteomeId(text, out _), Is.False);
+    }
+
+    [Test]
+    public void Map_WithOverlay_AddsProteomesAndRefusesToRedefineOne()
+    {
+        ProteomeTaxonMap map = Proteomes();
+        var mine = new ProteomeTaxon("in-house-isolate-7", 9000002, "In-house isolate 7", 4100, null);
+        ProteomeTaxon existing = map.Proteomes.First();
+
+        ProteomeTaxonMap overlaid = map.WithOverlay(new[] { mine, existing });
+
+        Assert.That(overlaid.Count, Is.EqualTo(map.Count + 1));
+        Assert.That(overlaid.TryGetTaxonId("in-house-isolate-7", out long taxon), Is.True);
+        Assert.That(taxon, Is.EqualTo(9000002));
+        Assert.That(overlaid.Provenance, Is.EqualTo(map.Provenance));
+        Assert.That(map.TryGetTaxonId("in-house-isolate-7", out _), Is.False, "the original map is unchanged");
+
+        var ex = Assert.Throws<InvalidDataException>(() => map.WithOverlay(new[] { existing with { TaxonId = 1 } }));
+        Assert.That(ex.Message, Does.Contain(existing.ProteomeId).And.Contain("redefine"));
+        Assert.Throws<InvalidDataException>(() => map.WithOverlay(new[] { mine, mine }));
+        Assert.Throws<InvalidDataException>(() => map.WithOverlay(new[] { mine with { ProteomeId = "" } }));
+    }
+
+    [Test]
+    public void Map_WithOverlay_ReadsAHandWrittenFile()
+    {
+        string path = Write("my-proteomes.tsv",
+            "#!proteome_taxa_format 1\n#!source sequenced in-house\n" + ProteomesHeader +
+            "in-house-isolate-7\t9000002\tIn-house isolate 7\t\t\n");
+
+        ProteomeTaxonMap overlaid = Proteomes().WithOverlay(path);
+
+        Assert.That(overlaid.TryGetTaxonId("in-house-isolate-7", out long taxon), Is.True);
+        Assert.That(taxon, Is.EqualTo(9000002));
+        Assert.Throws<FileNotFoundException>(() => Proteomes().WithOverlay(Path.Combine(_directory, "absent.tsv")));
+    }
+
     /// <summary>The downloaded catalogue covers every proteome UniProt lists; rows it cannot place are named, not dropped silently.</summary>
     [Test]
     public void Map_FromTheDownloadedCatalogue_NamesTheRowsItCannotPlace()
