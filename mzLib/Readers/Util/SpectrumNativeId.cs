@@ -15,6 +15,11 @@ namespace Readers
         /// The nativeID's scan number: "scan=N" gives N; "index=N", a zero-based position in a peak list, gives
         /// N + 1, as CasanovoMzTabFile does; anything else gives -1.
         /// </summary>
+        /// <remarks>
+        /// For "index=N", N + 1 is the spectrum's one-based position in its file, counting every spectrum in file
+        /// order. It is not an MGF's SCANS= value, and not the scan number mzLib gives a loaded MGF, which comes from
+        /// SCANS= after mzLib sorts by it and drops blocks with no peaks.
+        /// </remarks>
         internal static int OneBasedScanNumberOf(string? nativeId)
         {
             if (string.IsNullOrEmpty(nativeId))
