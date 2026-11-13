@@ -9,9 +9,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </summary>
     public class ChronologerRT : RetentionTimeModel
     {
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
-        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
-            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+        // Koina's Chronologer reads an N-terminal modification only in the dashed form, [UNIMOD:1]-PEPTIDE.
+        private static readonly UnimodSequenceFormatSchema NTermDashSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
+        private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(NTermDashSchema);
 
         public override string ModelName => "Chronologer_RT";
         public override int MaxBatchSize => 1000;
@@ -21,7 +21,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => false;
-        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public ChronologerRT(
