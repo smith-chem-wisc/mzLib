@@ -603,10 +603,11 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         // In a co-digest (StcE-trypsin) the requirement belongs only to the motifs that reach its subsite, not to K| or R|.
+        // A forbidden glycan does not decide it: trypsin's K| names its own P1, so IMPa's P1:!O-glycan would reach it.
         private static List<DigestionMotif> WithCleavageRequirements(List<DigestionMotif> motifs, List<CleavageRequirement> requirements)
         {
-            bool Reaches(DigestionMotif motif) => requirements.Any(r =>
-                (r.IsPrimeSide ? motif.PrimeSubsite(r.Subsite) : motif.NonPrimeSubsite(r.Subsite)) != '\0');
+            bool Reaches(DigestionMotif motif) => requirements.Any(r => !r.IsForbidden
+                && (r.IsPrimeSide ? motif.PrimeSubsite(r.Subsite) : motif.NonPrimeSubsite(r.Subsite)) != '\0');
             bool anyReaches = motifs.Any(Reaches);
             return motifs.Select(m => anyReaches && !Reaches(m)
                     ? m
