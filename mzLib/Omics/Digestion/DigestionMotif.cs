@@ -14,12 +14,17 @@ namespace Omics.Digestion
         public readonly int CutIndex;
         public readonly string ExcludeFromWildcard;
 
-        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard)
+        /// <summary>Modifications that must be present for this motif to cut. Empty for a sequence-only motif.</summary>
+        public readonly IReadOnlyList<CleavageRequirement> CleavageRequirements;
+
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            IReadOnlyList<CleavageRequirement> cleavageRequirements = null)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
             this.ExcludeFromWildcard = excludeFromWildcard;
+            this.CleavageRequirements = cleavageRequirements ?? Array.Empty<CleavageRequirement>();
         }
 
         // parsing cleavage rules syntax
