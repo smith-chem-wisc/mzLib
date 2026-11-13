@@ -202,6 +202,11 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PEP, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PEP));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PEP_QValue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PEP_QValue));
 
+            // Localization probabilities: -1 when absent (files written before these columns existed)
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedPlacement, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedPlacement));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizationProbability, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizationProbability));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizationQValue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizationQValue));
+
             parsedHeader.Add(SpectrumMatchFromTsvHeader.CrossTypeLabel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.CrossTypeLabel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.LinkResiduesLabel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LinkResiduesLabel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.ProteinLinkSiteLabel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ProteinLinkSiteLabel));
