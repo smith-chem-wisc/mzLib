@@ -253,11 +253,39 @@ public sealed record SetEstimate
     public double SampleVariance { get; init; } = double.NaN;
     /// <summary>Variance of the per-protein sample term, <c>(1|sample:member)</c>; NaN for a single.</summary>
     public double SampleMemberVariance { get; init; } = double.NaN;
+    /// <summary>
+    /// Whether outlying values were down-weighted (GR-8): the set model's robust setting, or a single's STAT1 row's
+    /// <see cref="DifferentialResult.Robust"/>.
+    /// </summary>
+    public bool? Robust { get; init; }
+    /// <summary>
+    /// Whether the set model's robust reweighting did not settle and fell back to msqrob2's default of one round (GR-22
+    /// amended 2026-11-03; <see cref="NestedMixedModelFit.RobustFellBack"/>). Such a set is fitted on the first round's
+    /// weights and tested like any other; this flag is how a report counts it. False when the reweighting settled; null
+    /// without robust weighting, and for a single, whose STAT1 row does not carry the flag yet (STAT1 M5b).
+    /// </summary>
+    public bool? RobustFellBack { get; init; }
+    /// <summary>
+    /// Each value that entered the set model, with the weight it carried in the final fit, in the model's order (groups as
+    /// given, then peptides and samples in ordinal order): 1 without robust weighting. Empty for a single.
+    /// </summary>
+    public IReadOnlyList<SetValueWeight> Weights { get; init; } = Array.Empty<SetValueWeight>();
 }
+
+/// <summary>One (peptide, sample) value of the set model and the weight it carried in the final fit (GR-8).</summary>
+/// <param name="ProteinGroup">The member term the value belongs to.</param>
+/// <param name="Peptide">The peptide's full sequence.</param>
+/// <param name="Sample">The sample.</param>
+/// <param name="Weight">
+/// 1 without robust weighting; with it, the final Huber weight, in (0, 1]: the converged one, or the first round's when the
+/// reweighting fell back (<see cref="SetEstimate.RobustFellBack"/>).
+/// </param>
+public sealed record SetValueWeight(string ProteinGroup, string Peptide, string Sample, double Weight);
 
 /// <summary>
 /// The set model (<c>DEF-DIFF-SET-MODEL</c>): one mixed model over the tested members' unique peptides,
-/// <c>log2 value ~ peptide + member:(the stratum's fixed design) + (1|sample) + (1|sample:member)</c>, REML, no moderation.
+/// <c>log2 value ~ peptide + member:(the stratum's fixed design) + (1|sample) + (1|sample:member)</c>, REML with robust
+/// weighting as STAT1's setting for the stratum (GR-8), no moderation.
 /// It is <see cref="NestedMixedModel"/>'s <see cref="RandomStructure.IndividualAndSample"/> with each sample as the
 /// "individual" and each member as the "sample" within it. β̄ is the equal-weight contrast over the members' contrasts;
 /// its standard error is from the fit and its df Satterthwaite's.
@@ -273,12 +301,24 @@ public static class SetModel
     /// Fits the set model. Each protein group in <paramref name="groups"/> is one member term, so a group several members
     /// share through the all-members exception enters once.
     /// </summary>
+    /// <remarks>
+    /// A fit that fails gives no estimate and <paramref name="notRun"/> <c>not_converged</c>. Under robust weighting,
+    /// reweighting that does not settle (its round limit, or a later round that cannot be formed) is not a failure: it falls
+    /// back to msqrob2's default of one round (GR-22 amended 2026-11-03), and the set is fitted and tested on the first
+    /// round's weights, flagged by <see cref="SetEstimate.RobustFellBack"/>. A first round that cannot be formed fails the
+    /// fit. A set is never refitted without weights, so every set of a family is weighted.
+    /// </remarks>
     /// <param name="setup">The contrast's setup; must be run.</param>
     /// <param name="groups">The protein groups in the estimate, each once, in order.</param>
     /// <param name="normalized">The stratum's normalized observation table; only <paramref name="setup"/>'s samples are read.</param>
     /// <param name="notRun">Why no estimate came out, when it is null.</param>
+    /// <param name="robust">
+    /// STAT1's robust setting for the stratum (<see cref="DifferentialSettings.Robust"/>, GR-8), on by default as STAT1's:
+    /// down-weight outlying values with <see cref="NestedMixedModel"/>'s robust option (msqrob2's Huber weights, iterated
+    /// to convergence, or one round when they never settle, GR-22), then REML and Satterthwaite on the weighted fit.
+    /// </param>
     public static SetEstimate? FitSet(SetContrastSetup setup, IReadOnlyList<string> groups, ObservationTable normalized,
-        out string? notRun)
+        out string? notRun, bool robust = true)
     {
         ArgumentNullException.ThrowIfNull(setup);
         ArgumentNullException.ThrowIfNull(groups);
@@ -300,6 +340,7 @@ public static class SetModel
         var nuisanceIndex = new List<int>(); // -1: the member's first peptide (no column)
         var sampleOf = new List<string>();
         var memberOf = new List<string>();
+        var peptideOf = new List<string>();
         int nuisanceColumns = 0;
         int peptides = 0;
         for (int g = 0; g < m; g++)
@@ -327,6 +368,7 @@ public static class SetModel
                     nuisanceIndex.Add(column);
                     sampleOf.Add(sample.SampleId);
                     memberOf.Add(groups[g]);
+                    peptideOf.Add(normalized.Peptides[unique[u]].FullSequence);
                 }
             }
         }
@@ -341,7 +383,7 @@ public static class SetModel
         }
         var names = groups.SelectMany(g => design.FittedColumns.Select(j => $"member={g}:{design.ColumnNames[j]}")).ToList();
         var problem = new NestedMixedModelProblem(response, common, nuisance, memberOf, sampleOf);
-        var fit = NestedMixedModel.Fit(new[] { problem }, names, maxThreads: 1);
+        var fit = NestedMixedModel.Fit(new[] { problem }, names, maxThreads: 1, robust: robust);
         if (fit.Status[0] != FeatureFitStatus.Fitted)
         {
             notRun = fit.Status[0] == FeatureFitStatus.NotConverged
@@ -363,6 +405,7 @@ public static class SetModel
         }
         notRun = null;
         var structure = fit.Structure[0];
+        var fitted = fit.Weights(0)!;
         return new SetEstimate
         {
             Log2Effect = estimate,
@@ -377,6 +420,9 @@ public static class SetModel
             ResidualVariance = fit.ResidualVariance[0],
             SampleVariance = fit.IndividualVariance[0],
             SampleMemberVariance = structure == RandomStructure.IndividualAndSample ? fit.SampleVariance[0] : double.NaN,
+            Robust = robust,
+            RobustFellBack = fit.RobustFellBack[0],
+            Weights = Enumerable.Range(0, n).Select(i => new SetValueWeight(memberOf[i], peptideOf[i], sampleOf[i], fitted[i])).ToList(),
         };
     }
 
@@ -397,6 +443,7 @@ public static class SetModel
             Terms = 1,
             Peptides = row.NPeptides ?? 0,
             Observations = row.NObservations ?? 0,
+            Robust = row.Robust,
         };
     }
 
@@ -574,8 +621,13 @@ public static class SetTest
     /// <param name="resolved">Its members, resolved (<see cref="SetMemberResolver.Resolve"/>) on the same samples.</param>
     /// <param name="normalized">The stratum's normalized observation table.</param>
     /// <param name="stat1Rows">STAT1's rows for this setup and contrast, by protein group.</param>
+    /// <param name="robust">
+    /// STAT1's robust setting for the stratum (<see cref="DifferentialSettings.Robust"/>, GR-8), on by default as STAT1's;
+    /// the set model is fitted with it (<see cref="SetModel.FitSet"/>). A single takes its STAT1 row as it is.
+    /// </param>
     public static SetContrastOutcome Run(SetHypothesisPart part, SetDatasetContrast contrast, SetContrastSetup setup,
-        IReadOnlyList<SetMemberAssignment> resolved, ObservationTable normalized, IReadOnlyDictionary<string, DifferentialResult> stat1Rows)
+        IReadOnlyList<SetMemberAssignment> resolved, ObservationTable normalized, IReadOnlyDictionary<string, DifferentialResult> stat1Rows,
+        bool robust = true)
     {
         ArgumentNullException.ThrowIfNull(part);
         ArgumentNullException.ThrowIfNull(contrast);
@@ -633,7 +685,7 @@ public static class SetTest
             var groups = inEstimate.Select(x => x.Assignment.ProteinGroup!).Distinct(StringComparer.Ordinal).ToList();
             if (groups.Count < MinimumTestedMembers)
                 return outcome with { Untested = SetVerdictName.NotTestable, UntestedReason = "fewer_than_3_tested" };
-            estimate = SetModel.FitSet(setup, groups, normalized, out string? notRun);
+            estimate = SetModel.FitSet(setup, groups, normalized, out string? notRun, robust);
             if (estimate is null)
                 return outcome with { Untested = SetVerdictName.NotRun, UntestedReason = notRun };
         }
