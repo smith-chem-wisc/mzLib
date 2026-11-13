@@ -22,6 +22,8 @@ using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics;
+using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
 using Proteomics;
@@ -205,6 +207,38 @@ namespace Test.Omics.Modifications
             List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        }
+
+        [Test]
+        public static void ShadowedParentSharesTheBaseFieldThroughDeserialization()
+        {
+            Protein protein = new Protein("PEPKTIDEK", "Accession1");
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(minPeptideLength: 1), new List<Modification>(), new List<Modification>())
+                .Single(p => p.BaseSequence == "TIDEK");
+            NUnit.Framework.Assert.That(peptide.Parent, Is.SameAs(protein));
+            NUnit.Framework.Assert.That(((DigestionProduct)peptide).Parent, Is.SameAs(protein));
+            NUnit.Framework.Assert.That(((IBioPolymerWithSetMods)peptide).Parent, Is.SameAs(protein));
+
+            var ser = new NetSerializer.Serializer(new List<Type> { typeof(PeptideWithSetModifications) });
+            PeptideWithSetModifications deserialized;
+            using (var stream = new System.IO.MemoryStream())
+            {
+                ser.Serialize(stream, peptide);
+                stream.Position = 0;
+                deserialized = (PeptideWithSetModifications)ser.Deserialize(stream);
+            }
+
+            NUnit.Framework.Assert.That(deserialized.Protein, Is.Null);
+            NUnit.Framework.Assert.That(deserialized.Parent, Is.Null);
+            NUnit.Framework.Assert.That(((DigestionProduct)deserialized).Parent, Is.Null);
+            NUnit.Framework.Assert.That(deserialized.PreviousResidue, Is.EqualTo('-'));
+
+            deserialized.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(),
+                new Dictionary<string, Protein> { { protein.Accession, protein } }, peptide.DigestionParams);
+
+            NUnit.Framework.Assert.That(deserialized.Parent, Is.SameAs(protein));
+            NUnit.Framework.Assert.That(((DigestionProduct)deserialized).Parent, Is.SameAs(protein));
+            NUnit.Framework.Assert.That(deserialized.PreviousResidue, Is.EqualTo('K'));
         }
     }
 }
