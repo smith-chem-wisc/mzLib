@@ -10,7 +10,9 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
     /// </summary>
     public class Prosit2023IntensityXLCMS2 : CrosslinkFragmentIntensityModel
     {
-        private static readonly IReadOnlySet<int> Cms2UnimodIds = new HashSet<int> { 4, 35, 1896 };
+        // Koina: the subset mzLib allows of ALPHABET_MOD in models/Prosit_XL/XL_Prosit_Preprocess_peptide_CMS2/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> Cms2ModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:1896]" };
+        private static readonly IReadOnlySet<int> Cms2UnimodIds = UnimodIdsOf(Cms2ModificationTokens);
         private static readonly ISequenceConverter Cms2Converter = CreateUnimodConverter(CrosslinkSchema, Cms2UnimodIds);
 
         public override string ModelName => "Prosit_2023_intensity_XL_CMS2";
@@ -24,6 +26,7 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
         public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>();
         public override int NumberOfPredictedFragmentIons => 348;
         public override IReadOnlySet<int> AllowedUnimodIds => Cms2UnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => Cms2ModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
 

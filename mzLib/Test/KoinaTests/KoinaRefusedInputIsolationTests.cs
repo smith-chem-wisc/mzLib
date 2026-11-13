@@ -205,7 +205,7 @@ namespace Test.KoinaTests
 
         /// <summary>
         /// The real case, offline: Prosit_2025_irt_40PTM refuses zinc on E, E[UNIMOD:954], sent as
-        /// ProForma the way the MSL pipeline sends it. Prosit2025ModificationRules now refuses it before
+        /// ProForma the way the MSL pipeline sends it. PrositAtomCountModificationRules refuses it before
         /// sending, so the one request carries the other three and there is nothing to split. The fake still
         /// refuses E[UNIMOD:954]: if the rule let it through, it would be sent and take five requests.
         /// </summary>
@@ -701,7 +701,7 @@ namespace Test.KoinaTests
 
     /// <summary>
     /// The live canary for the case that started this: Prosit_2025_irt_40PTM refuses zinc on E,
-    /// E[UNIMOD:954]. Prosit2025ModificationRules now refuses it before sending, so this sends it through
+    /// E[UNIMOD:954]. PrositAtomCountModificationRules refuses it before sending, so this sends it through
     /// a copy of the model without that rule. If Koina ever accepts it, this fails and says the case has
     /// changed, and the rule is out of date; if Koina is down or faulting, KoinaLiveTestFixture skips it.
     /// </summary>
@@ -736,7 +736,7 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Prosit2025iRT40PTM as it was before Prosit2025ModificationRules: the same converter and request,
+        /// Prosit2025iRT40PTM without PrositAtomCountModificationRules: the same converter and request,
         /// with base's cleaning only, so E[UNIMOD:954] reaches Koina.
         /// </summary>
         private sealed class Prosit2025iRT40PTMWithoutModificationRules : RetentionTimeModel

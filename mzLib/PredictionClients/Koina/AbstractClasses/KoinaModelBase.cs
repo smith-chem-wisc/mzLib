@@ -75,6 +75,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     public virtual bool AcceptsAllUnimodModifications => false;
 
     /// <summary>
+    /// Modified residues and termini the model has a token for, as Koina writes them ("M[UNIMOD:35]", "[UNIMOD:737]-"); null = anywhere.
+    /// </summary>
+    public virtual IReadOnlySet<string>? AllowedModificationTokens => null;
+
+    /// <summary>
     /// UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.
     /// </summary>
     public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
@@ -425,16 +430,26 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         // peptide predicted from an mzLib sequence keeps that sequence's names; the resolved one otherwise (ProForma).
         var acceptedAsLabelled = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
+        var refused = new List<string>();
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = SequenceConverter.Serializer.ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
             {
-                accepted.Add(resolved);
-                acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+                var sent = SequenceConverter.Serializer.Schema.PlaceModification(resolved, cleaned);
+                if (DecideModification(cleaned, sent) is { } reason)
+                {
+                    refused.Add($"{ModificationToken(sent, id, cleaned.BaseSequence)} ({reason})");
+                    continue;
+                }
+                if (AllowedModificationTokens?.Contains(ModificationToken(sent, id, cleaned.BaseSequence)) != false)
+                {
+                    accepted.Add(sent);
+                    acceptedAsLabelled.Add(mod.MzLibId != null || mod.MzLibModification != null ? mod : resolved);
+                    continue;
+                }
             }
-            else
-                incompatible.Add(resolved);
+            incompatible.Add(resolved);
         }
 
         if (incompatible.Count > 0)
@@ -451,6 +466,19 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
             foreach (var mod in incompatible)
                 conversionWarnings.AddWarning($"Removing unsupported modification: {mod}");
+        }
+
+        string? removedMessage = null;
+        if (refused.Count > 0)
+        {
+            if (ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements)
+            {
+                var message = $"{ModelName} cannot place {string.Join("; ", refused)}.";
+                HandleFailure(ModHandlingMode, message);
+                warning = BuildWarning(conversionWarnings, message);
+                return null;
+            }
+            removedMessage = $"Removing modifications {ModelName} cannot place: {string.Join("; ", refused)}.";
         }
         cleaned = cleaned.WithModifications(accepted);
 
@@ -494,9 +522,15 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             .Select(k => acceptedAsLabelled[k]));
         string? cleanedFullSequence = MzLibSequenceSerializer.Instance.Serialize(predicted, conversionWarnings, SequenceConversionHandlingMode.ThrowException);
 
-        warning = BuildWarning(conversionWarnings, null);
+        warning = BuildWarning(conversionWarnings, removedMessage);
         return cleanedFullSequence;
     }
+
+    /// <summary>
+    /// Decides one modification with an allowed UNIMOD id before its token is checked: null to keep it, or why Koina refuses it.
+    /// </summary>
+    /// <param name="modification">The modification where Koina will be sent it.</param>
+    protected virtual string? DecideModification(CanonicalSequence sequence, CanonicalModification modification) => null;
 
     private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
     {
@@ -554,6 +588,16 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return i;
     }
 
+    private static string ModificationToken(CanonicalModification mod, int unimodId, string residues) => mod.PositionType switch
+    {
+        ModificationPositionType.NTerminus => $"[UNIMOD:{unimodId}]-",
+        ModificationPositionType.CTerminus => $"-[UNIMOD:{unimodId}]",
+        _ => $"{residues[mod.ResidueIndex!.Value]}[UNIMOD:{unimodId}]"
+    };
+
+    protected static IReadOnlySet<int> UnimodIdsOf(IEnumerable<string> modificationTokens) =>
+        modificationTokens.Select(token => int.Parse(Regex.Match(token, @"UNIMOD:(\d+)").Groups[1].Value)).ToHashSet();
+
     #endregion
 
     protected static ISequenceConverter CreateUnimodConverter(
@@ -561,7 +605,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         IReadOnlySet<int> allowedUnimodIds)
     {
         var lookup = CreateLookup(allowedUnimodIds);
-        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        var serializer = new UnimodSequenceSerializer(WithPyroGluOnFirstResidue(schema), lookup);
         return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
     }
 
@@ -573,9 +617,20 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     {
         var allMods = Mods.UnimodModifications.ToList();
         var lookup = new UnimodModificationLookup(allMods);
-        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        var serializer = new UnimodSequenceSerializer(WithPyroGluOnFirstResidue(schema), lookup);
         return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
     }
+
+    // Checked live 2026-11-12: every Koina model that takes pyro-Glu predicts it on its residue (E[UNIMOD:27], Q[UNIMOD:28]),
+    // and the N-terminal forms give 400, are dropped or are misread.
+    private static UnimodSequenceFormatSchema WithPyroGluOnFirstResidue(UnimodSequenceFormatSchema schema) => new(schema.LabelStyle)
+    {
+        ModOpenBracket = schema.ModOpenBracket,
+        ModCloseBracket = schema.ModCloseBracket,
+        NTermSeparator = schema.NTermSeparator,
+        CTermSeparator = schema.CTermSeparator,
+        PyroGluOnFirstResidue = true
+    };
 
     private static IModificationLookup CreateLookup(IReadOnlySet<int> allowedUnimodIds)
     {

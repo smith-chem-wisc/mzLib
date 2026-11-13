@@ -21,7 +21,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// </remarks>
     public class Altimeter2024Intensities : FragmentIntensityModel
     {
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        // Koina: the position checks in models/Altimeter/Altimeter_2024_preprocess_sequence/1/model.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
             UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
 
@@ -35,6 +37,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6, 7 };
         public override HashSet<int>? AllowedCollisionEnergies => Enumerable.Range(20, 21).ToHashSet(); // NCE 20-40
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
