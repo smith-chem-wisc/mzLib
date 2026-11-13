@@ -350,6 +350,32 @@ namespace Test.KoinaTests
         }
 
         [Test]
+        public void Ms2PipCidTmt_TryCleanSequence_AcceptsSequenceWithoutNTerminalLabel(
+            [Values] SequenceConversionHandlingMode mode)
+        {
+            var result = new Ms2PipCidTmtProbe(mode).Clean("PEPTIDEK", out var api, out var warning);
+
+            Assert.That(result, Is.EqualTo("PEPTIDEK"));
+            Assert.That(api, Is.EqualTo("PEPTIDEK"));
+            Assert.That(warning, Is.Null);
+        }
+
+        [Test]
+        public void Ms2PipCidTmt_UsePrimarySequence_ReturnsBareSequenceForLabeledInput()
+        {
+            const string labelled = "[Common Fixed:TMT6plex on N-terminus]PEPTIDEK";
+
+            var kept = new Ms2PipCidTmtProbe().Clean(labelled, out var keptApi, out _);
+            var stripped = new Ms2PipCidTmtProbe(SequenceConversionHandlingMode.UsePrimarySequence).Clean(labelled, out var strippedApi, out var warning);
+
+            Assert.That(kept, Is.EqualTo(labelled));
+            Assert.That(keptApi, Is.EqualTo("[UNIMOD:737]-PEPTIDEK"));
+            Assert.That(stripped, Is.EqualTo("PEPTIDEK"));
+            Assert.That(strippedApi, Is.EqualTo("PEPTIDEK"));
+            Assert.That(warning?.Message, Does.Contain("modifications were removed"));
+        }
+
+        [Test]
         public void XlNms2_TryCleanSequence_AcceptsModelSpecificCrosslinkerUnimod()
         {
             // XLNMS2 accepts only {4, 35, 1898}; the 1898 crosslinker must pass its real validation.
@@ -428,6 +454,15 @@ namespace Test.KoinaTests
 
             public string? CleanWithParser(string sequence, ISequenceParser sourceParser, out string? api, out WarningException? warning)
                 => TryCleanSequence(sequence, sourceParser, out api, out warning);
+        }
+
+        private sealed class Ms2PipCidTmtProbe : Ms2PipCIDTMT
+        {
+            public Ms2PipCidTmtProbe(SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ReturnNull)
+                : base(modHandlingMode: mode) { }
+
+            public string? Clean(string sequence, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, null, out api, out warning);
         }
 
         /// <summary>

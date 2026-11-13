@@ -351,7 +351,6 @@ namespace Test.KoinaTests.BenchmarkTests
         ///  - With 500,000 unique peptides of length 20, test takes approximately ____.
         ///  - Timing is linearly proportional to peptide count due to throttled approach.
         ///  - Default MaxNumberOfBatchesPerRequest: 250, tested up to 500,000 peptides.
-        ///  - Requires N-terminal TMT/iTRAQ labeling on all peptides.
         /// </summary>
         public static void BenchmarkMs2PipCIDTMT()
         {
