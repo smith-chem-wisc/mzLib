@@ -58,11 +58,12 @@ namespace StatisticalModels
         /// <see cref="PredictLogit(double[])"/> on two caller buffers of at least <see cref="Width"/>, allocating nothing:
         /// prediction is the hot loop of a DIA rescoring. Same arithmetic, in the same order.
         /// </summary>
-        internal double Forward(double[] features, Span<double> first, Span<double> second)
+        internal double Forward<T>(T[] features, Span<double> first, Span<double> second) where T : unmanaged, IBinaryFloatingPointIeee754<T>
         {
+            // A float row is widened exactly, so it scores as the same values held in a double row
             int width = _mean.Length;
             for (int j = 0; j < width; j++)
-                first[j] = (features[j] - _mean[j]) / _sd[j];
+                first[j] = (double.CreateTruncating(features[j]) - _mean[j]) / _sd[j];
             bool inFirst = true;
             for (int l = 0; l < _weights.Length; l++)
             {
@@ -91,14 +92,15 @@ namespace StatisticalModels
         /// increasing order; tanh per lane), so each lane's logit is bit-identical to <see cref="Forward"/>. Narrow layers
         /// (down to the single output) use whole vectors this way.
         /// </summary>
-        internal Vector<double> ForwardLanes(IReadOnlyList<double[]> features, ReadOnlySpan<int> rows, Vector<double>[] first, Vector<double>[] second)
+        internal Vector<double> ForwardLanes<T>(IReadOnlyList<T[]> features, ReadOnlySpan<int> rows, Vector<double>[] first, Vector<double>[] second)
+            where T : unmanaged, IBinaryFloatingPointIeee754<T>
         {
             Span<double> lane = stackalloc double[Vector<double>.Count];
             int width = _mean.Length;
             for (int j = 0; j < width; j++)
             {
                 for (int k = 0; k < lane.Length; k++)
-                    lane[k] = (features[rows[k]][j] - _mean[j]) / _sd[j];
+                    lane[k] = (double.CreateTruncating(features[rows[k]][j]) - _mean[j]) / _sd[j];
                 first[j] = new Vector<double>(lane);
             }
             bool inFirst = true;
@@ -356,7 +358,14 @@ namespace StatisticalModels
     /// <summary>An averaged ensemble of <see cref="MultilayerPerceptron"/>s.</summary>
     public sealed class MultilayerPerceptronEnsemble
     {
-        internal MultilayerPerceptronEnsemble(IReadOnlyList<MultilayerPerceptron> members) => Members = members;
+        internal MultilayerPerceptronEnsemble(IReadOnlyList<MultilayerPerceptron> members)
+        {
+            Members = members;
+            _width = members.Count == 0 ? 0 : members.Max(m => m.Width);
+        }
+
+        /// <summary>The widest member's widest layer, once: prediction is per row, millions of times a search.</summary>
+        private readonly int _width;
 
         public IReadOnlyList<MultilayerPerceptron> Members { get; }
 
@@ -367,12 +376,18 @@ namespace StatisticalModels
         /// The log-odds of the members' mean probability, computed from their logits so that it never saturates: a confident
         /// member's probability rounds to exactly 1 in double precision, and every confident row would tie.
         /// </summary>
-        public double PredictLogit(double[] features)
+        public double PredictLogit(double[] features) => PredictLogitOf(features);
+
+        /// <summary>
+        /// <see cref="PredictLogit(double[])"/> for a row of doubles or of floats, each float widened exactly: the same logit as
+        /// the same values in a double row, for a caller that keeps millions of rows at half the memory.
+        /// </summary>
+        internal double PredictLogitOf<T>(T[] features) where T : unmanaged, IBinaryFloatingPointIeee754<T>
         {
             ArgumentNullException.ThrowIfNull(features);
             if (Members.Count == 0 || features.Length != Members[0].InputCount)
-                return LogitOfMeanProbability(Members.Select(m => m.PredictLogit(features)).ToArray()); // the members report the error
-            int width = Members.Max(m => m.Width);
+                return LogitOfMeanProbability(Members.Select(m => m.PredictLogit(FeatureRows.Widened(features))).ToArray()); // the members report the error
+            int width = _width;
             Span<double> first = stackalloc double[width];
             Span<double> second = stackalloc double[width];
             Span<double> logits = stackalloc double[Members.Count];
@@ -388,7 +403,13 @@ namespace StatisticalModels
         /// </summary>
         /// <exception cref="ArgumentNullException">An argument is null.</exception>
         /// <exception cref="ArgumentException">A row's feature count differs from training.</exception>
-        public void PredictLogits(IReadOnlyList<double[]> features, IReadOnlyList<int> rows, double[] into)
+        public void PredictLogits(IReadOnlyList<double[]> features, IReadOnlyList<int> rows, double[] into) => PredictLogitsOf(features, rows, into);
+
+        /// <summary>
+        /// <see cref="PredictLogits(IReadOnlyList{double[]}, IReadOnlyList{int}, double[])"/> for rows of doubles or of floats,
+        /// each float widened exactly.
+        /// </summary>
+        internal void PredictLogitsOf<T>(IReadOnlyList<T[]> features, IReadOnlyList<int> rows, double[] into) where T : unmanaged, IBinaryFloatingPointIeee754<T>
         {
             ArgumentNullException.ThrowIfNull(features);
             ArgumentNullException.ThrowIfNull(rows);
@@ -396,7 +417,7 @@ namespace StatisticalModels
             int lanes = Vector<double>.Count, members = Members.Count, k = 0;
             if (Vector.IsHardwareAccelerated && members > 0 && rows.Count >= lanes)
             {
-                int width = Members.Max(m => m.Width), inputs = Members[0].InputCount;
+                int width = _width, inputs = Members[0].InputCount;
                 var first = new Vector<double>[width];
                 var second = new Vector<double>[width];
                 Span<int> block = stackalloc int[lanes];
@@ -422,7 +443,7 @@ namespace StatisticalModels
                 }
             }
             for (; k < rows.Count; k++)
-                into[rows[k]] = PredictLogit(features[rows[k]]);
+                into[rows[k]] = PredictLogitOf(features[rows[k]]);
         }
 
         /// <summary>log(mean sigmoid(z)) - log(mean sigmoid(-z)), each a log-sum-exp of log-sigmoids.</summary>

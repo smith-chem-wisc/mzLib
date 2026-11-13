@@ -26,23 +26,45 @@ namespace StatisticalModels
             if (!scores.All(double.IsFinite))
                 throw new ArgumentException("Every score must be finite.", nameof(scores));
 
-            // Score descending, decoys first at a tie, then index: the same total order as a stable LINQ sort, without its
-            // per-comparison key machinery (the rescorer's seed step computes this for every feature and sign)
-            double[] s = scores.ToArray();
-            bool[] d = isDecoy.ToArray();
-            int[] order = new int[s.Length];
-            for (int i = 0; i < order.Length; i++)
+            // Only read, so arrays are used as given: the seed step calls this for every feature and sign of every fold
+            double[] s = scores as double[] ?? scores.ToArray();
+            bool[] d = isDecoy as bool[] ?? isDecoy.ToArray();
+            var q = new double[s.Length];
+            Into(s, d, s.Length, new int[s.Length], new double[s.Length], q);
+            return q;
+        }
+
+        /// <summary>
+        /// <see cref="Compute"/> over the first <paramref name="count"/> entries, written into <paramref name="q"/>, with the
+        /// caller's work buffers: for a caller that ranks many score vectors of one length. Every buffer holds at least
+        /// <paramref name="count"/> entries; the scores must be finite.
+        /// </summary>
+        internal static void Into(double[] s, bool[] d, int count, int[] order, double[] ranked, double[] q)
+        {
+            Rank(s, d, count, order, ranked);
+            for (int k = 0; k < count; k++)
+                q[order[k]] = ranked[k];
+        }
+
+        /// <summary>
+        /// The ranking behind <see cref="Into"/>: <paramref name="order"/> holds the entries best first, and
+        /// <paramref name="ranked"/> the q-value at each rank, so <c>ranked[k]</c> belongs to entry <c>order[k]</c>.
+        /// </summary>
+        internal static void Rank(double[] s, bool[] d, int count, int[] order, double[] ranked)
+        {
+            // Score descending, decoys first at a tie, then index: a total order, so any sort gives this one permutation,
+            // the same as a stable LINQ sort, without its per-comparison key machinery
+            for (int i = 0; i < count; i++)
                 order[i] = i;
-            Array.Sort(order, (a, b) =>
+            order.AsSpan(0, count).Sort((a, b) =>
             {
                 int c = s[b].CompareTo(s[a]);
                 if (c != 0) return c;
                 c = d[b].CompareTo(d[a]);
                 return c != 0 ? c : a.CompareTo(b);
             });
-            var ranked = new double[order.Length];
             int decoys = 0, targets = 0;
-            for (int k = 0; k < order.Length; )
+            for (int k = 0; k < count; )
             {
                 int end = k;
                 do
@@ -50,18 +72,13 @@ namespace StatisticalModels
                     if (d[order[end]]) decoys++; else targets++;
                     end++;
                 }
-                while (end < order.Length && s[order[end]] == s[order[k]]);
+                while (end < count && s[order[end]] == s[order[k]]);
                 double value = targets == 0 ? 1 : Math.Min(1, (decoys + 1.0) / targets);
                 for (; k < end; k++)
                     ranked[k] = value;
             }
-            for (int k = order.Length - 2; k >= 0; k--)
+            for (int k = count - 2; k >= 0; k--)
                 ranked[k] = Math.Min(ranked[k], ranked[k + 1]);
-
-            var q = new double[order.Length];
-            for (int k = 0; k < order.Length; k++)
-                q[order[k]] = ranked[k];
-            return q;
         }
     }
 
