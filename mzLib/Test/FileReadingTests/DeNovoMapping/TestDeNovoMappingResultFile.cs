@@ -51,6 +51,8 @@ namespace Test.FileReadingTests.DeNovoMapping
                 Assert.That(h1n1.UniqueProteinsMapped, Is.EqualTo(2));
                 Assert.That(h1n1.TargetPredictionScores, Has.Count.EqualTo(10));
                 Assert.That(h1n1.RetentionTimeErrors, Has.Count.EqualTo(10));
+                // Calibrated minutes; ten errors, so the median is the mean of the middle two (0.3476 and 0.7126).
+                Assert.That(h1n1.MedianRtError, Is.EqualTo(0.5301).Within(1e-3));
                 Assert.That(h1n1.PredictionCountsByFile["H1N1_Virus_Spike_in_C1_3_DefaultParams"], Is.EqualTo(10));
             });
 

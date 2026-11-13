@@ -1,7 +1,11 @@
+using Chromatography;
+using Chromatography.RetentionTimePrediction;
 using NUnit.Framework;
 using Omics;
 using Proteomics;
+using Readers;
 using Readers.DeNovoMapping;
+using Readers.ExternalResults.ResultFiles;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -9,6 +13,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using UsefulProteomicsDatabases;
 
 namespace Test.FileReadingTests.DeNovoMapping
@@ -69,10 +74,13 @@ namespace Test.FileReadingTests.DeNovoMapping
                 Assert.That(result.PredictionScores, Has.Count.EqualTo(4));
                 Assert.That(result.PredictionCountsByFile["RunA"], Is.EqualTo(4));
 
-                // Two target hits have an observed time; the third had none and its spectra file is missing.
-                Assert.That(result.RetentionTimeErrors, Has.Count.EqualTo(2));
-                Assert.That(result.MeanRtError, Is.Not.NaN);
-                Assert.That(mapper.Warnings, Has.Count.EqualTo(1));
+                // One prediction had no time and its spectra file is missing; five predictions are too few anchors
+                // to calibrate Chronologer to minutes, so no errors are reported rather than mixed-unit ones.
+                Assert.That(result.RetentionTimeErrors, Is.Empty);
+                Assert.That(result.MeanRtError, Is.NaN);
+                Assert.That(mapper.RetentionTimeCalibrations, Is.Empty);
+                Assert.That(mapper.Warnings, Has.Count.EqualTo(2));
+                Assert.That(mapper.Warnings, Has.Some.Contains("could not be calibrated"));
             });
         }
 
@@ -123,11 +131,11 @@ namespace Test.FileReadingTests.DeNovoMapping
         [Test]
         public void MapsProteinsAlreadyInMemory()
         {
-            string mzTab = WriteMzTab("RunMemory.mztab", "file:///Z:/RunMemory.mgf", ("VLSAADK", 0.9, 1.0));
+            string mzTab = WriteMzTab("RunMemory.mztab", "file:///Z:/RunMemory.mgf", ("VLSAADK", 0.9, 1.0), ("WWWWWWWK", 0.3, 1.0));
             var proteins = new List<IBioPolymer>
             {
                 new Protein(ProteinA, "PA"),
-                new Protein("GGGGGGGRVLSAADK", "DECOY_PA", isDecoy: true),
+                new Protein("GGGGGGGRWWWWWWWK", "DECOY_PA", isDecoy: true),
             };
 
             var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false });
@@ -135,7 +143,28 @@ namespace Test.FileReadingTests.DeNovoMapping
 
             Assert.That(result.TargetPredictions, Is.EqualTo(1));
             Assert.That(result.DecoyPredictions, Is.EqualTo(1));
+            Assert.That(result.DecoyPredictionScores, Is.EqualTo(new[] { 0.3 }).Within(1e-9));
             Assert.That(result.DatabaseProteinCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DecoyPeptideEqualToTargetPeptideIsNotADecoy()
+        {
+            // The decoy produces VLSAADK, which protein A also produces, and VISAADK, which equals it up to I/L.
+            string mzTab = WriteMzTab("RunClash.mztab", "file:///Z:/RunClash.mgf", ("VLSAADK", 0.9, 1.0), ("VISAADK", 0.8, 1.0));
+            var proteins = new List<IBioPolymer>
+            {
+                new Protein(ProteinA, "PA"),
+                new Protein("GGGGGGGRVLSAADKGGGGGGGRVISAADK", "DECOY_PA", isDecoy: true),
+            };
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false });
+            var result = mapper.MapDatabase("Clash", proteins);
+
+            Assert.That(result.TargetPredictions, Is.EqualTo(2));
+            Assert.That(result.DecoyPredictions, Is.EqualTo(0));
+            Assert.That(result.TotalPredictions, Is.EqualTo(2));
+            Assert.That(result.PredictionCountsByFile["RunClash"], Is.EqualTo(2));
         }
 
         [Test]
@@ -148,10 +177,83 @@ namespace Test.FileReadingTests.DeNovoMapping
 
             var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { SpectraFilePaths = [mgf] });
 
-            Assert.That(mapper.Warnings, Is.Empty);
+            // The spectra file was found; three predictions are too few to calibrate, which is the only warning.
+            Assert.That(mapper.Warnings.Single(), Does.Contain("could not be calibrated"));
             Assert.That(mapper.Predictions.Select(p => p.ObservedRetentionTime),
                 Is.EqualTo(new double?[] { 1.0, 2.0, 3.0 }).Within(1e-9));
             Assert.That(mapper.Predictions.All(p => p.PredictedRetentionTime.HasValue));
+        }
+
+        [Test]
+        public void RetentionTimeErrorsAreInCalibratedMinutes()
+        {
+            // The stub predicts i for the i-th peptide; the run elutes it at 5 + 2i minutes, so predictions are not
+            // minutes until calibrated. One anchor is 10 minutes late, and one prediction scores below the anchor cutoff.
+            var peptides = Enumerable.Range(0, 30).Select(CalibrationPeptide).ToArray();
+            var predictor = new LookupPredictor(peptides.Select((p, i) => (p, (double)i)));
+            var psms = peptides.Select((p, i) => (p, i == 29 ? 0.5 : 0.9, (double?)((5 + 2 * i + (i == 15 ? 10 : 0)) * 60.0))).ToArray();
+            string mzTab = WriteMzTab("RunCalibrated.mztab", "file:///Z:/RunCalibrated.mgf", psms);
+            var proteins = new List<IBioPolymer> { new Protein(string.Concat(peptides), "PCAL") };
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { RetentionTimePredictor = predictor, MaxThreads = 1 });
+            var result = mapper.MapDatabase("Calibrated", proteins);
+
+            Assert.That(mapper.Warnings, Is.Empty);
+            Assert.That(mapper.RetentionTimeCalibrations.Keys, Is.EqualTo(new[] { "RunCalibrated" }));
+            Assert.That(mapper.RetentionTimeCalibrations["RunCalibrated"].AnchorCount, Is.EqualTo(29));
+            Assert.That(mapper.Predictions[3].CalibratedRetentionTime, Is.EqualTo(11).Within(0.05));
+            Assert.That(result.RetentionTimeErrors, Has.Count.EqualTo(30));
+            Assert.That(result.RetentionTimeErrors[15], Is.EqualTo(10).Within(0.1));
+            Assert.That(result.RetentionTimeErrors.Where((_, i) => i != 15), Has.All.InRange(-0.1, 0.1));
+            Assert.That(result.MedianRtError, Is.EqualTo(0).Within(0.1));
+            Assert.That(predictor.Disposed, Is.False, "a predictor passed in stays the caller's");
+        }
+
+        [Test]
+        public void CalibrationIsTheSameForEveryDatabase()
+        {
+            var peptides = Enumerable.Range(0, 30).Select(CalibrationPeptide).ToArray();
+            var predictor = new LookupPredictor(peptides.Select((p, i) => (p, (double)i)));
+            var psms = peptides.Select((p, i) => (p, 0.9, (double?)((5 + 2 * i + (i % 7 == 0 ? 1 : 0)) * 60.0))).ToArray();
+            string mzTab = WriteMzTab("RunEveryDb.mztab", "file:///Z:/RunEveryDb.mgf", psms);
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { RetentionTimePredictor = predictor, MaxThreads = 1 });
+            var all = mapper.MapDatabase("All", [new Protein(string.Concat(peptides), "PALL")]);
+            var firstThree = mapper.MapDatabase("FirstThree", [new Protein(string.Concat(peptides.Take(3)), "PFEW")]);
+
+            Assert.That(firstThree.RetentionTimeErrors, Is.EqualTo(all.RetentionTimeErrors.Take(3)).Within(1e-12));
+        }
+
+        [Test]
+        public void SkippingRetentionTimesNeverRunsThePredictor()
+        {
+            var predictor = new LookupPredictor([("VLSAADK", 1.0)]);
+            string mzTab = WriteMzTab("RunNoRt.mztab", "file:///Z:/RunNoRt.mgf", ("VLSAADK", 0.9, 60.0));
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false, RetentionTimePredictor = predictor });
+
+            Assert.That(predictor.Calls, Is.EqualTo(0));
+            Assert.That(mapper.Predictions.Single().PredictedRetentionTime, Is.Null);
+            Assert.That(mapper.RetentionTimeCalibrations, Is.Empty);
+        }
+
+        [Test]
+        public void MassShiftSequenceIgnoresCurrentCulture()
+        {
+            string fixture = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "ExternalFileTypes", "Casanovo_5.0.0.mztab");
+            var record = FileReader.ReadFile<CasanovoMzTabFile>(fixture).First(r => r.FullSequence.StartsWith("HQGVM"));
+            var prediction = new DeNovoPrediction(record, "Casanovo", true);
+
+            var original = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                Assert.That(prediction.FullSequenceWithMassShifts, Is.EqualTo("HQGVM[+15.994915]VGM[+15.994915]GQK"));
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+            }
         }
 
         [Test]
@@ -159,11 +261,35 @@ namespace Test.FileReadingTests.DeNovoMapping
         {
             // The spectra file would give different times; it must not be read.
             string mgf = WriteMgf("RunTrusted.mgf", (1, 600));
-            string mzTab = WriteMzTab("RunTrusted.mztab", "file:///Z:/RunTrusted.mgf", ("VLSAADK", 0.9, 12.5));
+            // mzTab reports seconds unless colunit-psm says otherwise.
+            string mzTab = WriteMzTab("RunTrusted.mztab", "file:///Z:/RunTrusted.mgf", ("VLSAADK", 0.9, 750.0));
 
             var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { SpectraFilePaths = [mgf] });
 
-            Assert.That(mapper.Predictions.Single().ObservedRetentionTime, Is.EqualTo(12.5));
+            Assert.That(mapper.Predictions.Single().ObservedRetentionTime, Is.EqualTo(12.5).Within(1e-9));
+        }
+
+        [TestCase("MTD\tcolunit-psm\tretention_time=[UO, UO:0000031, minute, ]", 12.5)]
+        [TestCase("MTD\tcolunit-psm\tretention_time=[UO, UO:0000010, second, ]", 12.5 / 60)]
+        [TestCase("MTD\tcolunit-psm\texp_mass_to_charge=[UO, UO:0000031, minute, ]", 12.5 / 60)]
+        public void HonorsRetentionTimeUnitInMzTab(string unitLine, double expectedMinutes)
+        {
+            string mzTab = WriteMzTab("RunUnit.mztab", "file:///Z:/RunUnit.mgf", [unitLine], ("VLSAADK", 0.9, 12.5));
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false });
+
+            Assert.That(mapper.Predictions.Single().ObservedRetentionTime, Is.EqualTo(expectedMinutes).Within(1e-9));
+        }
+
+        [Test]
+        public void MedianAveragesTheMiddleTwoOfAnEvenCount()
+        {
+            var result = new DeNovoMappingResult { TargetPredictionScores = [0.1, 1.0, 0.3, 0.2], RetentionTimeErrors = [4, 1, 3] };
+
+            result.FinalizeValues();
+
+            Assert.That(result.MedianPredictionScore, Is.EqualTo(0.25).Within(1e-12));
+            Assert.That(result.MedianRtError, Is.EqualTo(3).Within(1e-12));
         }
 
         [Test]
@@ -247,13 +373,28 @@ namespace Test.FileReadingTests.DeNovoMapping
             return Peptides(true).First(p => !targets.Contains(p));
         }
 
-        private string WriteMzTab(string name, string msRunLocation, params (string Sequence, double Score, double? RetentionTime)[] psms)
+        /// <summary>
+        /// A peptide of 8 residues ending in K, distinct for each index below 256 and free of K, R, P and I elsewhere.
+        /// </summary>
+        private static string CalibrationPeptide(int index)
+        {
+            const string residues = "ACDEFGHLMNQSTVWY";
+            return $"{residues[index % 16]}{residues[index / 16]}GGSTVK";
+        }
+
+        private string WriteMzTab(string name, string msRunLocation, params (string Sequence, double Score, double? RetentionTime)[] psms) =>
+            WriteMzTab(name, msRunLocation, [], psms);
+
+        /// <param name="psms">Retention times are in seconds, as mzTab reports them.</param>
+        private string WriteMzTab(string name, string msRunLocation, string[] extraHeaderLines, params (string Sequence, double Score, double? RetentionTime)[] psms)
         {
             string path = Path.Combine(_directory, name);
             var builder = new StringBuilder();
             builder.AppendLine("MTD\tmzTab-version\t1.0.0");
             builder.AppendLine("MTD\tsoftware[1]\t[MS, MS:1003281, Casanovo, 5.0.0]");
             builder.AppendLine($"MTD\tms_run[1]-location\t{msRunLocation}");
+            foreach (var line in extraHeaderLines)
+                builder.AppendLine(line);
             builder.AppendLine("PSH\tsequence\tPSM_ID\taccession\tunique\tdatabase\tdatabase_version\tsearch_engine\tsearch_engine_score[1]\tmodifications\tretention_time\tcharge\texp_mass_to_charge\tcalc_mass_to_charge\tspectra_ref\tpre\tpost\tstart\tend\topt_ms_run[1]_aa_scores");
 
             for (int i = 0; i < psms.Length; i++)
@@ -287,6 +428,39 @@ namespace Test.FileReadingTests.DeNovoMapping
             }
             File.WriteAllText(path, builder.ToString());
             return path;
+        }
+
+        /// <summary>
+        /// Predicts from a fixed table and records whether it was used or disposed.
+        /// </summary>
+        private class LookupPredictor : RetentionTimePredictor
+        {
+            private readonly Dictionary<string, double> _values;
+            private int _calls;
+
+            public LookupPredictor(IEnumerable<(string Sequence, double Value)> table)
+            {
+                _values = table.ToDictionary(t => t.Sequence, t => t.Value);
+            }
+
+            public int Calls => _calls;
+            public bool Disposed { get; private set; }
+            public override string PredictorName => "Lookup";
+            public override SeparationType SeparationType => SeparationType.HPLC;
+
+            public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
+            {
+                failureReason = null;
+                return peptide.BaseSequence;
+            }
+
+            protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null)
+            {
+                Interlocked.Increment(ref _calls);
+                return _values.TryGetValue(peptide.BaseSequence, out double value) ? value : null;
+            }
+
+            public override void Dispose() => Disposed = true;
         }
 
         #endregion
