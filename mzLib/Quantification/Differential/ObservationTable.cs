@@ -280,6 +280,38 @@ public sealed class ObservationTable
             yield return new Observation(Peptides[p], Samples[s], _log2[p][s], _state[p][s]);
     }
 
+    /// <summary>
+    /// The sha256 of <see cref="ToCanonicalText"/> (lower-case hex): the <c>observation_table</c> input the STAT1 runner
+    /// records (M5b ruling 10). The same table gives the same hash on any machine and culture; a different value, state,
+    /// peptide, group, group fact or warning gives another.
+    /// </summary>
+    internal string Sha256() => CanonicalText.Sha256(ToCanonicalText());
+
+    /// <summary>
+    /// The table as canonical text: a header (label-free, the basis), the samples in order, each described protein group by
+    /// name with its q-value, flags and genes, each peptide in order with its groups and, per sample, its log2 value and
+    /// state (<c>value:state</c>), then the warnings (<see cref="CanonicalText"/>).
+    /// </summary>
+    internal string ToCanonicalText()
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append("observation_table\tlabel_free\t").Append(Basis.ToMachineName()).Append('\n');
+        text.Append("samples");
+        foreach (var s in Samples) text.Append('\t').Append(CanonicalText.Escape(s));
+        text.Append('\n');
+        CanonicalText.AppendGroups(text, ProteinGroups);
+        for (int p = 0; p < Peptides.Count; p++)
+        {
+            text.Append("peptide\t");
+            CanonicalText.AppendPeptide(text, Peptides[p]);
+            for (int s = 0; s < Samples.Count; s++)
+                text.Append('\t').Append(CanonicalText.Number(_log2[p][s])).Append(':').Append(_state[p][s].ToString());
+            text.Append('\n');
+        }
+        CanonicalText.AppendWarnings(text, Warnings);
+        return text.ToString();
+    }
+
     /// <summary>The same table over a subset of its samples (one stratum, GR-5), with every peptide kept.</summary>
     /// <exception cref="ArgumentException">A sample the table does not have.</exception>
     public ObservationTable ForSamples(IEnumerable<string> sampleIds)

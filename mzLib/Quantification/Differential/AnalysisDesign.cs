@@ -61,13 +61,13 @@ public sealed class AnalysisDesign
     public const string NotInStratum = "not_in_stratum";
 
     private const string Intercept = "intercept";
-    private const string BatchTerm = "batch";
+    internal const string BatchTerm = "batch";
 
     /// <summary>
     /// A null-space loading (or a unit-length contrast's projection on it) below this counts as zero, both on the columns
     /// divided by their lengths.
     /// </summary>
-    private const double LoadingTolerance = 1e-8;
+    internal const double LoadingTolerance = 1e-8;
 
     private readonly double[,] _matrix;
     private readonly List<string> _columnTerms;
@@ -127,6 +127,12 @@ public sealed class AnalysisDesign
     /// <c>batch=level</c>; <c>name (per unit)</c> for a covariate; <c>a=level:b=level</c> for an interaction.
     /// </summary>
     public IReadOnlyList<string> ColumnNames { get; }
+
+    /// <summary>
+    /// Each column's term, in column order: <c>intercept</c>, a factor's name, <c>batch</c>, a covariate's name, or
+    /// <c>a:b</c> for an interaction. The runner reads which columns a tested term spans from it (STAT1 M5b ruling 7).
+    /// </summary>
+    internal IReadOnlyList<string> ColumnTerms => _columnTerms;
 
     /// <summary>A copy of the design matrix, <c>[sample, column]</c>, in the layout <c>LinearModel.Fit</c> takes.</summary>
     public double[,] Matrix => (double[,])_matrix.Clone();
@@ -384,8 +390,118 @@ public sealed class AnalysisDesign
         return new Contrast(label, label, weights, $"{factor}={numerator}", $"{factor}={denominator}");
     }
 
+    /// <summary>
+    /// The sha256 of this design (lower-case hex; <c>design_sha256</c>, STAT1 M5b ruling 10) over a canonical text: the
+    /// stratum, the column names, then each sample in row order (ordinal by id) with its individual and its row of the
+    /// matrix, numbers in round-trip invariant form, fields joined by tabs, lines by <c>\n</c>. Two designs that fit the same
+    /// model to the same samples give the same hash on any machine and culture.
+    /// </summary>
+    internal string Sha256()
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append(Stratum).Append('\n').Append(string.Join('\t', ColumnNames)).Append('\n');
+        for (int i = 0; i < Samples.Count; i++)
+        {
+            text.Append(Samples[i].SampleId).Append('\t').Append(Samples[i].Individual ?? "");
+            for (int j = 0; j < ColumnNames.Count; j++)
+                text.Append('\t').Append(_matrix[i, j].ToString("R", CultureInfo.InvariantCulture));
+            text.Append('\n');
+        }
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text.ToString())))
+            .ToLowerInvariant();
+    }
+
     private static string BetweenLabel(string factor, string numerator, string denominator) =>
         $"{factor}={numerator} vs {factor}={denominator}";
+
+    /// <summary>
+    /// The weights on the design's columns that give one side of a <see cref="Between"/> contrast's estimated marginal mean
+    /// (STAT1 M5b ruling 3, <c>DEF-DIFF-EFFECT</c>): every sample's row with the factor set to that level, averaged over the
+    /// stratum's samples with equal weight, so each other factor, the batch and each covariate enters at its stratum
+    /// proportion or mean. A factor that interacts with this one is set to its baseline instead, where <see cref="Between"/>
+    /// takes the effect, so the numerator's weights minus the denominator's are the contrast's weights exactly.
+    /// </summary>
+    /// <param name="side">A contrast's <see cref="Contrast.Numerator"/> or <see cref="Contrast.Denominator"/>
+    /// (<c>factor=level</c>).</param>
+    /// <returns>The weights, or null when <paramref name="side"/> names no level of a factor of the model.</returns>
+    internal double[]? MeanWeights(string? side) => MeanWeights(side, null, out _);
+
+    /// <summary>
+    /// As <see cref="MeanWeights(string?)"/>, averaged over only the stratum's samples whose levels a feature was measured in
+    /// (STAT1 M5b ruling 18): a sample is left out when its batch, or its level of a factor the mean averages over (any
+    /// factor but the tested one and those set to their baseline), is one <paramref name="seen"/> says the feature has no
+    /// value in. Each remaining sample still counts once, so <paramref name="side"/>'s weights minus the other side's are
+    /// still the contrast's weights.
+    /// </summary>
+    /// <param name="side">As <see cref="MeanWeights(string?)"/>.</param>
+    /// <param name="seen">Whether the feature has a value at a level of a term (a factor's name, or <c>batch</c>); null
+    /// keeps every sample.</param>
+    /// <param name="leftOut">The <c>term=level</c> pairs whose samples were left out, ordinal; empty when none was.</param>
+    /// <returns>The weights; null when <paramref name="side"/> names no level of a factor of the model, or no sample is
+    /// left.</returns>
+    internal double[]? MeanWeights(string? side, Func<string, string, bool>? seen, out IReadOnlyList<string> leftOut)
+    {
+        leftOut = Array.Empty<string>();
+        if (side is null) return null;
+        var f = _factors.FirstOrDefault(x => side.StartsWith(x.Name + "=", StringComparison.Ordinal)
+                                              && x.Levels.Contains(side[(x.Name.Length + 1)..], StringComparer.Ordinal));
+        if (f is null) return null;
+        string level = side[(f.Name.Length + 1)..];
+        // The factors this one interacts with sit at their baseline: their own columns and every interaction column that
+        // involves them or this factor are 0 in each sample's row.
+        var atBaseline = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var a in _factors)
+            foreach (var b in _factors)
+            {
+                if (!_columnTerms.Contains($"{a.Name}:{b.Name}")) continue;
+                if (a.Name == f.Name) atBaseline.Add(b.Name);
+                if (b.Name == f.Name) atBaseline.Add(a.Name);
+            }
+        var zeroTerms = new HashSet<string>(atBaseline, StringComparer.Ordinal);
+        foreach (var a in _factors)
+            foreach (var b in _factors)
+                if (a.Name == f.Name || b.Name == f.Name || atBaseline.Contains(a.Name) || atBaseline.Contains(b.Name))
+                    zeroTerms.Add($"{a.Name}:{b.Name}");
+
+        int n = Samples.Count, p = ColumnNames.Count;
+        var include = new bool[n];
+        int count = 0;
+        var left = new SortedSet<string>(StringComparer.Ordinal);
+        var averaged = _factors.Where(x => x.Name != f.Name && !atBaseline.Contains(x.Name)).Select(x => x.Name).ToList();
+        bool batch = _columnTerms.Contains(BatchTerm);
+        for (int i = 0; i < n; i++)
+        {
+            bool keep = true;
+            if (seen is not null)
+            {
+                foreach (var name in averaged)
+                {
+                    string l = Samples[i].Factors[name];
+                    if (!seen(name, l)) { keep = false; left.Add($"{name}={l}"); }
+                }
+                if (batch && !seen(BatchTerm, Samples[i].Batch!)) { keep = false; left.Add($"{BatchTerm}={Samples[i].Batch}"); }
+            }
+            include[i] = keep;
+            if (keep) count++;
+        }
+        leftOut = left.ToArray();
+        if (count == 0) return null;
+
+        var weights = new double[p];
+        for (int j = 0; j < p; j++)
+        {
+            if (_columnTerms[j] == f.Name)
+                weights[j] = ColumnNames[j] == $"{f.Name}={level}" ? 1 : 0;
+            else if (!zeroTerms.Contains(_columnTerms[j]))
+            {
+                double sum = 0;
+                for (int i = 0; i < n; i++)
+                    if (include[i]) sum += _matrix[i, j];
+                weights[j] = sum / count;
+            }
+        }
+        return weights;
+    }
 
     /// <summary>The slope of a covariate, per its scaled unit, other terms held fixed.</summary>
     public Contrast Slope(string covariate)
@@ -443,19 +559,28 @@ public sealed class AnalysisDesign
     }
 
     /// <summary>The terms a direction in the null space loads on: its entries above <see cref="LoadingTolerance"/> of its length.</summary>
-    private List<string> TermsAlong(Vector<double> direction)
+    private List<string> TermsAlong(Vector<double> direction) => TermsAlong(direction, _columnTerms);
+
+    /// <summary>
+    /// The terms a direction loads on, from each column's term: its entries above <see cref="LoadingTolerance"/> of its
+    /// length. Shared with <see cref="FeatureDesign"/>, which judges a feature's own columns by the same rule.
+    /// </summary>
+    internal static List<string> TermsAlong(Vector<double> direction, IReadOnlyList<string> columnTerms)
     {
         double length = direction.L2Norm();
         if (length <= LoadingTolerance) return new List<string>();
         return Enumerable.Range(0, direction.Count)
             .Where(j => Math.Abs(direction[j]) > LoadingTolerance * length)
-            .Select(j => _columnTerms[j])
+            .Select(j => columnTerms[j])
             .Distinct(StringComparer.Ordinal)
             .ToList();
     }
 
-    /// <summary>Left to right, each column kept unless it is redundant with those already kept, by LinearModel's own test.</summary>
-    private static int[] KeptColumns(double[,] matrix)
+    /// <summary>
+    /// Left to right, each column kept unless it is redundant with those already kept, by LinearModel's own test. Shared
+    /// with <see cref="FeatureDesign"/>.
+    /// </summary>
+    internal static int[] KeptColumns(double[,] matrix)
     {
         int n = matrix.GetLength(0), p = matrix.GetLength(1);
         var kept = new List<int>();
@@ -478,9 +603,9 @@ public sealed class AnalysisDesign
     /// An orthonormal basis of the null space of the columns divided by <paramref name="lengths"/>,
     /// <c>[column, direction]</c>: for each left-out column, its unit vector less its least-squares coefficients on the
     /// kept columns. Those directions are independent (each is 1 on its own left-out column and 0 on the others), and
-    /// for an exact redundancy they span the same space an SVD gives.
+    /// for an exact redundancy they span the same space an SVD gives. Shared with <see cref="FeatureDesign"/>.
     /// </summary>
-    private static Matrix<double> NullSpace(double[,] matrix, double[] lengths, IReadOnlyList<int> kept)
+    internal static Matrix<double> NullSpace(double[,] matrix, double[] lengths, IReadOnlyList<int> kept)
     {
         int p = matrix.GetLength(1);
         var x = Matrix<double>.Build.DenseOfArray(matrix);

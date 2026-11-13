@@ -117,8 +117,11 @@ public static class IsobaricNormalization
             table.Log2Intensity(r, s) - shift[(table.Rows[r].Plex, table.Rows[r].TechnicalReplicate, s)]);
     }
 
-    /// <summary>Whether a row may enter a median: none of its groups is a decoy, contaminant or entrapment group.</summary>
-    private static bool IsEligible(IsobaricObservationTable table, ObservedPeptide peptide)
+    /// <summary>
+    /// Whether a row may enter a median: none of its groups is a decoy, contaminant or entrapment group. The global shift
+    /// (<see cref="GlobalShift.Isobaric"/>) uses the same rule.
+    /// </summary>
+    internal static bool IsEligible(IsobaricObservationTable table, ObservedPeptide peptide)
     {
         foreach (string name in peptide.ProteinGroups)
             if (table.ProteinGroups.TryGetValue(name, out var group) && (group.IsDecoy || group.IsContaminant || group.IsEntrapment))

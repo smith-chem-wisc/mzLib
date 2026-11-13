@@ -140,6 +140,24 @@ public class StatisticalReportTests
         };
     }
 
+    /// <summary>The runner's own table input has no file name (ruling 10): the report says it was in memory.</summary>
+    [Test]
+    public void AnInputWithNoFileNameIsReportedAsInMemory()
+    {
+        var m = Metadata() with
+        {
+            Inputs = new[]
+            {
+                new DifferentialInput(DifferentialConstants.ObservationTableRole, "", new string('1', 64)),
+                new DifferentialInput("design", "design.tsv", new string('2', 64)),
+            },
+        };
+        string md = Build(m).Markdown;
+        Assert.That(md, Does.Contain("**Inputs.** observation_table (in memory) (sha256 `"));
+        Assert.That(md, Does.Contain("; design `design.tsv` (sha256 `"));
+        Assert.That(md, Does.Not.Contain("``"));
+    }
+
     private static StatisticalReport Build(DifferentialMetadata? metadata = null, DifferentialDiagnostics? diagnostics = null,
         List<DifferentialResult>? rows = null)
     {
@@ -397,6 +415,41 @@ public class StatisticalReportTests
         }).ToList());
         Assert.That(() => StatisticalReportWriter.Build(m, rows, Diagnostics()),
             Throws.ArgumentException.With.Message.Contains("does not cover Bayesian rows yet"));
+    }
+
+    /// <summary>
+    /// R-DECISIONS: with decisions given, the report ends with "Decisions applied": each rule in force, its ruling, plain
+    /// words and counts, in rule order, then the settings; without them the report is as before (the golden files). Decisions
+    /// that match no results row are refused, as the decisions file refuses them.
+    /// </summary>
+    [Test]
+    public void DecisionsAppliedListsEveryRuleInForceWithItsCounts()
+    {
+        var m = Metadata();
+        var rows = Rows(m.AnalysisId);
+        var decisions = new[]
+        {
+            new DifferentialDecision(DifferentialDecisionRules.AbsentSide, "all", "msms_only", "PGX1", "c1", "samples with a value: numerator 0, denominator 6", "reported absent_in_numerator, no number"),
+            new DifferentialDecision(DifferentialDecisionRules.Settings, DifferentialDecisionWriter.AnalysisStratum, null, null, null, "method moderated; robust weighting on", "applied to every stratum"),
+            new DifferentialDecision(DifferentialDecisionRules.AbsentSide, "all", "mbr_kept", "PGX1", "c1", "samples with a value: numerator 0, denominator 6", "reported absent_in_numerator, no number"),
+            new DifferentialDecision(DifferentialDecisionRules.ReducedDesign, "all", "mbr_kept", "PG03", null, "kept 2 of 3 design columns", "fitted on the columns its observations estimate"),
+        };
+
+        string md = StatisticalReportWriter.Build(m, rows, Diagnostics(), decisions).Markdown;
+
+        Assert.That(md, Does.EndWith(
+            "\n## 6. Decisions applied\n\n" +
+            "Every rule that changed what happened in this analysis, with how many protein groups (features) and result rows it " +
+            "touched. Each case is a line of `DifferentialDecisions.tsv`, which joins to the results on stratum, quant basis, " +
+            "feature and comparison.\n\n" +
+            "| rule | ruling | what it does | lines | features | rows |\n|---|---|---|---|---|---|\n" +
+            "| `settings` | M5b-14 | the settings that applied to the whole analysis | 1 | 0 | 0 |\n" +
+            "| `absent_side` | M5b-1 | a comparison one side of which has no value for the protein: reported absent, with no number | 2 | 2 | 2 |\n" +
+            "| `reduced_design` | M5b-1 | a protein fitted on the design columns its own values can estimate (a group, batch or level it lacks left out) | 1 | 1 | 0 |\n" +
+            "\nSettings: method moderated; robust weighting on.\n"));
+        Assert.That(StatisticalReportWriter.Build(m, rows, Diagnostics()).Markdown, Does.Not.Contain("Decisions applied"));
+        Assert.Throws<ArgumentException>(() => StatisticalReportWriter.Build(m, rows, Diagnostics(),
+            new[] { new DifferentialDecision(DifferentialDecisionRules.FitOutcome, "all", "msms_only", "NOSUCH", "c1", "facts", "effect") }));
     }
 
     [Test]
