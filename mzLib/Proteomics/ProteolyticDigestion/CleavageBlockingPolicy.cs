@@ -287,10 +287,8 @@ namespace Proteomics.ProteolyticDigestion
                 return true;
             }
 
-            bool nTerminusIsACut = start > 1 && !(start == 2 && _protein[0] == 'M') && !IsTruncationBoundary(start - 1);
-            bool cTerminusIsACut = end < _protein.Length && !IsTruncationBoundary(end);
-            return (!nTerminusIsACut || Justifies(start - 1, start, end, variableMods, fixedMods))
-                && (!cTerminusIsACut || Justifies(end, start, end, variableMods, fixedMods));
+            return (!DigestionProduct.IsCutBefore(_protein, start) || Justifies(start - 1, start, end, variableMods, fixedMods))
+                && (!DigestionProduct.IsCutAfter(_protein, end) || Justifies(end, start, end, variableMods, fixedMods));
         }
 
         /// <summary>The sites inside this peptidoform that lack their required modification, so are not missed cleavages.</summary>
@@ -326,9 +324,8 @@ namespace Proteomics.ProteolyticDigestion
 
         // True if a motif that cuts here has every glycan it requires and none it forbids.
         private static bool Justifies(DigestionAgent protease, string sequence, int cut, Func<CleavageRequirement, int, bool> carries) =>
-            protease.DigestionMotifs.Any(motif => cut >= motif.CutIndex
-                && motif.Fits(sequence, cut - motif.CutIndex) is (true, false)
-                && motif.CleavageRequirements.All(requirement =>
+            protease.MotifsCuttingAfter(sequence, cut).Any(motif =>
+                motif.CleavageRequirements.All(requirement =>
                     carries(requirement, requirement.ConstrainedResidue(cut)) != requirement.IsForbidden));
 
         // Where no peptidoform says, assume what lets the protease cut: a required glycan wherever one could be, a forbidden
@@ -341,19 +338,6 @@ namespace Proteomics.ProteolyticDigestion
                     && annotated.Any(requirement.IsSatisfiedBy))
                 || (requirement.IsForbidden ? fixedModifications : configured).Any(modification => requirement.IsSatisfiedBy(modification)
                     && ModificationLocalization.ModFits(modification, protein.BaseSequence, residue, protein.Length, residue)));
-
-        private bool IsTruncationBoundary(int cut)
-        {
-            foreach (TruncationProduct product in _protein.TruncationProducts)
-            {
-                if (product.OneBasedBeginPosition - 1 == cut || product.OneBasedEndPosition == cut)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
 
         // The most sites only a required modification lets the protease cut that one read-through can span, so that
         // the unoccupied form across them is enumerated. Without a length limit a read-through is capped at 60 residues.
