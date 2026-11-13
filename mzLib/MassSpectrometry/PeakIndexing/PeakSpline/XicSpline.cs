@@ -128,5 +128,17 @@ namespace MassSpectrometry
                 }
             }
         }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"XicSplineSettings: ");
+
+            sb.AppendLine($"    XicSplineType: {GetType().Name}");
+            sb.AppendLine($"    SplineRtInterval: {SplineRtInterval}");
+            sb.AppendLine($"    NumberOfPeaksToAdd: {NumberOfPeaksToAdd}");
+            sb.AppendLine($"    Gap: {Gap}");
+            return sb.ToString();
+        }
     }
 }
