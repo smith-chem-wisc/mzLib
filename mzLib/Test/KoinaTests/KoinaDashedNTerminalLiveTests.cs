@@ -20,7 +20,7 @@ namespace Test.KoinaTests
         private const string TmtLabelled = "[Multiplex Label:TMT6-plex on X]PEPTIDEK";
         private const double AcetylMass = 42.0106;
 
-        public static IEnumerable<Type> RetentionTimeModels() => new[] { typeof(AlphaPeptDeepRTGeneric) };
+        public static IEnumerable<Type> RetentionTimeModels() => new[] { typeof(AlphaPeptDeepRTGeneric), typeof(ChronologerRT) };
 
         public static IEnumerable<Type> CcsModels() => new[] { typeof(AlphaPeptDeepCCSGeneric) };
 

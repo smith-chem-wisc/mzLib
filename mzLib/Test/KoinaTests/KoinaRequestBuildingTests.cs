@@ -374,7 +374,8 @@ namespace Test.KoinaTests
             Assert.That(warning!.Message, Does.Contain("1896"));
         }
 
-        // Koina parses an N-terminal modification for these models only as "[UNIMOD:n]-PEPTIDE"; without the dash it answers 400.
+        // Koina parses an N-terminal modification for these models only as "[UNIMOD:n]-PEPTIDE". Without the dash, AlphaPeptDeep
+        // and ms2pip answer 400, and Chronologer reads the id as residues.
         private static readonly Type[] DashedNTerminalModels =
         {
             typeof(AlphaPeptDeepRTGeneric), typeof(AlphaPeptDeepCCSGeneric), typeof(AlphaPeptDeepMs2Generic),
@@ -389,6 +390,10 @@ namespace Test.KoinaTests
                 new TestCaseData(t, "[Multiplex Label:TMT6-plex on X]PEPTIDEK", "[UNIMOD:737]-PEPTIDEK"),
                 new TestCaseData(t, "[Unimod:Acetyl on X]PEPTIDEK-[Unimod:Amidated on X]",
                     "[UNIMOD:1]-PEPTIDEK-[UNIMOD:2]")
+            }).Concat(new[]
+            {
+                new TestCaseData(typeof(ChronologerRT), "[Unimod:Acetyl on X]PEPTIDEK", "[UNIMOD:1]-PEPTIDEK"),
+                new TestCaseData(typeof(ChronologerRT), "[Multiplex Label:TMT6-plex on X]PEPTIDEK", "[UNIMOD:737]-PEPTIDEK")
             });
 
         [TestCaseSource(nameof(DashedTerminalCases))]
@@ -404,6 +409,34 @@ namespace Test.KoinaTests
             Assert.That(result, Is.Not.Null, ((WarningException?)args[3])?.Message);
             Assert.That(args[2], Is.EqualTo(expectedApiSequence));
             Assert.That(args[3], Is.Null);
+        }
+
+        [Test]
+        public void Chronologer_TryCleanSequence_CTerminalModification_IsHeldBack()
+        {
+            var model = new ChronologerRT();
+            var method = typeof(ChronologerRT).GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var args = new object?[] { "[Unimod:Acetyl on X]PEPTIDEK-[Unimod:Amidated on X]", null, null, null };
+
+            var result = method.Invoke(model, args);
+
+            Assert.That(result, Is.Null);
+            Assert.That(args[2], Is.Null);
+            Assert.That(((WarningException?)args[3])?.Message, Does.Contain("Amidated"));
+        }
+
+        [Test]
+        public void Chronologer_TryCleanSequence_AmmoniaLossBeforeCarbamidomethylC_IsHeldBack()
+        {
+            var model = new ChronologerRT();
+            var method = typeof(ChronologerRT).GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var args = new object?[] { "[UNIMOD:385]-C[UNIMOD:4]PEPTIDEK", ProFormaSequenceParser.Instance, null, null };
+
+            var result = method.Invoke(model, args);
+
+            Assert.That(result, Is.Null);
+            Assert.That(args[2], Is.Null);
+            Assert.That(((WarningException?)args[3])?.Message, Does.Contain("385"));
         }
 
         [Test]
