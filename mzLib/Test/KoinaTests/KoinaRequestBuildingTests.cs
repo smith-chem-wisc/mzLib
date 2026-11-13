@@ -8,6 +8,7 @@ using NUnit.Framework;
 using NUnit.Framework.Constraints;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.SupportedModels.CCSModels;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
@@ -373,6 +374,38 @@ namespace Test.KoinaTests
             Assert.That(warning!.Message, Does.Contain("1896"));
         }
 
+        // Koina parses an N-terminal modification for these models only as "[UNIMOD:n]-PEPTIDE"; without the dash it answers 400.
+        private static readonly Type[] DashedNTerminalModels =
+        {
+            typeof(AlphaPeptDeepRTGeneric), typeof(AlphaPeptDeepCCSGeneric), typeof(AlphaPeptDeepMs2Generic),
+            typeof(Ms2PipHCD2021), typeof(Ms2PipImmunoHCD), typeof(Ms2PipTimsTOF2023), typeof(Ms2PipTimsTOF2024),
+            typeof(Ms2PipTTOF5600)
+        };
+
+        public static IEnumerable<TestCaseData> DashedTerminalCases() =>
+            DashedNTerminalModels.SelectMany(t => new[]
+            {
+                new TestCaseData(t, "[Unimod:Acetyl on X]PEPTIDEK", "[UNIMOD:1]-PEPTIDEK"),
+                new TestCaseData(t, "[Multiplex Label:TMT6-plex on X]PEPTIDEK", "[UNIMOD:737]-PEPTIDEK"),
+                new TestCaseData(t, "[Unimod:Acetyl on X]PEPTIDEK-[Unimod:Amidated on X]",
+                    "[UNIMOD:1]-PEPTIDEK-[UNIMOD:2]")
+            });
+
+        [TestCaseSource(nameof(DashedTerminalCases))]
+        public void TryCleanSequence_TerminalModification_WritesDashedTerminals(
+            Type modelType, string mzLibSequence, string expectedApiSequence)
+        {
+            var model = Instantiate(modelType);
+            var method = modelType.GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var args = new object?[] { mzLibSequence, null, null, null };
+
+            var result = method.Invoke(model, args);
+
+            Assert.That(result, Is.Not.Null, ((WarningException?)args[3])?.Message);
+            Assert.That(args[2], Is.EqualTo(expectedApiSequence));
+            Assert.That(args[3], Is.Null);
+        }
+
         [Test]
         public void UniSpec_ValidateModelSpecificInputs_RejectsChargeOutsideInstrumentRange()
         {
@@ -426,7 +459,7 @@ namespace Test.KoinaTests
 
             var cleaned = ModificationTokenCases.Clean(model, "[UNIMOD:28]-Q[UNIMOD:7]PEPTIDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
 
-            Assert.That(api, Is.EqualTo("[UNIMOD:28]Q[UNIMOD:7]PEPTIDEK"));
+            Assert.That(api, Is.EqualTo("[UNIMOD:28]-Q[UNIMOD:7]PEPTIDEK"));
             Assert.That(cleaned, Is.EqualTo("[UNIMOD:28]Q[UNIMOD:7]PEPTIDEK"));
             Assert.That(warning, Is.Null);
         }

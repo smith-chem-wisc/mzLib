@@ -11,6 +11,7 @@ public enum UnimodLabelStyle
 public sealed class UnimodSequenceFormatSchema : SequenceFormatSchema
 {
     public static readonly UnimodSequenceFormatSchema Instance = new();
+    public static readonly UnimodSequenceFormatSchema DashedNTerminalInstance = new(nTermSeparator: "-");
 
     public UnimodSequenceFormatSchema(UnimodLabelStyle labelStyle = UnimodLabelStyle.UpperCase, char modOpen = '[', char modClosed = ']', string nTermSeparator = "", string cTermSeparator = "-")
         : base(modOpen, modClosed, nTermSeparator, cTermSeparator)
