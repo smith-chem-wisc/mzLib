@@ -1529,6 +1529,140 @@ public sealed class MslLibrary : IDisposable
 			ReplacedCount: replaced,
 			AddedCount: added);
 	}
+
+	/// <summary>
+	/// Updates the library's retention times from one dataset's identifications and writes the result to
+	/// <paramref name="outputPath"/>. Only times and their status change; spectra are untouched.
+	///
+	/// <para>
+	/// <b>Each run</b> is calibrated onto the iRT scale on its own, never pooled with the dataset's other runs:
+	/// about 1,000 unmodified peptides of 7-30 residues, chosen by a fixed rule (length bins x thirds of the
+	/// run, then by SHA-256 of the sequence, so runs pick the same peptides), are fitted against their
+	/// predicted iRT with <see cref="Chromatography.RetentionTimeCalibration.IrtCalibration"/>. Library times are
+	/// never used as anchors, so a wrong stored time cannot bend the calibration that judges new evidence.
+	/// A run with fewer than <see cref="MslRetentionTimeUpdateOptions.MinimumAnchors"/> anchors, or a residual
+	/// SD above <see cref="MslRetentionTimeUpdateOptions.MaxResidualSd"/>, contributes no times.
+	/// </para>
+	///
+	/// <para>
+	/// <b>Each run gives at most one time per precursor</b> (full sequence and charge), the median of its
+	/// identification times, converted to iRT. None is taken from a double peak or a streak, from the void at
+	/// the start of the run, from outside the calibrated range, or from a third of the run the calibration
+	/// does not fit well. The dataset's time is the median over its runs.
+	/// </para>
+	///
+	/// <para>
+	/// <b>Against the stored time</b>, with its <see cref="MslLibraryEntry.RtStatus"/>:
+	/// <list type="bullet">
+	///   <item>No measured time: the dataset's time fills it (observed once). A time from a single run that
+	///   the prediction disagrees with is stored as measured but challenged, with
+	///   <see cref="MslLibraryEntry.RtStruckByPrediction"/> set: the prediction is its first strike.</item>
+	///   <item>Agrees (within <see cref="MslRetentionTimeUpdateOptions.AgreementTolerance"/>): confirmed. The
+	///   first confirmation stores the mean of the two times; a confirmed time is kept.</item>
+	///   <item>Strongly disagrees (beyond <see cref="MslRetentionTimeUpdateOptions.StrongDisagreement"/>): an
+	///   observed-once or confirmed time is kept and challenged; a challenged time is replaced (the second
+	///   strike). A stored time more than 15 iRT from the prediction gives way at once to a new one within 5.</item>
+	///   <item>In between: inconclusive, no change.</item>
+	/// </list>
+	/// A single-run time that disagrees with the stored time must agree with the prediction to count. A dataset
+	/// whose times disagree with more than <see cref="MslRetentionTimeUpdateOptions.DatasetDisagreementLimit"/>
+	/// of the measured times they overlap only confirms: it fills and challenges nothing.
+	/// </para>
+	///
+	/// <para>
+	/// <b>The caller must feed each dataset once.</b> The library does not record which dataset a time came
+	/// from, so a dataset fed twice, or a re-deposit of the same raw files, would confirm its own times. Skip
+	/// a dataset whose runs duplicate an earlier one's.
+	/// </para>
+	///
+	/// <para>
+	/// Precursors are matched to entries by exact full sequence and charge (decoy entries are not updated);
+	/// a precursor not in the library is counted and ignored. A changed entry gets
+	/// <see cref="MslLibraryEntry.RtIsCalibrated"/> = false (the time is iRT), and a predicted entry becomes
+	/// <see cref="MslFormat.SourceType.EmpiricalRefined"/>. This library is not modified.
+	/// </para>
+	/// </summary>
+	/// <param name="runs">Every run of one dataset, each with its confident identifications.</param>
+	/// <param name="predictIrt">
+	///   Predicted iRT (for example Prosit 2025 through Koina) for each full sequence given, in the same
+	///   order; NaN where there is none. Called at most twice. An exception it throws propagates, and nothing
+	///   is written; to carry on through an outage, return NaN (runs without enough anchors then contribute
+	///   nothing).
+	/// </param>
+	/// <param name="outputPath">Destination of the updated library. Created or overwritten.</param>
+	/// <param name="predictLongPeptideIrt">
+	///   Optional predicted iRT for unmodified peptides of 31-50 residues, beyond Prosit's limit (for example
+	///   Chronologer mapped onto the iRT scale); used only to check a single-run time.
+	/// </param>
+	/// <param name="options">Thresholds; the defaults are the tested values.</param>
+	/// <returns>What changed, and a report for each run.</returns>
+	/// <exception cref="ArgumentNullException">
+	///   <paramref name="runs"/>, <paramref name="predictIrt"/> or <paramref name="outputPath"/> is null.
+	/// </exception>
+	/// <exception cref="ArgumentException">A run, its name or identifications, or an identification's sequence is null.</exception>
+	/// <exception cref="ArgumentOutOfRangeException">An option is out of range.</exception>
+	/// <exception cref="InvalidOperationException">A predictor returned null or the wrong number of values.</exception>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public MslRetentionTimeUpdateResult UpdateRetentionTimesAndSave(
+		IReadOnlyList<MslRunObservations> runs,
+		Func<IReadOnlyList<string>, IReadOnlyList<double>> predictIrt,
+		string outputPath,
+		Func<IReadOnlyList<string>, IReadOnlyList<double>>? predictLongPeptideIrt = null,
+		MslRetentionTimeUpdateOptions? options = null)
+	{
+		ThrowIfDisposed();
+		ArgumentNullException.ThrowIfNull(runs);
+		ArgumentNullException.ThrowIfNull(predictIrt);
+		ArgumentNullException.ThrowIfNull(outputPath);
+		options ??= new MslRetentionTimeUpdateOptions();
+		ValidateRetentionTimeOptions(options);
+
+		for (int r = 0; r < runs.Count; r++)
+		{
+			MslRunObservations? run = runs[r];
+			if (run is null || run.RunName is null || run.Psms is null)
+				throw new ArgumentException($"runs[{r}] is null or has a null name or identification list.", nameof(runs));
+			foreach (MslRunPsm? psm in run.Psms)
+				if (psm is null || psm.FullSequence is null || psm.BaseSequence is null)
+					throw new ArgumentException($"runs[{r}] ('{run.RunName}') has a null identification or sequence.", nameof(runs));
+		}
+
+		List<MslLibraryEntry> entries = GetAllEntries().ToList();
+		var (updated, result) = MslRetentionTimeUpdater.Update(entries, runs, predictIrt, predictLongPeptideIrt, options, outputPath);
+		Save(outputPath, updated);
+		return result;
+	}
+
+	private static void ValidateRetentionTimeOptions(MslRetentionTimeUpdateOptions o)
+	{
+		static void Positive(double value, string name)
+		{
+			if (!double.IsFinite(value) || value <= 0)
+				throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), value, $"{name} must be a positive number.");
+		}
+
+		if (o.AnchorsPerRun < 1)
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.AnchorsPerRun, "AnchorsPerRun must be at least 1.");
+		if (o.MinimumAnchors < 3)
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.MinimumAnchors, "MinimumAnchors must be at least 3.");
+		Positive(o.MaxResidualSd, nameof(o.MaxResidualSd));
+		Positive(o.AgreementTolerance, nameof(o.AgreementTolerance));
+		Positive(o.StrongDisagreement, nameof(o.StrongDisagreement));
+		Positive(o.PredictionTolerance, nameof(o.PredictionTolerance));
+		Positive(o.LongPeptidePredictionTolerance, nameof(o.LongPeptidePredictionTolerance));
+		Positive(o.DoublePeakGap, nameof(o.DoublePeakGap));
+		Positive(o.StreakSpan, nameof(o.StreakSpan));
+		if (o.StrongDisagreement < o.AgreementTolerance)
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.StrongDisagreement,
+				"StrongDisagreement must be at least AgreementTolerance.");
+		if (!(o.DatasetDisagreementLimit > 0 && o.DatasetDisagreementLimit <= 1))
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.DatasetDisagreementLimit,
+				"DatasetDisagreementLimit must be in (0, 1].");
+		if (!(o.VoidFraction >= 0 && o.VoidFraction < 1))
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.VoidFraction,
+				"VoidFraction must be in [0, 1).");
+	}
+
 	// ── Private helpers for UpdateAndSave ────────────────────────────────────
 
 	/// <summary>
