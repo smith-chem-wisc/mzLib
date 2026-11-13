@@ -39,7 +39,6 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
     ];
 
     private const string CrosslinkItemAccession = "MS:1002511";
-    private static readonly Regex NativeIdIndex = new(@"(^|\s)index=(\d+)($|\s)", RegexOptions.Compiled);
     private static readonly Regex NativeIdFile = new(@"(^|\s)file=(\S+)", RegexOptions.Compiled);
 
     public override SupportedFileType FileType => FilePath.ParseFileType();
@@ -172,7 +171,7 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
         return new MzIdentMLRecord
         {
             Match = match,
-            OneBasedScanNumber = OneBasedScanNumberOf(match.SpectrumId),
+            OneBasedScanNumber = SpectrumNativeId.OneBasedScanNumberOf(match.SpectrumId),
             SpectrumId = match.SpectrumId ?? string.Empty,
             SpectrumTitle = match.SpectrumTitle,
             SpectraFileLocation = location,
@@ -195,32 +194,6 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
             Scores = ScoresOf(match),
             QValue = QValueOf(match),
         };
-    }
-
-    /// <summary>
-    /// The nativeID's scan number: "scan=N" gives N; "index=N", a zero-based position in a peak list, gives
-    /// N + 1, as CasanovoMzTabFile does; anything else gives -1.
-    /// </summary>
-    internal static int OneBasedScanNumberOf(string? spectrumId)
-    {
-        if (string.IsNullOrEmpty(spectrumId))
-        {
-            return -1;
-        }
-
-        var scan = Mzml.nativeIdScanNumberParser.Match(spectrumId);
-        if (scan.Success && int.TryParse(scan.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int scanNumber))
-        {
-            return scanNumber;
-        }
-
-        var index = NativeIdIndex.Match(spectrumId);
-        if (index.Success && int.TryParse(index.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int position))
-        {
-            return position + 1;
-        }
-
-        return -1;
     }
 
     /// <summary>
@@ -255,9 +228,10 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
                 return "modification has no location";
             }
 
-            if (location < 0 || location > sequence.Length + 1)
+            // Checked before the accession, so a modification that is wrong both ways is reported by its location.
+            if (PsiModificationLocation.ReasonNotOnPeptide(sequence, location) is { } offPeptide)
             {
-                return $"modification location {location} is not on the peptide";
+                return offPeptide;
             }
 
             var unimod = modification.CvParams.FirstOrDefault(cv => cv.Accession.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase));
@@ -267,26 +241,10 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
                 return $"modification {named} at location {location} has no UNIMOD accession";
             }
 
-            // mzIdentML location: 0 is the N-terminus, 1..length a residue, length + 1 the C-terminus.
-            // AllModsOneIsNterminus: 1 is the N-terminus, residue r (zero-based) is r + 2, C-terminus length + 2.
-            // Both count the N-terminus as a position, so every key is the location plus one.
-            var canonical = location switch
+            if (!PsiModificationLocation.TryAddUnimod(mods, sequence, location, unimod.Accession, unimodId,
+                    modification.MonoisotopicMassDelta, lookup, out string? reason))
             {
-                0 => CanonicalModification.AtNTerminus(unimod.Accession, sequence[0], modification.MonoisotopicMassDelta, unimodId: unimodId),
-                _ when location == sequence.Length + 1 => CanonicalModification.AtCTerminus(unimod.Accession, sequence[^1], modification.MonoisotopicMassDelta, unimodId: unimodId),
-                _ => CanonicalModification.AtResidue(location - 1, sequence[location - 1], unimod.Accession, modification.MonoisotopicMassDelta, unimodId: unimodId),
-            };
-            int key = location + 1;
-
-            var resolved = lookup.TryResolve(canonical)?.MzLibModification;
-            if (resolved == null)
-            {
-                return $"{unimod.Accession} at location {location} does not resolve to a Unimod modification";
-            }
-
-            if (!mods.TryAdd(key, resolved))
-            {
-                return $"more than one modification at location {location}";
+                return reason;
             }
         }
 
