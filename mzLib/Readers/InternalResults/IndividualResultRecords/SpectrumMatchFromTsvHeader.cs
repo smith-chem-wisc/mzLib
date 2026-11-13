@@ -85,6 +85,16 @@
         public const string PEP_QValue = "PEP_QValue";
         public const string SpectralAngle = "Normalized Spectral Angle";
 
+        // Localization probabilities (optional; written by MetaMorpheus when a search computes them, absent
+        // from older files and from searches that do not). Not to be confused with the glyco-only
+        // "Localization Score" / "All SiteSpecific Localization Probability" columns above and below.
+        // The best placement of the match's modifications, e.g. "S3,T4" (residue + 1-based peptide position)
+        public const string LocalizedPlacement = "Localized Placement";
+        // The posterior probability of that best placement, in [0, 1]
+        public const string LocalizationProbability = "Localization Probability";
+        // The false localization rate of confident matches at least as sure of their placement
+        public const string LocalizationQValue = "Localization QValue";
+
         //Legacy Terminology for backwards compatibility DO NOT USE IN NEW CODE
         public const string PsmCount = "PSM Count (unambiguous, <0.01 q-value)";
         public const string PeptideMonoMass = "Peptide Monoisotopic Mass";

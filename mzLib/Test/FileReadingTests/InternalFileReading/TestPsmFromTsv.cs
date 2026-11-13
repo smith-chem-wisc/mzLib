@@ -591,6 +591,93 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         [Test]
+        public static void LocalizationProbabilityColumns_AbsentInOldFiles_ReadAsNull()
+        {
+            string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+
+            // A file written before the localization columns existed still reads, with every value null.
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(baseFile, out _);
+            NUnit.Framework.Assert.That(psms, Is.Not.Empty);
+            NUnit.Framework.Assert.That(psms.All(p => p.LocalizedPlacement == null));
+            NUnit.Framework.Assert.That(psms.All(p => p.LocalizationProbability == null));
+            NUnit.Framework.Assert.That(psms.All(p => p.LocalizationQValue == null));
+        }
+
+        [Test]
+        public static void LocalizationProbabilityColumns_ReadAndSurviveDisambiguation()
+        {
+            string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+            List<PsmFromTsv> withoutColumns = SpectrumMatchTsvReader.ReadPsmTsv(baseFile, out _);
+
+            // Build a synthetic copy carrying the three columns last. Odd rows get a full result, even rows
+            // blank cells (what MetaMorpheus writes when nothing was computed), and every fourth row a blank
+            // q-value alone (a decoy, an unconfident match, or a match with only one possible placement).
+            string[] lines = File.ReadAllLines(baseFile);
+            int headerWidth = lines[0].Split('\t').Length;
+            var outLines = new List<string>
+            {
+                string.Join("\t", lines[0], SpectrumMatchFromTsvHeader.LocalizedPlacement,
+                    SpectrumMatchFromTsvHeader.LocalizationProbability, SpectrumMatchFromTsvHeader.LocalizationQValue)
+            };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                // only header-width rows, so the cells land at the registered column indices
+                if (lines[i].Split('\t').Length != headerWidth)
+                {
+                    outLines.Add(lines[i]);
+                    continue;
+                }
+                string cells = (i % 2 == 0) ? "\t\t"
+                    : (i % 4 == 3) ? "S3,T4\t0.875\t"
+                    : "S3,T4\t0.875\t0.0125";
+                outLines.Add(lines[i] + "\t" + cells);
+            }
+            string syntheticFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "LocalizationProbabilityColumns_synthetic.psmtsv");
+            File.WriteAllLines(syntheticFile, outLines);
+
+            try
+            {
+                List<PsmFromTsv> withColumns = SpectrumMatchTsvReader.ReadPsmTsv(syntheticFile, out _);
+                // the new columns do not change which rows read
+                NUnit.Framework.Assert.That(withColumns.Count, Is.EqualTo(withoutColumns.Count));
+
+                PsmFromTsv full = withColumns.First(p => p.LocalizationQValue != null);
+                NUnit.Framework.Assert.That(full.LocalizedPlacement, Is.EqualTo("S3,T4"));
+                NUnit.Framework.Assert.That(full.LocalizationProbability, Is.EqualTo(0.875).Within(1e-9));
+                NUnit.Framework.Assert.That(full.LocalizationQValue, Is.EqualTo(0.0125).Within(1e-9));
+
+                PsmFromTsv noQValue = withColumns.First(p => p.LocalizedPlacement != null && p.LocalizationQValue == null);
+                NUnit.Framework.Assert.That(noQValue.LocalizationProbability, Is.EqualTo(0.875).Within(1e-9));
+
+                // blank cells read as null, the same as a missing column
+                PsmFromTsv blank = withColumns.First(p => p.LocalizedPlacement == null);
+                NUnit.Framework.Assert.That(blank.LocalizationProbability, Is.Null);
+                NUnit.Framework.Assert.That(blank.LocalizationQValue, Is.Null);
+                NUnit.Framework.Assert.That(withColumns.Count(p => p.LocalizedPlacement == null), Is.GreaterThan(0));
+                NUnit.Framework.Assert.That(withColumns.Count(p => p.LocalizedPlacement != null), Is.GreaterThan(0));
+
+                // one value per match, so every candidate of an ambiguous match carries it unchanged
+                PsmFromTsv ambiguous = withColumns.First(p => p.FullSequence.Contains('|') && p.LocalizedPlacement != null);
+                PsmFromTsv disambiguated = new(ambiguous, ambiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambiguated.LocalizedPlacement, Is.EqualTo("S3,T4"));
+                NUnit.Framework.Assert.That(disambiguated.LocalizationProbability, Is.EqualTo(0.875).Within(1e-9));
+                NUnit.Framework.Assert.That(disambiguated.LocalizationQValue, Is.EqualTo(ambiguous.LocalizationQValue));
+
+                PsmFromTsv clone = new(full, full.FullSequence, 0);
+                NUnit.Framework.Assert.That(clone.LocalizedPlacement, Is.EqualTo(full.LocalizedPlacement));
+                NUnit.Framework.Assert.That(clone.LocalizationProbability, Is.EqualTo(full.LocalizationProbability));
+                NUnit.Framework.Assert.That(clone.LocalizationQValue, Is.EqualTo(full.LocalizationQValue));
+            }
+            finally
+            {
+                File.Delete(syntheticFile);
+            }
+        }
+
+        [Test]
         public static void TestParseModification()
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
