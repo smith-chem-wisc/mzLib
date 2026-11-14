@@ -66,6 +66,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(Conditions(Product(new Protein("MTGGGG", "P1"), "OpeRATOR", 2, 6), "OpeRATOR"), Is.Empty, "after the initiator Met");
             var truncated = new Protein("GGGGTGGGG", "P1", proteolysisProducts: new List<TruncationProduct> { new(5, 9, "chain") });
             Assert.That(Conditions(Product(truncated, "OpeRATOR", 5, 9), "OpeRATOR"), Is.Empty, "a truncation boundary");
+            var unknownStart = new Protein("GGGGTGGGG", "P1", proteolysisProducts: new List<TruncationProduct> { new(null, 4, "propeptide") });
+            Assert.That(Conditions(Product(unknownStart, "OpeRATOR", 5, 9), "OpeRATOR"), Is.Empty, "the end of a product whose start is unknown");
         }
 
         /// <summary>GTKSGG: T2-K3|S4 is a StcE cut (TX|S) and a trypsin cut (K|), and trypsin needs no glycan.</summary>
@@ -98,6 +100,28 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void ASemiSpecificProduct_ReportsOnlyTheEndTheProteaseCut() =>
             Assert.That(Conditions(Product(new Protein("RPPITQSSL", "P1"), "StcE", 3, 6), "StcE"), Is.EqualTo(new[] { "5" }));
+
+        [Test]
+        public static void AProductWithoutAProtein_HasNoConditions() =>
+            Assert.That(new PeptideWithSetModifications("TQSSL").GetCleavageConditions(ProteaseDictionary.Dictionary["StcE"]), Is.Empty);
+
+        /// <summary>SQSSL from residue 2: StcE's TX|S needs two residues before the bond, so it cannot have cut after S1.</summary>
+        [Test]
+        public static void StcE_CannotHaveCutAfterTheFirstResidue() =>
+            Assert.That(Conditions(Product(new Protein("SQSSL", "P1"), "StcE", 2, 5), "StcE"), Is.Empty);
+
+        /// <summary>
+        /// GTGGT, cut before each T, with conditions on P3 and P3': TGG's start cut puts P3 before the protein and its end cut
+        /// puts P3' after it, so only the start cut's P3' (residue 4) and the end cut's P3 (residue 2) remain.
+        /// </summary>
+        [Test]
+        public static void AConditionOnAResidueBeyondTheProtein_IsDropped()
+        {
+            var agent = new Protease("p3-test", CleavageSpecificity.Full, null, null, new List<DigestionMotif>
+                { new("T", null, 0, null, new[] { new CleavageRequirement(3, isPrimeSide: false), new CleavageRequirement(3, isPrimeSide: true) }) });
+            var product = Product(new Protein("GTGGT", "P1"), "trypsin", 2, 4); // the agent below decides, not these params
+            Assert.That(product.GetCleavageConditions(agent).Select(c => c.OneBasedResidue).OrderBy(r => r), Is.EqualTo(new[] { 2, 4 }));
+        }
 
         [Test]
         public static void AnRnaseProduct_HasNoConditions()

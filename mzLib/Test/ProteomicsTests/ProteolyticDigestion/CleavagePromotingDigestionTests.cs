@@ -162,6 +162,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             CollectionAssert.AreEqual(new[] { StcESubstrate },
                 BaseSequences(Digest(WithAnnotation(StcESubstrate, 5, Mod("T", "Common Biological")), "StcE")));
+            CollectionAssert.AreEqual(new[] { StcESubstrate },
+                BaseSequences(Digest(new Protein(StcESubstrate, "P"), "StcE", variableMods: new List<Modification> { Mod("T", "Common Biological") })));
         }
 
         [Test]
