@@ -39,6 +39,61 @@ namespace Omics.Digestion
         public int Length => BaseSequence.Length; //how many residues long the peptide is
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
+        /// <summary>
+        /// What each end of this product needs, or must not carry, if <paramref name="agent"/> cut it there: at each end that
+        /// is a cut, the conditions every motif cutting there imposes, keyed by the parent's one-based residue (which may lie
+        /// on the neighbouring product). Nothing at an end no motif cuts, or one a motif without conditions also cuts.
+        /// </summary>
+        public List<(int OneBasedResidue, CleavageRequirement Requirement)> GetCleavageConditions(DigestionAgent agent)
+        {
+            var conditions = new List<(int, CleavageRequirement)>();
+            if (Parent is null)
+            {
+                return conditions;
+            }
+            if (IsCutBefore(Parent, OneBasedStartResidue))
+            {
+                AddConditions(agent, OneBasedStartResidue - 1, conditions);
+            }
+            if (IsCutAfter(Parent, OneBasedEndResidue))
+            {
+                AddConditions(agent, OneBasedEndResidue, conditions);
+            }
+            return conditions;
+        }
+
+        private void AddConditions(DigestionAgent agent, int cut, List<(int, CleavageRequirement)> conditions)
+        {
+            var motifs = agent.MotifsCuttingAfter(Parent.BaseSequence, cut).ToList();
+            if (motifs.Count == 0)
+            {
+                return;
+            }
+            // Only what every motif imposes, so a motif without conditions (trypsin's K| in StcE-trypsin) leaves none.
+            foreach (CleavageRequirement requirement in motifs[0].CleavageRequirements)
+            {
+                int residue = requirement.ConstrainedResidue(cut);
+                if (residue >= 1 && residue <= Parent.Length && motifs.All(motif => motif.CleavageRequirements.Any(other =>
+                        other.ConstrainedResidue(cut) == residue && other.IsForbidden == requirement.IsForbidden)))
+                {
+                    conditions.Add((residue, requirement));
+                }
+            }
+        }
+
+        /// <summary>True when the bond before one-based residue <paramref name="start"/> was cut by a protease: not the
+        /// parent's start, its initiator Met's removal, or a truncation boundary.</summary>
+        public static bool IsCutBefore(IBioPolymer parent, int start) =>
+            start > 1 && !(start == 2 && parent[0] == 'M') && !IsTruncationBoundary(parent, start - 1);
+
+        /// <summary>True when the bond after one-based residue <paramref name="end"/> was cut by a protease: not the parent's
+        /// end or a truncation boundary.</summary>
+        public static bool IsCutAfter(IBioPolymer parent, int end) =>
+            end < parent.Length && !IsTruncationBoundary(parent, end);
+
+        private static bool IsTruncationBoundary(IBioPolymer parent, int cut) =>
+            parent.TruncationProducts.Any(product => product.OneBasedBeginPosition - 1 == cut || product.OneBasedEndPosition == cut);
+
         #region Digestion Helper Methods
 
         /// <summary>

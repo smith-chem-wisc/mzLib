@@ -32,11 +32,12 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
         private static List<PeptideWithSetModifications> Digest(Protein protein, string protease, bool promoting = true,
             List<Modification> variableMods = null, int maxMissedCleavages = 0, bool blocking = false, int maxLength = int.MaxValue,
-            InitiatorMethionineBehavior initiatorMethionine = InitiatorMethionineBehavior.Retain, int maxMods = 2) =>
+            InitiatorMethionineBehavior initiatorMethionine = InitiatorMethionineBehavior.Retain, int maxMods = 2,
+            List<Modification> fixedMods = null) =>
             protein.Digest(new DigestionParams(protease, maxMissedCleavages, minPeptideLength: 1, maxPeptideLength: maxLength,
                         initiatorMethionineBehavior: initiatorMethionine, maxModsForPeptides: maxMods, respectCleavageBlockingModifications: blocking,
                         respectCleavagePromotingModifications: promoting),
-                    new List<Modification>(), variableMods ?? new List<Modification>())
+                    fixedMods ?? new List<Modification>(), variableMods ?? new List<Modification>())
                 .Cast<PeptideWithSetModifications>().ToList();
 
         private static List<string> BaseSequences(IEnumerable<PeptideWithSetModifications> peptides) =>
@@ -48,10 +49,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             List<CleavageRequirement> requirements = CleavageRequirement.ParseAll("P2:O-glycan; p1' : o-glycan");
             Assert.AreEqual((2, false), (requirements[0].Subsite, requirements[0].IsPrimeSide));
             Assert.AreEqual((1, true), (requirements[1].Subsite, requirements[1].IsPrimeSide));
+            Assert.IsFalse(requirements[0].IsForbidden);
+            Assert.IsTrue(CleavageRequirement.ParseAll("P1:!O-glycan")[0].IsForbidden);
             CollectionAssert.IsEmpty(CleavageRequirement.ParseAll(""));
         }
 
         [Test]
+        [TestCase("P1:!N-glycan")]
         [TestCase("P2")]
         [TestCase("X2:O-glycan")]
         [TestCase("Pa:O-glycan")]
@@ -79,6 +83,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             List<DigestionMotif> motifs = ProteaseDictionary.Dictionary["StcE-trypsin"].DigestionMotifs;
             CollectionAssert.AreEqual(new[] { 1, 1, 1, 1, 0, 0 }, motifs.Select(m => m.CleavageRequirements.Count));
+            // IMPa's P1:!O-glycan names trypsin's own P1, and still must not give K| and R| the glycan rule.
+            CollectionAssert.AreEqual(new[] { 2, 2, 0, 0 },
+                ProteaseDictionary.Dictionary["IMPa-trypsin|P"].DigestionMotifs.Select(m => m.CleavageRequirements.Count));
             Assert.AreEqual(2, motifs[0].CleavageRequirements[0].Subsite);
         }
 
@@ -155,6 +162,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             CollectionAssert.AreEqual(new[] { StcESubstrate },
                 BaseSequences(Digest(WithAnnotation(StcESubstrate, 5, Mod("T", "Common Biological")), "StcE")));
+            CollectionAssert.AreEqual(new[] { StcESubstrate },
+                BaseSequences(Digest(new Protein(StcESubstrate, "P"), "StcE", variableMods: new List<Modification> { Mod("T", "Common Biological") })));
         }
 
         [Test]
@@ -170,6 +179,41 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             List<PeptideWithSetModifications> annotated = Digest(WithAnnotation("ASAAA", 2, Mod("S")), "OgpA-like");
             CollectionAssert.AreEqual(new[] { "A", "ASAAA", "SAAA" }, BaseSequences(annotated));
             Assert.IsTrue(annotated.Where(p => p.BaseSequence == "SAAA").All(p => p.AllModsOneIsNterminus.ContainsKey(2)));
+        }
+
+        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
+        public static void IMPaDoesNotCutBetweenTwoAdjacentGlycosites_SmEDoes(bool annotatedOnSer3)
+        {
+            // GA|S|TAAA with glycans possible on Ser3 and Thr4. Cutting S|T needs Thr4 glycosylated and, for IMPa, Ser3 not.
+            var annotations = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { Mod("T") } } };
+            if (annotatedOnSer3)
+            {
+                annotations[3] = new List<Modification> { Mod("S") };
+            }
+            var protein = new Protein("GASTAAA", "P", oneBasedModifications: annotations);
+            List<Modification> variableMods = annotatedOnSer3 ? null : new List<Modification> { Mod("S") };
+            CollectionAssert.AreEqual(new[] { "GA", "S", "TAAA" }, BaseSequences(Digest(protein, "IMPa", promoting: false)));
+            CollectionAssert.AreEqual(new[] { "GA", "GAS", "GASTAAA", "S", "STAAA", "TAAA" },
+                BaseSequences(Digest(protein, "SmE", variableMods: variableMods)));
+
+            List<PeptideWithSetModifications> impa = Digest(protein, "IMPa", variableMods: variableMods);
+            CollectionAssert.AreEqual(new[] { "GA", "GAS", "GASTAAA", "STAAA", "TAAA" }, BaseSequences(impa));
+            Assert.IsFalse(impa.Single(p => p.BaseSequence == "GAS").AllModsOneIsNterminus.ContainsKey(4));
+        }
+
+        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
+        public static void AGlycanThatMustSitAtP1_StopsIMPaOnBothSidesOfTheBond(bool permanent)
+        {
+            // The product starting at the bond cannot see P1, so only a glycan certain to be there decides its side.
+            var protein = new Protein("GASTAAA", "P",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 4, new List<Modification> { Mod("T") } } },
+                oneBasedFixedModifications: permanent ? new Dictionary<int, Modification> { { 3, Mod("S") } } : null);
+            List<Modification> fixedMods = permanent ? null : new List<Modification> { Mod("S") };
+            CollectionAssert.AreEqual(new[] { "GA", "STAAA" }, BaseSequences(Digest(protein, "IMPa", fixedMods: fixedMods)));
         }
 
         [Test]
