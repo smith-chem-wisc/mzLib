@@ -375,12 +375,12 @@ namespace Test.KoinaTests
         }
 
         // Koina parses an N-terminal modification for these models only as "[UNIMOD:n]-PEPTIDE". Without the dash, AlphaPeptDeep
-        // and ms2pip answer 400, and Chronologer reads the id as residues.
+        // and ms2pip answer 400, and Chronologer, DeepLC and IM2Deep read the id as residues.
         private static readonly Type[] DashedNTerminalModels =
         {
             typeof(AlphaPeptDeepRTGeneric), typeof(AlphaPeptDeepCCSGeneric), typeof(AlphaPeptDeepMs2Generic),
             typeof(Ms2PipHCD2021), typeof(Ms2PipImmunoHCD), typeof(Ms2PipTimsTOF2023), typeof(Ms2PipTimsTOF2024),
-            typeof(Ms2PipTTOF5600)
+            typeof(Ms2PipTTOF5600), typeof(DeeplcHelaHf), typeof(IM2Deep)
         };
 
         public static IEnumerable<TestCaseData> DashedTerminalCases() =>
