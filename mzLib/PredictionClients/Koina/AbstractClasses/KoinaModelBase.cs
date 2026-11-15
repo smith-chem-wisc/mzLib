@@ -588,8 +588,10 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return i;
     }
 
-    private static string ModificationToken(CanonicalModification mod, int unimodId, string residues) => mod.PositionType switch
+    private string ModificationToken(CanonicalModification mod, int unimodId, string residues) => mod.PositionType switch
     {
+        ModificationPositionType.NTerminus when SequenceConverter.Serializer.Schema is UnimodSequenceFormatSchema { NTerminalModificationsOnFirstResidue: true }
+            => $"{residues[0]}[UNIMOD:{unimodId}]",
         ModificationPositionType.NTerminus => $"[UNIMOD:{unimodId}]-",
         ModificationPositionType.CTerminus => $"-[UNIMOD:{unimodId}]",
         _ => $"{residues[mod.ResidueIndex!.Value]}[UNIMOD:{unimodId}]"
@@ -629,6 +631,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         ModCloseBracket = schema.ModCloseBracket,
         NTermSeparator = schema.NTermSeparator,
         CTermSeparator = schema.CTermSeparator,
+        NTerminalModificationsOnFirstResidue = schema.NTerminalModificationsOnFirstResidue,
         PyroGluOnFirstResidue = true
     };
 

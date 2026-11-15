@@ -245,6 +245,21 @@ public class SerializationTests
         Assert.That(SequenceConversionService.Default.Serialize(PlacedBy(new UnimodSequenceFormatSchema { PyroGluOnFirstResidue = true }), "Unimod"), Is.EqualTo(onItsResidue));
     }
 
+    [TestCase("[Unimod:Acetyl on X]PEPTIDE", "[UNIMOD:1]PEPTIDE", "P[UNIMOD:1]EPTIDE")]
+    [TestCase("[Unimod:Acetyl on X]M[Common Variable:Oxidation on M]PTIDE", "[UNIMOD:1]M[UNIMOD:35]PTIDE", "M[UNIMOD:35][UNIMOD:1]PTIDE")]
+    [TestCase("[Unimod:Acetyl on X]PEPTIDE-[Unimod:Amidated on X]", "[UNIMOD:1]PEPTIDE-[UNIMOD:2]", "P[UNIMOD:1]EPTIDE-[UNIMOD:2]")]
+    public void UnimodSerializer_NTerminalModificationsOnFirstResidue_WritesItAfterTheFirstResidueOnlyWhenOptedIn(
+        string mzLib, string byDefault, string onFirstResidue)
+    {
+        var canonical = _mzLibParser.Parse(mzLib);
+        Assert.That(canonical, Is.Not.Null);
+        var optedIn = new UnimodSequenceSerializer(new UnimodSequenceFormatSchema { NTerminalModificationsOnFirstResidue = true });
+
+        Assert.That(SequenceConversionService.Default.Serialize(canonical.Value, "Unimod"), Is.EqualTo(byDefault));
+        Assert.That(optedIn.Serialize(canonical.Value), Is.EqualTo(onFirstResidue));
+        Assert.That(canonical.Value.NTerminalModification, Is.Not.Null);
+    }
+
     [Test]
     public void UnimodSerializer_FromMzLib_ResolvesUnimodId()
     {

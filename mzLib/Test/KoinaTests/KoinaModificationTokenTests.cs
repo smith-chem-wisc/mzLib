@@ -50,14 +50,15 @@ namespace Test.KoinaTests
                 nTerminal = $"[UNIMOD:{required.First()}]-";
             }
 
-            return $"{nTerminal}AEPT{string.Concat(tokens.Where(t => !t.EndsWith('-')))}IDER";
+            var cTerminal = tokens.SingleOrDefault(t => t.StartsWith('-'));
+            return $"{nTerminal}AEPT{string.Concat(tokens.Where(t => !t.EndsWith('-') && !t.StartsWith('-')))}IDER{cTerminal}";
         }
 
         public static string UndeclaredToken(object model)
         {
             var tokens = Tokens(model)!;
             int id = IdOf(tokens.First(t => !t.EndsWith('-')));
-            return "ACDEFGHIKLMNPQRSTVWY".Select(residue => $"{residue}[UNIMOD:{id}]").Append($"[UNIMOD:{id}]-").First(t => !tokens.Contains(t));
+            return "ACDEFGHIKLMNPQRSTVWY".Select(residue => $"{residue}[UNIMOD:{id}]").Append($"-[UNIMOD:{id}]").First(t => !tokens.Contains(t));
         }
 
         public static string? Clean(object model, string sequence, ISequenceParser? parser, out string? apiSequence, out WarningException? warning)
@@ -201,21 +202,20 @@ namespace Test.KoinaTests
             Assert.That(fromProForma is null, Is.EqualTo(expected is null));
         }
 
-        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
-        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "PEPTIDEK")]
-        public void UniSpec_NTerminalAcetyl_IsHeldBackFromMzLibAndProFormaSources(SequenceConversionHandlingMode mode, string? expected)
+        [TestCase("[Unimod:Acetyl on X]PEPTIDEK", null, "P[UNIMOD:1]EPTIDEK", "[Unimod:Acetyl on X]PEPTIDEK")]
+        [TestCase("[UNIMOD:1]-PEPTIDEK", "ProForma", "P[UNIMOD:1]EPTIDEK", "[UNIMOD:1]PEPTIDEK")]
+        [TestCase("[Unimod:Acetyl on X]M[Common Variable:Oxidation on M]PEPTIDEK", null, "M[UNIMOD:35][UNIMOD:1]PEPTIDEK",
+            "[Unimod:Acetyl on X]M[Common Variable:Oxidation on M]PEPTIDEK")]
+        [TestCase("[UNIMOD:1]-M[UNIMOD:35]PEPTIDEK", "ProForma", "M[UNIMOD:35][UNIMOD:1]PEPTIDEK", "[UNIMOD:1]M[UNIMOD:35]PEPTIDEK")]
+        public void UniSpec_NTerminalModification_IsSentAfterTheFirstResidue_AndKeptNTerminalInTheReturnedSequence(
+            string sequence, string? parser, string expectedApi, string expectedReturned)
         {
-            var model = new UniSpec(modHandlingMode: mode);
+            var cleaned = ModificationTokenCases.Clean(new UniSpec(), sequence, parser == null ? null : ProFormaSequenceParser.Instance,
+                out var api, out var warning);
 
-            var fromMzLib = ModificationTokenCases.Clean(model, "[Unimod:Acetyl on X]PEPTIDEK", null, out var mzLibApi, out var mzLibWarning);
-            var fromProForma = ModificationTokenCases.Clean(model, "[UNIMOD:1]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
-
-            Assert.That(mzLibApi, Is.EqualTo(expected));
-            Assert.That(proFormaApi, Is.EqualTo(expected));
-            Assert.That(fromMzLib is null, Is.EqualTo(expected is null));
-            Assert.That(fromProForma is null, Is.EqualTo(expected is null));
-            Assert.That(mzLibWarning?.Message, Does.Contain("Acetyl"));
-            Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:1"));
+            Assert.That(api, Is.EqualTo(expectedApi));
+            Assert.That(warning, Is.Null);
+            Assert.That(cleaned, Is.EqualTo(expectedReturned));
         }
 
         private sealed class HcdProbe : Prosit2020IntensityHCD
@@ -289,6 +289,29 @@ namespace Test.KoinaTests
                 Assert.That(outcomes[^1].Predicted, Is.False, undeclared);
                 Assert.That(outcomes[^1].Warning?.Message, Does.Contain("unsupported modification"), undeclared);
             });
+        }
+
+        [TestCase("PEPTIDEK", "[Unimod:Acetyl on X]PEPTIDEK")]
+        [TestCase("M[Common Variable:Oxidation on M]PEPTIDEK", "[Unimod:Acetyl on X]M[Common Variable:Oxidation on M]PEPTIDEK")]
+        public void UniSpec_NTerminalAcetylAfterTheFirstResidue_ShiftsBIonsAndChangesTheSpectrum(string withoutAcetyl, string withAcetyl)
+        {
+            var spectra = new UniSpec().Predict(new List<FragmentIntensityPredictionInput>
+            {
+                new(withoutAcetyl, 2, 35, "QE", null), new(withAcetyl, 2, 35, "QE", null)
+            });
+
+            Assert.That(spectra[0].FragmentMZs, Is.Not.Null, spectra[0].Warning?.Message);
+            Assert.That(spectra[1].FragmentMZs, Is.Not.Null, spectra[1].Warning?.Message);
+            double B2(PeptideFragmentIntensityPrediction p) => p.FragmentMZs![p.FragmentAnnotations!.IndexOf("b2")];
+            Assert.That(B2(spectra[1]) - B2(spectra[0]), Is.EqualTo(42.0106).Within(0.01));
+
+            Dictionary<string, double> ByAnnotation(PeptideFragmentIntensityPrediction p) =>
+                p.FragmentAnnotations!.Zip(p.FragmentIntensities!).GroupBy(x => x.First).ToDictionary(g => g.Key, g => g.Max(x => (double)x.Second));
+            var without = ByAnnotation(spectra[0]);
+            var with = ByAnnotation(spectra[1]);
+            double dot = without.Keys.Intersect(with.Keys).Sum(k => without[k] * with[k]);
+            double cosine = dot / Math.Sqrt(without.Values.Sum(v => v * v) * with.Values.Sum(v => v * v));
+            Assert.That(cosine, Is.LessThan(0.95));
         }
     }
 }

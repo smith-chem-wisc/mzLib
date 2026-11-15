@@ -27,8 +27,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         // Koina: models/UniSpec/UniSpec/1/model.py takes these ids on any standard residue and has no terminal position
         private static readonly IReadOnlySet<string> SupportedModificationTokens = SupportedUnimodIds
             .SelectMany(id => "ACDEFGHIKLMNPQRSTVWY".Select(residue => $"{residue}[UNIMOD:{id}]")).ToHashSet();
+        // UniSpec was trained with an N-terminal modification on the first residue (usnistgov/UniSpec utils.py, inptsr)
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
-            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+            new UnimodSequenceFormatSchema { NTerminalModificationsOnFirstResidue = true }, SupportedUnimodIds);
 
         public override string ModelName => "UniSpec";
         public override int MaxBatchSize => 1000;

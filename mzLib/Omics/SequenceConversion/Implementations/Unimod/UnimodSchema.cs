@@ -27,6 +27,13 @@ public sealed class UnimodSequenceFormatSchema : SequenceFormatSchema
     /// placement calls PlaceModification before serializing. Off by default: mzLib keeps pyro-Glu N-terminal, where it formed.
     /// </summary>
     public bool PyroGluOnFirstResidue { get; init; }
+
+    /// <summary>
+    /// Makes the serializer write an N-terminal modification after the first residue and that residue's own modification
+    /// (<c>M[UNIMOD:35][UNIMOD:1]PEPTIDE</c>), for a reader with no N-terminal position. The sequence itself keeps it N-terminal.
+    /// Off by default.
+    /// </summary>
+    public bool NTerminalModificationsOnFirstResidue { get; init; }
     public override string FormatName => "Unimod";
 
     /// <summary>
