@@ -293,8 +293,12 @@ public sealed record ShareMemberResult
     public int ReferencesWithValue { get; init; }
     /// <summary><c>listed_marker_used</c>: every <c>marker_peptide</c> of the row is among the markers found; null when none is listed or none was classed.</summary>
     public bool? ListedMarkerUsed { get; init; }
-    /// <summary>The member enters the share model.</summary>
-    public bool InEstimate => Assignment.State == SetMemberStateFromRow.Tested;
+    /// <summary>
+    /// The member enters the share model: <c>tested</c>, or <c>incomplete</c>. Ruled by the user 2026-11-15, as for a protein
+    /// set (2026-10-19): an incomplete member stays in the effect and blocks <c>supported</c>; leaving it out would tilt the
+    /// effect toward the members with the most values.
+    /// </summary>
+    public bool InEstimate => Assignment.State is SetMemberStateFromRow.Tested or SetMemberStateFromRow.Incomplete;
 }
 
 /// <summary>A share member's state, in the contract's order (<c>DEF-DIFF-SHARE-STATE</c>, ruling S4).</summary>

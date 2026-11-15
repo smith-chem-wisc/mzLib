@@ -313,8 +313,9 @@ public class SetTestShareTests
     [Test]
     public void MarkersSeenOnOneSideOnly_AreSeenOneSide()
     {
-        Assert.That(State(Table(("QQFYSGR", Old), ("AAPEGHK", Everywhere), ("LLNDAMK", Everywhere))).Assignment.State,
-            Is.EqualTo(SetMemberStateFromRow.SeenNumeratorOnly));
+        var seen = State(Table(("QQFYSGR", Old), ("AAPEGHK", Everywhere), ("LLNDAMK", Everywhere)));
+        Assert.That(seen.Assignment.State, Is.EqualTo(SetMemberStateFromRow.SeenNumeratorOnly));
+        Assert.That(seen.InEstimate, Is.False, "never folded into an effect");
         Assert.That(State(Table(("QQFYSGR", Young), ("AAPEGHK", Everywhere), ("LLNDAMK", Everywhere))).Assignment.State,
             Is.EqualTo(SetMemberStateFromRow.SeenDenominatorOnly));
     }
@@ -342,8 +343,9 @@ public class SetTestShareTests
     public void SparseMarkers_AreIncompleteForANoChangePrediction_Only()
     {
         var table = Table(("QQFYSGR", new[] { "o1", "o2", "y1", "y2" }), ("AAPEGHK", Everywhere), ("LLNDAMK", Everywhere));
-        Assert.That(State(table, Contrast("unchanged"), prediction: SetPrediction.Unchanged).Assignment.State,
-            Is.EqualTo(SetMemberStateFromRow.Incomplete));
+        var incomplete = State(table, Contrast("unchanged"), prediction: SetPrediction.Unchanged);
+        Assert.That(incomplete.Assignment.State, Is.EqualTo(SetMemberStateFromRow.Incomplete));
+        Assert.That(incomplete.InEstimate, Is.True, "it stays in the effect and blocks supported (ruled 2026-11-15, as 2026-10-19)");
         Assert.That(State(table).Assignment.State, Is.EqualTo(SetMemberStateFromRow.Tested));
         var sparseReference = Table(("QQFYSGR", Everywhere), ("AAPEGHK", new[] { "o1", "o2", "y1", "y2" }), ("LLNDAMK", new[] { "o1", "o2", "y1", "y2" }));
         Assert.That(State(sparseReference, Contrast("unchanged"), prediction: SetPrediction.Unchanged).Assignment.State,
