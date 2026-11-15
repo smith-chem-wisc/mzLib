@@ -534,7 +534,7 @@ namespace Test.KoinaTests
             protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
             {
                 InputField Sequences(IEnumerable<RetentionTimePredictionInput> inputs) =>
-                    new("peptide_sequences", "BYTES", inputs.Select(p => p.ValidatedFullSequence!).ToArray());
+                    new("peptide_sequences", "BYTES", inputs.Select(GetKoinaSequence).ToArray());
 
                 return Batching switch
                 {
@@ -723,7 +723,7 @@ namespace Test.KoinaTests
 
             Assert.That(predictions.Count, Is.EqualTo(sequences.Length));
             Assert.That(predictions[2].ValidatedFullSequence, Is.EqualTo("PEPE[UNIMOD:954]TIDEK"),
-                "the canary only means something if the refused peptide reached Koina");
+                "the canary only means something if the refused peptide passed client-side validation");
             Assert.That(predictions[2].PredictedRetentionTime, Is.Null);
             Assert.That(model.ValidInputsMask[2], Is.False);
             Assert.That(predictions[2].Warning?.Message, Does.Contain("no attachment group for residue 'E'"));
@@ -758,7 +758,7 @@ namespace Test.KoinaTests
             public override SequenceConversionHandlingMode ModHandlingMode { get; init; } = SequenceConversionHandlingMode.ReturnNull;
 
             protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs) =>
-                validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize)
+                validInputs.Select(GetKoinaSequence).Chunk(MaxBatchSize)
                     .Select((batch, i) => BuildBatchedRequest(i, new InputField("peptide_sequences", "BYTES", batch)))
                     .ToList();
         }

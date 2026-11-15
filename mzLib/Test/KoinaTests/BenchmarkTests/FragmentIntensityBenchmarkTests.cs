@@ -120,7 +120,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkProsit2020IntensityTMT()
         {
             var peptides = GenerateUniquePeptides(500000, 20);
-            var modelInputs = peptides.Select(p => new FragmentIntensityPredictionInput("[Common Fixed:TMT6plex on N-terminus]" + p, 2, 35, null, "HCD")).ToList();
+            var modelInputs = peptides.Select(p => new FragmentIntensityPredictionInput("[Multiplex Label:TMT6-plex on X]" + p, 2, 35, null, "HCD")).ToList();
             var model = new Prosit2020IntensityTMT();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             Assert.DoesNotThrow(() => model.Predict(modelInputs));
@@ -356,7 +356,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkMs2PipCIDTMT()
         {
             var peptides = GenerateUniquePeptides(500000, 20);
-            var modelInputs = peptides.Select(p => new FragmentIntensityPredictionInput("[Common Fixed:TMT6plex on N-terminus]" + p, 2, 35, null, null)).ToList();
+            var modelInputs = peptides.Select(p => new FragmentIntensityPredictionInput("[Multiplex Label:TMT6-plex on X]" + p, 2, 35, null, null)).ToList();
             var model = new Ms2PipCIDTMT();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             Assert.DoesNotThrow(() => model.Predict(modelInputs));

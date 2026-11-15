@@ -193,11 +193,11 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Koina receives pyro-Glu on its residue; the mzLib sequence returned keeps it N-terminal.
+        /// Koina receives pyro-Glu on its residue; the sequence returned keeps it N-terminal, in the input's format.
         /// </summary>
-        [TestCase("[UNIMOD:27]-EPEPTIDEK", "E[UNIMOD:27]PEPTIDEK", "[UNIMOD:27]EPEPTIDEK")]
-        [TestCase("[UNIMOD:28]-QPEPTIDEK", "Q[UNIMOD:28]PEPTIDEK", "[UNIMOD:28]QPEPTIDEK")]
-        [TestCase("[UNIMOD:27]-E", "E[UNIMOD:27]", "[UNIMOD:27]E")]
+        [TestCase("[UNIMOD:27]-EPEPTIDEK", "E[UNIMOD:27]PEPTIDEK", "[UNIMOD:27]-EPEPTIDEK")]
+        [TestCase("[UNIMOD:28]-QPEPTIDEK", "Q[UNIMOD:28]PEPTIDEK", "[UNIMOD:28]-QPEPTIDEK")]
+        [TestCase("[UNIMOD:27]-E", "E[UNIMOD:27]", "[UNIMOD:27]-E")]
         public void PyroGlu_IsSentWhereKoinaTrainedIt(string sequence, string sent, string returned)
         {
             var probe = new Irt40Probe(SequenceConversionHandlingMode.ReturnNull);
@@ -295,7 +295,7 @@ namespace Test.KoinaTests
             Assert.That(probe.Mask, Is.EqualTo(new[] { true, true, true }));
             Assert.That(probe.Sent, Is.EqualTo(new[] { "E[UNIMOD:27]PEC[UNIMOD:4]TEDEM[UNIMOD:35]K", "CPEM[UNIMOD:35]TIDEK", "PEPETIDEK" }));
             Assert.That(api, Is.EqualTo("E[UNIMOD:27]PEC[UNIMOD:4]TEDEM[UNIMOD:35]K"));
-            Assert.That(cleaned, Is.EqualTo("[UNIMOD:27]EPEC[UNIMOD:4]TEDEM[UNIMOD:35]K"));
+            Assert.That(cleaned, Is.EqualTo("[UNIMOD:27]-EPEC[UNIMOD:4]TEDEM[UNIMOD:35]K"));
             Assert.That(warning!.Message, Does.StartWith($"Removing modifications {probe.ModelName} cannot place")
                 .And.Contain("E[UNIMOD:954]").And.Contain("-[UNIMOD:2]"));
             Assert.That(warnings[1], Does.Contain("[UNIMOD:385]-"));
@@ -303,7 +303,7 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// mzLib's N-terminal pyro-Glu is sent on its residue, where Koina trained it. The mzLib sequence, which is what a
+        /// mzLib's N-terminal pyro-Glu is sent on its residue, where Koina trained it. The returned sequence, which is what a
         /// library entry is built from, keeps it N-terminal.
         /// </summary>
         [TestCaseSource(nameof(SixModels))]
@@ -316,7 +316,7 @@ namespace Test.KoinaTests
             Assert.That(probe.Mask, Is.EqualTo(new[] { true, true, false }));
             Assert.That(probe.Sent, Is.EqualTo(new[] { "E[UNIMOD:27]PEPTIDEK", "Q[UNIMOD:28]PEPTIDEK" }));
             Assert.That(warnings[2], Does.Contain("[UNIMOD:28]-").And.Contain("the N-terminus"));
-            Assert.That(probe.Clean("[UNIMOD:27]-EPEPTIDEK", ProForma, out var api, out _), Is.EqualTo("[UNIMOD:27]EPEPTIDEK"));
+            Assert.That(probe.Clean("[UNIMOD:27]-EPEPTIDEK", ProForma, out var api, out _), Is.EqualTo("[UNIMOD:27]-EPEPTIDEK"));
             Assert.That(api, Is.EqualTo("E[UNIMOD:27]PEPTIDEK"));
         }
 
@@ -392,7 +392,12 @@ namespace Test.KoinaTests
             public bool[] Mask => ValidInputsMask;
             public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
                 Warnings(Predict(sequences.Select(s => new RetentionTimePredictionInput(s) { SequenceParser = parser }).ToList()).Select(p => p.Warning));
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, false);
         }
 
@@ -403,7 +408,12 @@ namespace Test.KoinaTests
             public bool[] Mask => ValidInputsMask;
             public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
                 Warnings(Predict(sequences.Select(s => new RetentionTimePredictionInput(s) { SequenceParser = parser }).ToList()).Select(p => p.Warning));
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, false);
         }
 
@@ -414,7 +424,12 @@ namespace Test.KoinaTests
             public bool[] Mask => ValidInputsMask;
             public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
                 Warnings(Predict(sequences.Select(s => new FragmentIntensityPredictionInput(s, 2, 30, null, "HCD") { SequenceParser = parser }).ToList()).Select(p => p.Warning));
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, true);
         }
 
@@ -425,7 +440,12 @@ namespace Test.KoinaTests
             public bool[] Mask => ValidInputsMask;
             public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
                 Warnings(Predict(sequences.Select(s => new FragmentIntensityPredictionInput(s, 2, 30, null, "HCD") { SequenceParser = parser }).ToList()).Select(p => p.Warning));
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, true);
         }
 
@@ -436,7 +456,12 @@ namespace Test.KoinaTests
             public bool[] Mask => ValidInputsMask;
             public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
                 Warnings(Predict(sequences.Select(s => new RetentionTimePredictionInput(s) { SequenceParser = parser }).ToList()).Select(p => p.Warning));
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, false);
         }
 
@@ -447,7 +472,12 @@ namespace Test.KoinaTests
             public bool[] Mask => ValidInputsMask;
             public List<string> Predict(ISequenceParser? parser, params string[] sequences) =>
                 Warnings(Predict(sequences.Select(s => new FragmentIntensityPredictionInput(s, 2, 30, null, "HCD") { SequenceParser = parser }).ToList()).Select(p => p.Warning));
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
             protected override Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken ct) => Capture(request, Sent, true);
         }
 
@@ -455,7 +485,12 @@ namespace Test.KoinaTests
         {
             // The pilot sent one 37-residue peptide; the length limit is not under test here.
             public override int MaxPeptideLength => 40;
-            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning) => TryCleanSequence(sequence, parser, out api, out warning);
+            public string? Clean(string sequence, ISequenceParser? parser, out string? api, out WarningException? warning)
+            {
+                var validated = TryCleanSequence(sequence, parser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
         }
 
         #endregion

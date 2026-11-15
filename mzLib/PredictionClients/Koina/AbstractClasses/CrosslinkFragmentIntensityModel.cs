@@ -105,26 +105,25 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out var apiAlpha, out var alphaWarning);
+                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out _, out var alphaWarning);
 
                 string? cleanedBeta = null;
-                string? apiBeta = null;
                 WarningException? betaWarning = null;
                 bool betaOk = true;
                 if (RequiresBetaSequence && ModelInputs[i].BetaSequence != null)
                 {
-                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out apiBeta, out betaWarning);
-                    betaOk = cleanedBeta != null && apiBeta != null;
+                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out _, out betaWarning);
+                    betaOk = cleanedBeta != null;
                 }
 
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var parameterWarning);
 
-                if (cleanedAlpha != null && apiAlpha != null && betaOk && validModelParams)
+                if (cleanedAlpha != null && betaOk && validModelParams)
                 {
                     ModelInputs[i] = ModelInputs[i] with
                     {
-                        ValidatedAlphaSequence = apiAlpha,
-                        ValidatedBetaSequence = apiBeta,
+                        ValidatedAlphaSequence = cleanedAlpha,
+                        ValidatedBetaSequence = cleanedBeta,
                         AlphaSequenceWarning = alphaWarning,
                         BetaSequenceWarning = betaWarning,
                         ParameterWarning = parameterWarning
@@ -217,10 +216,10 @@ namespace PredictionClients.Koina.AbstractClasses
         protected override string? TryCleanSequence(
             string sequence,
             ISequenceParser? sourceParser,
-            out string? apiSequence,
+            out CanonicalSequence? koinaSequence,
             out WarningException? warning)
         {
-            apiSequence = null;
+            koinaSequence = null;
             warning = null;
 
             var rawBase = BaseStripper.Replace(sequence, string.Empty);
@@ -258,8 +257,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 return null;
             }
 
-            apiSequence = sequence;
-            return apiSequence;
+            return sequence;
         }
 
         protected virtual bool ValidateModelSpecificInputs(CrosslinkIntensityPredictionInput input, out WarningException? warning)

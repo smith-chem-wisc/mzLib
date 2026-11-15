@@ -61,8 +61,8 @@ namespace Test.KoinaTests
 
             Assert.That(model.ValidInputsMask, Is.EqualTo(ExpectedMask));
             Assert.That(predictions.Where((_, i) => ExpectedMask[i]).All(p => p.PredictedRetentionTime != null), Is.True);
-            Assert.That(predictions[4].ValidatedFullSequence, Is.EqualTo("E[UNIMOD:27]PEPTIDEK"));
-            Assert.That(predictions[5].ValidatedFullSequence, Is.EqualTo("Q[UNIMOD:28]PEPTIDEK"));
+            Assert.That(predictions[4].ValidatedFullSequence, Is.EqualTo("[UNIMOD:27]-EPEPTIDEK"));
+            Assert.That(predictions[5].ValidatedFullSequence, Is.EqualTo("[UNIMOD:28]-QPEPTIDEK"));
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null);
             Assert.That(predictions[3].Warning!.Message, Does.Contain("C-terminus"));
             Assert.That(predictions[9].PredictedRetentionTime, Is.Null);
@@ -76,8 +76,8 @@ namespace Test.KoinaTests
 
             Assert.That(model.ValidInputsMask, Is.EqualTo(ExpectedMask));
             Assert.That(predictions.Where((_, i) => ExpectedMask[i]).All(p => p.FragmentIntensities is { Count: > 0 }), Is.True);
-            Assert.That(predictions[4].ValidatedFullSequence, Is.EqualTo("E[UNIMOD:27]PEPTIDEK"));
-            Assert.That(predictions[5].ValidatedFullSequence, Is.EqualTo("Q[UNIMOD:28]PEPTIDEK"));
+            Assert.That(predictions[4].ValidatedFullSequence, Is.EqualTo("[UNIMOD:27]-EPEPTIDEK"));
+            Assert.That(predictions[5].ValidatedFullSequence, Is.EqualTo("[UNIMOD:28]-QPEPTIDEK"));
             Assert.That(predictions[3].FragmentIntensities, Is.Null);
             Assert.That(predictions[3].Warning!.Message, Does.Contain("C-terminus"));
             Assert.That(predictions[9].FragmentIntensities, Is.Null);
