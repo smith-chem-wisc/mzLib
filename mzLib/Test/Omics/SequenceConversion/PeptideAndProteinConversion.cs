@@ -471,6 +471,51 @@ public class PeptideAndProteinConversion
     }
 
     [Test]
+    public static void ProFormaParser_DigestedCatalogModificationWrittenByAccession_CarriesItsCatalogEntry()
+    {
+        static bool WrittenByAccession(Modification m) =>
+            !(CanonicalModification.GetUnimodId(m) is int unimodId && Mods.MatchesUnimodRecordMass(m, unimodId))
+            && m.DatabaseReference != null && (m.DatabaseReference.ContainsKey("PSI-MOD") || m.DatabaseReference.ContainsKey("RESID"));
+        int byAccession = 0, expectedByAccession = 0;
+        foreach (var peptide in DigestedCatalogPeptides.Value)
+        {
+            var fromFullSequence = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
+            var written = new[]
+            {
+                (ProForma: peptide.ToProFormaString(), Mods: (IDictionary<int, Modification>)peptide.AllModsOneIsNterminus),
+                (ProForma: ProFormaSequenceSerializer.Instance.Serialize(fromFullSequence),
+                    Mods: fromFullSequence.Modifications.ToDictionary(m => KeyOf(m, fromFullSequence.BaseSequence.Length), m => m.MzLibModification!))
+            };
+            expectedByAccession += written.Sum(w => w.Mods.Values.Count(WrittenByAccession));
+            foreach (var (proForma, mods) in written.Where(w => w.ProForma!.Contains("[MOD:") || w.ProForma.Contains("[RESID:")))
+            {
+                var parsed = ProFormaSequenceParser.Instance.Parse(proForma!)!.Value;
+                Assert.That(parsed.Modifications.Length, Is.EqualTo(mods.Count), proForma);
+                foreach (var mod in parsed.Modifications)
+                {
+                    var original = mods[KeyOf(mod, parsed.BaseSequence.Length)];
+                    var attached = mod.MzLibModification;
+                    Assert.That(attached, Is.Not.Null, proForma);
+                    Assert.That(mod.UnimodId, Is.Null, proForma);
+                    byAccession++;
+                    if (ReferenceEquals(attached, original))
+                        continue;
+
+                    // UniProt lists MOD:00165 for both N-linked (Hex) and N-linked (Man) tryptophan.
+                    Assert.That(Mods.AllProteinModsList.Count(m => m.Target?.ToString() == original.Target.ToString()
+                                                                   && ProFormaConverter.BuildDescriptor(m).Value == mod.OriginalRepresentation),
+                        Is.GreaterThan(1), proForma);
+                    Assert.That(ProFormaConverter.BuildDescriptor(attached!).Value, Is.EqualTo(mod.OriginalRepresentation), proForma);
+                    Assert.That(attached.Target.ToString(), Is.EqualTo(original.Target.ToString()), proForma);
+                    Assert.That(attached.LocationRestriction, Is.EqualTo(original.LocationRestriction), proForma);
+                    Assert.That(attached.MonoisotopicMass, Is.EqualTo(original.MonoisotopicMass), proForma);
+                }
+            }
+        }
+        Assert.That(byAccession, Is.EqualTo(expectedByAccession));
+    }
+
+    [Test]
     public static void FromCanonicalSequence_ModificationInNoCatalog_ThrowsNamingIt()
     {
         ModificationMotif.TryGetMotif("K", out var motifK);
