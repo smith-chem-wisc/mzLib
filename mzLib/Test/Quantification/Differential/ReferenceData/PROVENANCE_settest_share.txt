@@ -1,0 +1,11 @@
+settest_share_rows.tsv: aging tag hypotheses-splicing-v2, design/hypotheses/splicing/v2/tests.tsv, sha256 6930a1d1ad4b9b8ae02f4f46f3e10b90098517c565ce47733f600f0c55945f73; header and lines 27, 28, 29, 30, 31, 53, 54, 55, 56, 59, 60, 61, 65, 66, 67, 68, 69, 70, 71, 72, 73 copied byte for byte (the rows whose measure is exon_peptide or isoform_peptide).
+settest_share_entries.tsv: from aging's databases (F:/aging_data/db), every entry of a share row's gene (primary name, any case), every entry whose sequence holds a named marker_peptide with I and L read as one, and each isoform_accession:
+  UP000000589_all_genecentric_2026_03_agingPTM-v4.xml sha256 f9cdd188fd7fa65d97792cbf9225704c921727e8fa4b3e4c41c41ffcea7cabd5
+  aging_isoforms_mouse.xml sha256 4d3ac6446e3a76b95ab99782b952f0d7683a552eec97c9eecc6294101bb62778
+  MetaMorpheusContaminants.xml sha256 4616f488c16eee7617fa7b6b9ad0ac44ec25c1febf3dfc4bbabf1efa7b304ab5
+  UP000005640_all_genecentric_2026_03_agingPTM-v4.xml sha256 c11a9bc3d6c5ab8e60b109243956cd4d8d1fef3de05a447600dd3f6780475646
+  aging_isoforms_human.xml sha256 6fdf086563aa7d4e54a3b094a5c94cc3d03bf5e376493702a0adcc62dd4e5b9d
+  UP000002494_all_genecentric_2026_03_agingPTM-v4.xml sha256 0f606b275fc62d6f4bcf1ac4cb69179de4c2d1ed59a552657e7964530bbe05f4
+  aging_isoforms_tier1-2_rat_agingPTM-v3.xml sha256 57be2589cd3e013e6f85d5a3390372a335141297f2bd1069e59f668ebab64527
+species per file: mouse = UP000000589 v4 + aging_isoforms_mouse + contaminants; human = UP000005640 v4 + aging_isoforms_human + contaminants; rat = UP000002494 v4 + aging_isoforms_tier1-2_rat_agingPTM-v3 + contaminants.
+script: extract_share_fixture.py (QuantProject, run once by hand; the databases are not in mzLib)

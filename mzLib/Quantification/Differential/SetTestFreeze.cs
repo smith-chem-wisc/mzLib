@@ -96,6 +96,11 @@ public sealed record SetTestRow
     public string? IsoformAccession { get; init; }
     /// <summary><c>marker_region</c>, or null.</summary>
     public string? MarkerRegion { get; init; }
+    /// <summary>
+    /// <c>marker_peptide</c>, split on <c>;</c>: the markers the freeze names. Reported against the markers found
+    /// (<c>listed_marker_used</c>), never used as a rule (<c>DEF-DIFF-SHARE-INPUT</c>).
+    /// </summary>
+    public IReadOnlyList<string> MarkerPeptides { get; init; } = Array.Empty<string>();
     /// <summary>The row's <c>note</c> begins <see cref="SetTestFreeze.MaturationPrefix"/> (<c>DEF-DIFF-SET-MATURATION</c>).</summary>
     public required bool Maturation { get; init; }
 }
@@ -212,7 +217,7 @@ public sealed class SetTestFreeze
     public static readonly IReadOnlyList<string> OptionalColumns = new[]
     {
         "member_accessions", "margin_log2", "attenuation_fraction", "margin_reason", "primary", "measure",
-        "isoform_accession", "marker_region", "note",
+        "isoform_accession", "marker_region", "marker_peptide", "note",
     };
 
     private static readonly IReadOnlyDictionary<string, SetPrediction> Predictions = new Dictionary<string, SetPrediction>(StringComparer.Ordinal)
@@ -374,6 +379,8 @@ public sealed class SetTestFreeze
             Measure = Optional("measure") ?? ProteinMeasure,
             IsoformAccession = Optional("isoform_accession"),
             MarkerRegion = Optional("marker_region"),
+            MarkerPeptides = (Optional("marker_peptide") ?? "")
+                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(),
             Maturation = (Cell("note") ?? "").StartsWith(MaturationPrefix, StringComparison.Ordinal),
         };
     }
