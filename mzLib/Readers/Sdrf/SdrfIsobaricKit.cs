@@ -55,6 +55,35 @@ namespace Readers
         // The whole word, so a reason can quote what the text said (TMT6plex, TMTpro), not only "TMT".
         private static readonly Regex Family = new(@"\b(?:tmt|itraq)\w*|tandem\s+mass\s+tags?", Options);
 
+        // A value that is nothing but a kit's name: TMT6plex, TMT 10-plex, TMTpro 18plex, iTRAQ 8plex, TMT11.
+        private static readonly Regex WholeKit = new(@"^\s*(?<reagent>tmt\s*pro|tmt|itraq)\W{0,3}(?<size>\d{1,2})(?:\W{0,2}plex)?(?:\s+kit)?\s*$", Options);
+
+        /// <summary>
+        /// Reads the value of a claim about a file's label (<c>comment[label]</c>): a kit read from the file's spectra, or
+        /// stated for it in a paper. A value that is a kit's name and nothing else states that kit, TMT 6-plex included: here
+        /// <c>TMT6plex</c> cannot be a modification's name, because the claim is about the label. Any other value is read as
+        /// free text (<see cref="Read"/>). Never throws.
+        /// </summary>
+        internal static SdrfKitReading ReadClaim(string? value)
+        {
+            var m = string.IsNullOrWhiteSpace(value) ? Match.Empty : WholeKit.Match(value);
+            if (!m.Success) return Read(value);
+            bool pro = m.Groups["reagent"].Value.Length > 3 && m.Groups["reagent"].Value.StartsWith("tmt", System.StringComparison.OrdinalIgnoreCase)
+                && m.Groups["reagent"].Value.EndsWith("pro", System.StringComparison.OrdinalIgnoreCase);
+            bool itraq = m.Groups["reagent"].Value.StartsWith("itraq", System.StringComparison.OrdinalIgnoreCase);
+            IsobaricMassTagType? kit = (itraq, pro, m.Groups["size"].Value) switch
+            {
+                (true, _, "4") => IsobaricMassTagType.iTRAQ4,
+                (true, _, "8") => IsobaricMassTagType.iTRAQ8,
+                (false, false, "6") => IsobaricMassTagType.TMT6,
+                (false, false, "10") => IsobaricMassTagType.TMT10,
+                (false, false, "11") => IsobaricMassTagType.TMT11,
+                (false, _, "16") => IsobaricMassTagType.TMT16,
+                (false, _, "18") => IsobaricMassTagType.TMT18,
+                _ => null
+            };
+            return new SdrfKitReading(kit, true, value!.Trim());
+        }
         /// <summary>Reads <paramref name="text"/>. Never throws; null or empty text is not labelled.</summary>
         internal static SdrfKitReading Read(string? text)
         {

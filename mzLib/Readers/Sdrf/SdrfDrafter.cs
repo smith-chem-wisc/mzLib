@@ -211,7 +211,7 @@ namespace Readers
                     notes.Add(new(about, e.Column, "", e.Value, "a guess is kept for review, never applied"));
                 else if (MethodWord(e.Method) == null)
                     notes.Add(new(about, e.Column, "", e.Value, $"the method '{e.Method}' is not one the drafter knows, so its source method cannot be written"));
-                else if (!SdrfIsobaricKit.Read(e.Value).Labelled)
+                else if (!SdrfIsobaricKit.ReadClaim(e.Value).Labelled)
                     notes.Add(new(about, e.Column, "", e.Value, "only a TMT or iTRAQ kit is read from a claim about a file's label"));
                 else claims.Add(e);
             }
@@ -232,7 +232,7 @@ namespace Readers
                     if (own.Count > 0)
                         foreach (var w in wide.Where(w => !own.Any(o => o.Value.Trim().Equals(w.Value.Trim(), StringComparison.OrdinalIgnoreCase))))
                             notes.Add(new(file, w.Column, "", w.Value, "a claim about this file overrides the deposit-wide claim"));
-                    var readings = use.Select(e => (Claim: e, Reading: SdrfIsobaricKit.Read(e.Value))).ToList();
+                    var readings = use.Select(e => (Claim: e, Reading: SdrfIsobaricKit.ReadClaim(e.Value))).ToList();
                     // A claim that names only the family (TMT) agrees with one that names the kit (TMT10plex).
                     var kits = readings.Where(x => x.Reading.Kit != null).Select(x => x.Reading.Kit).Distinct().ToList();
                     if (kits.Count > 1)

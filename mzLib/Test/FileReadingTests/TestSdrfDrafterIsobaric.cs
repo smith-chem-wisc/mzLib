@@ -200,6 +200,22 @@ namespace Test.FileReadingTests
                 "a kit claim is the label's evidence, not a column evidence cannot fill");
         }
 
+        /// <summary>In a record's text TMT6plex may be the modification's name, so it states no kit; a claim whose whole value
+        /// is a kit's name (a kit read from the spectra) is a statement about the kit, and TMT 6-plex is one (PXReprise read 11
+        /// TMT6 deposits that way).</summary>
+        [TestCase("TMT6plex", "TMT126", "TMT131", 6)]
+        [TestCase("TMT 6-plex", "TMT126", "TMT131", 6)]
+        [TestCase("TMT10plex", "TMT126", "TMT131", 10)]
+        [TestCase("TMTpro 18plex", "TMT126", "TMT135N", 18)]
+        [TestCase("iTRAQ 8plex", "ITRAQ113", "ITRAQ121", 8)]
+        public void AClaimWhoseValueIsAKitStatesThatKitTmt6Included(string value, string first, string last, int channels)
+        {
+            var d = SdrfDrafter.Draft(Project("Isobaric labelling."), new[] { "S1.raw" }, new[] { Kit("S1.raw", value) });
+
+            var labels = d.Rows.Select(r => r.Label!.Value).ToList();
+            Assert.That(labels, Has.Count.EqualTo(channels));
+            Assert.That((labels.First(), labels.Last()), Is.EqualTo((first, last)));
+        }
         [Test]
         public void KitClaimsThatDisagreeStateNoKit()
         {
