@@ -194,6 +194,14 @@ public static class DifferentialConstants
     public static string MinPerSide(int samples) => string.Create(CultureInfo.InvariantCulture, $"min_{samples}_per_side");
     /// <summary>Support rule: too little data for the variance (ruling 2 step 6).</summary>
     public const string TooFewObservations = "too_few_observations";
+    /// <summary>The <c>quant_style</c> of a DIA table (DATA-DEFINITIONS v3.29): no match-between-runs, so no quant basis.</summary>
+    public const string DiaStyle = "dia";
+    /// <summary>The <c>quant_style</c> values a label-free table may carry (<c>DEF-DIFF-COLUMNS</c>).</summary>
+    public static IReadOnlyList<string> LabelFreeQuantStyles { get; } = new[] { "lfq", "silac", "pulse_silac", DiaStyle };
+    /// <summary>The <c>quant_style</c> values an isobaric table may carry (<c>DEF-DIFF-COLUMNS</c>).</summary>
+    public static IReadOnlyList<string> IsobaricQuantStyles { get; } = new[] { "tmt", "itraq", "dileu" };
+    /// <summary>Every <c>quant_style</c> value <c>DEF-DIFF-COLUMNS</c> lists.</summary>
+    public static IReadOnlyList<string> QuantStyles { get; } = LabelFreeQuantStyles.Concat(IsobaricQuantStyles).ToArray();
 }
 
 /// <summary>A differential analysis's rows, metadata, decisions and the values its report's diagnostics draw.</summary>
@@ -290,8 +298,60 @@ public static class DifferentialAnalysis
                 "samples with a value on each side to have a variance.", nameof(request));
         if (request.Settings.NormalizationFloor < 1)
             throw new ArgumentException($"NormalizationFloor is {request.Settings.NormalizationFloor}; it must be at least 1.", nameof(request));
+        ValidateStyle(request);
+        ValidateNormalization(request);
 
         return new Analysis(request, maxThreads).Execute();
+    }
+
+    /// <summary>
+    /// Refuses a <c>quant_style</c> that <c>DEF-DIFF-COLUMNS</c> does not list for the table's kind, and a <c>dia</c> table
+    /// built to let match-between-runs values in (DIA has none).
+    /// </summary>
+    private static void ValidateStyle(DifferentialRequest request)
+    {
+        if (request.QuantStyle is not { } style)
+            return;
+        bool isobaric = request.IsobaricTable is not null;
+        var allowed = isobaric ? DifferentialConstants.IsobaricQuantStyles : DifferentialConstants.LabelFreeQuantStyles;
+        if (!allowed.Contains(style, StringComparer.Ordinal))
+            throw new ArgumentException($"QuantStyle '{style}' is not a style of {(isobaric ? "an isobaric" : "a label-free")} " +
+                $"table; give one of {string.Join(", ", allowed)} (DEF-DIFF-COLUMNS).", nameof(request));
+        if (style == DifferentialConstants.DiaStyle && request.Table!.Basis != QuantBasis.MsmsOnly)
+            throw new ArgumentException($"QuantStyle '{style}' has no match-between-runs values, but the table was built under " +
+                $"'{request.Table.Basis.ToMachineName()}'; build it under '{QuantBasis.MsmsOnly.ToMachineName()}'.", nameof(request));
+    }
+
+    /// <summary>
+    /// Refuses a normalization setting the runner does not know for the table's kind (<c>DEF-DIFF-NORM</c>), a background
+    /// set without its groups or with a name that is not plain, and groups without a background set.
+    /// </summary>
+    private static void ValidateNormalization(DifferentialRequest request)
+    {
+        bool isobaric = request.IsobaricTable is not null;
+        var settings = request.Settings;
+        string setting = settings.Normalization ?? "";
+        string prefix = SharedPeptideNormalization.BackgroundSetPrefix;
+        bool background = setting.StartsWith(prefix, StringComparison.Ordinal);
+        bool known = setting is SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.None
+            || (isobaric
+                ? setting == IsobaricNormalization.GlobalChannelMedian
+                : background && SharedPeptideNormalization.IsBackgroundSetName(setting[prefix.Length..]));
+        if (!known)
+            throw new ArgumentException($"Normalization '{setting}' is not a setting the runner knows for " +
+                (isobaric
+                    ? $"an isobaric table; give {SharedPeptideNormalization.SharedPeptideMedian} (which runs {IsobaricNormalization.GlobalChannelMedian}), " +
+                      $"{IsobaricNormalization.GlobalChannelMedian} or {SharedPeptideNormalization.None}"
+                    : $"a label-free table; give {SharedPeptideNormalization.SharedPeptideMedian}, {SharedPeptideNormalization.None} or " +
+                      $"{prefix}<name> (a name with no whitespace or ':')") + " (DEF-DIFF-NORM).", nameof(request));
+        if (background && settings.BackgroundSetGroups is null)
+            throw new ArgumentException($"Normalization '{setting}' needs the protein groups it declares: set BackgroundSetGroups.",
+                nameof(request));
+        if (!background && settings.BackgroundSetGroups is not null)
+            throw new ArgumentException($"BackgroundSetGroups is set, but Normalization is '{setting}'; the groups belong to a " +
+                $"{prefix}<name> setting.", nameof(request));
+        if (background)
+            SharedPeptideNormalization.ValidateBackgroundSet(new BackgroundSet(setting[prefix.Length..], settings.BackgroundSetGroups!));
     }
 
     /// <summary>One analysis in progress.</summary>
@@ -317,6 +377,7 @@ public static class DifferentialAnalysis
         private readonly List<SampleLog2> _sampleLog2 = new();
         private IsobaricObservationTable? _tmt;
         private IsobaricNormalizationResult? _tmtNormalization;
+        private readonly BackgroundSet? _background;
 
         public Analysis(DifferentialRequest request, int maxThreads)
         {
@@ -329,8 +390,13 @@ public static class DifferentialAnalysis
             _inputs = new[] { new DifferentialInput(DifferentialConstants.ObservationTableRole, "", tableSha256) }
                 .Concat(request.Inputs).ToArray();
             _analysisId = DifferentialMetadata.ComputeAnalysisId(_inputs, request.Settings);
-            _basis = _isobaric ? null : request.Table!.Basis.ToMachineName();
             _style = request.QuantStyle ?? (_isobaric ? "tmt" : "lfq");
+            // A style with no match-between-runs has no basis (DEF-DIFF-COLUMNS): isobaric tables and DIA.
+            _basis = _isobaric || _style == DifferentialConstants.DiaStyle ? null : request.Table!.Basis.ToMachineName();
+            string setting = request.Settings.Normalization;
+            if (setting.StartsWith(SharedPeptideNormalization.BackgroundSetPrefix, StringComparison.Ordinal))
+                _background = new BackgroundSet(setting[SharedPeptideNormalization.BackgroundSetPrefix.Length..],
+                    request.Settings.BackgroundSetGroups!);
         }
 
         public DifferentialAnalysisResult Execute()
@@ -380,7 +446,9 @@ public static class DifferentialAnalysis
             var s = _request.Settings;
             return string.Create(CultureInfo.InvariantCulture,
                 $"method {s.Method}; robust weighting {(s.Robust ? "on (moderated_t rows are not reweighted)" : "off")}; " +
-                $"normalization {s.Normalization}, reference-set floor {s.NormalizationFloor}; at least {s.MinimumSamplesPerSide} " +
+                $"normalization {s.Normalization}" +
+                $"{(_background is null ? "" : $" ({_background.ProteinGroups.Distinct(StringComparer.Ordinal).Count()} declared protein groups)")}" +
+                $", reference-set floor {s.NormalizationFloor}; at least {s.MinimumSamplesPerSide} " +
                 $"samples with a value per side; interval level {s.CiLevel}; batch {(spec.FitBatch ? "fitted" : "not fitted")}" +
                 $"{(_isobaric ? " (each ion's plex run is a fixed effect)" : "")}; random terms: only those each protein's values can estimate");
         }
@@ -427,11 +495,14 @@ public static class DifferentialAnalysis
                 normalization = SharedPeptideNormalization.None;
                 if (_request.Settings.Normalization != SharedPeptideNormalization.None)
                 {
-                    var measured = SharedPeptideNormalization.Measure(table, _request.Settings.NormalizationFloor);
+                    var measured = _background is null
+                        ? SharedPeptideNormalization.Measure(table, _request.Settings.NormalizationFloor)
+                        : SharedPeptideNormalization.Measure(table, _background, _request.Settings.NormalizationFloor);
                     normalized = SharedPeptideNormalization.Apply(table, measured);
                     normalization = measured.Setting;
                     _normalization.Add(new DifferentialNormalizationInfo(stratum, _basis, measured.Setting,
-                        measured.ReferenceSetSize, measured.MinimumReferenceSetSize, measured.PerSampleShift, measured.Warnings));
+                        measured.ReferenceSetSize, measured.MinimumReferenceSetSize, measured.PerSampleShift, measured.Warnings,
+                        measured.DeclaredGroups, measured.DeclaredGroupsAbsent));
                 }
                 features = FeatureObservationBuilder.FromTable(normalized, sampleMap, UsableMinimumSamples);
                 groupInfo = normalized.ProteinGroups;
@@ -1036,9 +1107,9 @@ public static class DifferentialAnalysis
                     NSamplesDenominator = pc.Counts.Denominator,
                     NSamplesWithValue = pc.Counts.WithValue,
                     NSamplesTotal = pc.Counts.Total,
-                    NPeptides = values is null ? 0 : values.NuisanceLevels.Count,
+                    NPeptides = values?.PeptideCount ?? 0,
                     NObservations = values?.Values.Count ?? 0,
-                    NMbrValues = _isobaric ? null : values?.Values.Count(v => v.IsMbr) ?? 0,
+                    NMbrValues = _basis is null ? null : values?.Values.Count(v => v.IsMbr) ?? 0,
                     Status = status!,
                     StatusDetail = fitted ? null : detail,
                     Method = DifferentialConstants.Method,

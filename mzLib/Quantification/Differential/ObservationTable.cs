@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using MassSpectrometry;
 using Omics.BioPolymerGroup;
@@ -180,15 +181,22 @@ public sealed record ObservedPeptide(string FullSequence, string BaseSequence, I
 /// <param name="BaseSequence">The unmodified sequence.</param>
 /// <param name="ProteinGroups">The group names the producer lists for the peptide, in any order.</param>
 /// <param name="ByRun">The value per run, keyed by the producer's run label; a run with no entry is <see cref="ObservationState.NotDetected"/>.</param>
+/// <param name="Charge">
+/// The precursor charge when the producer quantifies each precursor apart (DIA, QuantProject dia 073): the row is then one
+/// precursor, and one peptide at two charges is two rows. Null for a peptide row (label-free DDA). A table's rows all carry
+/// a charge or none do.
+/// </param>
 public sealed record PeptideRunValues(string FullSequence, string BaseSequence, IReadOnlyList<string> ProteinGroups,
-    IReadOnlyDictionary<string, RunValue> ByRun);
+    IReadOnlyDictionary<string, RunValue> ByRun, int? Charge = null);
 
 /// <summary>One cell of an <see cref="ObservationTable"/>: a peptide in a sample.</summary>
 /// <param name="Peptide">The peptide.</param>
 /// <param name="SampleId">The sample.</param>
 /// <param name="Log2Intensity">log2 of the sample's intensity, or NaN when there is no value. Never 0 for "missing".</param>
 /// <param name="State">Where the value came from, or why there is none.</param>
-public readonly record struct Observation(ObservedPeptide Peptide, string SampleId, double Log2Intensity, ObservationState State);
+/// <param name="Charge">The row's precursor charge; null for a peptide row.</param>
+public readonly record struct Observation(ObservedPeptide Peptide, string SampleId, double Log2Intensity, ObservationState State,
+    int? Charge = null);
 
 /// <summary>
 /// The input to differential statistics for one quantification basis (STAT1 milestone M5; STATS-FRAMEWORK section 3.1):
@@ -211,11 +219,18 @@ public readonly record struct Observation(ObservedPeptide Peptide, string Sample
 /// <para>
 /// <b>Refusals.</b> Input that cannot be read consistently throws <see cref="ArgumentException"/> naming the run or
 /// peptide: two runs with one file name, a producer run that matches no design run or the reverse, a run label claimed
-/// twice, a peptide listed twice, a value that is not finite and positive, a group name containing <c>;</c>.
+/// twice, a peptide (or precursor) listed twice, a value that is not finite and positive, a group name containing
+/// <c>;</c>, a charge below 1, rows with a charge beside rows without one, and precursors of one peptide that disagree on
+/// its base sequence or groups.
 /// </para>
 /// <para>
-/// <b>Determinism.</b> Peptides are ordered by full sequence and samples by id (ordinal); sums run in fraction order, so
-/// the table does not depend on input order.
+/// <b>Precursor rows.</b> When the rows carry a charge (<see cref="PeptideRunValues.Charge"/>), each row is one precursor:
+/// <see cref="Peptides"/> lists a peptide once per charge, and <see cref="Charge"/> gives each row's. A table without
+/// charges reads, orders and hashes exactly as one built before charges existed.
+/// </para>
+/// <para>
+/// <b>Determinism.</b> Rows are ordered by full sequence, then charge, and samples by id (ordinal); sums run in fraction
+/// order, so the table does not depend on input order.
 /// </para>
 /// </remarks>
 public sealed class ObservationTable
@@ -226,9 +241,11 @@ public sealed class ObservationTable
     // [peptide][sample], aligned with Peptides and Samples.
     private readonly double[][] _log2;
     private readonly ObservationState[][] _state;
+    // [peptide], aligned with Peptides: each row's precursor charge, null on a peptide row.
+    private readonly int?[] _charge;
 
     private ObservationTable(QuantBasis basis, IReadOnlyList<ObservationRun> runs, IReadOnlyList<string> samples,
-        IReadOnlyList<ObservedPeptide> peptides, IReadOnlyDictionary<string, ProteinGroupInfo> proteinGroups,
+        IReadOnlyList<ObservedPeptide> peptides, int?[] charge, IReadOnlyDictionary<string, ProteinGroupInfo> proteinGroups,
         double[][] log2, ObservationState[][] state, IReadOnlyList<string> warnings)
     {
         Basis = basis;
@@ -236,6 +253,7 @@ public sealed class ObservationTable
         Samples = samples;
         Peptides = peptides;
         ProteinGroups = proteinGroups;
+        _charge = charge;
         _log2 = log2;
         _state = state;
         Warnings = warnings;
@@ -254,7 +272,10 @@ public sealed class ObservationTable
     /// <summary>The biological samples, ordered by id (ordinal); every sample of the design, with or without values.</summary>
     public IReadOnlyList<string> Samples { get; }
 
-    /// <summary>The peptides, ordered by full sequence (ordinal).</summary>
+    /// <summary>
+    /// The rows' peptides, ordered by full sequence (ordinal), then charge. A peptide appears once per charge when the rows
+    /// are precursors (<see cref="Charge"/>).
+    /// </summary>
     public IReadOnlyList<ObservedPeptide> Peptides { get; }
 
     /// <summary>The protein groups the producer described, by name.</summary>
@@ -272,12 +293,15 @@ public sealed class ObservationTable
     /// <summary>The state of peptide <paramref name="peptide"/> in sample <paramref name="sample"/>.</summary>
     public ObservationState State(int peptide, int sample) => _state[peptide][sample];
 
+    /// <summary>The precursor charge of row <paramref name="peptide"/>, or null when the rows are peptides.</summary>
+    public int? Charge(int peptide) => _charge[peptide];
+
     /// <summary>Every cell, peptide by peptide, each peptide's samples in order: the long form of the table.</summary>
     public IEnumerable<Observation> Observations()
     {
         for (int p = 0; p < Peptides.Count; p++)
         for (int s = 0; s < Samples.Count; s++)
-            yield return new Observation(Peptides[p], Samples[s], _log2[p][s], _state[p][s]);
+            yield return new Observation(Peptides[p], Samples[s], _log2[p][s], _state[p][s], _charge[p]);
     }
 
     /// <summary>
@@ -290,7 +314,8 @@ public sealed class ObservationTable
     /// <summary>
     /// The table as canonical text: a header (label-free, the basis), the samples in order, each described protein group by
     /// name with its q-value, flags and genes, each peptide in order with its groups and, per sample, its log2 value and
-    /// state (<c>value:state</c>), then the warnings (<see cref="CanonicalText"/>).
+    /// state (<c>value:state</c>), then the warnings (<see cref="CanonicalText"/>). A precursor row is a <c>precursor</c> line
+    /// with its charge after its groups; a peptide row is written as it was before charges existed.
     /// </summary>
     internal string ToCanonicalText()
     {
@@ -302,8 +327,10 @@ public sealed class ObservationTable
         CanonicalText.AppendGroups(text, ProteinGroups);
         for (int p = 0; p < Peptides.Count; p++)
         {
-            text.Append("peptide\t");
+            text.Append(_charge[p] is null ? "peptide\t" : "precursor\t");
             CanonicalText.AppendPeptide(text, Peptides[p]);
+            if (_charge[p] is { } charge)
+                text.Append('\t').Append(CanonicalText.Number(charge));
             for (int s = 0; s < Samples.Count; s++)
                 text.Append('\t').Append(CanonicalText.Number(_log2[p][s])).Append(':').Append(_state[p][s].ToString());
             text.Append('\n');
@@ -328,14 +355,14 @@ public sealed class ObservationTable
         }
 
         var keepSet = keep.ToHashSet(StringComparer.Ordinal);
-        return new ObservationTable(Basis, Runs.Where(r => keepSet.Contains(r.SampleId)).ToList(), keep, Peptides,
+        return new ObservationTable(Basis, Runs.Where(r => keepSet.Contains(r.SampleId)).ToList(), keep, Peptides, _charge,
             ProteinGroups, _log2.Select(row => index.Select(s => row[s]).ToArray()).ToArray(),
             _state.Select(row => index.Select(s => row[s]).ToArray()).ToArray(), Warnings);
     }
 
     /// <summary>The same table with each cell's log2 value replaced; states, peptides and samples unchanged.</summary>
     internal ObservationTable WithLog2(Func<int, int, double> log2) =>
-        new(Basis, Runs, Samples, Peptides, ProteinGroups,
+        new(Basis, Runs, Samples, Peptides, _charge, ProteinGroups,
             Enumerable.Range(0, Peptides.Count)
                 .Select(p => Enumerable.Range(0, Samples.Count).Select(s => log2(p, s)).ToArray()).ToArray(),
             _state, Warnings);
@@ -424,7 +451,8 @@ public sealed class ObservationTable
                 .ToArray())
             .ToArray();
 
-        var ordered = peptides.OrderBy(p => p.FullSequence, StringComparer.Ordinal).ToList();
+        var ordered = peptides.OrderBy(p => p.FullSequence, StringComparer.Ordinal).ThenBy(p => p.Charge).ToList();
+        ValidateCharges(ordered);
         var observed = new List<ObservedPeptide>(ordered.Count);
         var log2 = new double[ordered.Count][];
         var state = new ObservationState[ordered.Count][];
@@ -433,14 +461,21 @@ public sealed class ObservationTable
         for (int p = 0; p < ordered.Count; p++)
         {
             PeptideRunValues peptide = ordered[p];
-            if (p > 0 && string.Equals(peptide.FullSequence, ordered[p - 1].FullSequence, StringComparison.Ordinal))
-                throw new ArgumentException($"Peptide '{peptide.FullSequence}' is listed twice.", nameof(peptides));
+            bool samePeptide = p > 0 && string.Equals(peptide.FullSequence, ordered[p - 1].FullSequence, StringComparison.Ordinal);
+            if (samePeptide && peptide.Charge == ordered[p - 1].Charge)
+                throw new ArgumentException(peptide.Charge is { } z
+                    ? $"Precursor '{peptide.FullSequence}' at charge {z.ToString(CultureInfo.InvariantCulture)} is listed twice."
+                    : $"Peptide '{peptide.FullSequence}' is listed twice.", nameof(peptides));
 
             var groupNames = ValidateGroupNames(peptide);
             foreach (string name in groupNames)
                 if (!groups.ContainsKey(name) && !string.Equals(name, ObservedPeptide.UndefinedProteinGroup, StringComparison.Ordinal))
                     undescribed.Add(name);
-            observed.Add(new ObservedPeptide(peptide.FullSequence, peptide.BaseSequence, groupNames));
+            var current = new ObservedPeptide(peptide.FullSequence, peptide.BaseSequence, groupNames);
+            if (samePeptide && !SameIdentity(current, observed[p - 1]))
+                throw new ArgumentException(
+                    $"The precursors of peptide '{peptide.FullSequence}' disagree on its base sequence or protein groups.", nameof(peptides));
+            observed.Add(current);
 
             var byRun = RunValuesByFile(peptide, labelToRun);
             log2[p] = new double[samples.Count];
@@ -455,8 +490,29 @@ public sealed class ObservationTable
                 $"their q-value and decoy/contaminant status are unknown: {string.Join(", ", undescribed.Take(5))}" +
                 (undescribed.Count > 5 ? ", ..." : "") + ".");
 
-        return new ObservationTable(basis, orderedRuns, samples, observed, groups, log2, state, warnings);
+        return new ObservationTable(basis, orderedRuns, samples, observed, ordered.Select(p => p.Charge).ToArray(), groups, log2,
+            state, warnings);
     }
+
+    /// <summary>Every row carries a charge of at least 1, or none does.</summary>
+    private static void ValidateCharges(List<PeptideRunValues> rows)
+    {
+        foreach (var row in rows)
+            if (row.Charge is < 1)
+                throw new ArgumentException($"Precursor '{row.FullSequence}' has charge " +
+                    $"{row.Charge.Value.ToString(CultureInfo.InvariantCulture)}; a precursor charge is at least 1.", "peptides");
+
+        var charged = rows.FirstOrDefault(r => r.Charge is not null);
+        var uncharged = rows.FirstOrDefault(r => r.Charge is null);
+        if (charged is not null && uncharged is not null)
+            throw new ArgumentException($"Precursor '{charged.FullSequence}' has a charge and peptide '{uncharged.FullSequence}' " +
+                "has none; give every row a charge (precursor rows) or none (peptide rows).", "peptides");
+    }
+
+    /// <summary>Two rows of one peptide name the same base sequence and the same groups.</summary>
+    private static bool SameIdentity(ObservedPeptide a, ObservedPeptide b) =>
+        string.Equals(a.BaseSequence, b.BaseSequence, StringComparison.Ordinal)
+        && a.ProteinGroups.SequenceEqual(b.ProteinGroups, StringComparer.Ordinal);
 
     /// <summary>
     /// One sample's cell: fractions summed per replicate, then the replicates' log2 values averaged. Under

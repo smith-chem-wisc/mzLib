@@ -14,8 +14,26 @@ namespace Quantification.Differential;
 /// <param name="MinimumReferenceSetSize">Below this many peptides in every sample, the half-samples set was used (GR-25).</param>
 /// <param name="PerSampleShift">Each sample's shift in log2 units, subtracted from its values; NaN when undefined.</param>
 /// <param name="Warnings">Which samples have no shift, and why.</param>
+/// <param name="DeclaredGroups">With a background set: how many distinct protein groups it declared; otherwise null.</param>
+/// <param name="DeclaredGroupsAbsent">
+/// With a background set: the declared groups that no row of the table names, ordinal; otherwise null.
+/// </param>
 public sealed record NormalizationResult(string Setting, int ReferenceSetSize, int MinimumReferenceSetSize,
-    IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings);
+    IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings, int? DeclaredGroups = null,
+    IReadOnlyList<string>? DeclaredGroupsAbsent = null);
+
+/// <summary>
+/// A declared background set (<c>DEF-DIFF-NORM</c> <c>background_set:&lt;name&gt;</c>, QuantProject dia 074): the protein
+/// groups the caller expects not to change (non-specific binders, spike-ins, or the constant species of a mixture). Quant
+/// code never chooses them.
+/// </summary>
+/// <param name="Name">The set's name, written after <c>background_set:</c>: not empty, no whitespace, no <c>:</c>.</param>
+/// <param name="ProteinGroups">The groups, by name as the table names them; at least one, none blank.</param>
+public sealed record BackgroundSet(string Name, IReadOnlyCollection<string> ProteinGroups)
+{
+    /// <summary>The <c>DEF-DIFF-NORM</c> setting this set is measured under: <c>background_set:&lt;name&gt;</c>.</summary>
+    public string Setting => SharedPeptideNormalization.BackgroundSetPrefix + Name;
+}
 
 /// <summary>
 /// The shared-peptide median normalization of GR-2 / GR-12 (<c>DEF-DIFF-NORM</c>): each sample is shifted by its median
@@ -50,6 +68,13 @@ public sealed record NormalizationResult(string Setting, int ReferenceSetSize, i
 /// warning says the groups have no common scale: nothing in the data says how far apart they are.
 /// </para>
 /// <para>
+/// <b>Background set.</b> With a <see cref="BackgroundSet"/>, a peptide may be in the reference set only if every group it
+/// maps to is declared, and it is still never a decoy, contaminant or entrapment peptide. Within the declared peptides
+/// the rules above apply unchanged (every sample, then half the samples, then nothing below the floor), and the setting
+/// is <c>background_set:&lt;name&gt;</c> on either set; a warning says when the half set was used, and which declared
+/// groups the table does not hold.
+/// </para>
+/// <para>
 /// <b>Scope.</b> The shifts are measured over every sample of the table given, so measure one stratum at a time
 /// (<see cref="ObservationTable.ForSamples"/>; GR-5). They are measured whatever the setting, because the metadata always
 /// reports them; a PTM enrichment records <see cref="None"/> and is simply not shifted (GR-12).
@@ -66,6 +91,9 @@ public static class SharedPeptideNormalization
     /// <summary><c>DEF-DIFF-NORM</c>: not shifted.</summary>
     public const string None = "none";
 
+    /// <summary><c>DEF-DIFF-NORM</c>: the prefix of a declared background set's setting, <c>background_set:&lt;name&gt;</c>.</summary>
+    public const string BackgroundSetPrefix = "background_set:";
+
     /// <summary>GR-25: the every-sample set must hold at least this many peptides.</summary>
     public const int DefaultMinimumPeptides = 100;
 
@@ -81,19 +109,57 @@ public static class SharedPeptideNormalization
     public static NormalizationResult Measure(ObservationTable table, int minimumPeptides = DefaultMinimumPeptides)
         => Measure(table, minimumPeptides, MaximumPasses);
 
+    /// <summary>Measures each sample's shift over every sample of <paramref name="table"/>, on a declared background set.</summary>
+    /// <param name="table">One stratum's table.</param>
+    /// <param name="backgroundSet">The declared set.</param>
+    /// <param name="minimumPeptides">The floor on either reference set within the declared set (GR-25); at least 1.</param>
+    /// <exception cref="ArgumentException">A set with no name, a name that is not plain, no groups, or a blank group name.</exception>
+    public static NormalizationResult Measure(ObservationTable table, BackgroundSet backgroundSet,
+        int minimumPeptides = DefaultMinimumPeptides)
+    {
+        ValidateBackgroundSet(backgroundSet);
+        return Measure(table, minimumPeptides, MaximumPasses, background: backgroundSet);
+    }
+
+    /// <summary>Whether <paramref name="name"/> can follow <c>background_set:</c>: not empty, no whitespace, no <c>:</c>.</summary>
+    public static bool IsBackgroundSetName(string? name) =>
+        !string.IsNullOrEmpty(name) && !name.Any(c => char.IsWhiteSpace(c) || c == ':');
+
+    /// <summary>Refuses a set whose name is not plain, that declares no group, or that names a blank one.</summary>
+    internal static void ValidateBackgroundSet(BackgroundSet backgroundSet)
+    {
+        ArgumentNullException.ThrowIfNull(backgroundSet);
+        ArgumentNullException.ThrowIfNull(backgroundSet.ProteinGroups, nameof(backgroundSet));
+        if (!IsBackgroundSetName(backgroundSet.Name))
+            throw new ArgumentException($"The background set's name '{backgroundSet.Name}' must be non-empty, with no whitespace " +
+                "or ':'.", nameof(backgroundSet));
+        if (backgroundSet.ProteinGroups.Count == 0)
+            throw new ArgumentException($"The background set '{backgroundSet.Name}' declares no protein group.", nameof(backgroundSet));
+        if (backgroundSet.ProteinGroups.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException($"The background set '{backgroundSet.Name}' declares a blank protein-group name.",
+                nameof(backgroundSet));
+    }
+
     /// <param name="maximumPasses">The half set's limit on passes, lowered by a test to reach its warning.</param>
     /// <param name="minimumHalfSetPeptides">
     /// The half set's floor when not <paramref name="minimumPeptides"/>, lowered by a test to measure a few peptides.
     /// </param>
+    /// <param name="background">The declared background set, already validated; null for the shared-peptide median.</param>
     internal static NormalizationResult Measure(ObservationTable table, int minimumPeptides, int maximumPasses,
-        int? minimumHalfSetPeptides = null)
+        int? minimumHalfSetPeptides = null, BackgroundSet? background = null)
     {
         ArgumentNullException.ThrowIfNull(table);
         ArgumentOutOfRangeException.ThrowIfLessThan(minimumPeptides, 1);
 
+        var declared = background?.ProteinGroups.ToHashSet(StringComparer.Ordinal);
+        List<string>? absent = declared is null ? null
+            : declared.Except(table.Peptides.SelectMany(p => p.ProteinGroups), StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        string inSet = background is null ? "" : $"In the background set '{background.Name}', ";
+
         int samples = table.Samples.Count;
         var eligible = Enumerable.Range(0, table.Peptides.Count)
-            .Where(p => IsReferenceEligible(table, table.Peptides[p]))
+            .Where(p => IsReferenceEligible(table, table.Peptides[p])
+                && (declared is null || (table.Peptides[p].ProteinGroups.Count > 0 && table.Peptides[p].ProteinGroups.All(declared.Contains))))
             .Select(p => (Peptide: p, Present: Enumerable.Range(0, samples).Count(s => !double.IsNaN(table.Log2Intensity(p, s)))))
             .ToList();
 
@@ -102,35 +168,42 @@ public static class SharedPeptideNormalization
         int withValues = Enumerable.Range(0, samples)
             .Count(s => eligible.Any(e => !double.IsNaN(table.Log2Intensity(e.Peptide, s))));
 
-        string setting = SharedPeptideMedian;
+        string setting = background?.Setting ?? SharedPeptideMedian;
+        string halfLabel = background is null ? SharedPeptideMedianHalf : $"{background.Setting} half-samples";
+        bool half = false;
         var reference = eligible.Where(e => e.Present == withValues && withValues > 0).Select(e => e.Peptide).ToList();
         var warnings = new List<string>();
         if (reference.Count < minimumPeptides)
         {
             int inEverySample = reference.Count;
-            setting = SharedPeptideMedianHalf;
+            half = true;
+            setting = background?.Setting ?? SharedPeptideMedianHalf;
             int needed = Math.Max(2, (withValues + 1) / 2);
             reference = eligible.Where(e => e.Present >= needed).Select(e => e.Peptide).ToList();
             int halfSetFloor = minimumHalfSetPeptides ?? minimumPeptides;
             if (reference.Count < halfSetFloor)
             {
                 // Fewer than the floor is not trusted on either set (review round 4: one peptide shifted four samples).
-                warnings.Add($"{inEverySample} reference peptide(s) have a value in every sample and {reference.Count} in " +
+                warnings.Add($"{inSet}{inEverySample} reference peptide(s) have a value in every sample and {reference.Count} in " +
                     $"at least half, under the floor of {halfSetFloor}, so no sample is shifted ({None}).");
+                AddAbsentWarning(background, absent, warnings);
                 var none = table.Samples.ToDictionary(s => s, _ => double.NaN, StringComparer.Ordinal);
-                return new NormalizationResult(None, reference.Count, minimumPeptides, none, warnings);
+                return new NormalizationResult(None, reference.Count, minimumPeptides, none, warnings, declared?.Count, absent);
             }
+            if (background is not null)
+                warnings.Add($"{inSet}{inEverySample} reference peptide(s) have a value in every sample, under the floor of " +
+                    $"{minimumPeptides}, so the {reference.Count} with a value in at least half the samples were used.");
         }
 
         double[] shift = MedianDifferences(table, reference, new double[samples]);
-        if (setting == SharedPeptideMedianHalf)
+        if (half)
         {
             var groups = LinkedGroups(table, reference, samples);
             if (groups.Count > 1)
-                warnings.Add($"The {SharedPeptideMedianHalf} reference peptides link the samples in {groups.Count} groups " +
+                warnings.Add($"The {halfLabel} reference peptides link the samples in {groups.Count} groups " +
                     $"that share none ({string.Join("; ", groups.Select(g => string.Join(", ", g.Select(i => table.Samples[i]))))}). " +
                     "Each group is settled and centred on its own, so the groups have no common scale.");
-            Settle(table, reference, shift, groups, maximumPasses, warnings);
+            Settle(table, reference, shift, groups, maximumPasses, warnings, halfLabel);
         }
 
         var shifts = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -145,8 +218,18 @@ public static class SharedPeptideNormalization
         if (unshifted.Count > 0)
             warnings.Insert(0, $"No reference peptide ({reference.Count}, {setting}) has a value in sample(s) " +
                 $"{string.Join(", ", unshifted)}, so their shift is undefined and they are not shifted.");
+        AddAbsentWarning(background, absent, warnings);
 
-        return new NormalizationResult(setting, reference.Count, minimumPeptides, shifts, warnings);
+        return new NormalizationResult(setting, reference.Count, minimumPeptides, shifts, warnings, declared?.Count, absent);
+    }
+
+    /// <summary>With a background set, a warning naming the declared groups no row of the table names (the first five).</summary>
+    private static void AddAbsentWarning(BackgroundSet? background, List<string>? absent, List<string> warnings)
+    {
+        if (background is null || absent is null || absent.Count == 0)
+            return;
+        warnings.Add($"{absent.Count} declared protein group(s) of the background set '{background.Name}' are not in the table: " +
+            $"{string.Join(", ", absent.Take(5))}{(absent.Count > 5 ? ", ..." : "")}.");
     }
 
     /// <summary>
@@ -194,7 +277,7 @@ public static class SharedPeptideNormalization
     /// result is centred to average 0 within each group.
     /// </summary>
     private static void Settle(ObservationTable table, List<int> reference, double[] shift, List<int[]> groups,
-        int maximumPasses, List<string> warnings)
+        int maximumPasses, List<string> warnings, string halfLabel)
     {
         double[] firstPass = (double[])shift.Clone();
         bool settled = false;
@@ -213,7 +296,7 @@ public static class SharedPeptideNormalization
         if (!settled)
         {
             Array.Copy(firstPass, shift, shift.Length);
-            warnings.Add($"The {SharedPeptideMedianHalf} shifts did not settle within {maximumPasses} passes, so the first " +
+            warnings.Add($"The {halfLabel} shifts did not settle within {maximumPasses} passes, so the first " +
                 "pass's shifts are used.");
         }
         Centre(shift, groups);

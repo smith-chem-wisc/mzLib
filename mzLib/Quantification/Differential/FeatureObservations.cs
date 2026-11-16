@@ -6,17 +6,21 @@ using System.Linq;
 namespace Quantification.Differential;
 
 /// <summary>
-/// One value a per-protein model fits (STAT1 M5b): its log2 value; its nuisance level (a peptide, or a TMT peptide ion in
-/// its plex run); the analysis sample it belongs to (the design row, and the sample counted by the support rules); and
-/// its random-effect labels.
+/// One value a per-protein model fits (STAT1 M5b): its log2 value; its nuisance level (a peptide, a precursor, or a TMT
+/// peptide ion in its plex run) and the peptide it belongs to; the analysis sample it belongs to (the design row, and the
+/// sample counted by the support rules); and its random-effect labels.
 /// </summary>
 /// <param name="Log2">The normalized log2 value; finite.</param>
-/// <param name="Nuisance">The nuisance level: the peptide's full sequence (label-free), or ion and plex run (isobaric).</param>
+/// <param name="Nuisance">
+/// The nuisance level: the peptide's full sequence (label-free peptide row), <c>{full sequence}/{charge}</c> (label-free
+/// precursor row), or ion and plex run (isobaric).
+/// </param>
+/// <param name="Peptide">The full sequence of the level's peptide, which <c>n_peptides</c> counts (M5b ruling 13).</param>
 /// <param name="SampleId">The <see cref="AnalysisSample.SampleId"/> whose design row the value is fitted on.</param>
 /// <param name="RandomSample">The inner random intercept's level.</param>
 /// <param name="RandomIndividual">The outer random intercept's level; null when the model has only one.</param>
 /// <param name="IsMbr">The value includes a match-between-runs peak.</param>
-internal readonly record struct FeatureValue(double Log2, string Nuisance, string SampleId, string RandomSample,
+internal readonly record struct FeatureValue(double Log2, string Nuisance, string Peptide, string SampleId, string RandomSample,
     string? RandomIndividual, bool IsMbr);
 
 /// <summary>
@@ -32,6 +36,7 @@ internal sealed class FeatureObservations
         Values = values;
         UniqueLevels = uniqueLevels;
         NuisanceLevels = values.Select(v => v.Nuisance).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        PeptideCount = values.Select(v => v.Peptide).Distinct(StringComparer.Ordinal).Count();
         SampleIds = values.Select(v => v.SampleId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
     }
 
@@ -43,6 +48,12 @@ internal sealed class FeatureObservations
 
     /// <summary>The usable nuisance levels, ordinal; the first is the reference of the treatment coding.</summary>
     public IReadOnlyList<string> NuisanceLevels { get; }
+
+    /// <summary>
+    /// The distinct peptides (full sequences) behind the usable levels: <c>n_peptides</c> (M5b ruling 13). A precursor or a
+    /// TMT ion in a plex run is a level of its own, but its peptide counts once.
+    /// </summary>
+    public int PeptideCount { get; }
 
     /// <summary>Nuisance levels unique to the group, usable or not.</summary>
     public int UniqueLevels { get; }
@@ -78,7 +89,8 @@ internal static class FeatureObservationBuilder
     /// <summary>
     /// Label-free: each peptide unique to a group, valued in at least <paramref name="minimumSamples"/> of
     /// <paramref name="samples"/>, gives one value per sample with a value. The random intercepts are the sample, within
-    /// the individual when the samples carry one (GR-6).
+    /// the individual when the samples carry one (GR-6). A precursor row (one with a charge) is a level of its own,
+    /// <c>{full sequence}/{charge}</c>, as a TMT ion is (QuantProject dia 073).
     /// </summary>
     /// <param name="table">The stratum's normalized table.</param>
     /// <param name="samples">The stratum's analysis samples, by id.</param>
@@ -97,11 +109,14 @@ internal static class FeatureObservationBuilder
             unique[group] = unique.GetValueOrDefault(group) + 1;
             var valued = columns.Where(s => !double.IsNaN(table.Log2Intensity(p, s))).ToArray();
             if (valued.Length < minimumSamples) continue;
+            string level = table.Charge(p) is { } charge
+                ? string.Create(CultureInfo.InvariantCulture, $"{peptide.FullSequence}/{charge}")
+                : peptide.FullSequence;
             if (!values.TryGetValue(group, out var list)) values[group] = list = new List<FeatureValue>();
             foreach (int s in valued)
             {
                 string id = table.Samples[s];
-                list.Add(new FeatureValue(table.Log2Intensity(p, s), peptide.FullSequence, id, id, samples[id].Individual,
+                list.Add(new FeatureValue(table.Log2Intensity(p, s), level, peptide.FullSequence, id, id, samples[id].Individual,
                     table.State(p, s) == ObservationState.MbrTransferred));
             }
         }
@@ -136,8 +151,8 @@ internal static class FeatureObservationBuilder
                 string id = table.Samples[s];
                 string? animal = samples[id].Individual;
                 list.Add(animal is null
-                    ? new FeatureValue(table.Log2Intensity(r, s), level, id, id + "@" + run, id, false)
-                    : new FeatureValue(table.Log2Intensity(r, s), level, id, id, animal, false));
+                    ? new FeatureValue(table.Log2Intensity(r, s), level, row.Peptide.FullSequence, id, id + "@" + run, id, false)
+                    : new FeatureValue(table.Log2Intensity(r, s), level, row.Peptide.FullSequence, id, id, animal, false));
             }
         }
         return Collect(values, unique);

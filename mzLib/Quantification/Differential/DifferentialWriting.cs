@@ -463,8 +463,18 @@ public sealed record DifferentialSettings
     public string Method { get; init; } = "moderated";
     /// <summary>Whether outlying values were down-weighted.</summary>
     public bool Robust { get; init; } = true;
-    /// <summary>The normalization setting (<c>DEF-DIFF-NORM</c>).</summary>
+    /// <summary>
+    /// The normalization setting (<c>DEF-DIFF-NORM</c>): <c>shared_peptide_median</c> (the default; an isobaric table's own
+    /// default, <c>global_channel_median</c>, runs in its place), <c>none</c>, <c>background_set:&lt;name&gt;</c> (label-free
+    /// tables, with <see cref="BackgroundSetGroups"/>), or, for an isobaric table, <c>global_channel_median</c>. The runner
+    /// refuses any other.
+    /// </summary>
     public string Normalization { get; init; } = "shared_peptide_median";
+    /// <summary>
+    /// The protein groups of a <c>background_set:&lt;name&gt;</c> normalization, by name as the table names them; null for
+    /// every other setting. Their count and the sha256 of their sorted names enter the analysis id.
+    /// </summary>
+    public IReadOnlyCollection<string>? BackgroundSetGroups { get; init; }
     /// <summary>A curator's per-dataset override, if any.</summary>
     public string? NormalizationOverride { get; init; }
     /// <summary>A random seed, if any part of the analysis used one.</summary>
@@ -556,8 +566,11 @@ public sealed record DifferentialModelInfo(string Stratum, string? QuantBasis, s
 /// per-sample shifts and any warnings. The global shift is a property of a contrast, not of a stratum, so it is on
 /// <see cref="DifferentialContrastInfo.GlobalShift"/>. <see cref="QuantBasis"/> is null for styles with no basis.
 /// </summary>
+/// <param name="DeclaredGroups">With a background set: how many distinct groups it declared; null otherwise.</param>
+/// <param name="DeclaredGroupsAbsent">With a background set: the declared groups the table does not hold; null otherwise.</param>
 public sealed record DifferentialNormalizationInfo(string Stratum, string? QuantBasis, string Setting, int ReferenceSetSize,
-    int MinimumReferenceSetSize, IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings);
+    int MinimumReferenceSetSize, IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings,
+    int? DeclaredGroups = null, IReadOnlyList<string>? DeclaredGroupsAbsent = null);
 
 /// <summary>
 /// Everything constant across an analysis's rows (<c>DEF-DIFF-META</c>), written by <see cref="DifferentialMetadataWriter"/>.
@@ -768,6 +781,13 @@ public static class DifferentialMetadataWriter
                 w.WriteString("setting", n.Setting);
                 w.WriteNumber("reference_set_size", n.ReferenceSetSize);
                 w.WriteNumber("minimum_reference_set_size", n.MinimumReferenceSetSize);
+                if (n.DeclaredGroups is { } declared) w.WriteNumber("declared_groups", declared);
+                if (n.DeclaredGroupsAbsent is { } absent)
+                {
+                    w.WriteStartArray("declared_groups_absent");
+                    foreach (var group in absent) w.WriteStringValue(group);
+                    w.WriteEndArray();
+                }
                 Map(w, "per_sample_shift", n.PerSampleShift, (k, v) => Number(w, k, v));
                 w.WriteStartArray("warnings");
                 foreach (var warning in n.Warnings) w.WriteStringValue(warning);
@@ -909,6 +929,12 @@ public static class DifferentialMetadataWriter
         w.WriteString("method", s.Method);
         w.WriteBoolean("robust", s.Robust);
         w.WriteString("normalization", s.Normalization);
+        if (s.BackgroundSetGroups is { } groups)
+        {
+            var sorted = groups.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            w.WriteNumber("background_set_groups", sorted.Count);
+            w.WriteString("background_set_sha256", CanonicalText.Sha256(string.Join("\n", sorted.Select(CanonicalText.Escape))));
+        }
         Optional(w, "normalization_override", s.NormalizationOverride);
         if (s.Seed is { } seed) w.WriteNumber("seed", seed);
         w.WriteNumber("minimum_samples_per_side", s.MinimumSamplesPerSide);
