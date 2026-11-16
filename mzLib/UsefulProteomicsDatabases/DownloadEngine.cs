@@ -166,15 +166,21 @@ namespace UsefulProteomicsDatabases
         /// <param name="attempt">One complete attempt, from sending the request to checking the status.</param>
         /// <param name="host">The host the request goes to; decides whether a 403 is transient.</param>
         /// <param name="cancellationToken">Cancels the attempt and any backoff.</param>
-        internal async Task<T> WithRetryAsync<T>(Func<Task<T>> attempt, string host, CancellationToken cancellationToken)
+        /// <param name="maxRetries">
+        /// This call's retry limit in place of <see cref="MaxRetries"/>; null (the default) uses it. A caller that runs
+        /// its own retries passes 0, so the two budgets do not multiply.
+        /// </param>
+        internal async Task<T> WithRetryAsync<T>(Func<Task<T>> attempt, string host, CancellationToken cancellationToken,
+            int? maxRetries = null)
         {
+            int limit = maxRetries ?? MaxRetries;
             for (int retry = 0; ; retry++)
             {
                 try
                 {
                     return await attempt().ConfigureAwait(false);
                 }
-                catch (HttpRequestException e) when (retry < MaxRetries && IsTransient(e, host))
+                catch (HttpRequestException e) when (retry < limit && IsTransient(e, host))
                 {
                     await RetryDelay(BackoffFor(retry, e), cancellationToken).ConfigureAwait(false);
                 }

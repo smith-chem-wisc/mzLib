@@ -185,3 +185,18 @@ whether their content derives from Unimod or PSI-MOD closely enough to warrant a
 
 Fetch procedures for the two vocabularies added alongside this file are in
 `mzLib/UsefulProteomicsDatabases/Resources/PROVENANCE.md`.
+
+---
+
+# Redistributed keys
+
+## EMBL-EBI public Aspera key — `aspera_tokenauth_id_rsa`
+
+- **Publisher:** EMBL-EBI (the key for anonymous Aspera downloads from its public archives, KB0011565)
+- **Source:** pridepy, https://github.com/PRIDE-Archive/pridepy (`pridepy/aspera/key/aspera_tokenauth_id_rsa`)
+- **Pinned version:** pridepy commit `fbd30d43366c69a93a11600f09bb46fe33f96a93` (2025-12-22);
+  SHA-256 `4f90eaab1230f9793d357ea7669ff9205edd30864a0bcf5ef3eb42a2720de1f1`
+- **Licence:** pridepy is licensed under the Apache License 2.0, https://www.apache.org/licenses/LICENSE-2.0
+- **Embedded in:** `UsefulProteomicsDatabases.dll`
+  (`UsefulProteomicsDatabases/Resources/aspera_tokenauth_id_rsa`)
+- **Note:** a public key in all but name; EBI gives it to everyone, and it grants nothing beyond public downloads.
