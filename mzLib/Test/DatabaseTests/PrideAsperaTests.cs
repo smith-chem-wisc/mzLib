@@ -536,13 +536,26 @@ public class PrideAsperaTests
 
     // ---- the real process wrapper -------------------------------------------------
 
+    /// <summary>A shell running <paramref name="windows"/> or <paramref name="unix"/>, with ascp's redirections.</summary>
+    private static ProcessStartInfo Shell(string windows, string unix)
+    {
+        var startInfo = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo("cmd.exe") { ArgumentList = { "/c", windows } }
+            : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", unix } };
+        startInfo.UseShellExecute = false;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.CreateNoWindow = true;
+        return startInfo;
+    }
+
     [Test]
     public async Task AscpProcess_ReportsTheExitCodeAndTheLastLine()
     {
-        using IAscpSession session = AscpProcess.Start(new ProcessStartInfo("cmd.exe", "/c echo first 1>&2 & echo Session Stop (Error: last) 1>&2 & exit 3")
-        {
-            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true
-        });
+        // Both lines on stderr: the two streams are read concurrently, so only one stream's order is defined.
+        using IAscpSession session = AscpProcess.Start(Shell(
+            "echo first 1>&2 & echo Session Stop (Error: last) 1>&2 & exit 3",
+            "echo first 1>&2; echo 'Session Stop (Error: last)' 1>&2; exit 3"));
 
         Assert.That(await session.Exited.WaitAsync(TimeSpan.FromSeconds(30)), Is.EqualTo(3));
         Assert.That(session.LastLine, Is.EqualTo("Session Stop (Error: last)"));
@@ -551,10 +564,9 @@ public class PrideAsperaTests
     [Test]
     public async Task AscpProcess_Kill_EndsTheProcessTree()
     {
-        using IAscpSession session = AscpProcess.Start(new ProcessStartInfo("cmd.exe", "/c ping -n 60 127.0.0.1 > nul")
-        {
-            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true
-        });
+        // The shell starts a child that would run for a minute and holds the redirected streams. Unless the child is
+        // stopped too, Exited waits for it, past the 30 s below.
+        using IAscpSession session = AscpProcess.Start(Shell("ping -n 60 127.0.0.1 > nul", "sleep 60; echo done"));
 
         session.Kill();
 
