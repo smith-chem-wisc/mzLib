@@ -338,6 +338,20 @@ public class QuantificationEngine
         ResolvedOutputDirectory = null;
         if (WritesAnything())
         {
+            // The three tables are isobaric output, and their names say so to every reader: dataRepo switches to
+            // isobaric ingest when either matrix exists, and PXReprise requires them of a TMT search. A run of any
+            // other mode (label-free, DIA) writes its own tables or none, never these, so it is refused here rather
+            // than written under a name that misreports its mode.
+            if (allSamples.Any(sample => sample is not IsobaricQuantSampleInfo))
+            {
+                badResults = QuantificationResults.Failure(
+                    $"QuantificationEngine Error: {QuantificationWriter.RawFileName}, {QuantificationWriter.PeptideFileName} " +
+                    $"and {QuantificationWriter.ProteinGroupFileName} are isobaric (TMT, iTRAQ) quantification tables, and " +
+                    "this experimental design has samples that are not isobaric channels. Turn WriteRawInformation, " +
+                    "WritePeptideInformation and WriteProteinInformation off, and write this mode's own tables.");
+                return false;
+            }
+
             if (!string.IsNullOrWhiteSpace(Parameters.OutputDirectory))
             {
                 ResolvedOutputDirectory = Parameters.OutputDirectory;
