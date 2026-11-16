@@ -74,5 +74,19 @@ namespace Test.FileReadingTests
             Assert.That(reading.Labelled, Is.False);
             Assert.That(reading.Kit, Is.Null);
         }
+
+        [TestCase(IsobaricMassTagType.TMT11, IsobaricMassTagType.TMT10, true)]
+        [TestCase(IsobaricMassTagType.TMT11, IsobaricMassTagType.TMT6, true)]
+        [TestCase(IsobaricMassTagType.TMT10, IsobaricMassTagType.TMT6, true, Description = "TMT6's 128 is TMT10's 128C, its 130 is 130C")]
+        [TestCase(IsobaricMassTagType.TMT18, IsobaricMassTagType.TMT16, true)]
+        [TestCase(IsobaricMassTagType.TMT10, IsobaricMassTagType.TMT10, true)]
+        [TestCase(IsobaricMassTagType.TMT10, IsobaricMassTagType.TMT11, false, Description = "131C is not one of TMT10's")]
+        [TestCase(IsobaricMassTagType.TMT6, IsobaricMassTagType.TMT10, false)]
+        [TestCase(IsobaricMassTagType.TMT16, IsobaricMassTagType.TMT11, false, Description = "TMTpro's reporters sit at TMT11's m/z, but it is another reagent")]
+        [TestCase(IsobaricMassTagType.iTRAQ8, IsobaricMassTagType.iTRAQ4, false, Description = "iTRAQ 4's reporters sit at iTRAQ 8's m/z, but it is another reagent")]
+        public void AKitHoldsAnotherOnlyWhenItIsTheSameReagentWithEveryChannel(IsobaricMassTagType kit, IsobaricMassTagType smaller, bool holds)
+        {
+            Assert.That(SdrfIsobaricKit.Holds(kit, smaller), Is.EqualTo(holds));
+        }
     }
 }

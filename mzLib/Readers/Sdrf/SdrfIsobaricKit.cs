@@ -104,5 +104,25 @@ namespace Readers
                 ? new SdrfKitReading(found[0].Kit, true, found[0].Quote)
                 : new SdrfKitReading(null, true, found.Count > 1 ? string.Join("', '", found.Select(f => f.Quote)) : family.Value);
         }
+
+        /// <summary>True when <paramref name="kit"/> has every channel of <paramref name="smaller"/>: the same reagent, with each
+        /// of the smaller kit's reporter ions at one of its own m/z (TMT6's <c>128</c> is TMT10's <c>128C</c>). A kit holds
+        /// itself. TMTpro's reporters sit at TMT11's m/z and iTRAQ 4's at iTRAQ 8's, but each is another reagent, so neither
+        /// holds the other.</summary>
+        internal static bool Holds(IsobaricMassTagType kit, IsobaricMassTagType smaller)
+        {
+            if (Reagent(kit) != Reagent(smaller)) return false;
+            if (!IsobaricMassTag.TryGetIsobaricMassTag(kit, out var big) || !IsobaricMassTag.TryGetIsobaricMassTag(smaller, out var small))
+                return false;
+            return small!.ReporterIonMzs.All(mz => big!.ReporterIonMzs.Any(b => System.Math.Abs(b - mz) <= IsobaricMassTag.AbsoluteToleranceValue));
+        }
+
+        // The reagent a kit is made of, which its reporter ions alone do not tell apart.
+        private static string Reagent(IsobaricMassTagType kit) => kit switch
+        {
+            IsobaricMassTagType.TMT6 or IsobaricMassTagType.TMT10 or IsobaricMassTagType.TMT11 => "TMT",
+            IsobaricMassTagType.TMT16 or IsobaricMassTagType.TMT18 => "TMTpro",
+            _ => kit.ToString()
+        };
     }
 }

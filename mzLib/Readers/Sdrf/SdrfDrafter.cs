@@ -178,7 +178,8 @@ namespace Readers
         ///
         /// <para><b>The kit</b> comes from evidence, else from the record's own words, never from a guess. A claim about a
         /// file's <c>comment[label]</c> (a kit read from its spectra, or from its paper) beats a deposit-wide claim, which
-        /// beats the record; two claims that name different kits state none. The record states a kit only when it names one
+        /// beats the record; two claims that name different kits state none. A kit read from the spectra is only the smallest
+        /// kit holding the channels seen, so a record kit that holds it stands. The record states a kit only when it names one
         /// with its size (<see cref="SdrfIsobaricKit"/>): <c>TMT6plex</c> is also Unimod's name for the 6-, 10- and 11-plex
         /// reagent, so it says only that the runs are labelled. A file whose kit is known gets one row per channel, its
         /// label written as mzLib names it (<see cref="SdrfIsobaricLabels.GetSdrfLabel"/>). A labelled file with no kit known
@@ -219,6 +220,7 @@ namespace Readers
                 ? SdrfEvidence.GlobMatches(e.DataFilePattern, file)
                 : SdrfFileNamePattern.Stem(e.DataFile).Equals(SdrfFileNamePattern.Stem(file), StringComparison.OrdinalIgnoreCase);
             if (claims.Count == 0 && !fromRecord.Labelled) return draft;
+            SdrfDraftCell RecordKitCell() => new(fromRecord.Quote, record.Source, $"{record.TextName} names '{fromRecord.Quote}'");
 
             // ---- each file's kit: (kit or null, the label cell that cites it), or no entry when it is not labelled ----
             var kitOf = new Dictionary<string, (IsobaricMassTagType? Kit, SdrfDraftCell Cell)>(StringComparer.Ordinal);
@@ -246,7 +248,19 @@ namespace Readers
                     var first = naming.FirstOrDefault(c => c.Confidence == SdrfEvidenceConfidence.Certain) ?? naming[0];
                     if (kits.Count == 1 && kits[0] is { } claimed)
                     {
-                        if (fromRecord.Kit is { } said && said != claimed)
+                        // A kit read from the spectra is the smallest holding every channel seen: it says which channels were
+                        // used, not which kit was bought (PXReprise 044). PXD028531's record says TMT11 and its spectra show 9
+                        // of TMT10's channels. So a record kit that holds every channel of it stands.
+                        if (fromRecord.Kit is { } said && said != claimed
+                            && naming.All(c => c.Method.Trim().Equals("spectra", StringComparison.OrdinalIgnoreCase))
+                            && SdrfIsobaricKit.Holds(said, claimed))
+                        {
+                            notes.Add(new(file, "comment[label]", fromRecord.Quote, first.Value.Trim(),
+                                $"a kit read from the spectra shows only the channels used, and {record.TextName} names '{fromRecord.Quote}', which holds every one of them"));
+                            kitOf[file] = (said, RecordKitCell());
+                            continue;
+                        }
+                        if (fromRecord.Kit is { } other && other != claimed)
                             notes.Add(new(file, "comment[label]", fromRecord.Quote, first.Value.Trim(),
                                 $"a kit read from the {first.Source} outranks the words of {record.TextName}"));
                         kitOf[file] = (claimed, EvidenceCell(first, first.Value.Trim()));
@@ -255,7 +269,7 @@ namespace Readers
                 }
                 else if (fromRecord.Labelled)
                     kitOf[file] = fromRecord.Kit is { } kit
-                        ? (kit, new SdrfDraftCell(fromRecord.Quote, record.Source, $"{record.TextName} names '{fromRecord.Quote}'"))
+                        ? (kit, RecordKitCell())
                         : (null, SdrfDraftCell.NotAvailable($"{record.TextName} names '{fromRecord.Quote}', which states no one kit, with its size, for every run, so no channel is drafted"));
             }
             if (kitOf.Count == 0) return notes.Count == 0 ? draft : draft with { EvidenceNotes = draft.EvidenceNotes.Concat(notes).ToList() };

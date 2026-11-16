@@ -200,6 +200,51 @@ namespace Test.FileReadingTests
                 "a kit claim is the label's evidence, not a column evidence cannot fill");
         }
 
+        /// <summary>A kit read from the spectra is the smallest kit holding every channel seen, so it says which channels were
+        /// used, not which kit was bought (PXReprise 044). PXD028531's record says TMT11 and its spectra show 9 of TMT10's
+        /// channels; PXD002528's show 4 of TMT10's, which TMT6 holds. A record kit that holds every channel of the claimed
+        /// kit stands, and the claim is reported.</summary>
+        [TestCase("TMT11plex", "TMT10plex", 11, "TMT131C")]
+        [TestCase("TMT11plex", "TMT6plex", 11, "TMT131C")]
+        [TestCase("TMT10plex", "TMT6plex", 10, "TMT131")]
+        [TestCase("TMTpro 18plex", "TMTpro 16plex", 18, "TMT135N")]
+        public void ASpectraKitTheRecordsKitHoldsLeavesTheRecordsKit(string recordKit, string spectraKit, int channels, string last)
+        {
+            var d = SdrfDrafter.Draft(Project($"Peptides were labelled with {recordKit} reagents."), Files, new[] { Kit("", spectraKit) });
+
+            var labels = Of(d, "Plex1_F01.raw").Select(r => r.Label!.Value).ToList();
+            Assert.That((labels.Count, labels.Last()), Is.EqualTo((channels, last)));
+            Assert.That(d.Rows.All(r => r.Label!.Source == SdrfDraftSource.PrideProjectRecord));
+            Assert.That(d.EvidenceNotes.Where(n => n.Column == "comment[label]" && n.EvidenceValue == spectraKit).Select(n => n.Why),
+                Has.Some.Contain("holds every"));
+        }
+
+        /// <summary>The record's kit stands only when it holds the claimed kit: a channel the record's kit lacks (PXD025618's
+        /// 131C) or another reagent outranks it. TMTpro's reporters sit at TMT11's m/z, and iTRAQ 4's at iTRAQ 8's.</summary>
+        [TestCase("TMT10plex", "TMT11plex", 11)]
+        [TestCase("TMTpro 16plex", "TMT11plex", 11)]
+        [TestCase("TMT11plex", "TMTpro 16plex", 16)]
+        [TestCase("iTRAQ 8-plex", "iTRAQ 4plex", 4)]
+        public void ASpectraKitTheRecordsKitDoesNotHoldOutranksIt(string recordKit, string spectraKit, int channels)
+        {
+            var d = SdrfDrafter.Draft(Project($"Peptides were labelled with {recordKit} reagents."), Files, new[] { Kit("", spectraKit) });
+
+            Assert.That(Of(d, "Plex1_F01.raw").Count(), Is.EqualTo(channels));
+            Assert.That(d.Rows.All(r => r.Label!.Source == SdrfDraftSource.Deposit));
+        }
+
+        /// <summary>Only a kit read from the spectra is a lower bound. A paper naming TMT10 where the record names TMT11 is a
+        /// statement that disagrees, and evidence outranks the record.</summary>
+        [Test]
+        public void AKitReadFromThePaperStillOutranksTheRecord()
+        {
+            var paper = new SdrfEvidence("", "", "comment[label]", "TMT10plex", "paper", "Methods", "text", SdrfEvidenceConfidence.Certain);
+
+            var d = SdrfDrafter.Draft(Project("Peptides were labelled with TMT11plex reagents."), Files, new[] { paper });
+
+            Assert.That(Of(d, "Plex1_F01.raw").Count(), Is.EqualTo(10));
+        }
+
         /// <summary>In a record's text TMT6plex may be the modification's name, so it states no kit; a claim whose whole value
         /// is a kit's name (a kit read from the spectra) is a statement about the kit, and TMT 6-plex is one (PXReprise read 11
         /// TMT6 deposits that way).</summary>
