@@ -31,8 +31,9 @@ namespace UsefulProteomicsDatabases
         /// gives up after about 85 s of backoff. See <see cref="WithRetryAsync{T}"/> for what counts as transient.
         /// </summary>
         /// <remarks>
-        /// Deliberately internal. mzLib has no public retry policy anywhere, and nobody has asked for one;
-        /// a knob can be published later, but a published one cannot be taken back.
+        /// Deliberately internal: these waits stay fixed. A caller that wants its own tries, waits and routes opts in
+        /// to <see cref="PrideDownloadPolicy"/>, whose tries replace these instead of multiplying them. A knob here can
+        /// be published later, but a published one cannot be taken back.
         /// </remarks>
         internal static readonly TimeSpan[] RetryBackoff =
             { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60) };
@@ -304,11 +305,21 @@ namespace UsefulProteomicsDatabases
 
                 using (var fileStream = new FileStream(partialPath, resumed ? FileMode.Append : FileMode.Create,
                            FileAccess.Write, FileShare.None))
-                using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
-                    // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
-                    await CopyUntilStalledAsync(httpStream, fileStream, described, transfer.Inspector, cancellationToken).ConfigureAwait(false);
+                    long writtenFrom = fileStream.Position; // the end of the partial when resumed, else 0
+                    try
+                    {
+                        using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
+                            // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
+                            await CopyUntilStalledAsync(httpStream, fileStream, described, transfer.Inspector, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                    finally
+                    {
+                        transfer.BytesReceived += fileStream.Position - writtenFrom;
+                    }
                 }
 
                 long actualLength = new FileInfo(partialPath).Length;
@@ -523,6 +534,9 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>The check run over the bytes as they arrive, or null when there is nothing to check them against.</summary>
         public IDownloadInspector Inspector { get; init; }
+
+        /// <summary>The bytes the attempts so far have written to the partial, counted as they arrive, kept or not.</summary>
+        public long BytesReceived { get; set; }
     }
 
     /// <summary>

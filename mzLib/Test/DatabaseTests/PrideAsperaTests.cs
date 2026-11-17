@@ -781,6 +781,234 @@ public class PrideAsperaTests
             Assert.ThrowsAsync<ArgumentException>(() => client.DownloadFileWithPolicyAsync(file, _tempDir, Expected, policy));
     }
 
+    // ---- PXReprise 040: the HTTPS location of each try, and what each try's record says ----------
+
+    private const string GlobusHost = "globus.example.org";
+    private const string GlobusUrl = "https://" + GlobusHost + "/" + AsperaPath;
+
+    /// <summary>A body that delivers <paramref name="head"/>, then breaks as a dropped connection does.</summary>
+    private sealed class BreaksAfter(byte[] head) : Stream
+    {
+        private int _at;
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_at >= head.Length)
+                return ValueTask.FromException<int>(new IOException("The response ended prematurely."));
+            int n = Math.Min(buffer.Length, head.Length - _at);
+            head.AsSpan(_at, n).CopyTo(buffer.Span);
+            _at += n;
+            return ValueTask.FromResult(n);
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    /// <summary><see cref="Body"/>'s first <paramref name="received"/> bytes, then a dropped connection; resumable (ETag v1).</summary>
+    private static HttpResponseMessage DropsAfter(int received)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new BreaksAfter(Body[..received])) };
+        response.Content.Headers.ContentLength = Body.Length;
+        response.Headers.ETag = EntityTagHeaderValue.Parse("\"v1\"");
+        return response;
+    }
+
+    /// <summary>The rest of <see cref="Body"/> from <paramref name="from"/>, as a 206 under ETag v1.</summary>
+    private static HttpResponseMessage RestFrom(int from)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(Body[from..]) };
+        response.Content.Headers.ContentRange = new ContentRangeHeaderValue(from, Body.Length - 1, Body.Length);
+        response.Headers.ETag = EntityTagHeaderValue.Parse("\"v1\"");
+        return response;
+    }
+
+    [Test]
+    public async Task Policy_HttpsLocation_PicksEachHttpsTry_GivenThePreviousTry()
+    {
+        // PXReprise's route (040): Globus HTTPS first; after a Globus try that fails without a damaged copy, one try
+        // from ftp.pride; then Globus again.
+        int globusRequests = 0;
+        var handler = new StubHandler(request => request.RequestUri.Host == GlobusHost
+            ? ++globusRequests == 1 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : Download(Body)
+            : new HttpResponseMessage(HttpStatusCode.BadGateway));
+        using var client = ClientWith(_ => throw new AssertionException("ascp must not run"), handler);
+        var asked = new List<PrideDownloadTry>();
+        var tries = new List<PrideDownloadTry>();
+
+        await client.DownloadFileWithPolicyAsync(MakeFile(Ftp), _tempDir, Expected, new PrideDownloadPolicy
+        {
+            Tries = new SyncProgress<PrideDownloadTry>(tries.Add),
+            HttpsLocation = (_, previous) =>
+            {
+                asked.Add(previous);
+                return previous is { Host: GlobusHost, Outcome: PrideDownloadOutcome.Failed } ? null : GlobusUrl;
+            }
+        });
+
+        string[] hosts = { GlobusHost, "ftp.pride.ebi.ac.uk", GlobusHost };
+        Assert.That(handler.Requests.Select(r => r.RequestUri.Host), Is.EqualTo(hosts), "null is the file's own location");
+        Assert.That(tries.Select(t => t.Host), Is.EqualTo(hosts));
+        Assert.That(tries.Select(t => t.Outcome), Is.EqualTo(new[]
+            { PrideDownloadOutcome.Failed, PrideDownloadOutcome.Failed, PrideDownloadOutcome.Accepted }));
+        Assert.That(asked, Is.EqualTo(new[] { null, tries[0], tries[1] }));
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
+    }
+
+    [Test]
+    public async Task Policy_HttpsLocation_IsAskedOnlyForHttpsTries()
+    {
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientWith(Says(1, "Session Stop  (Error: Session data transfer timeout)"), handler);
+        var asked = new List<PrideDownloadTry>();
+
+        await client.DownloadFileWithPolicyAsync(MakeFile(Ftp, Aspera), _tempDir, Expected, new PrideDownloadPolicy
+        {
+            Aspera = Options,
+            HttpsLocation = (_, previous) => { asked.Add(previous); return null; }
+        });
+
+        Assert.That(_started, Has.Count.EqualTo(3));
+        Assert.That(asked, Has.Count.EqualTo(1));
+        Assert.That(asked[0].Route, Is.EqualTo(PrideDownloadRoute.Aspera));
+        Assert.That(asked[0].Try, Is.EqualTo(3));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Policy_HttpsLocation_OnAnotherHost_ResumesAPartialCopyOnlyWhenItsMd5IsChecked(bool verifyMd5)
+    {
+        // The partial copy was started on Globus, under Globus's validator; the next try is on ftp.pride.
+        int call = 0;
+        var handler = new StubHandler(request => ++call == 1 ? DropsAfter(4)
+            : request.Headers.Range != null ? RestFrom(4) : Download(Body));
+        using var client = ClientWith(_ => throw new AssertionException("ascp must not run"), handler);
+
+        await client.DownloadFileWithPolicyAsync(MakeFile(Ftp), _tempDir, Expected,
+            new PrideDownloadPolicy { HttpsLocation = (_, previous) => previous == null ? GlobusUrl : null },
+            verifyMd5: verifyMd5);
+
+        HttpRequestMessage second = handler.Requests[1];
+        Assert.That(second.RequestUri.Host, Is.EqualTo("ftp.pride.ebi.ac.uk"));
+        Assert.That(second.Headers.IfRange, Is.Null, "another host's validator is never sent");
+        Assert.That(second.Headers.Range?.ToString(), verifyMd5 ? Is.EqualTo("bytes=4-") : Is.Null);
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
+    }
+
+    [TestCase("http://globus.example.org/run1.raw")]
+    [TestCase("ftp://globus.example.org/run1.raw")]
+    [TestCase("globus.example.org/run1.raw")]
+    public void Policy_HttpsLocation_ThatIsNotAnAbsoluteHttpsUrl_IsRefusedAtOnce(string location)
+    {
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientWith(_ => throw new AssertionException("ascp must not run"), handler);
+        var tries = new List<PrideDownloadTry>();
+
+        var e = Assert.ThrowsAsync<ArgumentException>(() => client.DownloadFileWithPolicyAsync(MakeFile(Ftp), _tempDir,
+            Expected, new PrideDownloadPolicy { Tries = new SyncProgress<PrideDownloadTry>(tries.Add), HttpsLocation = (_, _) => location }));
+
+        Assert.That(e.ParamName, Is.EqualTo("policy"));
+        Assert.That(e.Message, Does.Not.Contain(GlobusHost), "the location may carry a credential");
+        Assert.That(handler.Requests, Is.Empty);
+        Assert.That(tries, Is.Empty);
+    }
+
+    [Test]
+    public async Task Policy_Tries_RecordWhenTheyStarted_AndTheBytesTheyReceived()
+    {
+        // Aspera fails having written nothing, then writes a damaged 11-byte copy; HTTPS then brings the 10 bytes.
+        int run = 0;
+        using var client = ClientWith(psi => ++run == 1
+                ? Says(1, "Session Stop  (Error: Session data transfer timeout)")(psi)
+                : Writes(Encoding.ASCII.GetBytes("eleven byte"))(psi),
+            new StubHandler(_ => Download(Body)));
+        var tries = new List<PrideDownloadTry>();
+        DateTime before = DateTime.UtcNow;
+
+        await client.DownloadFileWithPolicyAsync(MakeFile(Ftp, Aspera), _tempDir, Expected,
+            new PrideDownloadPolicy { Aspera = Options, Tries = new SyncProgress<PrideDownloadTry>(tries.Add) });
+
+        DateTime after = DateTime.UtcNow;
+        Assert.That(tries.Select(t => (t.Route, t.Outcome, t.BytesReceived)), Is.EqualTo(new[]
+        {
+            (PrideDownloadRoute.Aspera, PrideDownloadOutcome.Failed, (long?)0),
+            (PrideDownloadRoute.Aspera, PrideDownloadOutcome.Damaged, (long?)11),
+            (PrideDownloadRoute.Https, PrideDownloadOutcome.Accepted, (long?)Body.Length)
+        }));
+        Assert.That(tries.Select(t => t.StartedUtc.Kind), Is.All.EqualTo(DateTimeKind.Utc));
+        Assert.That(tries.Select(t => t.StartedUtc), Is.All.InRange(before, after));
+        Assert.That(tries.Select(t => t.StartedUtc), Is.Ordered);
+    }
+
+    [Test]
+    public async Task Policy_AcceptedAsperaCopy_ReceivedItsSize()
+    {
+        using var client = ClientWith(Writes(Body));
+        var tries = new List<PrideDownloadTry>();
+
+        await client.DownloadFileWithPolicyAsync(MakeFile(Ftp, Aspera), _tempDir, Expected,
+            new PrideDownloadPolicy { Aspera = Options, Tries = new SyncProgress<PrideDownloadTry>(tries.Add) });
+
+        Assert.That(tries.Single().Outcome, Is.EqualTo(PrideDownloadOutcome.Accepted));
+        Assert.That(tries.Single().BytesReceived, Is.EqualTo(Body.Length));
+    }
+
+    [Test]
+    public void Policy_StalledAsperaTry_RecordsItsStart_AndTheBytesBeforeTheStall()
+    {
+        // ascp writes three bytes and then nothing, so the session is stopped once the stall window passes.
+        var stall = TimeSpan.FromMilliseconds(300);
+        using var client = ClientWith(psi =>
+        {
+            File.WriteAllBytes(Path.Combine(StagingOf(psi), "run1.raw"), Body[..3]);
+            return new FakeAscp();
+        });
+        var reports = new List<(PrideDownloadTry Try, DateTime ReportedUtc)>();
+
+        Assert.ThrowsAsync<PrideAsperaException>(() => client.DownloadFileWithPolicyAsync(MakeFile(Ftp, Aspera), _tempDir,
+            Expected, new PrideDownloadPolicy
+            {
+                Aspera = new PrideAsperaOptions { AscpPath = Options.AscpPath, StallTimeout = stall },
+                Attempts = 1,
+                Tries = new SyncProgress<PrideDownloadTry>(t => reports.Add((t, DateTime.UtcNow)))
+            }));
+
+        (PrideDownloadTry stalled, DateTime reportedUtc) = reports.Single();
+        Assert.That(stalled.AsperaFailure, Is.EqualTo(PrideAsperaFailure.Stalled));
+        Assert.That(stalled.BytesReceived, Is.EqualTo(3));
+        Assert.That(stalled.Elapsed, Is.GreaterThanOrEqualTo(stall));
+        Assert.That(reportedUtc - stalled.StartedUtc, Is.GreaterThanOrEqualTo(stall), "when it started, not when it ended");
+    }
+
+    [Test]
+    public async Task Policy_ResumedHttpsTry_CountsOnlyTheBytesItReceived()
+    {
+        int call = 0;
+        var handler = new StubHandler(_ => ++call == 1 ? DropsAfter(4) : RestFrom(4));
+        using var client = ClientWith(_ => throw new AssertionException("ascp must not run"), handler);
+        var tries = new List<PrideDownloadTry>();
+
+        await client.DownloadFileWithPolicyAsync(MakeFile(Ftp), _tempDir, Expected,
+            new PrideDownloadPolicy { Tries = new SyncProgress<PrideDownloadTry>(tries.Add) });
+
+        HttpRequestMessage second = handler.Requests[1];
+        Assert.That(second.Headers.Range?.ToString(), Is.EqualTo("bytes=4-"), "the same host resumes");
+        Assert.That(second.Headers.IfRange?.EntityTag?.Tag, Is.EqualTo("\"v1\""));
+        Assert.That(tries.Select(t => t.Outcome), Is.EqualTo(new[] { PrideDownloadOutcome.Failed, PrideDownloadOutcome.Accepted }));
+        Assert.That(tries.Select(t => t.BytesReceived), Is.EqualTo(new long?[] { 4, Body.Length - 4 }));
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
+    }
+
     // ---- AsperaRoute -------------------------------------------------------------------
 
     [Test]

@@ -867,9 +867,11 @@ namespace UsefulProteomicsDatabases
         /// <param name="singleAttempt">
         /// One attempt, with no retry of a transient failure: <see cref="DownloadFileWithPolicyAsync"/> runs its own.
         /// </param>
+        /// <param name="httpsUrl">Where to download from; null for the file's own HTTPS location. Set by <see cref="PrideDownloadPolicy.HttpsLocation"/>.</param>
+        /// <param name="bytes">Receives the bytes the download received, as it ends; null when nobody counts them.</param>
         private async Task<string> DownloadFileCoreAsync(PrideArchiveFile file, string destinationDirectory,
             PrideFileChecksum expected, bool overwrite, bool verifyMd5, CancellationToken cancellationToken,
-            bool singleAttempt = false)
+            bool singleAttempt = false, string httpsUrl = null, TryBytes bytes = null)
         {
             string safeFileName = CheckDownloadTarget(file, destinationDirectory, expected);
             string destinationPath = Path.Combine(destinationDirectory, safeFileName);
@@ -883,7 +885,7 @@ namespace UsefulProteomicsDatabases
                     || await ChecksumMismatchAsync(destinationPath, expected, verifyMd5, cancellationToken).ConfigureAwait(false) == null))
                 return destinationPath;
 
-            string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
+            string url = httpsUrl ?? file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
             string described = DownloadEngine.DescribeDownload(url, safeFileName);
 
             Directory.CreateDirectory(destinationDirectory);
@@ -989,6 +991,8 @@ namespace UsefulProteomicsDatabases
             finally
             {
                 digest?.Dispose();
+                if (bytes != null)
+                    bytes.Received = transfer.BytesReceived;
             }
 
             return destinationPath;

@@ -49,7 +49,8 @@ namespace UsefulProteomicsDatabases
         /// <para>
         /// An HTTPS try is one attempt, not the HTTPS download's own retries: this method's tries replace them, so the
         /// two budgets do not multiply. Between tries it keeps what the HTTPS download keeps (a <c>.partial</c> to
-        /// resume after an outage) and never resumes an Aspera copy.
+        /// resume after an outage) and never resumes an Aspera copy. An HTTPS try downloads from the file's own HTTPS
+        /// location, or from where <see cref="PrideDownloadPolicy.HttpsLocation"/> sends it.
         /// </para>
         /// <para>
         /// Tried again: an outage on either route (<see cref="ServiceFailure.IsTransient"/>), any
@@ -72,7 +73,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="cancellationToken">Cancels the try in progress, or the wait between tries.</param>
         /// <returns>The full path of the written (or already-present and checked) file.</returns>
         /// <exception cref="ArgumentNullException">The file, <paramref name="expected"/> or <paramref name="policy"/> is null.</exception>
-        /// <exception cref="ArgumentException">As for the other downloads, or a <paramref name="policy"/> setting is out of range.</exception>
+        /// <exception cref="ArgumentException">As for the other downloads; or a <paramref name="policy"/> setting is out of range; or <see cref="PrideDownloadPolicy.HttpsLocation"/> returned something other than an absolute <c>https</c> URL.</exception>
         /// <exception cref="NotSupportedException">The file has neither an HTTPS-reachable location nor, with <see cref="PrideDownloadPolicy.Aspera"/> set, an Aspera one.</exception>
         /// <exception cref="HttpRequestException">Every try failed, the last with an outage.</exception>
         /// <exception cref="MzLibException">Every try failed, the last over HTTPS with a copy that failed its check; or PRIDE broke its contract; or ascp could not be started.</exception>
@@ -101,6 +102,8 @@ namespace UsefulProteomicsDatabases
 
             int asperaTries = 0;
             bool asperaDamaged = false;
+            string lastHttpsHost = null;
+            PrideDownloadTry previous = null;
             Exception last = null;
             for (int attempt = 1; attempt <= policy.Attempts; attempt++)
             {
@@ -112,9 +115,20 @@ namespace UsefulProteomicsDatabases
                         && !(asperaDamaged && policy.HttpsAfterDamagedAsperaCopy)
                         && !AsperaRouteState.IsPaused));
                 PrideDownloadRoute route = viaAspera ? PrideDownloadRoute.Aspera : PrideDownloadRoute.Https;
-                string host = viaAspera ? PrideArchiveExtensions.PrideAsperaHost : _engine.HostOf(httpsUrl);
+                string url = viaAspera ? null : HttpsLocationFor(policy, file, previous) ?? httpsUrl;
+                string host = viaAspera ? PrideArchiveExtensions.PrideAsperaHost : _engine.HostOf(url);
+                if (!viaAspera)
+                {
+                    // A partial copy's validator is the host's that started it, and vouches for nothing on another
+                    // host. Without it the copy is resumed only when its MD5 is checked, as for any partial copy.
+                    if (lastHttpsHost != null && !string.Equals(host, lastHttpsHost, StringComparison.OrdinalIgnoreCase))
+                        DownloadEngine.DeleteQuietly(destinationPath + ".partial" + ValidatorSuffix);
+                    lastHttpsHost = host;
+                }
 
+                DateTime? startedUtc = null;
                 Stopwatch clock = null;
+                var bytes = new TryBytes();
                 try
                 {
                     if (viaAspera)
@@ -123,24 +137,28 @@ namespace UsefulProteomicsDatabases
                         using (await AsperaRouteState.EnterAsync(policy.MaxConcurrentAsperaSessions, policy.AsperaStartGap,
                             RetryDelay, cancellationToken).ConfigureAwait(false))
                         {
+                            startedUtc = DateTime.UtcNow;
                             clock = Stopwatch.StartNew();
-                            await DownloadFileViaAsperaAsync(file, destinationDirectory, expected, policy.Aspera,
-                                overwrite: true, verifyMd5, cancellationToken).ConfigureAwait(false);
+                            await DownloadFileViaAsperaCoreAsync(file, destinationDirectory, expected, policy.Aspera,
+                                overwrite: true, verifyMd5, cancellationToken, bytes).ConfigureAwait(false);
                         }
                     }
                     else
                     {
+                        startedUtc = DateTime.UtcNow;
                         clock = Stopwatch.StartNew();
                         await DownloadFileCoreAsync(file, destinationDirectory, expected, overwrite: true, verifyMd5,
-                            cancellationToken, singleAttempt: true).ConfigureAwait(false);
+                            cancellationToken, singleAttempt: true, httpsUrl: url, bytes: bytes).ConfigureAwait(false);
                     }
 
-                    ReportTry(policy, safeFileName, attempt, route, host, expected, clock, PrideDownloadOutcome.Accepted, null);
+                    ReportTry(policy, safeFileName, attempt, route, host, expected, startedUtc, clock, bytes,
+                        PrideDownloadOutcome.Accepted, null);
                     return destinationPath;
                 }
                 catch (Exception e) when (IsWorthAnotherTry(e, out PrideDownloadOutcome outcome))
                 {
-                    ReportTry(policy, safeFileName, attempt, route, host, expected, clock, outcome, e);
+                    previous = ReportTry(policy, safeFileName, attempt, route, host, expected, startedUtc, clock, bytes,
+                        outcome, e);
                     if (e is PrideAsperaException { Failure: PrideAsperaFailure.LoginRefused or PrideAsperaFailure.CannotConnect })
                         AsperaRouteState.Pause(policy.AsperaPauseAfterRouteFailure);
                     if (e is PrideAsperaException { Failure: PrideAsperaFailure.DamagedCopy })
@@ -149,13 +167,33 @@ namespace UsefulProteomicsDatabases
                 }
                 catch (Exception e) when (e is not OperationCanceledException)
                 {
-                    ReportTry(policy, safeFileName, attempt, route, host, expected, clock, PrideDownloadOutcome.Failed, e);
+                    ReportTry(policy, safeFileName, attempt, route, host, expected, startedUtc, clock, bytes,
+                        PrideDownloadOutcome.Failed, e);
                     throw;
                 }
             }
 
             ExceptionDispatchInfo.Throw(last);
             return null; // unreachable
+        }
+
+        /// <summary>The bytes one try received, filled in as it ends; null when they could not be counted.</summary>
+        private sealed class TryBytes
+        {
+            public long? Received { get; set; }
+        }
+
+        /// <summary>
+        /// Where <see cref="PrideDownloadPolicy.HttpsLocation"/> sends the next HTTPS try, or null for the file's own
+        /// location. Neither the URL nor anything else from it goes into the message: it may carry a credential.
+        /// </summary>
+        private static string HttpsLocationFor(PrideDownloadPolicy policy, PrideArchiveFile file, PrideDownloadTry previous)
+        {
+            string url = policy.HttpsLocation?.Invoke(file, previous);
+            if (url != null && !(Uri.TryCreate(url, UriKind.Absolute, out Uri uri) && uri.Scheme == Uri.UriSchemeHttps))
+                throw new ArgumentException(
+                    "PrideDownloadPolicy.HttpsLocation returned a location that is not an absolute https URL.", nameof(policy));
+            return url;
         }
 
         /// <summary>
@@ -182,10 +220,15 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static void ReportTry(PrideDownloadPolicy policy, string fileName, int attempt, PrideDownloadRoute route,
-            string host, PrideFileChecksum expected, Stopwatch clock, PrideDownloadOutcome outcome, Exception error) =>
-            policy.Tries?.Report(new PrideDownloadTry(fileName, attempt, route, host, expected.SizeBytes,
-                clock?.Elapsed ?? TimeSpan.Zero, outcome, error));
+        private static PrideDownloadTry ReportTry(PrideDownloadPolicy policy, string fileName, int attempt,
+            PrideDownloadRoute route, string host, PrideFileChecksum expected, DateTime? startedUtc, Stopwatch clock,
+            TryBytes bytes, PrideDownloadOutcome outcome, Exception error)
+        {
+            var record = new PrideDownloadTry(fileName, attempt, route, host, expected.SizeBytes,
+                startedUtc ?? DateTime.UtcNow, clock?.Elapsed ?? TimeSpan.Zero, bytes.Received, outcome, error);
+            policy.Tries?.Report(record);
+            return record;
+        }
 
         private static void CheckPolicy(PrideDownloadPolicy policy)
         {
@@ -255,9 +298,16 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="MzLibException">ascp could not be started, or <see cref="PrideAsperaOptions.KeyPath"/> does not exist: a configuration error, not an outage.</exception>
         /// <exception cref="IOException">ascp ran out of disk space, or the copy could not be moved into place.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
-        public async Task<string> DownloadFileViaAsperaAsync(PrideArchiveFile file, string destinationDirectory,
+        public Task<string> DownloadFileViaAsperaAsync(PrideArchiveFile file, string destinationDirectory,
             PrideFileChecksum expected, PrideAsperaOptions aspera, bool overwrite = true, bool verifyMd5 = false,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default) =>
+            DownloadFileViaAsperaCoreAsync(file, destinationDirectory, expected, aspera, overwrite, verifyMd5,
+                cancellationToken, bytes: null);
+
+        /// <param name="bytes">Receives the bytes in ascp's folder when it ended; null when nobody counts them.</param>
+        private async Task<string> DownloadFileViaAsperaCoreAsync(PrideArchiveFile file, string destinationDirectory,
+            PrideFileChecksum expected, PrideAsperaOptions aspera, bool overwrite, bool verifyMd5,
+            CancellationToken cancellationToken, TryBytes bytes)
         {
             if (expected == null)
                 throw new ArgumentNullException(nameof(expected));
@@ -301,6 +351,8 @@ namespace UsefulProteomicsDatabases
                     startInfo.ArgumentList.Add(argument);
 
                 (int exitCode, string said) = await RunAscpAsync(startInfo, stagingDirectory, described, aspera, cancellationToken).ConfigureAwait(false);
+                if (bytes != null)
+                    bytes.Received = Counted(StagedBytes(stagingDirectory));
                 said = Scrub(said, source, attemptDirectory, keyPath);
 
                 if (exitCode != 0)
@@ -338,10 +390,16 @@ namespace UsefulProteomicsDatabases
             }
             finally
             {
+                // ascp stalled, could not start, or was cancelled: what it wrote is still in its folder, until now.
+                if (bytes != null && bytes.Received == null)
+                    bytes.Received = Counted(StagedBytes(stagingDirectory));
                 DeleteDirectoryQuietly(attemptDirectory, recursive: true);
                 DeleteDirectoryQuietly(asperaRoot, recursive: false);
             }
         }
+
+        /// <summary><see cref="StagedBytes"/>'s count, or null where it could not read the folder.</summary>
+        private static long? Counted(long stagedBytes) => stagedBytes < 0 ? null : stagedBytes;
 
         /// <summary>The checks on <see cref="PrideAsperaOptions"/> that need no file system.</summary>
         private static void CheckAsperaOptions(PrideAsperaOptions aspera)

@@ -65,6 +65,28 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>Receives a <see cref="PrideDownloadTry"/> as each try ends, accepted or not; null (the default) receives none.</summary>
         public IProgress<PrideDownloadTry> Tries { get; init; }
+
+        /// <summary>
+        /// Picks where each HTTPS try downloads from. It is given the file and the record of the file's previous try in
+        /// this call, over either route (null before the first try). It returns an absolute <c>https</c> URL, or null for
+        /// the file's own HTTPS location (<see cref="PrideArchiveExtensions.TryGetHttpsDownloadUrl"/>). Null (the default)
+        /// uses the file's own location for every try.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// For a caller with more than one HTTPS host for PRIDE's files. PXReprise tries EBI's Globus HTTPS endpoint
+        /// first; after a Globus try that fails without a damaged copy, it makes one try from <c>ftp.pride.ebi.ac.uk</c>,
+        /// then goes back to Globus (PXReprise 040). The mapping onto another host stays the caller's.
+        /// </para>
+        /// <para>
+        /// It is asked only for a file that has an HTTPS location of its own, and never for an Aspera try. The host of
+        /// the URL it returns is the try's <see cref="PrideDownloadTry.Host"/>. A partial copy is resumed from another
+        /// host only when its MD5 is checked: the validator it was started under is that host's, and means nothing to
+        /// another. Anything but an absolute <c>https</c> URL is an <see cref="ArgumentException"/>, thrown at once, and
+        /// an exception it throws is thrown at once too.
+        /// </para>
+        /// </remarks>
+        public Func<PrideArchiveFile, PrideDownloadTry, string> HttpsLocation { get; init; }
     }
 
     /// <summary>The route one try of <see cref="PrideArchiveClient.DownloadFileWithPolicyAsync"/> took.</summary>
@@ -96,11 +118,21 @@ namespace UsefulProteomicsDatabases
     /// <param name="Route">The route it took.</param>
     /// <param name="Host">The host it downloaded from.</param>
     /// <param name="FileSizeBytes">The file's size by PRIDE's checksum row.</param>
+    /// <param name="StartedUtc">
+    /// When the transfer started, in UTC: after any wait for an Aspera session, so that tries which overlapped can be
+    /// counted. For a try that failed before its transfer started, when it failed.
+    /// </param>
     /// <param name="Elapsed">From the start of the transfer to its end, not counting waits for an Aspera session.</param>
+    /// <param name="BytesReceived">
+    /// The bytes this try received, whole or not; null when they could not be counted. An accepted copy received its
+    /// size, unless it resumed a partial copy an earlier try left (then only the rest), or was found already whole on
+    /// disk (then 0). Over Aspera, the bytes in ascp's folder when it ended.
+    /// </param>
     /// <param name="Outcome">How it ended.</param>
     /// <param name="Error">Why it did not succeed; null when <see cref="PrideDownloadOutcome.Accepted"/>.</param>
     public sealed record PrideDownloadTry(string FileName, int Try, PrideDownloadRoute Route, string Host,
-        long FileSizeBytes, TimeSpan Elapsed, PrideDownloadOutcome Outcome, Exception Error)
+        long FileSizeBytes, DateTime StartedUtc, TimeSpan Elapsed, long? BytesReceived, PrideDownloadOutcome Outcome,
+        Exception Error)
     {
         /// <summary>The Aspera failure's kind when <see cref="Error"/> is a <see cref="PrideAsperaException"/>, else null.</summary>
         public PrideAsperaFailure? AsperaFailure => (Error as PrideAsperaException)?.Failure;
