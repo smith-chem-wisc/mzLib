@@ -332,5 +332,19 @@ namespace Test.MassSpectrometryTests
             NUnit.Framework.Assert.That(xic.XYData.First().Item1, Is.EqualTo(xic.StartRT).Within(0.0001));
             NUnit.Framework.Assert.That(xic.XYData.Last().Item1, Is.EqualTo(xic.EndRT).Within(0.0001));
         }
+
+        [Test]
+        public static void TestXicSplineToString()
+        {
+            var cubicSpline = new XicCubicSpline(0.05);
+            var result = cubicSpline.ToString();
+            var lines = result.Split('\n').Select(l => l.Trim()).ToArray();
+            Assert.That(lines.Any(l => l.Contains("XicSplineSettings:")), Is.True);
+            Assert.That(lines.Any(l => l.Contains("XicSplineType: XicCubicSpline")), Is.True);
+            Assert.That(lines.Any(l => l.Contains("SplineRtInterval: 0.05")), Is.True);
+            Assert.That(lines.Any(l => l.Contains("NumberOfPeaksToAdd: 0")), Is.True);
+            Assert.That(lines.Any(l => l.Contains("Gap: 1")), Is.True);
+        }
     }
 }
+    
