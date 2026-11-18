@@ -93,6 +93,7 @@ namespace Test.FileReadingTests.InternalFileReading
 
             Assert.That(read.Results.Single().PrecursorQuantity, Is.Null);
             Assert.That(Row("a.raw", "T", 0).PrecursorQuantity, Is.Null);
+            Assert.That((Row("a.raw", "T", 1) with { Ms1Quantity = 0 }).Ms1Quantity, Is.Null, "nor is an MS1 quantity");
         }
 
         /// <summary>

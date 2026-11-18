@@ -144,6 +144,30 @@ public class TestFragmentQuantity
             Assert.That(corrected[f], Is.EqualTo(FragmentQuantity.Area(traces[f], Start, End)).Within(1e-9), $"fragment {f}");
     }
 
+    /// <summary>
+    /// A scan beside the apex that every fragment missed (the best fragment is 0 there) gives no ratio to read, so it is
+    /// skipped, and the interfered fragment is still capped from the scans that have one.
+    /// </summary>
+    [Test]
+    public void AScanEveryFragmentMissedIsSkippedWhenReadingTheRatio()
+    {
+        static double[][] Missing21(double[][] traces)
+        {
+            foreach (var trace in traces)
+                trace[21] = 0;
+            return traces;
+        }
+        double truth = SumOfAreas(Missing21(Precursor(1)));
+        var traces = Precursor(1);
+        traces[2] = Plus(traces[2], Gaussian(25, 2000));
+        Missing21(traces);
+
+        double corrected = FragmentQuantity.InterferenceCorrectedAreas(traces, Start, End).Sum();
+
+        Assert.That(SumOfAreas(traces) / truth - 1, Is.GreaterThan(0.30), "the interferer is large");
+        Assert.That(corrected / truth - 1, Is.EqualTo(0).Within(0.10));
+    }
+
     /// <summary>Silence is a real 0 on every fragment; bounds of one scan are NaN on every fragment.</summary>
     [Test]
     public void ACorrectedAreaIsZeroForSilenceAndNaNWithoutValidBounds()
@@ -309,9 +333,12 @@ public class TestFragmentQuantity
         Assert.Throws<ArgumentNullException>(() => FragmentQuantity.Quantify(null!, [0], 0));
         Assert.Throws<ArgumentNullException>(() => FragmentQuantity.Quantify([1f], null!, 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify([1f, 2f, 3f], [0, 1, 3], 0), "no fragment 3");
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify([1f, 2f, 3f], [-1, 1, 2], 0), "no fragment -1");
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify([1f, 2f, 3f], [0, 1, 2], -1), "negative floor");
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify([1f, 2f, 3f], [0, 1, 2], double.NaN), "NaN floor");
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify(5, double.NaN));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify([1f, -2f, 3f], [0, 1, 2], 0), "an area is never negative");
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Quantify(-5, 0), "an area is never negative");
     }
 
     #endregion
