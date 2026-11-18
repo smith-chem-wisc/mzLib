@@ -39,5 +39,20 @@ namespace Readers
     public interface IMs1FeatureFile
     {
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features();
+
+        /// <summary>
+        /// Features whose q-value is at or below <paramref name="maxQValue"/>, or all features
+        /// when it is null.
+        /// </summary>
+        /// <remarks>
+        /// The default implementation returns everything and ignores the threshold, which is
+        /// correct for any format that carries no q-value: a file produced by a tool that does not
+        /// estimate feature-level error rates cannot be thresholded on one, and silently returning
+        /// nothing would be worse than returning all of it. Formats that do carry a q-value
+        /// override this. Callers that need to know whether a threshold was honoured should check
+        /// the format rather than infer it from the count.
+        /// </remarks>
+        public IEnumerable<ISingleChargeMs1Feature> GetMs1Features(double? maxQValue)
+            => GetMs1Features();
     }
 }

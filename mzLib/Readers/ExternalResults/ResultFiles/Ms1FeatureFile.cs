@@ -1,4 +1,5 @@
 ﻿using CsvHelper;
+using CsvHelper.Configuration;
 using MassSpectrometry;
 using MassSpectrometry.Deconvolution.Consensus;
 
@@ -16,6 +17,33 @@ namespace Readers
         public sealed override Software Software { get; set; }
 
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() => Results.SelectMany(r => r.GetSingleChargeFeatures());
+
+        /// <summary>
+        /// Features at or below a q-value threshold, or every feature when
+        /// <paramref name="maxQValue"/> is null.
+        /// </summary>
+        /// <remarks>
+        /// What a row with no q-value means depends on the rest of the file.
+        /// <list type="bullet">
+        ///   <item>No row carries a q-value (an external TopFD or FLASHDeconv file): the producing
+        ///   tool did not estimate one, so every row is KEPT. Dropping them would silently empty
+        ///   the file the moment a threshold was supplied.</item>
+        ///   <item>At least one row carries a q-value (an mzLib file written after
+        ///   <c>ConsensusFeatureFdr.AssignQValues</c>): an empty q-value marks a feature the FDR
+        ///   could not score because the spectrum supports no envelope there, so the row FAILS
+        ///   the threshold. Keeping it would let exactly the least-supported features through.</item>
+        /// </list>
+        /// </remarks>
+        public IEnumerable<ISingleChargeMs1Feature> GetMs1Features(double? maxQValue)
+        {
+            if (maxQValue is null)
+                return GetMs1Features();
+
+            var results = Results;
+            bool fileCarriesQValues = results.Any(r => r.QValue is not null);
+            return results.Where(r => r.QValue is null ? !fileCarriesQValues : r.QValue <= maxQValue.Value)
+                          .SelectMany(r => r.GetSingleChargeFeatures());
+        }
 
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
             deconSoftware)
@@ -126,12 +154,28 @@ namespace Readers
         /// Writes results to a specific output path
         /// </summary>
         /// <param name="outputPath">destination path</param>
-        public override void WriteResults(string outputPath)
+        public override void WriteResults(string outputPath) => WriteResults(outputPath, false);
+
+        /// <summary>
+        /// Writes results to a specific output path.
+        /// </summary>
+        /// <param name="outputPath">destination path</param>
+        /// <param name="includeQualityColumns">
+        /// When false (the default) the written columns are exactly the TopFD / FLASHDeconv
+        /// <c>_ms1.feature</c> set, so the file stays readable by tools that expect that schema.
+        /// When true, <c>Quality_score</c> and <c>Max_envelope_score</c> are appended. Those two
+        /// columns are an mzLib extension; a consumer that validates the header strictly will
+        /// reject a file written with them, which is why they are opt-in rather than default.
+        /// </param>
+        public void WriteResults(string outputPath, bool includeQualityColumns)
         {
             if (!CanRead(outputPath))
                 outputPath += FileType.GetFileExtension();
 
             using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), Ms1Feature.CsvConfiguration);
+
+            if (!includeQualityColumns)
+                csv.Context.RegisterClassMap<Ms1FeatureTopFdSchemaMap>();
 
             csv.WriteHeader<Ms1Feature>();
             // Results returns the in-memory factory records as-is (may be empty -> header
@@ -141,6 +185,22 @@ namespace Readers
                 csv.NextRecord();
                 csv.WriteRecord(result);
             }
+        }
+    }
+
+    /// <summary>
+    /// Restricts the written columns to the TopFD / FLASHDeconv <c>_ms1.feature</c> schema by
+    /// unmapping the mzLib-only quality columns. Used for writing only; reading is unaffected,
+    /// since the quality columns are <c>[Optional]</c> and are picked up when present.
+    /// </summary>
+    internal sealed class Ms1FeatureTopFdSchemaMap : ClassMap<Ms1Feature>
+    {
+        public Ms1FeatureTopFdSchemaMap()
+        {
+            AutoMap(Ms1Feature.CsvConfiguration);
+            Map(m => m.QualityScore).Ignore();
+            Map(m => m.MaxEnvelopeScore).Ignore();
+            Map(m => m.QValue).Ignore();
         }
     }
 }

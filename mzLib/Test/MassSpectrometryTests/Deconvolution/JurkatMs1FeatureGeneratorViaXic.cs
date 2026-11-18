@@ -153,7 +153,8 @@ namespace Test.MassSpectrometryTests.Deconvolution
                     ms1Scans[p.ZeroBasedScanIndex].OneBasedScanNumber,
                     p.RetentionTime,
                     env.MonoisotopicMass,
-                    env.TotalIntensity));
+                    env.TotalIntensity,
+                    double.NaN));
             }
             return mt;
         }
