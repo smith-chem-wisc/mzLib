@@ -69,7 +69,79 @@ namespace Test.FileReadingTests.InternalFileReading
             for (int i = 0; i < rows.Count; i++)
                 Assert.That(read.Results[i], Is.EqualTo(rows[i]), $"row {i}");
             Assert.That(read.Results[1].PrecursorQuantity, Is.Null, "an unreported quantity stays unreported");
-            Assert.That(read.Results[2].PrecursorQuantity, Is.EqualTo(0), "a reported 0 stays 0");
+            Assert.That(read.Results[2].PrecursorQuantity, Is.Null, "a quantity is never 0 (DEF-DIA-PREC): a 0 is no value");
+        }
+
+        /// <summary>
+        /// A precursor quantity is never 0 (QuantProject's DEF-DIA-PREC): every kind of "nothing" is blank, with the kind in
+        /// its own column. A 0 in a file an older search wrote was one of those nothings (no fragment measured, a one-scan
+        /// peak, or an area clamped at 0), so it reads as no value, as does a 0 set in code.
+        /// </summary>
+        [Test]
+        public void AZeroQuantityIsNoValue()
+        {
+            string path = Path.Combine(Folder, "AllDiaPrecursors.tsv");
+            new DiaPrecursorFile(path, [Row("a.raw", "T", 1)], contaminantsAssessed: false).WriteResults(path);
+            var lines = File.ReadAllLines(path);
+            int column = lines[1].Split('\t').ToList().IndexOf("Precursor Quantity");
+            var cells = lines[2].Split('\t');
+            cells[column] = "0";
+            File.WriteAllLines(path, [lines[0], lines[1], string.Join('\t', cells)]);
+
+            var read = new DiaPrecursorFile(path);
+            read.LoadResults();
+
+            Assert.That(read.Results.Single().PrecursorQuantity, Is.Null);
+            Assert.That(Row("a.raw", "T", 0).PrecursorQuantity, Is.Null);
+        }
+
+        /// <summary>
+        /// Beside each quantity, its kind (Value, BelowFloor or NotLooked: DEF-DIA-KIND) and the floor it was judged against,
+        /// for the MS2 precursor quantity (DEF-DIA-PREC) and the MS1 quantity (DEF-DIA-MS1); the kinds are written by name.
+        /// </summary>
+        [Test]
+        public void TheQuantityKindsAndFloorsRoundTrip()
+        {
+            var value = Row("a.raw", "T", 12345.5) with
+            {
+                QuantityState = MassSpectrometry.PrecursorQuantityKind.Value, QuantityFloor = 120.5,
+                Ms1Quantity = 9876.25, Ms1QuantityState = MassSpectrometry.PrecursorQuantityKind.Value, Ms1QuantityFloor = 40,
+            };
+            var nothing = Row("a.raw", "T", null) with
+            {
+                QuantityState = MassSpectrometry.PrecursorQuantityKind.BelowFloor, QuantityFloor = 120.5,
+                Ms1Quantity = null, Ms1QuantityState = MassSpectrometry.PrecursorQuantityKind.NotLooked, Ms1QuantityFloor = 40,
+            };
+            string path = Path.Combine(Folder, "AllDiaPrecursors.tsv");
+            new DiaPrecursorFile(path, [value, nothing], contaminantsAssessed: false).WriteResults(path);
+
+            var read = new DiaPrecursorFile(path);
+            read.LoadResults();
+
+            Assert.That(read.Results, Is.EqualTo(new[] { value, nothing }));
+            var header = File.ReadAllLines(path)[1].Split('\t').ToList();
+            var second = File.ReadAllLines(path)[3].Split('\t');
+            Assert.That(second[header.IndexOf("Quantity State")], Is.EqualTo("BelowFloor"));
+            Assert.That(second[header.IndexOf("MS1 Quantity State")], Is.EqualTo("NotLooked"));
+            Assert.That(second[header.IndexOf("Precursor Quantity")], Is.Empty);
+            Assert.That(second[header.IndexOf("MS1 Quantity")], Is.Empty);
+        }
+
+        /// <summary>A table written before the kind, floor and MS1 columns existed still reads, with those cells empty.</summary>
+        [Test]
+        public void ATableWithoutTheQuantityKindColumnsStillReads()
+        {
+            string path = Path.Combine(Folder, "AllDiaPrecursors.tsv");
+            new DiaPrecursorFile(path, [Row("a.raw", "T", 12345.5)], contaminantsAssessed: false).WriteResults(path);
+            var lines = File.ReadAllLines(path);
+            int keep = lines[1].Split('\t').ToList().IndexOf("Precursor Quantity") + 1;
+            File.WriteAllLines(path, lines.Take(1).Concat(lines.Skip(1).Select(l => string.Join('\t', l.Split('\t').Take(keep)))));
+
+            var read = new DiaPrecursorFile(path);
+            read.LoadResults();
+
+            Assert.That(File.ReadAllLines(path)[1], Does.EndWith("\tPrecursor Quantity"), "the columns really were removed");
+            Assert.That(read.Results.Single(), Is.EqualTo(Row("a.raw", "T", 12345.5)));
         }
 
         /// <summary>
@@ -89,7 +161,8 @@ namespace Test.FileReadingTests.InternalFileReading
             {
                 "File Name", "Full Sequence", "Base Sequence", "Precursor Charge", "Precursor MZ", "Protein Accession",
                 "Decoy/Contaminant/Target", "Score", "QValue_Precursor_Run", "QValue_Precursor_Global", "LibraryIrt", "ApexIrt",
-                "ApexRtMin", "ApexScanNumber", "Precursor Quantity",
+                "ApexRtMin", "ApexScanNumber", "Precursor Quantity", "Quantity State", "Quantity Floor", "MS1 Quantity",
+                "MS1 Quantity State", "MS1 Quantity Floor",
             }));
             Assert.That(lines[2].Split('\t')[0], Is.EqualTo("a.raw"));
 
@@ -149,7 +222,7 @@ namespace Test.FileReadingTests.InternalFileReading
             var read = new DiaPrecursorFile(path);
             read.LoadResults();
 
-            Assert.That(File.ReadAllLines(path)[1], Does.StartWith("Precursor Quantity\t"), "the columns really were reordered");
+            Assert.That(File.ReadAllLines(path)[1], Does.StartWith("MS1 Quantity Floor\t"), "the columns really were reordered");
             Assert.That(read.Results, Is.EqualTo(rows));
         }
     }
