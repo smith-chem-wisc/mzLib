@@ -20,7 +20,7 @@ namespace Test.FileReadingTests.DeNovoMapping
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    internal class TestDeNovoMapper
+    internal partial class TestDeNovoMapper
     {
         // Tryptic peptides (7+ residues): VLSAADK, VGAHAGEYGAEALER, MFLSFPTTK
         private const string ProteinA = "MKVLSAADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTK";
@@ -344,6 +344,230 @@ namespace Test.FileReadingTests.DeNovoMapping
             Assert.That(file.Results.Single().MeanPredictionScore, Is.NaN);
             Assert.That(file.Results.Single().DatabaseProteinCount, Is.EqualTo(-1));
         }
+
+        #region Host ambiguity
+
+        // Shares VLSAADK with protein A and nothing with protein B.
+        private const string HostProtein = "GGGGGGGRVLSAADKHHHHHHHR";
+
+        private static DeNovoMappingParameters HostParameters() =>
+            new() { MapRetentionTimes = false, HostProteins = [new Protein(HostProtein, "HOST1")] };
+
+        [Test]
+        public void WithoutAHostNothingIsAmbiguousAndTheSummaryKeepsItsColumns()
+        {
+            string fasta = WriteFasta("NoHostDb.fasta", ("PA", ProteinA), ("PB", ProteinB));
+            string mzTab = WriteMzTab("RunNoHost.mztab", "file:///Z:/RunNoHost.mgf", ("VLSAADK", 0.9, 10.0), ("AGLLDEFLSK", 0.6, 12.0));
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false });
+            var result = mapper.MapDatabases([fasta]).Single();
+            string summaryPath = Path.Combine(_directory, "NoHostMappingSummary.tsv");
+            DeNovoMapper.WriteSummary([result], summaryPath);
+            var header = File.ReadLines(summaryPath).First().Split('\t');
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(mapper.HostProteinCount, Is.EqualTo(-1));
+                Assert.That(mapper.Predictions.Any(p => p.IsHostShared), Is.False);
+                Assert.That(result.HasHost, Is.False);
+                Assert.That(result.TargetPredictions, Is.EqualTo(2));
+                Assert.That(result.UnambiguousTargetPredictions, Is.Zero);
+                Assert.That(result.AmbiguousTargetPredictions, Is.Zero);
+                Assert.That(result.UnambiguousTargetPredictionScores, Is.Empty);
+                Assert.That(header.Intersect(HostColumnNames), Is.Empty);
+                Assert.That(header, Has.Length.EqualTo(19), "18 fixed columns and one per-file column, as before host ambiguity");
+            });
+        }
+
+        [Test]
+        public void HostDoesNotChangeTheTotals()
+        {
+            string fasta = WriteFasta("SameTotalsDb.fasta", ("PA", ProteinA), ("PB", ProteinB));
+            string decoyPeptide = FirstDecoyOnlyPeptide(fasta);
+            string mzTab = WriteMzTab("RunSameTotals.mztab", "file:///Z:/RunSameTotals.mgf",
+                ("VLSAADK", 0.9, 10.0), ("AGLLDEFLSK", 0.6, 12.0), (decoyPeptide, 0.2, 13.0));
+
+            var withoutHost = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false }).MapDatabases([fasta]).Single();
+            var withHost = new DeNovoMapper([mzTab], HostParameters()).MapDatabases([fasta]).Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(withHost.TotalPredictions, Is.EqualTo(withoutHost.TotalPredictions));
+                Assert.That(withHost.TargetPredictions, Is.EqualTo(withoutHost.TargetPredictions));
+                Assert.That(withHost.DecoyPredictions, Is.EqualTo(withoutHost.DecoyPredictions));
+                Assert.That(withHost.UniquePeptidesMapped, Is.EqualTo(withoutHost.UniquePeptidesMapped));
+                Assert.That(withHost.UniqueProteinsMapped, Is.EqualTo(withoutHost.UniqueProteinsMapped));
+                Assert.That(withHost.TargetPredictionScores, Is.EqualTo(withoutHost.TargetPredictionScores));
+                Assert.That(withHost.PredictionCountsByFile, Is.EqualTo(withoutHost.PredictionCountsByFile));
+            });
+        }
+
+        [Test]
+        public void PeptideTheHostAlsoProducesIsAmbiguous()
+        {
+            string fasta = WriteFasta("HostDb.fasta", ("PA", ProteinA), ("PB", ProteinB));
+            string mzTab = WriteMzTab("RunHost.mztab", "file:///Z:/RunHost.mgf",
+                ("VLSAADK", 0.9, 10.0),       // protein A and the host
+                ("AGLLDEFLSK", 0.6, 12.0),    // protein B only
+                ("TPEPTLDER", 0.4, 14.0),     // protein B only
+                ("HHHHHHHR", 0.3, 16.0));     // the host only: maps nowhere
+
+            var mapper = new DeNovoMapper([mzTab], HostParameters());
+            var result = mapper.MapDatabases([fasta]).Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(mapper.HostProteinCount, Is.EqualTo(1));
+                Assert.That(mapper.Predictions.Select(p => p.IsHostShared), Is.EqualTo(new[] { true, false, false, true }));
+                Assert.That(result.HasHost, Is.True);
+                Assert.That(result.HostProteinCount, Is.EqualTo(1));
+                Assert.That(result.TargetPredictions, Is.EqualTo(3));
+                Assert.That(result.AmbiguousTargetPredictions, Is.EqualTo(1));
+                Assert.That(result.UnambiguousTargetPredictions, Is.EqualTo(2));
+                Assert.That(result.UnambiguousTargetPredictionScores.OrderBy(x => x), Is.EqualTo(new[] { 0.4, 0.6 }).Within(1e-9));
+                Assert.That(result.UniquePeptidesMapped, Is.EqualTo(3));
+                Assert.That(result.UniqueUnambiguousPeptidesMapped, Is.EqualTo(2));
+                Assert.That(result.UniqueProteinsMapped, Is.EqualTo(2));
+                Assert.That(result.UniqueUnambiguousProteinsMapped, Is.EqualTo(1), "protein A's only hit is shared with the host");
+            });
+        }
+
+        [TestCase(true, true)]
+        [TestCase(false, false)]
+        public void HostPeptideEqualUpToIsoleucineIsShared(bool replaceIWithL, bool expectShared)
+        {
+            // The host writes VISAADK; the prediction and protein A have VLSAADK.
+            var mapper = new DeNovoMapper([WriteMzTab("RunHostIl.mztab", "file:///Z:/RunHostIl.mgf", ("VLSAADK", 0.9, 1.0))],
+                new DeNovoMappingParameters
+                {
+                    MapRetentionTimes = false,
+                    ReplaceIWithL = replaceIWithL,
+                    HostProteins = [new Protein("GGGGGGGRVISAADK", "HOSTIL")],
+                });
+            var result = mapper.MapDatabase("Il", [new Protein(ProteinA, "PA")]);
+
+            Assert.That(mapper.Predictions.Single().IsHostShared, Is.EqualTo(expectShared));
+            Assert.That(result.TargetPredictions, Is.EqualTo(1));
+            Assert.That(result.AmbiguousTargetPredictions, Is.EqualTo(expectShared ? 1 : 0));
+            Assert.That(result.UnambiguousTargetPredictions, Is.EqualTo(expectShared ? 0 : 1));
+        }
+
+        [Test]
+        public void DecoyHitsAreAmbiguousByTheSameRule()
+        {
+            string mzTab = WriteMzTab("RunHostDecoy.mztab", "file:///Z:/RunHostDecoy.mgf",
+                ("WWWWWWWK", 0.3, 1.0),   // database decoy, and a host target: ambiguous
+                ("YYYYYYYK", 0.2, 1.0));  // database decoy, and only a host decoy: unambiguous
+            var proteins = new List<IBioPolymer>
+            {
+                new Protein(ProteinA, "PA"),
+                new Protein("WWWWWWWKYYYYYYYK", "DECOY_PA", isDecoy: true),
+            };
+            var host = new List<IBioPolymer>
+            {
+                new Protein("GGGGGGGRWWWWWWWK", "HOST1"),
+                new Protein("GGGGGGGRYYYYYYYK", "DECOY_HOST1", isDecoy: true),
+            };
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false, HostProteins = host });
+            var result = mapper.MapDatabase("HostDecoy", proteins);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(mapper.HostProteinCount, Is.EqualTo(1), "host decoys are skipped");
+                Assert.That(result.DecoyPredictions, Is.EqualTo(2));
+                Assert.That(result.UnambiguousDecoyPredictions, Is.EqualTo(1));
+                Assert.That(result.UnambiguousDecoyPredictionScores, Is.EqualTo(new[] { 0.2 }).Within(1e-9));
+                Assert.That(result.TargetPredictions, Is.Zero);
+                Assert.That(result.AmbiguousTargetPredictions, Is.Zero);
+            });
+        }
+
+        [Test]
+        public void EmptyHostMakesEveryHitUnambiguous()
+        {
+            string mzTab = WriteMzTab("RunEmptyHost.mztab", "file:///Z:/RunEmptyHost.mgf", ("VLSAADK", 0.9, 1.0));
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters { MapRetentionTimes = false, HostProteins = [] });
+            var result = mapper.MapDatabase("EmptyHost", [new Protein(ProteinA, "PA")]);
+
+            Assert.That(result.HasHost, Is.True);
+            Assert.That(result.HostProteinCount, Is.Zero);
+            Assert.That(result.UnambiguousTargetPredictions, Is.EqualTo(result.TargetPredictions));
+            Assert.That(result.UniqueUnambiguousProteinsMapped, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void HostSharedPredictionsStillAnchorTheCalibration()
+        {
+            // As in RetentionTimeErrorsAreInCalibratedMinutes, but the host produces the first ten peptides.
+            var peptides = Enumerable.Range(0, 30).Select(CalibrationPeptide).ToArray();
+            var predictor = new LookupPredictor(peptides.Select((p, i) => (p, (double)i)));
+            var psms = peptides.Select((p, i) => (p, i == 29 ? 0.5 : 0.9, (double?)((5 + 2 * i + (i == 15 ? 10 : 0)) * 60.0))).ToArray();
+            string mzTab = WriteMzTab("RunHostCalibrated.mztab", "file:///Z:/RunHostCalibrated.mgf", psms);
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters
+            {
+                RetentionTimePredictor = predictor,
+                MaxThreads = 1,
+                HostProteins = [new Protein(string.Concat(peptides.Take(10)), "HOSTCAL")],
+            });
+            var result = mapper.MapDatabase("HostCalibrated", [new Protein(string.Concat(peptides), "PCAL")]);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(mapper.RetentionTimeCalibrations["RunHostCalibrated"].AnchorCount, Is.EqualTo(29));
+                Assert.That(result.RetentionTimeErrors, Has.Count.EqualTo(30));
+                Assert.That(result.UnambiguousRetentionTimeErrors, Is.EqualTo(result.RetentionTimeErrors.Skip(10)));
+                Assert.That(result.AmbiguousTargetPredictions, Is.EqualTo(10));
+                Assert.That(result.UnambiguousTargetPredictions, Is.EqualTo(20));
+            });
+        }
+
+        [Test]
+        public void SummaryWithHostRoundTrips()
+        {
+            string fasta = WriteFasta("HostRoundTripDb.fasta", ("PA", ProteinA), ("PB", ProteinB));
+            string decoyPeptide = FirstDecoyOnlyPeptide(fasta);
+            string mzTab = WriteMzTab("RunHostRoundTrip.mztab", "file:///Z:/RunHostRoundTrip.mgf",
+                ("VLSAADK", 0.9, 10.0), ("AGLLDEFLSK", 0.6, 12.0), (decoyPeptide, 0.2, 13.0));
+
+            var original = new DeNovoMapper([mzTab], HostParameters()).MapDatabases([fasta]).Single();
+            string summaryPath = Path.Combine(_directory, "HostMappingSummary.tsv");
+            DeNovoMapper.WriteSummary([original], summaryPath);
+
+            var header = File.ReadLines(summaryPath).First().Split('\t');
+            Assert.That(header.Skip(18).Take(HostColumnNames.Length), Is.EqualTo(HostColumnNames), "host columns follow the existing ones");
+            Assert.That(header.Skip(18 + HostColumnNames.Length), Is.EqualTo(new[] { "RunHostRoundTrip" }));
+
+            var loaded = FileReader.ReadFile<DeNovoMappingResultFile>(summaryPath).Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(loaded.HasHost, Is.True);
+                Assert.That(loaded.HostProteinCount, Is.EqualTo(1));
+                Assert.That(loaded.TargetPredictions, Is.EqualTo(2));
+                Assert.That(loaded.UnambiguousTargetPredictions, Is.EqualTo(original.UnambiguousTargetPredictions).And.EqualTo(1));
+                Assert.That(loaded.AmbiguousTargetPredictions, Is.EqualTo(1));
+                Assert.That(loaded.UnambiguousDecoyPredictions, Is.EqualTo(1));
+                Assert.That(loaded.UniqueUnambiguousPeptidesMapped, Is.EqualTo(original.UniqueUnambiguousPeptidesMapped));
+                Assert.That(loaded.UniqueUnambiguousProteinsMapped, Is.EqualTo(original.UniqueUnambiguousProteinsMapped));
+                Assert.That(loaded.UnambiguousTargetPredictionScores, Is.EqualTo(new[] { 0.6 }).Within(1e-4));
+                Assert.That(loaded.UnambiguousDecoyPredictionScores, Is.EqualTo(new[] { 0.2 }).Within(1e-4));
+                Assert.That(loaded.UnambiguousRetentionTimeErrors, Is.Empty);
+                Assert.That(loaded.PredictionCountsByFile, Is.EqualTo(new Dictionary<string, int> { ["RunHostRoundTrip"] = 3 }),
+                    "host columns are not read as per-file counts");
+            });
+        }
+
+        private static readonly string[] HostColumnNames =
+        [
+            "HostProteinCount", "UnambiguousTargetPredictions", "AmbiguousTargetPredictions", "UnambiguousDecoyPredictions",
+            "UniqueUnambiguousPeptidesMapped", "UniqueUnambiguousProteinsMapped", "UnambiguousRetentionTimeErrors",
+            "UnambiguousTargetPredictionScores", "UnambiguousDecoyPredictionScores",
+        ];
+
+        #endregion
 
         #region Helpers
 

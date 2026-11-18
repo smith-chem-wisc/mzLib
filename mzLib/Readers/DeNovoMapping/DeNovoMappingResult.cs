@@ -73,6 +73,75 @@ public class DeNovoMappingResult
     [TypeConverter(typeof(CommaDelimitedDoubleListConverter))]
     public List<double> DecoyPredictionScores { get; set; } = new();
 
+    #region Host ambiguity
+
+    // Filled only when the mapper was given host proteins (DeNovoMappingParameters.HostProteins). A hit is
+    // host-ambiguous when the host also produces its peptide (DeNovoPrediction.IsHostShared) and unambiguous otherwise.
+    // The fields above keep counting every hit. These are the summary's only [Optional] columns: they are written only
+    // when a result has a host, and a summary without them reads them as -1, zero or empty.
+
+    /// <summary>
+    /// Target proteins in the host, or -1 when no host was given. Zero means a host was given but was empty, so every hit
+    /// is unambiguous.
+    /// </summary>
+    [Optional]
+    public int HostProteinCount { get; set; } = -1;
+
+    /// <summary>
+    /// Target predictions whose peptide the host does not produce. With <see cref="AmbiguousTargetPredictions"/>, sums to
+    /// <see cref="TargetPredictions"/> when a host was given.
+    /// </summary>
+    [Optional]
+    public int UnambiguousTargetPredictions { get; set; }
+
+    /// <summary>
+    /// Target predictions whose peptide the host also produces.
+    /// </summary>
+    [Optional]
+    public int AmbiguousTargetPredictions { get; set; }
+
+    /// <summary>
+    /// Decoy predictions whose peptide the host does not produce, by the same rule as the targets, so unambiguous targets
+    /// and decoys come from the same predictions.
+    /// </summary>
+    [Optional]
+    public int UnambiguousDecoyPredictions { get; set; }
+
+    /// <summary>
+    /// Distinct target peptides matched by at least one unambiguous prediction.
+    /// </summary>
+    [Optional]
+    public int UniqueUnambiguousPeptidesMapped { get; set; }
+
+    /// <summary>
+    /// Target proteins containing at least one peptide matched by an unambiguous prediction.
+    /// </summary>
+    [Optional]
+    public int UniqueUnambiguousProteinsMapped { get; set; }
+
+    /// <summary>
+    /// <see cref="RetentionTimeErrors"/> of the unambiguous target predictions only.
+    /// </summary>
+    [Optional]
+    [TypeConverter(typeof(CommaDelimitedDoubleListConverter))]
+    public List<double> UnambiguousRetentionTimeErrors { get; set; } = new();
+
+    [Optional]
+    [TypeConverter(typeof(CommaDelimitedDoubleListConverter))]
+    public List<double> UnambiguousTargetPredictionScores { get; set; } = new();
+
+    [Optional]
+    [TypeConverter(typeof(CommaDelimitedDoubleListConverter))]
+    public List<double> UnambiguousDecoyPredictionScores { get; set; } = new();
+
+    /// <summary>
+    /// True when the mapper was given host proteins, so the host-ambiguity fields are filled.
+    /// </summary>
+    [Ignore]
+    public bool HasHost => HostProteinCount >= 0;
+
+    #endregion
+
     /// <summary>
     /// Target plus decoy predictions per mzTab file. Written as one extra column per file.
     /// </summary>
