@@ -35,7 +35,7 @@ namespace UsefulProteomicsDatabases
     /// support testing and custom configuration.
     /// </para>
     /// </remarks>
-    public sealed class PrideArchiveClient : IDisposable
+    public sealed partial class PrideArchiveClient : IDisposable
     {
         /// <summary>The base address of the PRIDE Archive REST API (v3).</summary>
         public const string DefaultBaseAddress = "https://www.ebi.ac.uk/pride/ws/archive/v3/";
