@@ -81,6 +81,8 @@ public class TestFragmentQuantity
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Area(trace, -1, 5));
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Area(trace, 5, Scans));
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Area(trace, 6, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Area(trace, Scans, Scans), "one scan, past the end");
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.Area(trace, -1, -1), "one scan, before the start");
     }
 
     #endregion
@@ -93,24 +95,32 @@ public class TestFragmentQuantity
     {
         var traces = Precursor(1);
 
-        var corrected = FragmentQuantity.InterferenceCorrectedAreas(traces, Start, End);
+        foreach (var (start, end) in new[] { (Start, End), (0, Scans - 1) })
+        {
+            var corrected = FragmentQuantity.InterferenceCorrectedAreas(traces, start, end);
 
-        for (int f = 0; f < traces.Length; f++)
-            Assert.That(corrected[f], Is.EqualTo(FragmentQuantity.Area(traces[f], Start, End)).Within(1e-9), $"fragment {f}");
+            for (int f = 0; f < traces.Length; f++)
+                Assert.That(corrected[f], Is.EqualTo(FragmentQuantity.Area(traces[f], start, end)).Within(1e-9), $"fragment {f}, scans {start}-{end}");
+        }
     }
 
     /// <summary>
-    /// An interferer beside the peak on one fragment (another ion at its m/z, eluting 2.5 sigma later and twice its
-    /// height) puts the plain sum more than 30% high. Its correlation with the reference falls below 0.8, so its ratio to
-    /// the best fragment is read near the apex, where the interferer is faint, and the rest is capped at 1.5 times that
-    /// ratio times the reference: the corrected sum is within 10%.
+    /// An interferer beside the peak on one fragment (another ion at its m/z, eluting 2.5 sigma before or after it, at twice
+    /// or ten times the best fragment's height) puts the plain sum more than 30% high. Its correlation with the reference
+    /// falls below 0.8, so its ratio to the best fragment is read at the apex and the scans either side, where the
+    /// interferer is faint, and the rest is capped at 1.5 times that ratio times the reference: the corrected sum is within
+    /// 10%. The fragment's own weighted ratio would not do (26% high with the strong interferer), and nor would scans on
+    /// one side of the apex only.
     /// </summary>
-    [Test]
-    public void AnInterfererBesideThePeakIsCappedToTheFragmentsOwnProfile()
+    [TestCase(25, 2000)]
+    [TestCase(15, 2000)]
+    [TestCase(25, 10_000)]
+    [TestCase(15, 10_000)]
+    public void AnInterfererBesideThePeakIsCappedToTheFragmentsOwnProfile(double interfererApex, double interfererHeight)
     {
         double truth = SumOfAreas(Precursor(1));
         var traces = Precursor(1);
-        traces[2] = Plus(traces[2], Gaussian(25, 2000));
+        traces[2] = Plus(traces[2], Gaussian(interfererApex, interfererHeight));
         var reference = FragmentCoElution.Smooth(traces[FragmentCoElution.BestFragment(traces, Start, End)]);
         Assert.That(FragmentCoElution.CorrelationsTo(traces, reference, Start, End)[2], Is.LessThan(FragmentQuantity.InterferenceCorrelation));
 
@@ -142,6 +152,40 @@ public class TestFragmentQuantity
         Assert.That(corrected[2] - truth, Is.LessThan((plain - truth) / 2));
         foreach (int f in new[] { 0, 1, 3, 4, 5 })
             Assert.That(corrected[f], Is.EqualTo(FragmentQuantity.Area(traces[f], Start, End)).Within(1e-9), $"fragment {f}");
+    }
+
+    /// <summary>
+    /// The interfered fragment's ratio is read near the apex only: points it missed far out in the tails (scans 13 and 27)
+    /// would read a ratio of 0 and erase the fragment, and they do not.
+    /// </summary>
+    [Test]
+    public void MissedPointsFarFromTheApexDoNotSetTheRatio()
+    {
+        double truth = SumOfAreas(Precursor(1));
+        var traces = Precursor(1);
+        traces[2] = Plus(traces[2], Gaussian(25, 2000));
+        traces[2][13] = 0;
+        traces[2][27] = 0;
+
+        double corrected = FragmentQuantity.InterferenceCorrectedAreas(traces, Start, End).Sum();
+
+        Assert.That(corrected / truth - 1, Is.EqualTo(0).Within(0.10));
+    }
+
+    /// <summary>
+    /// With no fragment co-eluting, the best fragment can be one that is silent within the bounds. There is then no profile
+    /// to correct against, and each fragment keeps its plain area.
+    /// </summary>
+    [Test]
+    public void WithASilentBestFragmentEachFragmentKeepsItsPlainArea()
+    {
+        double[][] traces = [new double[Scans], new double[Scans], new double[Scans]];
+        traces[1][15] = 100;
+        traces[2][25] = 100;
+
+        var corrected = FragmentQuantity.InterferenceCorrectedAreas(traces, Start, End);
+
+        Assert.That(corrected, Is.EqualTo(new[] { 0.0, 100, 100 }));
     }
 
     /// <summary>
@@ -184,6 +228,9 @@ public class TestFragmentQuantity
         Assert.Throws<ArgumentNullException>(() => FragmentQuantity.InterferenceCorrectedAreas(null!, Start, End));
         Assert.Throws<ArgumentException>(() => FragmentQuantity.InterferenceCorrectedAreas([], Start, End));
         Assert.Throws<ArgumentException>(() => FragmentQuantity.InterferenceCorrectedAreas([new double[Scans], new double[Scans - 1]], Start, End));
+        Assert.Throws<ArgumentException>(() => FragmentQuantity.InterferenceCorrectedAreas([new double[Scans], new double[Scans - 1]], 20, 20), "ragged, even with bounds of one scan");
+        Assert.Throws<ArgumentNullException>(() => FragmentQuantity.InterferenceCorrectedAreas([new double[Scans], null!], Start, End));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.InterferenceCorrectedAreas(Precursor(1), Scans, Scans), "one scan, past the end");
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.InterferenceCorrectedAreas(Precursor(1), End, Start));
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.InterferenceCorrectedAreas(Precursor(1), Start, End, apexHalfWidth: -1));
     }
@@ -236,6 +283,8 @@ public class TestFragmentQuantity
         Assert.Throws<ArgumentNullException>(() => FragmentQuantity.SelectAcrossRuns(null!, 3));
         Assert.Throws<ArgumentException>(() => FragmentQuantity.SelectAcrossRuns([], 3), "no run");
         Assert.Throws<ArgumentException>(() => FragmentQuantity.SelectAcrossRuns([[0.5f, 0.5f], [0.5f]], 1), "ragged");
+        Assert.Throws<ArgumentNullException>(() => FragmentQuantity.SelectAcrossRuns([null!], 1), "a null first run");
+        Assert.Throws<ArgumentNullException>(() => FragmentQuantity.SelectAcrossRuns([[0.5f], null!], 1), "a null later run");
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentQuantity.SelectAcrossRuns([[0.5f]], -1));
     }
 
@@ -248,8 +297,10 @@ public class TestFragmentQuantity
     public void AValueIsTheSumOfTheSelectedFragmentsAreas()
     {
         var quantity = FragmentQuantity.Quantify([100f, 200f, 300f, 400f, 500f], [0, 2, 4], floor: 50);
+        var someBelow = FragmentQuantity.Quantify([100f, 20f, 300f], [0, 1, 2], floor: 50);
 
         Assert.That(quantity, Is.EqualTo(new PrecursorQuantity(900, PrecursorQuantityKind.Value, 50)));
+        Assert.That(someBelow, Is.EqualTo(new PrecursorQuantity(420, PrecursorQuantityKind.Value, 50)), "any fragment above the floor makes a value");
     }
 
     /// <summary>Fewer than three usable (measured) fragments is "not looked": no value, never 0.</summary>

@@ -133,8 +133,6 @@ namespace MassSpectrometry
             ArgumentNullException.ThrowIfNull(correlationsByRun);
             if (correlationsByRun.Count == 0)
                 throw new ArgumentException("There are no runs to choose fragments from.", nameof(correlationsByRun));
-            ArgumentOutOfRangeException.ThrowIfNegative(count);
-
             ArgumentNullException.ThrowIfNull(correlationsByRun[0], nameof(correlationsByRun));
             var sums = new double[correlationsByRun[0].Length];
             foreach (var run in correlationsByRun)
