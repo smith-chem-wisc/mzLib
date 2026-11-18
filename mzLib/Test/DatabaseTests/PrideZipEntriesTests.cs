@@ -261,9 +261,10 @@ public class PrideZipEntriesTests
         long directoryOffset = FarOffset + bytes.Length;
         long directoryStart = bytes.Length;
         w.Write(0x02014b50u); w.Write((ushort)45); w.Write((ushort)45); w.Write((ushort)0); w.Write((ushort)0); w.Write((ushort)0); w.Write((ushort)0);
-        w.Write(crc); w.Write((uint)FarData.Length); w.Write((uint)FarData.Length); w.Write((ushort)name.Length); w.Write((ushort)12); w.Write((ushort)0);
+        // Sizes and offset all in the ZIP64 extra field, in APPNOTE's order, as a writer stores an entry over 4 GiB.
+        w.Write(crc); w.Write(0xFFFFFFFFu); w.Write(0xFFFFFFFFu); w.Write((ushort)name.Length); w.Write((ushort)28); w.Write((ushort)0);
         w.Write((ushort)0); w.Write((ushort)0); w.Write(0u); w.Write(0xFFFFFFFFu); w.Write(name);
-        w.Write((ushort)1); w.Write((ushort)8); w.Write(FarOffset);
+        w.Write((ushort)1); w.Write((ushort)24); w.Write((long)FarData.Length); w.Write((long)FarData.Length); w.Write(FarOffset);
         long directorySize = bytes.Length - directoryStart;
 
         long zip64Record = FarOffset + bytes.Length;
@@ -435,6 +436,7 @@ public class PrideZipEntriesTests
         Assert.That(entries[0].FullName, Is.EqualTo("far/entry.txt"));
         Assert.That(entries[0].LocalHeaderOffset, Is.EqualTo(FarOffset));
         Assert.That(entries[0].Length, Is.EqualTo(FarData.Length));
+        Assert.That(entries[0].CompressedLength, Is.EqualTo(FarData.Length));
     }
 
     [Test]
@@ -904,6 +906,149 @@ public class PrideZipEntriesTests
         Assert.That(Assert.ThrowsAsync<ArgumentNullException>(() => client.DownloadZipEntriesAsync(PrideZip(), _tempDir, null)).ParamName, Is.EqualTo("selector"));
         Assert.ThrowsAsync<OperationCanceledException>(() => client.DownloadZipEntriesAsync(PrideZip(), _tempDir, _ => true, cancellationToken: new CancellationToken(canceled: true)));
         Assert.That(server.Requests, Is.Empty);
+    }
+
+    // ---- the format, from bytes ------------------------------------------------------
+
+    private static void Patch64(byte[] bytes, int at, ulong value) => BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at), value);
+
+    private static int LastIndexOf(byte[] bytes, uint signature)
+    {
+        for (int i = bytes.Length - 4; i >= 0; i--)
+            if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(i)) == signature)
+                return i;
+        throw new InvalidOperationException($"No signature {signature:x8}.");
+    }
+
+    /// <summary>The hand-built ZIP64 zip's bytes from its entry's local header to its end, which start at <see cref="FarOffset"/>.</summary>
+    private static byte[] Zip64Bytes()
+    {
+        RangeServer server = Zip64Server();
+        return server.Read(FarOffset, server.Total - 1);
+    }
+
+    [TestCase(4, 1u)]  // the ZIP64 end record is on disk 1
+    [TestCase(16, 2u)] // two disks in all
+    public void RemoteZip_Zip64LocatorForASplitZip_IsNotSupported(int field, uint value)
+    {
+        byte[] bytes = Zip64Bytes();
+        Patch32(bytes, LastIndexOf(bytes, 0x07064b50) + field, value);
+        Assert.Throws<NotSupportedException>(() => RemoteZip.ReadEndRecord(bytes, FarOffset, "'z.zip'"));
+    }
+
+    [Test]
+    public void RemoteZip_Zip64LocatorPointingPastItself_ThrowsMzLibException()
+    {
+        byte[] bytes = Zip64Bytes();
+        Patch64(bytes, LastIndexOf(bytes, 0x07064b50) + 8, (ulong)(FarOffset + bytes.Length));
+        var e = Assert.Throws<MzLibException>(() => RemoteZip.ReadEndRecord(bytes, FarOffset, "'z.zip'"));
+        Assert.That(e.Message, Is.EqualTo("'z.zip' is not a readable zip: its ZIP64 locator points past itself."));
+    }
+
+    [Test]
+    public void RemoteZip_Zip64EndRecordProblems_AreTold()
+    {
+        byte[] bytes = Zip64Bytes();
+        RemoteZip.ZipEnd end = RemoteZip.ReadEndRecord(bytes, FarOffset, "'z.zip'");
+        int record = (int)(end.Zip64RecordOffset.Value - FarOffset);
+        byte[] Record() => bytes.AsSpan(record, RemoteZip.Zip64EndRecordLength).ToArray();
+
+        Assert.That(RemoteZip.ReadZip64EndRecord(Record(), end, "'z.zip'").EntryCount, Is.EqualTo(1));
+        Assert.That(Assert.Throws<MzLibException>(() => RemoteZip.ReadZip64EndRecord(new byte[56], end, "'z.zip'")).Message,
+            Does.Contain("there is no ZIP64 end record where its locator points"));
+
+        byte[] otherDisk = Record();
+        Patch32(otherDisk, 16, 1);
+        Assert.Throws<NotSupportedException>(() => RemoteZip.ReadZip64EndRecord(otherDisk, end, "'z.zip'"));
+
+        byte[] tooLarge = Record();
+        Patch64(tooLarge, 40, 1_000_000);
+        Assert.That(Assert.Throws<MzLibException>(() => RemoteZip.ReadZip64EndRecord(tooLarge, end, "'z.zip'")).Message,
+            Does.Contain("its central directory runs past its ZIP64 end record"));
+    }
+
+    [Test]
+    public void RemoteZip_DirectoryThatBreaksOff_ThrowsMzLibException()
+    {
+        byte[] zip = Zip(false, ("a.txt", Parameters, CompressionLevel.Optimal));
+        RemoteZip.ZipEnd end = RemoteZip.ReadEndRecord(zip, 0, "'z.zip'");
+        byte[] shortened = zip.AsSpan((int)end.DirectoryOffset, (int)end.DirectorySize - 3).ToArray();
+
+        var e = Assert.Throws<MzLibException>(() => RemoteZip.ReadCentralDirectory(shortened, end, "'z.zip'"));
+        Assert.That(e.Message, Does.Contain("its central directory breaks off after 0 entries"));
+
+        byte[] notAHeader = zip.AsSpan((int)end.DirectoryOffset, (int)end.DirectorySize).ToArray();
+        notAHeader[0] = 0;
+        e = Assert.Throws<MzLibException>(() => RemoteZip.ReadCentralDirectory(notAHeader, end, "'z.zip'"));
+        Assert.That(e.Message, Does.Contain("its central directory breaks off after 0 entries"));
+    }
+
+    [Test]
+    public void GetZipEntriesAsync_SizeTooLargeForItsHeaderWithNoZip64Field_ThrowsMzLibException()
+    {
+        byte[] zip = Zip(false, ("a.txt", Parameters, CompressionLevel.Optimal));
+        Patch32(zip, CentralHeaderOf(zip, "a.txt") + 20, 0xFFFFFFFF); // compressed size: "in the ZIP64 field"
+        using var client = ClientOver(new RangeServer(zip));
+
+        var e = Assert.ThrowsAsync<MzLibException>(() => client.GetZipEntriesAsync(PrideZip()));
+        Assert.That(e.Message, Does.Contain("'a.txt' has no ZIP64 field for a size or offset too large for its header"));
+    }
+
+    [Test]
+    public void GetZipEntriesAsync_EntryOnAnotherDisk_IsNotSupported()
+    {
+        byte[] zip = Zip(false, ("a.txt", Parameters, CompressionLevel.Optimal));
+        Patch16(zip, CentralHeaderOf(zip, "a.txt") + 34, 1); // the disk the entry starts on
+        using var client = ClientOver(new RangeServer(zip));
+
+        Assert.ThrowsAsync<NotSupportedException>(() => client.GetZipEntriesAsync(PrideZip()));
+    }
+
+    [Test]
+    public void RemoteZip_LocalHeaderWhoseDataRunsIntoTheDirectory_ThrowsMzLibException()
+    {
+        byte[] zip = Zip(false, ("a.txt", Parameters, CompressionLevel.Optimal));
+        RemoteZip.ZipEnd end = RemoteZip.ReadEndRecord(zip, 0, "'z.zip'");
+        RemoteZipEntry entry = RemoteZip.ReadCentralDirectory(zip.AsSpan((int)end.DirectoryOffset, (int)end.DirectorySize), end, "'z.zip'").Single();
+        byte[] header = zip.AsSpan(0, RemoteZip.LocalHeaderLength).ToArray();
+        Assert.That(RemoteZip.ReadLocalHeader(header, entry, end.DirectoryOffset, "'a.txt'"), Is.EqualTo(30 + "a.txt".Length));
+
+        Patch16(header, 28, 60_000); // a local extra field far longer than the space before the directory
+        var e = Assert.Throws<MzLibException>(() => RemoteZip.ReadLocalHeader(header, entry, end.DirectoryOffset, "'a.txt'"));
+        Assert.That(e.Message, Does.Contain("its data runs into the central directory"));
+        Assert.That(entry.ToString(), Is.EqualTo("a.txt"));
+    }
+
+    [Test]
+    public void GetZipEntriesAsync_206ThatDoesNotSayWhichBytes_ThrowsMzLibExceptionOnceRetriesAreSpent()
+    {
+        var server = new RangeServer(CombinedZip())
+        {
+            Before = (_, _) => new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(new byte[10]) },
+        };
+        using var client = ClientOver(server, maxRetries: 1);
+
+        var e = Assert.ThrowsAsync<MzLibException>(() => client.GetZipEntriesAsync(PrideZip()));
+        Assert.That(e.Message, Does.Contain("did not say which bytes it holds"));
+        Assert.That(server.Requests, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public void GetZipEntriesAsync_BodyShorterThanItsRange_IsATransientFailure()
+    {
+        byte[] zip = CombinedZip();
+        var server = new RangeServer(zip);
+        server.Before = (_, _) =>
+        {
+            var content = new ByteArrayContent(new byte[10]);
+            content.Headers.ContentRange = new ContentRangeHeaderValue(zip.Length - 65_577, zip.Length - 1, zip.Length);
+            return new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content };
+        };
+        using var client = ClientOver(server, maxRetries: 0);
+
+        var e = Assert.ThrowsAsync<HttpRequestException>(() => client.GetZipEntriesAsync(PrideZip()));
+        Assert.That(e.Message, Does.Contain("came to 10 bytes where the server announced 65577"));
+        Assert.That(ServiceFailure.IsTransient(e), Is.True);
     }
 
     [Test]
