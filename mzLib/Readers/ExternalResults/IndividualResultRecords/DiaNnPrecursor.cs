@@ -380,18 +380,9 @@ namespace Readers
         /// <summary>
         /// Strips directory and extension from a path written by DIA-NN. Path.GetFileNameWithoutExtension
         /// is not used because DIA-NN commonly runs on Linux and writes '/'-delimited paths that
-        /// .NET on Linux would not split.
+        /// .NET on Linux would not split. See <see cref="RunFileMatcher.StripPathAndExtension"/>.
         /// </summary>
-        internal static string StripPathAndExtension(string path)
-        {
-            if (path.IsNullOrEmpty()) return "";
-
-            int lastSeparator = path.LastIndexOfAny(new[] { '/', '\\' });
-            string fileName = lastSeparator >= 0 ? path.Substring(lastSeparator + 1) : path;
-
-            int lastDot = fileName.LastIndexOf('.');
-            return lastDot > 0 ? fileName.Substring(0, lastDot) : fileName;
-        }
+        internal static string StripPathAndExtension(string path) => RunFileMatcher.StripPathAndExtension(path);
 
         #endregion
     }
