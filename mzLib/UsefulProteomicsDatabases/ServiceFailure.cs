@@ -4,7 +4,7 @@ namespace UsefulProteomicsDatabases
 {
     /// <summary>
     /// Tells a repository client's failure that is worth trying again later apart from one that will not change,
-    /// for the exceptions <see cref="PrideArchiveClient"/> throws.
+    /// for the exceptions <see cref="PrideArchiveClient"/> and <see cref="MassiveClient"/> throw.
     /// </summary>
     public static class ServiceFailure
     {
@@ -14,7 +14,8 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Whether <paramref name="exception"/> is a failure the client judged transient and stopped retrying only
         /// because its retries ran out: the service timing out, a body that stalled, dropped or came up short, a
-        /// 408, a 429, a 5xx, or PRIDE's 403 on its FTP host. Asking again later may well succeed.
+        /// 408, a 429, a 5xx, PRIDE's 403 on its FTP host, or, from MassIVE's FTP server, a dropped connection or a
+        /// transient (4xx) FTP reply. Asking again later may well succeed.
         /// </summary>
         /// <remarks>
         /// Read from a mark the client's retry loop leaves on the exception it gives up on, not from the exception's

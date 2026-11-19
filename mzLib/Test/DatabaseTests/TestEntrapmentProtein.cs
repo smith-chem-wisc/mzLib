@@ -989,6 +989,32 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void APartnerKeepsItsTargetTaxonomyAndNothingElse()
+    {
+        // The taxonomy is the one reference that is as true of the partner as of the target: it
+        // names the organism whose database the sequence was built from, exactly as for a decoy.
+        // Without it, anything that groups a search's proteins by taxon has no organism for any
+        // entrapment entry.
+        var references = new List<DatabaseReference>
+        {
+            new DatabaseReference(Protein.NcbiTaxonomyDatabaseReferenceType, "9606", new List<Tuple<string, string>>()),
+            new DatabaseReference("GO", "GO:0005737",
+                new List<Tuple<string, string>> { new("term", "C:cytoplasm") }),
+        };
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR", "P12345",
+            databaseReferences: references);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.NcbiTaxonomyId, Is.EqualTo("9606"));
+        Assert.That(entrapment.DatabaseReferences.Select(r => r.Type),
+            Is.EquivalentTo(new[] { Protein.NcbiTaxonomyDatabaseReferenceType }));
+        Assert.That(entrapment.DatabaseReferences, Is.Not.SameAs(target.DatabaseReferences),
+            "a reference added to the partner must not appear on its target");
+        Assert.That(target.DatabaseReferences, Has.Count.EqualTo(2), "the target keeps its own");
+    }
+
+    [Test]
     public void AFixedModificationMovesWithItsResidue()
     {
         // Master's #1342 gave Protein a second positional mod dictionary, OneBasedFixedModifications,

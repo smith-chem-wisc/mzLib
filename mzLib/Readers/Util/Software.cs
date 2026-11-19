@@ -30,5 +30,6 @@
         // Other
         Casanovo,
         MzIdentML, // a PSI standard written by many search engines, like MassSpecFile names a format rather than a tool
+        Mzlib,
     }
 }

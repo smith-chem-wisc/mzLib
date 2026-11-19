@@ -323,6 +323,26 @@ public class MslLibraryEntry
 	public bool IsEntrapment { get; set; }
 
 	/// <summary>
+	/// How far <see cref="RetentionTime"/> has been checked against independent measurements
+	/// (none, observed once, confirmed, challenged), as kept by a calibrated library update.
+	/// <see cref="MslFormat.RetentionTimeStatus.None"/> (the default, and the value read from every
+	/// file written before this field existed) means the time is missing or predicted.
+	/// Stored in bits 4-5 of PrecursorFlags. <see cref="LibrarySpectrum"/> has no such field, so
+	/// <see cref="ToLibrarySpectrum"/> (and an .msp export) drops it, and
+	/// <see cref="FromLibrarySpectrum"/> gives None.
+	/// </summary>
+	public MslFormat.RetentionTimeStatus RtStatus { get; set; }
+
+	/// <summary>
+	/// True when <see cref="RetentionTime"/> was challenged by the retention-time prediction rather
+	/// than by another dataset: a time measured in a single run that disagreed with the prediction.
+	/// A later dataset that confirms or replaces the time clears it. Meaningful only when
+	/// <see cref="RtStatus"/> is <see cref="MslFormat.RetentionTimeStatus.Challenged"/>.
+	/// Stored in bit 6 of PrecursorFlags.
+	/// </summary>
+	public bool RtStruckByPrediction { get; set; }
+
+	/// <summary>
 	/// All fragment ions for this precursor.  The list may contain terminal ions (b, y, c, z,
 	/// a, w, d, …), internal fragment ions, diagnostic ions, and glycan Y ions in any order;
 	/// the writer sorts them by m/z before serialization.

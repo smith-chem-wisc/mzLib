@@ -94,4 +94,18 @@ public sealed class TestMslCanLoadIndexOnly
 		File.WriteAllText(path, "Name: PEPTIDEK/2\nNum peaks: 0\n");
 		Assert.Throws<FormatException>(() => MslLibrary.CanLoadIndexOnly(path));
 	}
+
+	[Test]
+	public void UnsupportedVersion_Throws()
+	{
+		string path = WriteLibrary("future_version", compressionLevel: 0);
+		using (var stream = new FileStream(path, FileMode.Open, FileAccess.Write))
+		{
+			stream.Position = 4; // FormatVersion, int32 after the 4-byte magic
+			stream.Write(BitConverter.GetBytes(99));
+		}
+
+		Assert.That(() => MslLibrary.CanLoadIndexOnly(path),
+			Throws.TypeOf<FormatException>().With.Message.Contains("Unsupported version: 99"));
+	}
 }

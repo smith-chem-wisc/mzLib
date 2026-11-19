@@ -26,6 +26,7 @@
     <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
+    <dependency id="FluentFTP" version="55.1.0" />
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
     <dependency id="TorchSharp" version="0.105.1" />
     <dependency id="libtorch-cpu" version="2.5.1" />
@@ -49,6 +50,7 @@
     <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
+    <dependency id="FluentFTP" version="55.1.0" />
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
     <dependency id="TorchSharp" version="0.105.1" />
     <dependency id="libtorch-cpu" version="2.5.1" />

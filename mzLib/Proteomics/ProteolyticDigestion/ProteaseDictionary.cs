@@ -496,6 +496,7 @@ namespace Proteomics.ProteolyticDigestion
             string[] psiMsAccessionAliases = { "psi-ms accession", "psi-ms accession number" };
             string[] psiMsNameAliases = { "psi-ms name" };
             string[] cleavageModAliases = { "cleavage modification", "cleavage mass shifts" };
+            string[] cleavageRequirementAliases = { "cleavage requirement" };
 
             foreach (string line in lines)
             {
@@ -542,6 +543,11 @@ namespace Proteomics.ProteolyticDigestion
                 string proteaseModDetails = GetFieldValue(fields, columnIndices, cleavageModAliases);
 
                 var motifList = DigestionMotif.ParseDigestionMotifsFromString(motifField);
+                var requirements = CleavageRequirement.ParseAll(GetFieldValue(fields, columnIndices, cleavageRequirementAliases));
+                if (requirements.Count > 0)
+                {
+                    motifList = WithCleavageRequirements(motifList, requirements);
+                }
                 var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), specificityField, true);
 
                 Protease protease = CreateProtease(
@@ -594,6 +600,18 @@ namespace Proteomics.ProteolyticDigestion
                     $"Expected one of: {string.Join(", ", aliases)}. " +
                     $"Found columns: {string.Join(", ", columnIndices.Keys)}");
             }
+        }
+
+        // In a co-digest (StcE-trypsin) the requirement belongs only to the motifs that reach its subsite, not to K| or R|.
+        private static List<DigestionMotif> WithCleavageRequirements(List<DigestionMotif> motifs, List<CleavageRequirement> requirements)
+        {
+            bool Reaches(DigestionMotif motif) => requirements.Any(r =>
+                (r.IsPrimeSide ? motif.PrimeSubsite(r.Subsite) : motif.NonPrimeSubsite(r.Subsite)) != '\0');
+            bool anyReaches = motifs.Any(Reaches);
+            return motifs.Select(m => anyReaches && !Reaches(m)
+                    ? m
+                    : new DigestionMotif(m.InducingCleavage, m.PreventingCleavage, m.CutIndex, m.ExcludeFromWildcard, requirements))
+                .ToList();
         }
 
         private static string GetFieldValue(
