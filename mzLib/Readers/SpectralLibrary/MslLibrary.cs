@@ -1581,6 +1581,14 @@ public sealed class MslLibrary : IDisposable
 	/// <see cref="MslLibraryEntry.RtIsCalibrated"/> = false (the time is iRT), and a predicted entry becomes
 	/// <see cref="MslFormat.SourceType.EmpiricalRefined"/>. This library is not modified.
 	/// </para>
+	///
+	/// <para>
+	/// <b>Stored times must be iRT.</b> A target entry whose measured time (status other than none) is in run
+	/// minutes (<see cref="MslLibraryEntry.RtIsCalibrated"/> = true) is refused before anything is predicted or
+	/// written: no calibration can map a library's minutes onto iRT, and comparing, averaging or keeping them as
+	/// iRT would change their meaning. A time in minutes with no status is not a measured time here: it is never
+	/// compared, and the first accepted time replaces it with iRT.
+	/// </para>
 	/// </summary>
 	/// <param name="runs">Every run of one dataset, each with its confident identifications.</param>
 	/// <param name="predictIrt">
@@ -1601,7 +1609,9 @@ public sealed class MslLibrary : IDisposable
 	/// </exception>
 	/// <exception cref="ArgumentException">A run, its name or identifications, or an identification's sequence is null.</exception>
 	/// <exception cref="ArgumentOutOfRangeException">An option is out of range.</exception>
-	/// <exception cref="InvalidOperationException">A predictor returned null or the wrong number of values.</exception>
+	/// <exception cref="InvalidOperationException">
+	///   A target entry's measured time is in run minutes, or a predictor returned null or the wrong number of values.
+	/// </exception>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	public MslRetentionTimeUpdateResult UpdateRetentionTimesAndSave(
 		IReadOnlyList<MslRunObservations> runs,

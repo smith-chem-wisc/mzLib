@@ -89,13 +89,14 @@ public sealed class TestMslRetentionTimeUpdate
 		Enumerable.Range(0, PeptideCount).ToDictionary(Peptide, TrueIrt);
 
 	private static MslLibraryEntry Entry(string fullSequence, string? baseSequence = null, double rt = double.NaN,
-		MslFormat.RetentionTimeStatus status = None, bool struck = false, bool isDecoy = false) => new()
+		MslFormat.RetentionTimeStatus status = None, bool struck = false, bool isDecoy = false, bool minutes = false) => new()
 	{
 		FullSequence = fullSequence,
 		BaseSequence = baseSequence ?? fullSequence,
 		PrecursorMz = 400 + (fullSequence.GetHashCode() & 0xFFFF) / 100.0,
 		ChargeState = 2,
 		RetentionTime = rt,
+		RtIsCalibrated = minutes,
 		RtStatus = status,
 		RtStruckByPrediction = struck,
 		IsDecoy = isDecoy,
@@ -483,6 +484,61 @@ public sealed class TestMslRetentionTimeUpdate
 		Assert.That(asked, Is.EqualTo(new[] { longPeptide }));
 		Assert.That(withPredictor[longPeptide].RtStatus, Is.EqualTo(Challenged));
 		Assert.That(withPredictor[longPeptide].RtStruckByPrediction, Is.True);
+	}
+
+	// ── Stored times in run minutes ────────────────────────────────────────────
+
+	/// <summary>
+	/// A phosphopeptide, so no prediction or tiebreak applies, seen in every run at 50 iRT; the library
+	/// holds a measured time of 180 in run minutes for it, beside 100 agreeing measured iRT times.
+	/// </summary>
+	private string LibraryWithAMeasuredTimeInMinutes(MslFormat.RetentionTimeStatus status, out List<MslRunObservations> runs, out string full)
+	{
+		const string bas = "STOREDTIMEK";
+		full = "STOREDT" + Phospho + "IMEK";
+		runs = Dataset(extra: new() { [full] = (bas, 50.0) });
+		return Library(AgreeingBackground().Append(Entry(full, bas, rt: 180, status: status, minutes: true)).ToArray());
+	}
+
+	[TestCase(ObservedOnce)]
+	[TestCase(Confirmed)]
+	[TestCase(Challenged)]
+	public void AMeasuredTimeInRunMinutes_IsRefused_BeforeAnythingIsPredictedOrWritten(MslFormat.RetentionTimeStatus status)
+	{
+		string path = LibraryWithAMeasuredTimeInMinutes(status, out var runs, out string full);
+		var predictor = new Predictor();
+		string output = NewPath("minutes");
+
+		using (MslLibrary lib = MslLibrary.Load(path))
+			Assert.That(() => lib.UpdateRetentionTimesAndSave(runs, predictor.Predict, output),
+				Throws.InvalidOperationException.With.Message.Contains(full).And.Message.Contains("1 library entry"));
+
+		Assert.That(File.Exists(output), Is.False);
+		Assert.That(predictor.Calls, Is.Zero);
+	}
+
+	[Test]
+	public void ATimeInRunMinutesWithNoStatus_IsNeverCompared_AndTheCalibratedIrtReplacesIt()
+	{
+		string seq = Peptide(23);
+		const string decoy = "DECOYMINUTESK", noTime = "NOTIMEHEREK";
+		string path = Library(AgreeingBackground()
+			.Append(Entry(seq, rt: 180, minutes: true))
+			.Append(Entry(decoy, rt: 180, status: Confirmed, isDecoy: true, minutes: true))
+			.Append(Entry(noTime, status: Challenged, minutes: true))
+			.ToArray());
+
+		var (result, entries, _) = Update(path, Dataset());
+
+		Assert.That((result.Overlaps, result.OverlapsDisagreeing), Is.EqualTo((100, 0)), "only the 100 measured iRT times are compared");
+		Assert.That(entries[seq].RtStatus, Is.EqualTo(ObservedOnce));
+		Assert.That(entries[seq].RetentionTime, Is.EqualTo(Base[seq]).Within(1.0));
+		Assert.That(entries[seq].RtIsCalibrated, Is.False);
+
+		// Not refused: a decoy's time is never read or changed, and a missing time has no unit
+		Assert.That((entries[decoy].RetentionTime, entries[decoy].RtIsCalibrated, entries[decoy].RtStatus),
+			Is.EqualTo((180.0, true, Confirmed)));
+		Assert.That(entries[noTime].RetentionTime, Is.NaN);
 	}
 
 	// ── Scope and contract ─────────────────────────────────────────────────────

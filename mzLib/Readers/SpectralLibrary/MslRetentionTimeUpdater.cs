@@ -51,6 +51,8 @@ internal static class MslRetentionTimeUpdater
 		MslRetentionTimeUpdateOptions options,
 		string outputPath)
 	{
+		RefuseMeasuredTimesInMinutes(entries);
+
 		var prosit = new Predictions(predictIrt);
 		Predictions? longPeptide = predictLongPeptideIrt is null ? null : new Predictions(predictLongPeptideIrt);
 
@@ -92,6 +94,34 @@ internal static class MslRetentionTimeUpdater
 			EntriesChanged = counts.EntriesChanged,
 		};
 		return (updated, result);
+	}
+
+	/// <summary>
+	/// Refuses a library in which a target's measured time (a status other than none) is in run minutes
+	/// (<see cref="MslLibraryEntry.RtIsCalibrated"/>). The rules compare, average and keep stored times as
+	/// iRT, and no calibration can map a library's minutes onto iRT: they come from one unnamed run. A time
+	/// in minutes with no status is not a measured time here (see <c>Measured</c> in <see cref="Merge"/>),
+	/// so it is never compared and the first accepted time replaces it. Decoys' times are never read.
+	/// </summary>
+	private static void RefuseMeasuredTimesInMinutes(IReadOnlyList<MslLibraryEntry> entries)
+	{
+		int count = 0;
+		MslLibraryEntry? first = null;
+		foreach (MslLibraryEntry e in entries)
+		{
+			if (e.IsDecoy || !e.RtIsCalibrated || e.RtStatus == MslFormat.RetentionTimeStatus.None || !double.IsFinite(e.RetentionTime))
+				continue;
+			count++;
+			first ??= e;
+		}
+		if (first is null)
+			return;
+
+		throw new InvalidOperationException(
+			$"{count} library {(count == 1 ? "entry has" : "entries have")} a measured retention time (status other than None) " +
+			$"in run minutes (RtIsCalibrated), for example '{first.FullSequence}' charge {first.ChargeState} " +
+			$"({first.RetentionTime} min, {first.RtStatus}). This update compares and stores iRT, and library minutes cannot be " +
+			"mapped onto iRT. Give these entries iRT times, or set their status to None so that the update treats them as unmeasured.");
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
@@ -377,7 +407,7 @@ internal static class MslRetentionTimeUpdater
 			copy.RetentionTime = time;
 			copy.RtStatus = status;
 			copy.RtStruckByPrediction = struck;
-			copy.RtIsCalibrated = false; // the update writes iRT
+			copy.RtIsCalibrated = false; // the update writes iRT; a kept time is iRT too, as minutes with a status are refused up front
 			if (copy.Source == MslFormat.SourceType.Predicted)
 				copy.Source = MslFormat.SourceType.EmpiricalRefined;
 			result[i] = copy;
