@@ -1,0 +1,5 @@
+generated_utc 2026-11-14 20:09:50 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+metafor 5.2.1
+seed none (fixed values)
+script make_settest_pooling_fixtures.R

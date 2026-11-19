@@ -1,0 +1,1199 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using StatisticalModels;
+
+namespace Quantification.Differential;
+
+/// <summary>A comparison the analysis asks for in every stratum: between two levels of a factor, or a covariate's slope.</summary>
+public sealed record DifferentialContrastRequest
+{
+    /// <summary>The factor, for a comparison between two of its levels.</summary>
+    public string? Factor { get; init; }
+    /// <summary>The numerator level.</summary>
+    public string? Numerator { get; init; }
+    /// <summary>The reference level.</summary>
+    public string? Denominator { get; init; }
+    /// <summary>The covariate, for a slope.</summary>
+    public string? Covariate { get; init; }
+
+    /// <summary><paramref name="numerator"/> against <paramref name="denominator"/> for one factor.</summary>
+    public static DifferentialContrastRequest Between(string factor, string numerator, string denominator) =>
+        new() { Factor = factor, Numerator = numerator, Denominator = denominator };
+
+    /// <summary>The slope of a covariate.</summary>
+    public static DifferentialContrastRequest Slope(string covariate) => new() { Covariate = covariate };
+}
+
+/// <summary>
+/// Everything one differential analysis needs (STAT1 M5b): exactly one observation table, BEFORE normalization (the global
+/// shift is measured on raw values), the analysis samples, the design, the comparisons, the settings and the inputs that,
+/// with the settings, determine the analysis id.
+/// </summary>
+public sealed record DifferentialRequest
+{
+    /// <summary>A label-free table (peptide x sample); null when <see cref="IsobaricTable"/> is given.</summary>
+    public ObservationTable? Table { get; init; }
+    /// <summary>An isobaric table (ion in its plex run x channel sample); null when <see cref="Table"/> is given.</summary>
+    public IsobaricObservationTable? IsobaricTable { get; init; }
+    /// <summary>The analysis samples, each with its factors, strata, individual, batch and covariates.</summary>
+    public required IReadOnlyList<AnalysisSample> Samples { get; init; }
+    /// <summary>The design: factors, covariates, interactions and whether batch is fitted.</summary>
+    public required DesignSpec Spec { get; init; }
+    /// <summary>The comparisons, in order (ids <c>c1</c>, <c>c2</c>, ...); null for each stratum's default contrasts.</summary>
+    public IReadOnlyList<DifferentialContrastRequest>? Contrasts { get; init; }
+    /// <summary>The settings.</summary>
+    public DifferentialSettings Settings { get; init; } = new();
+    /// <summary>
+    /// The caller's inputs by role, file name and sha256 (the files the table and design were read from, the contrast
+    /// spec). The runner puts the table it is given first itself, as <see cref="DifferentialConstants.ObservationTableRole"/>,
+    /// so that role is refused here.
+    /// </summary>
+    public IReadOnlyList<DifferentialInput> Inputs { get; init; } = Array.Empty<DifferentialInput>();
+    /// <summary><c>lfq</c>, <c>tmt</c>, ...; null takes <c>lfq</c> for a label-free table and <c>tmt</c> for an isobaric one.</summary>
+    public string? QuantStyle { get; init; }
+    /// <summary><c>ms2</c> or <c>ms3_sps</c> for an isobaric table; null otherwise.</summary>
+    public string? ReporterAcquisition { get; init; }
+    /// <summary>Which source chose the strata's factors (written on each stratum).</summary>
+    public string StratumSource { get; init; } = "default_list";
+}
+
+/// <summary>
+/// One place a rule changed what happened (R-DECISIONS): its rule, its keys (stratum, quant basis, feature, contrast; a
+/// null key means the whole level above), the facts that triggered it and what it did.
+/// </summary>
+public sealed record DifferentialDecision(string Rule, string Stratum, string? QuantBasis, string? FeatureId,
+    string? ContrastId, string Facts, string Effect);
+
+/// <summary>The decision rule ids (R-DECISIONS), one per STAT1 M5b ruling that can change what happens.</summary>
+public static class DifferentialDecisionRules
+{
+    /// <summary>Groups left out of the row set, by reason (ruling 12).</summary>
+    public const string RowSet = "row_set";
+    /// <summary>A contrast the stratum's design cannot estimate, or cannot run (ruling 2 step 1).</summary>
+    public const string DesignContrast = "design_contrast";
+    /// <summary>No usable unique peptide (ruling 2 step 2, ruling 6).</summary>
+    public const string NoUniquePeptides = "no_unique_peptides";
+    /// <summary>A side with no value (ruling 1, ruling 2 step 3).</summary>
+    public const string AbsentSide = "absent_side";
+    /// <summary>Fewer samples with a value on a side than the settings ask (ruling 2 step 4; default 2).</summary>
+    public const string MinPerSide = "min_per_side";
+    /// <summary>The feature was fitted on a reduced design (ruling 1).</summary>
+    public const string ReducedDesign = "reduced_design";
+    /// <summary>The feature's own data cannot separate a contrast (ruling 2 step 5).</summary>
+    public const string FeatureNotEstimable = "feature_not_estimable";
+    /// <summary>One usable peptide: the moderated t-test (ruling 6).</summary>
+    public const string SinglePeptide = "single_peptide";
+    /// <summary>The fit's own outcome when it is not a fit (ruling 2 step 6).</summary>
+    public const string FitOutcome = "fit_outcome";
+    /// <summary>Robust reweighting fell back to one round (ruling 8).</summary>
+    public const string RobustFellBack = "robust_fell_back";
+    /// <summary>Fewer than 3 features fitted in a moderation: no prior (ruling 5).</summary>
+    public const string NoPrior = "no_prior";
+    /// <summary>
+    /// A fitted row whose estimated marginal means the feature's data cannot give at the stratum's proportions, averaged
+    /// instead over the stratum's samples in the levels the feature was measured in (ruling 18).
+    /// </summary>
+    public const string MeansOverSeenLevels = "means_over_seen_levels";
+    /// <summary>A fitted row whose estimated marginal means the feature's data cannot give even over the levels it was
+    /// measured in (rulings 3, 18): left empty.</summary>
+    public const string MeansNotEstimable = "means_not_estimable";
+    /// <summary>Random terms the feature's data cannot estimate were left out of its model (ruling 16).</summary>
+    public const string RandomTermsDropped = "random_terms_dropped";
+
+    /// <summary>The settings that applied to the whole analysis (ruling 14): one analysis-scope line.</summary>
+    public const string Settings = "settings";
+
+    /// <summary>
+    /// Every rule id with the STAT1 M5b ruling it follows and what it does in plain words, in the order the decisions file
+    /// and the report list them (<c>DEF-DIFF-DECISIONS</c>).
+    /// </summary>
+    public static IReadOnlyList<(string Rule, int Ruling, string Words)> All { get; } = new[]
+    {
+        (Settings, 14, "the settings that applied to the whole analysis"),
+        (RowSet, 12, "protein groups left out of the results: decoys, contaminants, entrapment groups, groups the protein table does not describe, and groups above 1% protein q"),
+        (DesignContrast, 2, "a comparison the stratum's design cannot estimate or run: every row of it carries that status"),
+        (NoUniquePeptides, 6, "a protein group with no usable unique peptide (unique to the group and valued in at least 2 samples): no fit"),
+        (AbsentSide, 1, "a comparison one side of which has no value for the protein: reported absent, with no number"),
+        (MinPerSide, 14, "a comparison with fewer samples with a value on a side than the settings ask: below support, no number"),
+        (ReducedDesign, 1, "a protein fitted on the design columns its own values can estimate (a group, batch or level it lacks left out)"),
+        (FeatureNotEstimable, 2, "a comparison the protein's own values cannot separate: not estimable"),
+        (RandomTermsDropped, 16, "random terms the protein's values cannot estimate left out of its model, down to least squares"),
+        (SinglePeptide, 6, "a protein with one usable peptide: tested with the moderated t-test"),
+        (FitOutcome, 2, "a fit that gave no usable result: not converged, or too little data for its variance"),
+        (RobustFellBack, 8, "robust reweighting that did not settle: the protein fitted on its first round's weights"),
+        (NoPrior, 5, "fewer than 3 proteins fitted in one moderation: no variance prior, each keeps its own variance and df"),
+        (MeansOverSeenLevels, 18, "model means the protein's values cannot give at the stratum's proportions: averaged over the samples in the batches and levels it was measured in, the effect unchanged"),
+        (MeansNotEstimable, 3, "model means the protein's values cannot give even over the batches and levels it was measured in: left empty, the effect reported"),
+    };
+
+    /// <summary>Whether <paramref name="rule"/> is one of these ids.</summary>
+    public static bool IsValid(string rule) => Index(rule) < All.Count;
+
+    /// <summary>The rule's position in <see cref="All"/>; past the end for an unknown id.</summary>
+    public static int Index(string rule)
+    {
+        for (int i = 0; i < All.Count; i++)
+            if (All[i].Rule == rule) return i;
+        return All.Count;
+    }
+
+    /// <summary>The ruling a rule follows, as the decisions file writes it (<c>M5b-14</c>); empty for an unknown id.</summary>
+    public static string Ruling(string rule)
+    {
+        int i = Index(rule);
+        return i < All.Count ? string.Create(CultureInfo.InvariantCulture, $"M5b-{All[i].Ruling}") : "";
+    }
+}
+
+/// <summary>The fixed strings the runner writes (DATA-DEFINITIONS <c>DEF-DIFF-*</c>; STAT1 M5b ruling 10).</summary>
+public static class DifferentialConstants
+{
+    /// <summary>The definition every abundance row follows.</summary>
+    public const string DefinitionId = "QuantProject:DEF-DIFF-ABUNDANCE v1";
+    /// <summary>The framework's version string.</summary>
+    public const string MethodVersion = "diff-1.0";
+    /// <summary>
+    /// The input role the runner gives the table it analyses (<c>DEF-DIFF-META</c> <c>inputs</c>): no file name, and the
+    /// sha256 of the table's canonical text (ruling 10). It is always the first input.
+    /// </summary>
+    public const string ObservationTableRole = "observation_table";
+    /// <summary>A comparison between two levels.</summary>
+    public const string EffectRatio = "abundance_log2_ratio";
+    /// <summary>A covariate's slope.</summary>
+    public const string EffectSlope = "abundance_log2_slope";
+    /// <summary>The quantity.</summary>
+    public const string Quantity = "abundance";
+    /// <summary>The grain.</summary>
+    public const string Grain = "protein_group";
+    /// <summary>The method.</summary>
+    public const string Method = "moderated";
+    /// <summary>The peptide-level mixed model.</summary>
+    public const string MixedModel = "peptide_mixed_model";
+    /// <summary>
+    /// The peptide model fitted with fewer random terms than the protein's labels call for, because its values cannot
+    /// estimate them (ruling 16), moderated in its own family (ruling 17).
+    /// </summary>
+    public const string MixedModelReduced = "peptide_mixed_model_reduced";
+    /// <summary>The moderated t-test, for one usable peptide.</summary>
+    public const string ModeratedT = "moderated_t";
+    /// <summary>The mixed model's df.</summary>
+    public const string DfSatterthwaite = "satterthwaite_moderated";
+    /// <summary>The t-test's df.</summary>
+    public const string DfResidual = "moderated_residual";
+    /// <summary>The robust rule (DATA-DEFINITIONS v3.21).</summary>
+    public const string RobustRule = "huber 1.345, MAD about 0, to convergence (100 rounds), else one round";
+    /// <summary>The adjustment.</summary>
+    public const string Adjustment = "benjamini_hochberg";
+    /// <summary>Support rule: no usable unique peptide.</summary>
+    public const string NoUniquePeptides = "no_unique_peptides";
+    /// <summary>Support rule: fewer than 2 samples with a value on a side (the default).</summary>
+    public const string MinTwoPerSide = "min_2_per_side";
+    /// <summary>Support rule: fewer than <paramref name="samples"/> samples with a value on a side.</summary>
+    public static string MinPerSide(int samples) => string.Create(CultureInfo.InvariantCulture, $"min_{samples}_per_side");
+    /// <summary>Support rule: too little data for the variance (ruling 2 step 6).</summary>
+    public const string TooFewObservations = "too_few_observations";
+}
+
+/// <summary>A differential analysis's rows, metadata, decisions and the values its report's diagnostics draw.</summary>
+public sealed class DifferentialAnalysisResult
+{
+    internal DifferentialAnalysisResult(IReadOnlyList<DifferentialResult> rows, DifferentialMetadata metadata,
+        IReadOnlyList<DifferentialDecision> decisions, DifferentialDiagnostics diagnostics)
+    {
+        Rows = rows;
+        Metadata = metadata;
+        Decisions = decisions;
+        Diagnostics = diagnostics;
+    }
+
+    /// <summary>The result rows, in DEF-DIFF-ROW order.</summary>
+    public IReadOnlyList<DifferentialResult> Rows { get; }
+    /// <summary>Everything constant across the rows.</summary>
+    public DifferentialMetadata Metadata { get; }
+    /// <summary>Every place a rule changed what happened (R-DECISIONS), in <see cref="DifferentialDecisionWriter.Order"/>.</summary>
+    public IReadOnlyList<DifferentialDecision> Decisions { get; }
+
+    /// <summary>
+    /// What the report's diagnostic figures draw beyond the rows and metadata: per stratum, quant basis and model family,
+    /// each fitted protein's average log2 value, residual variance and the family's prior variance (the mean-variance
+    /// figure); per stratum and quant basis, each sample's normalized log2 values on the peptides (isobaric: ions) unique to
+    /// a protein group in the row set (the sample-correlation figure). See <see cref="DifferentialAnalysis"/>.
+    /// </summary>
+    public DifferentialDiagnostics Diagnostics { get; }
+
+    /// <summary>
+    /// Writes the results table, its metadata and the decisions file into <paramref name="directory"/>, all three or none
+    /// (<see cref="DifferentialResultWriter.Write(string, IEnumerable{DifferentialResult}, DifferentialMetadata, IEnumerable{DifferentialDecision})"/>),
+    /// then <see cref="StatisticalReportWriter.ReportFileName"/> and its figures, and returns the results file's path. The
+    /// report is built and checked before anything is written.
+    /// </summary>
+    public string Write(string directory)
+    {
+        var report = StatisticalReportWriter.Build(Metadata, Rows, Diagnostics, Decisions);
+        string path = DifferentialResultWriter.Write(directory, Rows, Metadata, Decisions);
+        StatisticalReportWriter.WriteFiles(directory, report);
+        return path;
+    }
+}
+
+/// <summary>
+/// The STAT1 runner (milestone M5b): turns an observation table, its samples, a design and the comparisons into
+/// <see cref="DifferentialResult"/> rows, their metadata and a decisions record, applying the 15 rulings of
+/// QuantProject <c>design/stat1/M5B_CONTRACTS_2026-11-04.md</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Per stratum</b> (<see cref="AnalysisDesign.ByStratum"/>): the stratum's table is normalized (label-free:
+/// <see cref="SharedPeptideNormalization"/>; isobaric: <see cref="IsobaricNormalization"/>, once over the table); each
+/// protein group in the row set gets one row per comparison and quant basis.
+/// </para>
+/// <para>
+/// <b>Per protein group</b>, one status, first match wins (ruling 2): the stratum's design cannot estimate the comparison;
+/// no usable unique peptide; a side with no value; fewer than 2 samples with a value on a side; the group's own data
+/// cannot separate the comparison (its design reduced to what its observations estimate, ruling 1); the fit's outcome.
+/// Groups with two or more usable peptides (label-free) or ions in plex runs (isobaric) are fitted by
+/// <see cref="NestedMixedModel"/>; one by <see cref="LinearModel"/> and the moderated t-test (ruling 6). Each model's
+/// fits share one variance prior over every reduced design (<c>ModerateContrasts</c> over parts; ruling 5: fewer than 3
+/// fitted, no prior). Benjamini–Hochberg runs once per family over both models' rows (ruling 4).
+/// </para>
+/// </remarks>
+public static class DifferentialAnalysis
+{
+    /// <summary>The usable-peptide minimum (ruling 6): a unique level with a value in at least this many samples.</summary>
+    public const int UsableMinimumSamples = 2;
+
+    /// <summary>Runs the analysis.</summary>
+    /// <param name="request">Exactly one table, the samples, the design, the comparisons and the settings.</param>
+    /// <param name="maxThreads">As <see cref="NestedMixedModel.Fit"/>; the output does not depend on it.</param>
+    /// <exception cref="ArgumentException">A request that cannot be read (see the messages).</exception>
+    public static DifferentialAnalysisResult Run(DifferentialRequest request, int maxThreads = -1)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Samples, nameof(request));
+        ArgumentNullException.ThrowIfNull(request.Spec, nameof(request));
+        if ((request.Table is null) == (request.IsobaricTable is null))
+            throw new ArgumentException("Give exactly one observation table: label-free or isobaric.", nameof(request));
+        ArgumentNullException.ThrowIfNull(request.Inputs, nameof(request));
+        if (request.Inputs.Any(i => i.Role == DifferentialConstants.ObservationTableRole))
+            throw new ArgumentException($"An input has the role '{DifferentialConstants.ObservationTableRole}'; the runner records the " +
+                "observation table itself, by the sha256 of the table it is given (ruling 10). Give the file the table was read " +
+                "from another role.", nameof(request));
+        var withIndividual = request.Samples.Where(s => s.Individual is not null).Select(s => s.SampleId).ToList();
+        if (withIndividual.Count > 0 && withIndividual.Count < request.Samples.Count)
+            throw new ArgumentException(
+                $"Sample '{request.Samples.First(s => s.Individual is null).SampleId}' has no individual, but others do; an " +
+                "individual is needed on every sample or none.", nameof(request));
+        if (request.Settings.MinimumSamplesPerSide < 2)
+            throw new ArgumentException($"MinimumSamplesPerSide is {request.Settings.MinimumSamplesPerSide}; a comparison needs at least 2 " +
+                "samples with a value on each side to have a variance.", nameof(request));
+        if (request.Settings.NormalizationFloor < 1)
+            throw new ArgumentException($"NormalizationFloor is {request.Settings.NormalizationFloor}; it must be at least 1.", nameof(request));
+
+        return new Analysis(request, maxThreads).Execute();
+    }
+
+    /// <summary>One analysis in progress.</summary>
+    private sealed class Analysis
+    {
+        private readonly DifferentialRequest _request;
+        private readonly int _maxThreads;
+        private readonly bool _isobaric;
+        private readonly string _analysisId;
+        private readonly IReadOnlyList<DifferentialInput> _inputs;
+        private readonly string? _basis;
+        private readonly string _style;
+        private readonly List<DifferentialResult> _rows = new();
+        private readonly List<DifferentialDecision> _decisions = new();
+        private readonly List<DifferentialStratumInfo> _strata = new();
+        private readonly List<DifferentialModelInfo> _models = new();
+        private readonly List<DifferentialNormalizationInfo> _normalization = new();
+        private readonly Dictionary<string, DifferentialContrastInfo> _contrastInfo = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<DifferentialGlobalShift>> _shifts = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _designSha256 = new(StringComparer.Ordinal);
+        private readonly List<string> _designWarnings = new();
+        private readonly List<DiagnosticFit> _fits = new();
+        private readonly List<SampleLog2> _sampleLog2 = new();
+        private IsobaricObservationTable? _tmt;
+        private IsobaricNormalizationResult? _tmtNormalization;
+
+        public Analysis(DifferentialRequest request, int maxThreads)
+        {
+            _request = request;
+            _maxThreads = maxThreads;
+            _isobaric = request.IsobaricTable is not null;
+            // The table the runner analyses is the first input, by its canonical sha256 (ruling 10), so the analysis id
+            // changes whenever the data do; the caller's inputs follow in its order.
+            string tableSha256 = _isobaric ? request.IsobaricTable!.Sha256() : request.Table!.Sha256();
+            _inputs = new[] { new DifferentialInput(DifferentialConstants.ObservationTableRole, "", tableSha256) }
+                .Concat(request.Inputs).ToArray();
+            _analysisId = DifferentialMetadata.ComputeAnalysisId(_inputs, request.Settings);
+            _basis = _isobaric ? null : request.Table!.Basis.ToMachineName();
+            _style = request.QuantStyle ?? (_isobaric ? "tmt" : "lfq");
+        }
+
+        public DifferentialAnalysisResult Execute()
+        {
+            if (_isobaric)
+            {
+                var table = _request.IsobaricTable!;
+                if (_request.Settings.Normalization == SharedPeptideNormalization.None)
+                    _tmt = table;
+                else
+                {
+                    _tmtNormalization = IsobaricNormalization.Measure(table);
+                    _tmt = IsobaricNormalization.Apply(table, _tmtNormalization);
+                }
+                _designWarnings.AddRange(table.Warnings);
+            }
+            else _designWarnings.AddRange(_request.Table!.Warnings);
+
+            // Model A's ion-in-run terms absorb every plex run's level, so plex is never also a batch column for an isobaric
+            // table (ruling 14, as corrected 2026-11-10); a label-free design keeps DesignSpec's FitBatch.
+            var spec = _isobaric ? _request.Spec with { FitBatch = false } : _request.Spec;
+            foreach (var design in AnalysisDesign.ByStratum(_request.Samples, spec))
+                Stratum(design);
+
+            var rows = Adjust(_rows);
+            var metadata = new DifferentialMetadata
+            {
+                Software = new[] { new DifferentialSoftware("mzLib", DifferentialConstants.MethodVersion) },
+                Inputs = _inputs,
+                Settings = _request.Settings,
+                Strata = _strata,
+                Contrasts = _contrastInfo.Values.OrderBy(c => c.Id, StringComparer.Ordinal)
+                    .Select(c => _shifts.TryGetValue(c.Id, out var shifts) ? c with { GlobalShift = shifts } : c).ToList(),
+                Models = _models,
+                Normalization = _normalization,
+                DesignWarnings = _designWarnings.Distinct(StringComparer.Ordinal).ToList(),
+            };
+            _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.Settings, DifferentialDecisionWriter.AnalysisStratum,
+                null, null, null, SettingsFacts(spec), "applied to every stratum"));
+            return new DifferentialAnalysisResult(DifferentialResultWriter.Order(rows), metadata, DifferentialDecisionWriter.Order(_decisions),
+                new DifferentialDiagnostics { Fits = _fits, Samples = _sampleLog2 });
+        }
+
+        /// <summary>The analysis-scope settings line (ruling 14), in plain words.</summary>
+        private string SettingsFacts(DesignSpec spec)
+        {
+            var s = _request.Settings;
+            return string.Create(CultureInfo.InvariantCulture,
+                $"method {s.Method}; robust weighting {(s.Robust ? "on (moderated_t rows are not reweighted)" : "off")}; " +
+                $"normalization {s.Normalization}, reference-set floor {s.NormalizationFloor}; at least {s.MinimumSamplesPerSide} " +
+                $"samples with a value per side; interval level {s.CiLevel}; batch {(spec.FitBatch ? "fitted" : "not fitted")}" +
+                $"{(_isobaric ? " (each ion's plex run is a fixed effect)" : "")}; random terms: only those each protein's values can estimate");
+        }
+
+        // ---- one stratum ----
+
+        private void Stratum(AnalysisDesign design)
+        {
+            string stratum = design.Stratum;
+            var sampleMap = design.Samples.ToDictionary(s => s.SampleId, StringComparer.Ordinal);
+            var contrasts = Contrasts(design);
+            _designWarnings.AddRange(design.Warnings);
+
+            // The global shift of each two-sided contrast, on the values before normalization (GR-27, ruling 9).
+            var rawTable = _isobaric ? null : _request.Table!.ForSamples(sampleMap.Keys);
+            foreach (var c in contrasts)
+            {
+                var (numerator, denominator) = Sides(design, c.Contrast);
+                if (numerator is null || denominator is null) continue;
+                var shift = _isobaric
+                    ? GlobalShift.Isobaric(_request.IsobaricTable!, numerator, denominator, stratum)
+                    : GlobalShift.LabelFree(rawTable!, numerator, denominator, stratum, _basis);
+                if (!_shifts.TryGetValue(c.Contrast.Id, out var list)) _shifts[c.Contrast.Id] = list = new List<DifferentialGlobalShift>();
+                list.Add(shift);
+            }
+
+            IReadOnlyDictionary<string, FeatureObservations> features;
+            IReadOnlyDictionary<string, ProteinGroupInfo> groupInfo;
+            List<string> candidates;
+            string normalization;
+            ObservationTable? normalizedTable = null;
+            if (_isobaric)
+            {
+                features = FeatureObservationBuilder.FromIsobaric(_tmt!, sampleMap, UsableMinimumSamples);
+                groupInfo = _tmt!.ProteinGroups;
+                candidates = IsobaricCandidates(_tmt!, sampleMap);
+                normalization = _tmtNormalization?.Setting ?? SharedPeptideNormalization.None;
+                if (_tmtNormalization is not null) _normalization.Add(IsobaricNormalizationInfo(stratum, sampleMap));
+            }
+            else
+            {
+                var table = rawTable!;
+                var normalized = table;
+                normalization = SharedPeptideNormalization.None;
+                if (_request.Settings.Normalization != SharedPeptideNormalization.None)
+                {
+                    var measured = SharedPeptideNormalization.Measure(table, _request.Settings.NormalizationFloor);
+                    normalized = SharedPeptideNormalization.Apply(table, measured);
+                    normalization = measured.Setting;
+                    _normalization.Add(new DifferentialNormalizationInfo(stratum, _basis, measured.Setting,
+                        measured.ReferenceSetSize, measured.MinimumReferenceSetSize, measured.PerSampleShift, measured.Warnings));
+                }
+                features = FeatureObservationBuilder.FromTable(normalized, sampleMap, UsableMinimumSamples);
+                groupInfo = normalized.ProteinGroups;
+                candidates = LabelFreeCandidates(normalized);
+                normalizedTable = normalized;
+            }
+
+            // The row set (ruling 12).
+            var included = new List<string>();
+            var left = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            foreach (string group in candidates)
+            {
+                string? why = FeatureObservationBuilder.RowSetExclusion(group, groupInfo);
+                if (why is null) included.Add(group);
+                else left[why] = left.GetValueOrDefault(why) + 1;
+            }
+            if (left.Count > 0)
+                _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.RowSet, stratum, _basis, null, null,
+                    string.Join("; ", left.Select(kv => $"{kv.Key} {kv.Value}")), "left out of the row set: no rows"));
+            _sampleLog2.Add(_isobaric
+                ? IsobaricSampleLog2(stratum, sampleMap, included)
+                : LabelFreeSampleLog2(stratum, normalizedTable!, included));
+
+            var tested = TestedColumns(design, contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable).Select(c => c.Contrast));
+            var plans = new List<FeaturePlan>();
+            foreach (string group in included)
+                plans.Add(Plan(design, contrasts, group, features.GetValueOrDefault(group), groupInfo[group], tested));
+
+            FitAndModerate(design, contrasts, plans, tested, normalization);
+            _strata.Add(StratumInfo(design));
+        }
+
+        /// <summary>
+        /// The sample-correlation diagnostic's values (label-free): each stratum sample's normalized log2 value on every
+        /// peptide unique to a protein group in the row set that has a value in at least one of the stratum's samples,
+        /// peptides in the table's order (full sequence, ordinal); NaN where the sample has none.
+        /// </summary>
+        private SampleLog2 LabelFreeSampleLog2(string stratum, ObservationTable table, IReadOnlyCollection<string> rowSet)
+        {
+            var groups = rowSet.ToHashSet(StringComparer.Ordinal);
+            var peptides = Enumerable.Range(0, table.Peptides.Count)
+                .Where(p => table.Peptides[p].UniqueProteinGroup is { } g && groups.Contains(g)
+                            && Enumerable.Range(0, table.Samples.Count).Any(s => !double.IsNaN(table.Log2Intensity(p, s))))
+                .ToArray();
+            var values = Enumerable.Range(0, table.Samples.Count)
+                .Select(s => (IReadOnlyList<double>)peptides.Select(p => table.Log2Intensity(p, s)).ToArray()).ToList();
+            return new SampleLog2(stratum, _basis, table.Samples.ToList(), values);
+        }
+
+        /// <summary>
+        /// The sample-correlation diagnostic's values (isobaric): each stratum sample's normalized log2 value on every ion
+        /// (full sequence and charge, ordinal) unique to a protein group in the row set, averaged over the plex runs of its
+        /// plex that hold the ion (repeat injections), so samples of different plexes share the ions both were measured on;
+        /// NaN where it has none. Ions with no value in the stratum are left out.
+        /// </summary>
+        private SampleLog2 IsobaricSampleLog2(string stratum, IReadOnlyDictionary<string, AnalysisSample> samples,
+            IReadOnlyCollection<string> rowSet)
+        {
+            var table = _tmt!;
+            var groups = rowSet.ToHashSet(StringComparer.Ordinal);
+            var columns = Enumerable.Range(0, table.Samples.Count).Where(s => samples.ContainsKey(table.Samples[s])).ToArray();
+            var ions = new SortedDictionary<(string Sequence, int Charge), (double Sum, int Count)[]>(Comparer<(string Sequence, int Charge)>.Create(
+                (a, b) => string.CompareOrdinal(a.Sequence, b.Sequence) is var c && c != 0 ? c : a.Charge.CompareTo(b.Charge)));
+            for (int r = 0; r < table.Rows.Count; r++)
+            {
+                var row = table.Rows[r];
+                if (row.Peptide.UniqueProteinGroup is not { } g || !groups.Contains(g)) continue;
+                var key = (row.Peptide.FullSequence, row.Charge);
+                for (int k = 0; k < columns.Length; k++)
+                {
+                    double v = table.Log2Intensity(r, columns[k]);
+                    if (double.IsNaN(v)) continue;
+                    if (!ions.TryGetValue(key, out var sums)) ions[key] = sums = new (double, int)[columns.Length];
+                    sums[k] = (sums[k].Sum + v, sums[k].Count + 1);
+                }
+            }
+            var values = Enumerable.Range(0, columns.Length)
+                .Select(k => (IReadOnlyList<double>)ions.Values.Select(a => a[k].Count > 0 ? a[k].Sum / a[k].Count : double.NaN).ToArray())
+                .ToList();
+            return new SampleLog2(stratum, null, columns.Select(s => table.Samples[s]).ToList(), values);
+        }
+
+        /// <summary>
+        /// The mean-variance diagnostic for one model family (<see cref="DiagnosticFit"/>): each protein with a finite
+        /// residual variance, by name (ordinal), with the mean of the log2 values it was fitted on, that variance and the
+        /// family's prior variance (NaN with no prior, ruling 5).
+        /// </summary>
+        private void AddFit(AnalysisDesign design, string model, IEnumerable<FeaturePlan> members, Func<FeaturePlan, double> variance,
+            DifferentialPriorInfo? prior)
+        {
+            var fitted = members.Select(p => (Plan: p, Variance: variance(p))).Where(x => double.IsFinite(x.Variance))
+                .OrderBy(x => x.Plan.Group, StringComparer.Ordinal).ToList();
+            if (fitted.Count == 0) return;
+            double priorVariance = prior?.Variance ?? double.NaN;
+            _fits.Add(new DiagnosticFit(design.Stratum, _basis, DifferentialConstants.Method, model, DifferentialConstants.Grain,
+                fitted.Select(x => x.Plan.Group).ToList(), fitted.Select(x => x.Plan.Values!.Values.Average(v => v.Log2)).ToList(),
+                fitted.Select(x => x.Variance).ToList(), fitted.Select(_ => priorVariance).ToList()));
+        }
+
+        private List<StratumContrast> Contrasts(AnalysisDesign design)
+        {
+            var list = new List<StratumContrast>();
+            if (_request.Contrasts is null)
+            {
+                foreach (var c in design.DefaultContrasts()) list.Add(new StratumContrast(c, design.Estimability(c)));
+            }
+            else
+            {
+                for (int i = 0; i < _request.Contrasts.Count; i++)
+                {
+                    var r = _request.Contrasts[i];
+                    string id = string.Create(CultureInfo.InvariantCulture, $"c{i + 1}");
+                    try
+                    {
+                        var c = (r.Covariate is not null ? design.Slope(r.Covariate) : design.Between(r.Factor!, r.Numerator!, r.Denominator!))
+                            with { Id = id };
+                        list.Add(new StratumContrast(c, design.Estimability(c)));
+                    }
+                    catch (ArgumentException e)
+                    {
+                        _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.DesignContrast, design.Stratum, _basis,
+                            null, id, e.Message, "not run in this stratum: no rows"));
+                    }
+                }
+            }
+            foreach (var c in list)
+            {
+                if (c.Estimability != AnalysisDesign.Estimable)
+                    _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.DesignContrast, design.Stratum, _basis,
+                        null, c.Contrast.Id, $"the stratum's design: {c.Estimability}", $"every row of the contrast is {c.Estimability}"));
+                if (!_contrastInfo.ContainsKey(c.Contrast.Id))
+                    _contrastInfo[c.Contrast.Id] = new DifferentialContrastInfo(c.Contrast.Id, c.Contrast.Label, c.Contrast.Numerator,
+                        c.Contrast.Denominator, c.Contrast.Covariate, c.Contrast.CovariateUnit, c.Contrast.CovariateScale,
+                        Enumerable.Range(0, design.ColumnNames.Count).Where(j => c.Contrast.Weights[j] != 0)
+                            .ToDictionary(j => design.ColumnNames[j], j => c.Contrast.Weights[j], StringComparer.Ordinal));
+            }
+            return list;
+        }
+
+        /// <summary>Every column of every term a contrast puts weight on (ruling 7).</summary>
+        private static int[] TestedColumns(AnalysisDesign design, IEnumerable<Contrast> contrasts)
+        {
+            var terms = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var c in contrasts)
+                for (int j = 0; j < c.Weights.Count; j++)
+                    if (c.Weights[j] != 0) terms.Add(design.ColumnTerms[j]);
+            return Enumerable.Range(0, design.ColumnNames.Count).Where(j => terms.Contains(design.ColumnTerms[j])).ToArray();
+        }
+
+        private static List<string> LabelFreeCandidates(ObservationTable table)
+        {
+            var groups = new SortedSet<string>(StringComparer.Ordinal);
+            for (int p = 0; p < table.Peptides.Count; p++)
+                if (Enumerable.Range(0, table.Samples.Count).Any(s => !double.IsNaN(table.Log2Intensity(p, s))))
+                    foreach (string g in table.Peptides[p].ProteinGroups)
+                        if (g != ObservedPeptide.UndefinedProteinGroup) groups.Add(g);
+            return groups.ToList();
+        }
+
+        private static List<string> IsobaricCandidates(IsobaricObservationTable table, IReadOnlyDictionary<string, AnalysisSample> samples)
+        {
+            var groups = new SortedSet<string>(StringComparer.Ordinal);
+            for (int r = 0; r < table.Rows.Count; r++)
+                if (table.SamplesOfPlex(table.Rows[r].Plex).Any(s => samples.ContainsKey(table.Samples[s]) && !double.IsNaN(table.Log2Intensity(r, s))))
+                    foreach (string g in table.Rows[r].Peptide.ProteinGroups)
+                        if (g != ObservedPeptide.UndefinedProteinGroup) groups.Add(g);
+            return groups.ToList();
+        }
+
+        // ---- one protein group: the status of each contrast before any fit ----
+
+        private FeaturePlan Plan(AnalysisDesign design, List<StratumContrast> contrasts, string group,
+            FeatureObservations? values, ProteinGroupInfo info, int[] tested)
+        {
+            var plan = new FeaturePlan(group, info, values);
+            bool usable = values is not null && values.NuisanceLevels.Count > 0;
+            FeatureDesign? featureDesign = null;
+            if (usable)
+            {
+                var (common, nuisance) = Matrices(design, values!);
+                featureDesign = FeatureDesign.Build(common, nuisance, design.ColumnTerms);
+                plan.Design = featureDesign;
+                plan.CommonRows = common;
+                if (!featureDesign.IsFull)
+                    Decide(DifferentialDecisionRules.ReducedDesign, design.Stratum, group, null,
+                        $"kept {featureDesign.KeptCommon.Count} of {featureDesign.CommonCount} design columns and " +
+                        $"{featureDesign.KeptNuisance.Count} of {featureDesign.NuisanceCount} nuisance columns",
+                        "fitted on the columns its observations estimate");
+            }
+
+            foreach (var sc in contrasts)
+            {
+                var c = sc.Contrast;
+                var (numerator, denominator) = Sides(design, c);
+                var counts = new SideCounts(
+                    numerator is null ? null : values?.SamplesWithValue(numerator) ?? 0,
+                    denominator is null ? null : values?.SamplesWithValue(denominator) ?? 0,
+                    values?.SamplesWithValue(Union(design, numerator, denominator)) ?? 0,
+                    Union(design, numerator, denominator).Count);
+                string? status = null, detail = null;
+                if (sc.Estimability != AnalysisDesign.Estimable)
+                {
+                    status = sc.Estimability;
+                    detail = "the stratum's design cannot estimate this contrast";
+                }
+                else if (!usable)
+                {
+                    status = DifferentialStatus.BelowSupport(DifferentialConstants.NoUniquePeptides);
+                    detail = values is null || values.UniqueLevels == 0
+                        ? "no peptide unique to the group"
+                        : $"{values.UniqueLevels} peptide(s) unique to the group, none valued in {UsableMinimumSamples} or more of the stratum's samples";
+                    Decide(DifferentialDecisionRules.NoUniquePeptides, design.Stratum, group, c.Id, detail, "no fit");
+                }
+                else if (counts.Numerator is int n && counts.Denominator is int d && (n == 0 || d == 0))
+                {
+                    status = n == 0 && d == 0 ? DifferentialStatus.AbsentInBoth
+                        : n == 0 ? DifferentialStatus.AbsentInNumerator : DifferentialStatus.AbsentInDenominator;
+                    detail = $"samples with a value: numerator {n}, denominator {d}";
+                    Decide(DifferentialDecisionRules.AbsentSide, design.Stratum, group, c.Id, detail, $"reported {status}, no number");
+                }
+                else if (counts.Numerator is int n2 && counts.Denominator is int d2
+                         && (n2 < _request.Settings.MinimumSamplesPerSide || d2 < _request.Settings.MinimumSamplesPerSide))
+                {
+                    status = DifferentialStatus.BelowSupport(DifferentialConstants.MinPerSide(_request.Settings.MinimumSamplesPerSide));
+                    detail = $"samples with a value: numerator {n2}, denominator {d2}";
+                    Decide(DifferentialDecisionRules.MinPerSide, design.Stratum, group, c.Id, detail, "no number");
+                }
+                else
+                {
+                    string estimability = featureDesign!.Estimability(c.Weights);
+                    if (estimability != AnalysisDesign.Estimable)
+                    {
+                        status = estimability;
+                        detail = "the group's own observations cannot separate this contrast";
+                        Decide(DifferentialDecisionRules.FeatureNotEstimable, design.Stratum, group, c.Id, detail, $"reported {status}");
+                    }
+                }
+                plan.Contrasts.Add(new PlannedContrast(c, counts, status, detail));
+            }
+            return plan;
+        }
+
+        /// <summary>Each value's stratum design row, and the nuisance columns treatment-coded on the first level (ordinal).</summary>
+        private static (double[,] Common, double[,]? Nuisance) Matrices(AnalysisDesign design, FeatureObservations values)
+        {
+            var matrix = design.Matrix;
+            var rowOf = design.Samples.Select((s, i) => (s.SampleId, i)).ToDictionary(t => t.SampleId, t => t.i, StringComparer.Ordinal);
+            int n = values.Values.Count, p = design.ColumnNames.Count, q = values.NuisanceLevels.Count - 1;
+            var level = values.NuisanceLevels.Select((l, i) => (l, i)).ToDictionary(t => t.l, t => t.i, StringComparer.Ordinal);
+            var common = new double[n, p];
+            var nuisance = q > 0 ? new double[n, q] : null;
+            for (int i = 0; i < n; i++)
+            {
+                var v = values.Values[i];
+                int row = rowOf[v.SampleId];
+                for (int j = 0; j < p; j++) common[i, j] = matrix[row, j];
+                int k = level[v.Nuisance];
+                if (k > 0) nuisance![i, k - 1] = 1;
+            }
+            return (common, nuisance);
+        }
+
+        /// <summary>The samples on each side of a between-levels contrast; nulls for a slope.</summary>
+        private static (List<string>? Numerator, List<string>? Denominator) Sides(AnalysisDesign design, Contrast c)
+        {
+            if (c.Numerator is null || c.Denominator is null) return (null, null);
+            List<string> Of(string side)
+            {
+                int eq = side.IndexOf('=');
+                string factor = side[..eq], level = side[(eq + 1)..];
+                return design.Samples.Where(s => s.Factors.TryGetValue(factor, out var v) && v == level).Select(s => s.SampleId).ToList();
+            }
+            return (Of(c.Numerator), Of(c.Denominator));
+        }
+
+        private static List<string> Union(AnalysisDesign design, List<string>? numerator, List<string>? denominator) =>
+            numerator is null || denominator is null
+                ? design.Samples.Select(s => s.SampleId).ToList()
+                : numerator.Concat(denominator).Distinct(StringComparer.Ordinal).ToList();
+
+        private void Decide(string rule, string stratum, string? feature, string? contrast, string facts, string effect) =>
+            _decisions.Add(new DifferentialDecision(rule, stratum, _basis, feature, contrast, facts, effect));
+
+        // ---- fits, moderation and rows ----
+
+        private void FitAndModerate(AnalysisDesign design, List<StratumContrast> contrasts, List<FeaturePlan> plans,
+            int[] tested, string normalization)
+        {
+            var toFit = plans.Where(p => p.Design is not null && p.Contrasts.Any(c => c.Status is null)).ToList();
+            // Ruling 17: a protein whose values cannot estimate every random term its labels call for (ruling 16) is moderated
+            // in a family of its own; the model says which, before fitting, from the code Fit uses.
+            foreach (var p in toFit.Where(p => p.Values!.NuisanceLevels.Count > 1))
+            {
+                p.Problem = Problem(p);
+                var estimableStructure = NestedMixedModel.StructureOf(p.Problem, estimableRandomTermsOnly: true);
+                p.Reduced = estimableStructure is not null && estimableStructure != NestedMixedModel.StructureOf(p.Problem);
+            }
+            var single = toFit.Where(p => p.Values!.NuisanceLevels.Count == 1).GroupBy(p => p.Design!.CommonKey, StringComparer.Ordinal)
+                .OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
+            var estimable = contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable).Select(c => c.Contrast).ToList();
+
+            // Mixed model per family (ruling 17) and kept-column group, one pooled moderation per family.
+            foreach (bool reduced in new[] { false, true })
+                FitMixedFamily(design, toFit.Where(p => p.Values!.NuisanceLevels.Count > 1 && p.Reduced == reduced).ToList(),
+                    estimable, tested, reduced ? DifferentialConstants.MixedModelReduced : DifferentialConstants.MixedModel);
+
+            // One usable level: the moderated t-test, its own pooled prior.
+            FitSinglePeptideFamily(design, single, estimable);
+
+            foreach (var plan in plans) Rows(design, plan, normalization);
+        }
+
+        /// <summary>One family of peptide-model features: fits per kept-column group, then one pooled moderation and prior.</summary>
+        private void FitMixedFamily(AnalysisDesign design, List<FeaturePlan> family, List<Contrast> estimable, int[] tested, string model)
+        {
+            var groups = family.GroupBy(p => p.Design!.CommonKey, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
+            var mixedParts = new List<MixedModelModerationPart>();
+            var mixedMembers = new List<List<FeaturePlan>>();
+            foreach (var g in groups)
+            {
+                var members = g.ToList();
+                var first = members[0].Design!;
+                var names = first.KeptCommon.Select(j => design.ColumnNames[j]).ToArray();
+                var problems = members.Select(p => p.Problem!).ToList();
+                // Only the random terms each feature's data can estimate (ruling 16): lme4's checks, else the term is left out.
+                var fit = NestedMixedModel.Fit(problems, names, _maxThreads, _request.Settings.Robust, estimableRandomTermsOnly: true);
+                var weights = PartContrasts(first, estimable);
+                var rows = first.VarianceDfRows(tested);
+                for (int i = 0; i < members.Count; i++)
+                {
+                    members[i].MixedFit = fit;
+                    members[i].Index = i;
+                    var full = FullStructure(members[i].Values!);
+                    if (fit.Structure[i] is { } kept && kept != full)
+                        Decide(DifferentialDecisionRules.RandomTermsDropped, design.Stratum, members[i].Group, null,
+                            $"{RandomTerms(full)} cannot all be estimated from its {fit.Observed[i]} value(s) (lme4's checks: a term " +
+                            "needs at least 2 levels and fewer levels than values)",
+                            kept == RandomStructure.None
+                                ? "fitted with no random term: the fixed part by least squares, residual df"
+                                : $"fitted with {RandomTerms(kept)} only");
+                    if (fit.RobustFellBack[i] == true)
+                        Decide(DifferentialDecisionRules.RobustFellBack, design.Stratum, members[i].Group, null,
+                            $"robust reweighting did not settle within {fit.RobustIterations[i]} round(s)",
+                            "fitted on the first round's weights (one round, as msqrob2 maxitRob = 1); robust_fell_back = true");
+                }
+                if (rows.Count == 0)
+                {
+                    foreach (var p in members) p.NoVarianceDf = true;
+                    continue;
+                }
+                mixedParts.Add(new MixedModelModerationPart(fit, weights, rows.Select(r => (IReadOnlyList<double>)r).ToList()));
+                mixedMembers.Add(members);
+            }
+            if (mixedParts.Count > 0)
+            {
+                var moderated = NestedMixedModel.ModerateContrasts(mixedParts, _request.Settings.CiLevel);
+                for (int part = 0; part < moderated.Count; part++)
+                    foreach (var p in mixedMembers[part]) p.Moderated = moderated[part];
+                var prior = Prior(design, moderated, model, mixedParts.Sum(m => m.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                AddFit(design, model, mixedMembers.SelectMany(m => m),
+                    p => p.MixedFit!.Status[p.Index] == FeatureFitStatus.Fitted ? p.MixedFit.ResidualVariance[p.Index] : double.NaN, prior);
+            }
+        }
+
+        /// <summary>The one-usable-peptide family (ruling 6): the moderated t-test per kept-column group, its own prior.</summary>
+        private void FitSinglePeptideFamily(AnalysisDesign design, List<IGrouping<string, FeaturePlan>> single, List<Contrast> estimable)
+        {
+            var linearParts = new List<LinearModelModerationPart>();
+            var linearMembers = new List<List<FeaturePlan>>();
+            var sampleIds = design.Samples.Select(s => s.SampleId).ToList();
+            var matrix = design.Matrix;
+            foreach (var g in single)
+            {
+                var members = g.ToList();
+                var first = members[0].Design!;
+                var kept = first.KeptCommon;
+                var x = new double[sampleIds.Count, kept.Count];
+                for (int s = 0; s < sampleIds.Count; s++)
+                    for (int k = 0; k < kept.Count; k++) x[s, k] = matrix[s, kept[k]];
+                var y = new double[members.Count, sampleIds.Count];
+                for (int f = 0; f < members.Count; f++)
+                {
+                    for (int s = 0; s < sampleIds.Count; s++) y[f, s] = double.NaN;
+                    foreach (var v in members[f].Values!.Values) y[f, sampleIds.IndexOf(v.SampleId)] = v.Log2;
+                    members[f].Index = f;
+                }
+                var fit = LinearModel.Fit(y, x, kept.Select(j => design.ColumnNames[j]).ToArray());
+                foreach (var p in members)
+                {
+                    p.LinearFit = fit;
+                    Decide(DifferentialDecisionRules.SinglePeptide, design.Stratum, p.Group, null,
+                        "one usable peptide", "tested with the moderated t-test (fitted_single_peptide)");
+                }
+                linearParts.Add(new LinearModelModerationPart(fit, PartContrasts(first, estimable)));
+                linearMembers.Add(members);
+            }
+            if (linearParts.Count > 0)
+            {
+                var moderated = EmpiricalBayes.ModerateContrasts(linearParts, _request.Settings.CiLevel);
+                for (int part = 0; part < moderated.Count; part++)
+                    foreach (var p in linearMembers[part]) p.Moderated = moderated[part];
+                var prior = Prior(design, moderated, DifferentialConstants.ModeratedT,
+                    linearParts.Sum(l => l.Fit.Status.Count(s => s == FeatureFitStatus.Fitted)));
+                AddFit(design, DifferentialConstants.ModeratedT, linearMembers.SelectMany(m => m),
+                    p => p.LinearFit!.Status[p.Index] == FeatureFitStatus.Fitted ? p.LinearFit.Sigma[p.Index] * p.LinearFit.Sigma[p.Index] : double.NaN,
+                    prior);
+            }
+        }
+
+        /// <summary>
+        /// <c>covariates_fitted</c> (DEF-DIFF-COLUMNS): every term of the feature's own fit besides the comparison's own
+        /// factor (or covariate) and the intercept, in design order, then the random terms its fit kept, marked
+        /// <c>(random)</c>; null when there is none.
+        /// </summary>
+        private string? CovariatesFitted(AnalysisDesign design, FeaturePlan plan, Contrast c, bool single)
+        {
+            var own = new HashSet<string>(Enumerable.Range(0, c.Weights.Count).Where(j => c.Weights[j] != 0)
+                .Select(j => design.ColumnTerms[j]), StringComparer.Ordinal);
+            var terms = plan.Design!.KeptCommon.Select(j => design.ColumnTerms[j])
+                .Where(t => t != "intercept" && !own.Contains(t)).Distinct(StringComparer.Ordinal).ToList();
+            if (!single && plan.MixedFit!.Structure[plan.Index] is { } structure)
+                terms.AddRange(RandomTermNames(structure).Select(t => t + "(random)"));
+            return terms.Count == 0 ? null : string.Join(";", terms);
+        }
+
+        /// <summary>
+        /// The outer and inner random terms' names in the formula's words (<see cref="Formula"/>): an isobaric table without
+        /// individuals has the channel's sample and the run within it; otherwise the individual and the sample.
+        /// </summary>
+        private (string Outer, string Inner, bool Individuals) RandomNames()
+        {
+            bool individuals = _request.Samples.Any(s => s.Individual is not null);
+            return _isobaric && !individuals ? ("sample", "run", false) : ("individual", "sample", individuals);
+        }
+
+        /// <summary>A structure's random terms, outer first, as <see cref="RandomTerms"/> names them.</summary>
+        private IEnumerable<string> RandomTermNames(RandomStructure structure)
+        {
+            var (outer, inner, individuals) = RandomNames();
+            return structure switch
+            {
+                RandomStructure.IndividualAndSample => new[] { outer, inner },
+                RandomStructure.Individual => new[] { outer },
+                RandomStructure.Sample => new[] { _isobaric || individuals ? inner : "sample" },
+                _ => Array.Empty<string>(),
+            };
+        }
+
+        /// <summary>The random structure a feature's labels call for before any term is left out (ruling 13).</summary>
+        private static RandomStructure FullStructure(FeatureObservations values)
+        {
+            if (values.Values.All(v => v.RandomIndividual is null)) return RandomStructure.Sample;
+            return values.Values.GroupBy(v => v.RandomIndividual, StringComparer.Ordinal)
+                .Any(g => g.Select(v => v.RandomSample).Distinct(StringComparer.Ordinal).Count() > 1)
+                ? RandomStructure.IndividualAndSample
+                : RandomStructure.Individual;
+        }
+
+        /// <summary>A structure's random terms as the model's formula names them (<see cref="Formula"/>).</summary>
+        private string RandomTerms(RandomStructure structure)
+        {
+            var (outer, inner, individuals) = RandomNames();
+            return structure switch
+            {
+                RandomStructure.IndividualAndSample => $"(1|{outer}/{inner})",
+                RandomStructure.Individual => $"(1|{outer})",
+                RandomStructure.Sample => _isobaric || individuals ? $"(1|{outer}:{inner})" : "(1|sample)",
+                _ => "no random term",
+            };
+        }
+
+        private static NestedMixedModelProblem Problem(FeaturePlan plan)
+        {
+            var values = plan.Values!.Values;
+            var d = plan.Design!;
+            var (common, nuisance) = (new double[values.Count, d.KeptCommon.Count], d.KeptNuisance.Count > 0 ? new double[values.Count, d.KeptNuisance.Count] : null);
+            var level = plan.Values.NuisanceLevels.Select((l, i) => (l, i)).ToDictionary(t => t.l, t => t.i, StringComparer.Ordinal);
+            for (int i = 0; i < values.Count; i++)
+            {
+                for (int k = 0; k < d.KeptCommon.Count; k++) common[i, k] = plan.CommonRows![i, d.KeptCommon[k]];
+                int lv = level[values[i].Nuisance];
+                for (int k = 0; k < d.KeptNuisance.Count; k++) nuisance![i, k] = d.KeptNuisance[k] == lv - 1 ? 1 : 0;
+            }
+            bool individuals = values.Any(v => v.RandomIndividual is not null);
+            return new NestedMixedModelProblem(values.Select(v => v.Log2).ToArray(), common, nuisance,
+                values.Select(v => v.RandomSample).ToArray(), individuals ? values.Select(v => v.RandomIndividual).ToArray() : null);
+        }
+
+        /// <summary>Each estimable contrast's weights on the part's kept columns, unless they are all zero there.</summary>
+        private static List<ContrastWeights> PartContrasts(FeatureDesign design, List<Contrast> contrasts) =>
+            contrasts.Select(c => new ContrastWeights(c.Id, design.KeptWeights(c.Weights)))
+                .Where(w => w.Weights.Any(x => x != 0)).ToList();
+
+        private DifferentialPriorInfo? Prior(AnalysisDesign design, IReadOnlyList<IReadOnlyList<ModeratedContrast>> moderated, string model,
+            int fitted)
+        {
+            var any = moderated.SelectMany(m => m).FirstOrDefault();
+            DifferentialPriorInfo? prior = null;
+            if (any is not null)
+            {
+                // From any part: the first part's first contrast can hold no fitted feature, and every part shares one prior.
+                var finite = moderated.SelectMany(m => m).SelectMany(c => c.Prior.Scale).Where(double.IsFinite).ToList();
+                double? variance = finite.Count > 0 ? finite[0] : null;
+                prior = new DifferentialPriorInfo(DifferentialPriorInfo.MomentsLegacy, any.Prior.Df, false,
+                    any.Prior.Df == 0 ? null : variance, fitted);
+                if (any.Prior.Df == 0)
+                    Decide(DifferentialDecisionRules.NoPrior, design.Stratum, null, null, $"{fitted} feature(s) fitted ({model})",
+                        "no variance prior: each keeps its own variance and df");
+            }
+            bool mixedModel = model != DifferentialConstants.ModeratedT;
+            string formula = Formula(design, mixedModel);
+            if (model == DifferentialConstants.MixedModelReduced)
+                formula += ", with only the random terms each protein's values can estimate (down to none)";
+            _models.Add(new DifferentialModelInfo(design.Stratum, _basis, DifferentialConstants.Method, model, DifferentialConstants.Grain,
+                formula, true, mixedModel ? DifferentialConstants.DfSatterthwaite : DifferentialConstants.DfResidual,
+                mixedModel && _request.Settings.Robust ? DifferentialConstants.RobustRule : null, prior));
+            return prior;
+        }
+
+        private string Formula(AnalysisDesign design, bool mixedModel)
+        {
+            var terms = design.ColumnTerms.Where(t => t != "intercept").Distinct(StringComparer.Ordinal).ToList();
+            string nuisance = _isobaric ? "ion_in_run" : "peptide";
+            string random = _isobaric
+                ? (_request.Samples.Any(s => s.Individual is not null) ? "(1|individual/sample)" : "(1|sample/run)")
+                : (_request.Samples.Any(s => s.Individual is not null) ? "(1|individual/sample)" : "(1|sample)");
+            return mixedModel
+                ? $"log2 y ~ {string.Join(" + ", new[] { nuisance }.Concat(terms))} + {random}"
+                : $"log2 y ~ {string.Join(" + ", terms.DefaultIfEmpty("1"))}";
+        }
+
+        private void Rows(AnalysisDesign design, FeaturePlan plan, string normalization)
+        {
+            string designSha256 = _designSha256.TryGetValue(design.Stratum, out var known) ? known : _designSha256[design.Stratum] = design.Sha256();
+            foreach (var pc in plan.Contrasts)
+            {
+                var c = pc.Contrast;
+                string? status = pc.Status, detail = pc.Detail;
+                ModeratedContrast? result = null;
+                bool single = plan.Values?.NuisanceLevels.Count == 1;
+                if (status is null)
+                {
+                    result = plan.Moderated?.FirstOrDefault(m => m.Name == c.Id);
+                    var fitStatus = single ? plan.LinearFit!.Status[plan.Index] : plan.MixedFit!.Status[plan.Index];
+                    if (plan.NoVarianceDf)
+                        (status, detail) = (DifferentialStatus.BelowSupport(DifferentialConstants.TooFewObservations), "no tested term kept for the variance df");
+                    else if (fitStatus == FeatureFitStatus.NotConverged)
+                        (status, detail) = (DifferentialStatus.NotConverged, "the fit did not converge");
+                    else if (fitStatus is FeatureFitStatus.TooFewObservations or FeatureFitStatus.TooFewGroups)
+                        (status, detail) = (DifferentialStatus.BelowSupport(DifferentialConstants.TooFewObservations), $"the model reported {fitStatus}");
+                    else if (fitStatus == FeatureFitStatus.RankDeficient)
+                        (status, detail) = (DifferentialStatus.NotEstimable("rank_deficient"), "the model reported RankDeficient");
+                    else if (result is null || !double.IsFinite(result.Estimate[plan.Index]) || !double.IsFinite(result.PValue[plan.Index]))
+                        (status, detail) = (DifferentialStatus.NotConverged, "no moderated result (variance or contrast df not finite)");
+                    else
+                        status = single ? DifferentialStatus.FittedSinglePeptide : DifferentialStatus.Fitted;
+                    if (!DifferentialStatus.IsFitted(status))
+                        Decide(DifferentialDecisionRules.FitOutcome, design.Stratum, plan.Group, c.Id, detail!, $"reported {status}");
+                }
+
+                bool fitted = DifferentialStatus.IsFitted(status);
+                int f = plan.Index;
+                var values = plan.Values;
+                var (meanNumerator, meanDenominator) = fitted ? Means(design, plan, c, single) : (null, null);
+                var row = new DifferentialResult
+                {
+                    DefinitionId = DifferentialConstants.DefinitionId,
+                    AnalysisId = _analysisId,
+                    QuantStyle = _style,
+                    ReporterAcquisition = _isobaric ? _request.ReporterAcquisition : null,
+                    Stratum = design.Stratum,
+                    Grain = DifferentialConstants.Grain,
+                    FeatureId = plan.Group,
+                    FeatureAccessions = plan.Info.Accessions,
+                    Quantity = DifferentialConstants.Quantity,
+                    EffectType = c.Covariate is null ? DifferentialConstants.EffectRatio : DifferentialConstants.EffectSlope,
+                    QuantBasis = _basis,
+                    ContrastId = c.Id,
+                    ContrastLabel = c.Label,
+                    Numerator = c.Numerator,
+                    Denominator = c.Denominator,
+                    Covariate = c.Covariate,
+                    CovariateUnit = c.CovariateUnit,
+                    CovariateScale = c.CovariateScale,
+                    Log2Effect = fitted ? result!.Estimate[f] : null,
+                    MeanNumerator = meanNumerator,
+                    MeanDenominator = meanDenominator,
+                    NaturalEffect = fitted ? Math.Pow(2, result!.Estimate[f]) : null,
+                    NaturalUnit = fitted ? (c.CovariateUnit is null ? "ratio" : "ratio_per_" + c.CovariateUnit.Replace(' ', '_')) : null,
+                    StandardError = fitted ? result!.StandardError[f] : null,
+                    CiLow = fitted ? result!.ConfidenceLow[f] : null,
+                    CiHigh = fitted ? result!.ConfidenceHigh[f] : null,
+                    CiLevel = fitted ? _request.Settings.CiLevel : null,
+                    Statistic = fitted ? result!.T[f] : null,
+                    Df = fitted ? result!.DfTotal[f] : null,
+                    DfMethod = fitted
+                        ? (single || plan.MixedFit!.Structure[f] == RandomStructure.None ? DifferentialConstants.DfResidual : DifferentialConstants.DfSatterthwaite)
+                        : null,
+                    PValue = fitted ? result!.PValue[f] : null,
+                    AdjustmentMethod = fitted ? DifferentialConstants.Adjustment : null,
+                    NSamplesNumerator = pc.Counts.Numerator,
+                    NSamplesDenominator = pc.Counts.Denominator,
+                    NSamplesWithValue = pc.Counts.WithValue,
+                    NSamplesTotal = pc.Counts.Total,
+                    NPeptides = values is null ? 0 : values.NuisanceLevels.Count,
+                    NObservations = values?.Values.Count ?? 0,
+                    NMbrValues = _isobaric ? null : values?.Values.Count(v => v.IsMbr) ?? 0,
+                    Status = status!,
+                    StatusDetail = fitted ? null : detail,
+                    Method = DifferentialConstants.Method,
+                    ModelUsed = values is null || values.NuisanceLevels.Count == 0 ? null
+                        : single ? DifferentialConstants.ModeratedT
+                        : plan.Reduced ? DifferentialConstants.MixedModelReduced : DifferentialConstants.MixedModel,
+                    Robust = values is null || values.NuisanceLevels.Count == 0 ? null : !single && _request.Settings.Robust,
+                    RobustFellBack = fitted && !single && _request.Settings.Robust ? plan.MixedFit!.RobustFellBack[f] : null,
+                    Normalization = normalization,
+                    CovariatesFitted = fitted ? CovariatesFitted(design, plan, c, single) : null,
+                    DesignSha256 = designSha256,
+                    MethodVersion = DifferentialConstants.MethodVersion,
+                };
+                _rows.Add(row);
+            }
+        }
+
+        /// <summary>
+        /// A fitted between-levels row's estimated marginal means (ruling 3, <c>DEF-DIFF-EFFECT</c>): each side's
+        /// <see cref="AnalysisDesign.MeanWeights(string?)"/> on the feature's kept coefficients plus an equal share of every peptide's
+        /// offset (the reference peptide's is 0), so their difference is the row's effect. Nulls for a slope. When the
+        /// feature's own data cannot give a mean at the stratum's proportions (a batch or a level of another factor it was
+        /// never measured in), both means are averaged over the stratum's samples in the levels it was measured in, recorded
+        /// (ruling 18), as R's emmeans does after fitting the feature on its own values; left empty, recorded, only when even
+        /// that cannot be estimated.
+        /// </summary>
+        private (double? Numerator, double? Denominator) Means(AnalysisDesign design, FeaturePlan plan, Contrast c, bool single)
+        {
+            var numerator = design.MeanWeights(c.Numerator);
+            var denominator = design.MeanWeights(c.Denominator);
+            if (c.Covariate is not null || numerator is null || denominator is null
+                || (!single && plan.MixedFit!.NuisanceCoefficients(plan.Index) is null)) return (null, null);
+            var d = plan.Design!;
+            var share = Enumerable.Repeat(1.0 / plan.Values!.NuisanceLevels.Count, d.NuisanceCount).ToArray();
+            if (d.IsEstimable(numerator, share) && d.IsEstimable(denominator, share))
+                return (Mean(plan, d, numerator, share, single), Mean(plan, d, denominator, share, single));
+
+            var seen = SeenLevels(design, plan.Values);
+            var seenNumerator = design.MeanWeights(c.Numerator, seen, out var leftOut);
+            var seenDenominator = design.MeanWeights(c.Denominator, seen, out _);
+            if (leftOut.Count > 0 && seenNumerator is not null && seenDenominator is not null
+                && d.IsEstimable(seenNumerator, share) && d.IsEstimable(seenDenominator, share))
+            {
+                Decide(DifferentialDecisionRules.MeansOverSeenLevels, design.Stratum, plan.Group, c.Id,
+                    $"no value in {string.Join(", ", leftOut)}",
+                    "mean_numerator and mean_denominator averaged over the stratum's other samples; the effect is unchanged");
+                return (Mean(plan, d, seenNumerator, share, single), Mean(plan, d, seenDenominator, share, single));
+            }
+
+            var unseen = Enumerable.Range(0, design.ColumnNames.Count)
+                .Where(j => !d.KeptCommon.Contains(j) && (numerator[j] != 0 || denominator[j] != 0))
+                .Select(j => design.ColumnNames[j]);
+            Decide(DifferentialDecisionRules.MeansNotEstimable, design.Stratum, plan.Group, c.Id,
+                $"the stratum's average over {string.Join(", ", unseen)}, which the feature's data do not inform, even over the " +
+                "levels it was measured in",
+                "mean_numerator and mean_denominator left empty; the effect is reported");
+            return (null, null);
+        }
+
+        /// <summary>
+        /// Whether the feature has a usable value in a sample at a level of a term (a factor's name, or <c>batch</c>), for
+        /// ruling 18's average over the levels it was measured in.
+        /// </summary>
+        private static Func<string, string, bool> SeenLevels(AnalysisDesign design, FeatureObservations values)
+        {
+            var mine = values.SampleIds.ToHashSet(StringComparer.Ordinal);
+            var seen = new HashSet<(string, string)>();
+            foreach (var s in design.Samples.Where(s => mine.Contains(s.SampleId)))
+            {
+                foreach (var (name, level) in s.Factors) seen.Add((name, level));
+                if (s.Batch is not null) seen.Add((AnalysisDesign.BatchTerm, s.Batch));
+            }
+            return (term, level) => seen.Contains((term, level));
+        }
+
+        private static double Mean(FeaturePlan plan, FeatureDesign d, double[] common, double[] share, bool single)
+        {
+            double sum = 0;
+            for (int k = 0; k < d.KeptCommon.Count; k++)
+                sum += common[d.KeptCommon[k]] * (single ? plan.LinearFit!.Coefficient(plan.Index, k) : plan.MixedFit!.Coefficient(plan.Index, k));
+            if (!single)
+            {
+                var offsets = plan.MixedFit!.NuisanceCoefficients(plan.Index)!;
+                for (int k = 0; k < d.KeptNuisance.Count; k++) sum += share[d.KeptNuisance[k]] * offsets[k];
+            }
+            return sum;
+        }
+
+        /// <summary>Benjamini–Hochberg once per family over both models' fitted rows (ruling 4), and the family sizes.</summary>
+        private static List<DifferentialResult> Adjust(List<DifferentialResult> rows)
+        {
+            var output = new List<DifferentialResult>(rows.Count);
+            var adjusted = new Dictionary<DifferentialResult, (double, int)>(ReferenceEqualityComparer.Instance);
+            foreach (var family in rows.Where(DifferentialResultWriter.InBenjaminiHochbergFamily).GroupBy(DifferentialResultWriter.FamilyKey))
+            {
+                var members = family.ToList();
+                var q = MultipleTesting.BenjaminiHochberg(members.Select(r => r.PValue!.Value).ToArray());
+                for (int i = 0; i < members.Count; i++) adjusted[members[i]] = (q[i], members.Count);
+            }
+            foreach (var r in rows)
+                output.Add(adjusted.TryGetValue(r, out var a) ? r with { PAdjusted = a.Item1, FamilySize = a.Item2 } : r);
+            return output;
+        }
+
+        private DifferentialStratumInfo StratumInfo(AnalysisDesign design)
+        {
+            var first = design.Samples[0];
+            var perLevel = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            foreach (var factor in _request.Spec.Factors)
+                foreach (var s in design.Samples)
+                    if (s.Factors.TryGetValue(factor.Name, out var level))
+                        perLevel[$"{factor.Name}={level}"] = perLevel.GetValueOrDefault($"{factor.Name}={level}") + 1;
+            return new DifferentialStratumInfo(design.Stratum, first.Strata, _request.StratumSource, perLevel,
+                design.NotRun.Select(n => new DifferentialNotRun(n.Label, n.Reason)).ToList());
+        }
+
+        private DifferentialNormalizationInfo IsobaricNormalizationInfo(string stratum, IReadOnlyDictionary<string, AnalysisSample> samples)
+        {
+            var shifts = _tmtNormalization!.Shifts.Where(s => samples.ContainsKey(s.SampleId) && double.IsFinite(s.Shift))
+                .ToDictionary(s => string.Create(CultureInfo.InvariantCulture, $"{s.SampleId}@plex{s.Plex}.run{s.TechnicalReplicate}"),
+                    s => s.Shift, StringComparer.Ordinal);
+            return new DifferentialNormalizationInfo(stratum, null, _tmtNormalization.Setting, 0, 0, shifts, _tmtNormalization.Warnings);
+        }
+    }
+
+    private sealed record StratumContrast(Contrast Contrast, string Estimability);
+
+    private sealed record SideCounts(int? Numerator, int? Denominator, int WithValue, int Total);
+
+    private sealed record PlannedContrast(Contrast Contrast, SideCounts Counts, string? Status, string? Detail);
+
+    /// <summary>One protein group's plan, then its fit.</summary>
+    private sealed class FeaturePlan
+    {
+        public FeaturePlan(string group, ProteinGroupInfo info, FeatureObservations? values)
+        {
+            Group = group;
+            Info = info;
+            Values = values;
+        }
+
+        public string Group { get; }
+        public ProteinGroupInfo Info { get; }
+        public FeatureObservations? Values { get; }
+        public List<PlannedContrast> Contrasts { get; } = new();
+        public FeatureDesign? Design { get; set; }
+        public double[,]? CommonRows { get; set; }
+        public NestedMixedModelFit? MixedFit { get; set; }
+        public LinearModelFit? LinearFit { get; set; }
+        /// <summary>The peptide-model problem, built once before fitting.</summary>
+        public NestedMixedModelProblem? Problem { get; set; }
+        /// <summary>Fitted with fewer random terms than its labels call for: its own moderation family (ruling 17).</summary>
+        public bool Reduced { get; set; }
+        public IReadOnlyList<ModeratedContrast>? Moderated { get; set; }
+        public int Index { get; set; }
+        public bool NoVarianceDf { get; set; }
+    }
+}
