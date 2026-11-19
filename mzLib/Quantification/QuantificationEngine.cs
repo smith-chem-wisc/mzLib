@@ -50,7 +50,8 @@ public class QuantificationEngine
     /// <param name="parameters">The strategies and switches of the run.</param>
     /// <param name="experimentalDesign">Maps each file to its samples.</param>
     /// <param name="spectralMatches">The matches to quantify.</param>
-    /// <param name="modifiedBioPolymers">The peptides to quantify.</param>
+    /// <param name="modifiedBioPolymers">The peptides to quantify. It may be empty, or null, when every match is ambiguous
+    /// only in where its modifications sit: such matches are quantified through rows built from the matches themselves.</param>
     /// <param name="bioPolymerGroups">The groups to quantify.</param>
     /// <param name="allBioPolymerGroups">
     /// Every group of the analysis, including any the caller does not quantify -- for instance groups it does not write
@@ -322,7 +323,10 @@ public class QuantificationEngine
             badResults = QuantificationResults.Failure("QuantificationEngine Error: No spectral matches provided for quantification.");
             return false;
         }
-        if(ModifiedBioPolymers.IsNullOrEmpty())
+        // A match ambiguous only in where its modifications sit is quantified through a row built from the matches
+        // themselves (PeptideRowKeys), so a run whose every match is one has peptides though the caller lists none.
+        if(ModifiedBioPolymers.IsNullOrEmpty() && !SpectralMatches.Any(sm => sm.Intensities != null
+            && SingleIdentifiedFullSequenceOrNull(sm) == null && LocalizationAmbiguousPeptide.SiteFreeIdentityOrNull(sm) != null))
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification.");
             return false;
@@ -458,7 +462,7 @@ public class QuantificationEngine
 
         // 3) Per-file roll-up to peptides. The row keys are chosen once, so every file keys a sequence by the same
         //    copy and CombinePeptideMatrices merges them into one row.
-        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers, SpectralMatches);
+        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers ?? new List<IBioPolymerWithSetMods>(), SpectralMatches);
         var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
         foreach (var kvp in perFileNormalized)
         {
