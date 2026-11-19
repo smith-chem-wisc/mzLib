@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Derek J. Bailey
+﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016, 2017 Stefan Solntsev
 //
 // This file (Mzml.cs) is part of MassSpecFiles.
@@ -64,6 +64,51 @@ namespace Readers
         private const string _mzArray = "MS:1000514";
         private const string _intensityArray = "MS:1000515";
         private const string _chargeArray = "MS:1000516";
+        private const string _sampledNoiseMzArray = "MS:1002743";
+        private const string _sampledNoiseIntensityArray = "MS:1002744";
+        private const string _sampledNoiseBaselineArray = "MS:1002745";
+        private const string _nonStandardDataArray = "MS:1000786";
+
+        /// <summary>The noise array a spectrum's binary data array holds, by its cvParam.</summary>
+        private enum NoiseArrayKind { None, Mz, NoiseAboveBaseline, NoiseLevel, Baseline }
+
+        /// <summary>
+        /// Which noise array a cvParam names: the PSI-MS sampled noise arrays, or the non-standard arrays this library's
+        /// writer used before it wrote the PSI-MS terms (value "mass" for the m/z, "SignalToNoise" for the noise level,
+        /// "baseline" for the baseline). PSI-MS's sampled noise intensity is the noise above the baseline; the old
+        /// "SignalToNoise" array held the noise level itself.
+        /// </summary>
+        private static NoiseArrayKind GetNoiseArrayKind(string? accession, string? value) => accession switch
+        {
+            _sampledNoiseMzArray => NoiseArrayKind.Mz,
+            _sampledNoiseIntensityArray => NoiseArrayKind.NoiseAboveBaseline,
+            _sampledNoiseBaselineArray => NoiseArrayKind.Baseline,
+            _nonStandardDataArray => value switch
+            {
+                "mass" => NoiseArrayKind.Mz,
+                "SignalToNoise" => NoiseArrayKind.NoiseLevel,
+                "baseline" => NoiseArrayKind.Baseline,
+                _ => NoiseArrayKind.None
+            },
+            _ => NoiseArrayKind.None
+        };
+
+        /// <summary>
+        /// A <see cref="MsDataScan.NoiseData"/> table from the noise arrays a spectrum carried, the noise as a level
+        /// (baseline included). A missing baseline array is read as zero. Null when the m/z or the noise array is
+        /// missing, or the arrays differ in length: the table is optional, so a spectrum without a usable one reads
+        /// without it.
+        /// </summary>
+        private static double[,]? BuildNoiseData(double[]? mzs, double[]? noise, bool noiseIsAboveBaseline, double[]? baseline)
+        {
+            if (mzs == null || noise == null || noise.Length != mzs.Length || (baseline != null && baseline.Length != mzs.Length))
+            {
+                return null;
+            }
+            baseline ??= new double[mzs.Length];
+            double[] level = noiseIsAboveBaseline ? noise.Select((n, k) => n + baseline[k]).ToArray() : noise;
+            return MsDataScan.CreateNoiseData(mzs, level, baseline);
+        }
 
         /// <summary>
         /// HUPO-PSI Information: 
@@ -298,7 +343,7 @@ namespace Readers
                     || !Uri.TryCreate(simpler.location, UriKind.Absolute, out sourceUri))
                 {
                     try { sourceUri = new Uri(System.IO.Path.GetFullPath(FilePath)); }
-                    catch { sourceUri = new Uri("file:///unknown-source"); }
+                    catch { sourceUri = new Uri(SourceFile.UnknownLocation); }
                 }
                 sourceFile = new SourceFile(
                     nativeIdFormat,
@@ -309,7 +354,9 @@ namespace Readers
                     simpler.id,
                     simpler.name)
                 {
-                    InstrumentModel = GetInstrumentModel()
+                    InstrumentModel = GetInstrumentModel(),
+                    InstrumentSerialNumber = GetInstrumentSerialNumber(),
+                    AcquisitionStartTime = GetAcquisitionStartTime()
                 };
             }
             else
@@ -330,7 +377,9 @@ namespace Readers
                     Path.GetFullPath(FilePath),
                     Path.GetFileNameWithoutExtension(FilePath))
                 {
-                    InstrumentModel = GetInstrumentModel()
+                    InstrumentModel = GetInstrumentModel(),
+                    InstrumentSerialNumber = GetInstrumentSerialNumber(),
+                    AcquisitionStartTime = GetAcquisitionStartTime()
                 };
             }
             return sourceFile;
@@ -371,34 +420,71 @@ namespace Readers
         /// That pair is also the clearest illustration of the value test above: the model carries no
         /// value, the serial number does.
         /// </summary>
-        private CvParam GetInstrumentModel()
+        private CvParam GetInstrumentModel() =>
+            InstrumentCvParamsInLookupOrder()
+                .Select(FirstInstrumentModel)
+                .FirstOrDefault(model => model != null);
+
+        /// <summary>
+        /// The cvParam arrays that describe the run's instrument, in the order a run-level lookup
+        /// should search them: the default instrumentConfiguration (or the first, when the run names
+        /// none), its direct cvParams first -- a file that states a value inline means it, and should
+        /// not be overridden by a shared group -- then each referenceableParamGroup it references, in
+        /// reference order. Shared by <see cref="GetInstrumentModel"/> and
+        /// <see cref="GetInstrumentSerialNumber"/> so the two lookups cannot drift apart.
+        /// </summary>
+        private IEnumerable<Generated.CVParamType[]?> InstrumentCvParamsInLookupOrder()
         {
             var configurations = _mzMLConnection.instrumentConfigurationList?.instrumentConfiguration;
             if (configurations == null || configurations.Length == 0)
-                return null;
+                yield break;
 
             var defaultRef = _mzMLConnection.run?.defaultInstrumentConfigurationRef;
             var configuration = configurations.FirstOrDefault(c => c.id == defaultRef) ?? configurations[0];
 
-            // Direct cvParams first: a file that states the model inline means it, and should not be
-            // overridden by a shared group.
-            var model = FirstInstrumentModel(configuration.cvParam);
-            if (model != null)
-                return model;
+            yield return configuration.cvParam;
 
             var groups = _mzMLConnection.referenceableParamGroupList?.referenceableParamGroup;
             if (configuration.referenceableParamGroupRef == null || groups == null)
-                return null;
+                yield break;
 
             foreach (var groupRef in configuration.referenceableParamGroupRef)
-            {
-                var group = groups.FirstOrDefault(g => g.id == groupRef.@ref);
-                model = FirstInstrumentModel(group?.cvParam);
-                if (model != null)
-                    return model;
-            }
+                yield return groups.FirstOrDefault(g => g.id == groupRef.@ref)?.cvParam;
+        }
 
-            return null;
+        /// <summary>
+        /// The instrument serial number (MS:1000529) declared for the run's instrument, trimmed, or
+        /// null when the file declares none. It sits beside the model -- inline on the
+        /// instrumentConfiguration or in a referenceableParamGroup it references -- so it is looked
+        /// for in the same configuration and in the same order as <see cref="GetInstrumentModel"/>.
+        /// Reported verbatim: a placeholder such as "Serial Number N/A" is what the file says.
+        /// </summary>
+        private string? GetInstrumentSerialNumber() =>
+            InstrumentCvParamsInLookupOrder()
+                .Select(FirstSerialNumber)
+                .FirstOrDefault(serial => serial != null);
+
+        private static string? FirstSerialNumber(Generated.CVParamType[]? cvParams) =>
+            cvParams?
+                .Where(cv => cv.accession == "MS:1000529" && !string.IsNullOrWhiteSpace(cv.value))
+                .Select(cv => cv.value.Trim())
+                .FirstOrDefault();
+
+        /// <summary>
+        /// run/@startTimeStamp, or null when the file omits it. XmlSerializer returns an xs:dateTime
+        /// with "Z" as Kind Utc, one without an offset as Unspecified, and one WITH an offset
+        /// converted to the reading machine's Local time; that last is converted back to UTC here so
+        /// the value never depends on where the file is read (see
+        /// <see cref="SourceFile.AcquisitionStartTime"/>).
+        /// </summary>
+        private DateTime? GetAcquisitionStartTime()
+        {
+            var run = _mzMLConnection.run;
+            if (run == null || !run.startTimeStampSpecified)
+                return null;
+
+            var value = run.startTimeStamp;
+            return value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : value;
         }
 
         /// <summary>
@@ -509,7 +595,12 @@ namespace Readers
                         double tic = 0;
                         double? injTime = null; 
                         double? compensationVoltage = null;
-                        double[,] noiseData = null; // TODO: read this
+                        double[,]? noiseData = null;
+                        NoiseArrayKind readingNoiseArray = NoiseArrayKind.None;
+                        double[]? noiseMzs = null;
+                        double[]? noiseValues = null;
+                        double[]? noiseBaseline = null;
+                        bool noiseIsAboveBaseline = false;
                         double? selectedIonMz = null;
                         int? selectedCharge = null;
                         double? selectedIonIntensity = null;
@@ -543,6 +634,13 @@ namespace Readers
                                 // controlled vocabulary parameter
                                 case "CVPARAM":
                                     string cvParamAccession = xmlReader["accession"];
+
+                                    NoiseArrayKind noiseArrayKind = GetNoiseArrayKind(cvParamAccession, xmlReader["value"]);
+                                    if (noiseArrayKind != NoiseArrayKind.None)
+                                    {
+                                        readingNoiseArray = noiseArrayKind;
+                                        break;
+                                    }
 
                                     if (Mzml.DissociationDictionary.ContainsKey(cvParamAccession))
                                     {
@@ -725,7 +823,7 @@ namespace Readers
 
                                 // binary data array (e.g., m/z or intensity or charge array)
                                 case "BINARY":
-                                    if (!readingMzs && !readingIntensities && !readingCharges)
+                                    if (!readingMzs && !readingIntensities && !readingCharges && readingNoiseArray == NoiseArrayKind.None)
                                     {
                                         break;
                                     }
@@ -760,6 +858,17 @@ namespace Readers
                                         for (int k = 0; k < data.Length; k++)
                                             chargeArray[k] = (int)Math.Round(data[k]);
                                         readingCharges = false;
+                                    }
+                                    else
+                                    {
+                                        switch (readingNoiseArray)
+                                        {
+                                            case NoiseArrayKind.Mz: noiseMzs = data; break;
+                                            case NoiseArrayKind.NoiseAboveBaseline: noiseValues = data; noiseIsAboveBaseline = true; break;
+                                            case NoiseArrayKind.NoiseLevel: noiseValues = data; noiseIsAboveBaseline = false; break;
+                                            case NoiseArrayKind.Baseline: noiseBaseline = data; break;
+                                        }
+                                        readingNoiseArray = NoiseArrayKind.None;
                                     }
 
                                     break;
@@ -831,6 +940,7 @@ namespace Readers
 
                                         range = new MzRange(scanLowerLimit, scanUpperLimit);
                                         spectrum = new MzSpectrum(mzs, intensities, false);
+                                        noiseData = BuildNoiseData(noiseMzs, noiseValues, noiseIsAboveBaseline, noiseBaseline);
 
                                         scan = new MsDataScan(spectrum, oneBasedScanNumber, msOrder.Value, isCentroid.Value, polarity,
                                             retentionTime, range, scanFilter, mzAnalyzerType, tic, injTime, noiseData,
@@ -1013,6 +1123,10 @@ namespace Readers
             double[] masses = new double[0];
             double[] intensities = new double[0];
             int[] chargeArray = null;
+            double[]? noiseMzs = null;
+            double[]? noise = null;
+            double[]? noiseBaseline = null;
+            bool noiseIsAboveBaseline = false;
 
             foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].binaryDataArrayList.binaryDataArray)
             {
@@ -1021,6 +1135,7 @@ namespace Readers
                 bool intensityArray = false;
                 bool isChargeArray = false;
                 bool is32bit = true;
+                NoiseArrayKind noiseArray = NoiseArrayKind.None;
                 foreach (Generated.CVParamType cv in binaryData.cvParam)
                 {
                     compressed |= cv.accession.Equals(_zlibCompression);
@@ -1029,6 +1144,21 @@ namespace Readers
                     mzArray |= cv.accession.Equals(_mzArray);
                     intensityArray |= cv.accession.Equals(_intensityArray);
                     isChargeArray |= cv.accession.Equals(_chargeArray);
+                    NoiseArrayKind kind = GetNoiseArrayKind(cv.accession, cv.value);
+                    if (kind != NoiseArrayKind.None) noiseArray = kind;
+                }
+
+                if (noiseArray != NoiseArrayKind.None)
+                {
+                    double[] noiseData = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
+                    switch (noiseArray)
+                    {
+                        case NoiseArrayKind.Mz: noiseMzs = noiseData; break;
+                        case NoiseArrayKind.NoiseAboveBaseline: noise = noiseData; noiseIsAboveBaseline = true; break;
+                        case NoiseArrayKind.NoiseLevel: noise = noiseData; noiseIsAboveBaseline = false; break;
+                        case NoiseArrayKind.Baseline: noiseBaseline = noiseData; break;
+                    }
+                    continue;
                 }
 
                 //in the futurem we may see scass w/ no data and there will be a crash here. if that happens, you can retrun an MsDataScan with null as the mzSpectrum
@@ -1053,6 +1183,8 @@ namespace Readers
                         chargeArray[k] = (int)Math.Round(data[k]);
                 }
             }
+
+            double[,]? noiseTable = BuildNoiseData(noiseMzs, noise, noiseIsAboveBaseline, noiseBaseline);
 
             double high = double.NaN;
             double low = double.NaN;
@@ -1110,7 +1242,7 @@ namespace Readers
                     analyzer,
                     tic,
                     injectionTime,
-                    null,
+                    noiseTable,
                     nativeId,
                     compensationVoltage: compensationVoltage,
                     chargeArray: chargeArray);
@@ -1220,7 +1352,7 @@ namespace Readers
                 analyzer,
                 tic,
                 injectionTime,
-                null,
+                noiseTable,
                 nativeId,
                 selectedIonMz,
                 selectedIonCharge,

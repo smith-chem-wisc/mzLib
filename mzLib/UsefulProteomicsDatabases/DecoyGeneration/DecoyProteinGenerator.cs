@@ -123,6 +123,9 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
+            var decoyFixedModifications = ReverseProteinModifications(
+                protein.OneBasedFixedModifications, protein.BaseSequence.Length, startsWithM);
+
             // reverse proteolysis products
             List<TruncationProduct> decoyPP = new List<TruncationProduct>();
             foreach (TruncationProduct pp in protein.TruncationProducts)
@@ -201,15 +204,7 @@ namespace UsefulProteomicsDatabases
                 protein.FullName,
                 true,
                 protein.IsContaminant,
-                // Carry the taxonomy across, and ONLY the taxonomy. A decoy is a reversed
-                // sequence from this organism's database, so its organism is genuinely the
-                // same; it is not annotated in EMBL, GO or anywhere else, so copying every
-                // database reference would assert things about it that are false. Without this
-                // a FASTA target answered the taxonomy question and its decoy did not, which
-                // defeats the point of recording it.
-                protein.DatabaseReferences
-                    ?.Where(r => r.Type == Protein.NcbiTaxonomyDatabaseReferenceType)
-                    .ToList(),
+                TaxonomyReferencesOf(protein),
                 decoyVariations,
                 decoyAppliedVariations,
                 protein.SampleNameForVariants,
@@ -217,11 +212,44 @@ namespace UsefulProteomicsDatabases
                 spliceSites,
                 protein.DatabaseFilePath,
                 uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                isEntrapment: protein.IsEntrapment,
-                nonVariantProtein: decoyConsensus);
+                 uniProtSequenceAttributes: DecoySequenceAttributes(protein.UniProtSequenceAttributes),
+                 isEntrapment: protein.IsEntrapment,
+                 nonVariantProtein: decoyConsensus,
+                 oneBasedFixedModifications: decoyFixedModifications);
 
             return decoyProtein;
+        }
+
+        /// <summary>
+        /// The database references a sequence derived from <paramref name="protein"/> keeps: its NCBI taxonomy
+        /// reference and nothing else.
+        /// </summary>
+        /// <remarks>
+        /// A decoy or an entrapment partner is a rearranged sequence from this organism's database, so its
+        /// organism is genuinely the same. It is not annotated in EMBL, GO or anywhere else, so copying every
+        /// database reference would assert things about it that are false. Without the taxonomy a target answers
+        /// "which organism is this from?" and the sequence derived from it does not, so anything that groups a
+        /// search's proteins by taxon loses every decoy.
+        /// </remarks>
+        /// <returns>A new list, empty when the protein states no taxonomy. Never null.</returns>
+        internal static List<DatabaseReference> TaxonomyReferencesOf(Protein protein) =>
+            protein.DatabaseReferences
+                ?.Where(r => r.Type == Protein.NcbiTaxonomyDatabaseReferenceType)
+                .ToList()
+            ?? new List<DatabaseReference>();
+
+        /// <summary>
+        /// The target's sequence attributes without its displayed isoform: a decoy's sequence is no UniProt isoform, so
+        /// it must not claim the target's (and the writer would otherwise write it out for the decoy accession).
+        /// </summary>
+        private static UniProtSequenceAttributes DecoySequenceAttributes(UniProtSequenceAttributes target)
+        {
+            if (target.DisplayedIsoformId == null)
+            {
+                return target;
+            }
+            return new UniProtSequenceAttributes(target.Length, target.Mass, target.Checksum, target.EntryModified,
+                target.SequenceVersion, target.IsPrecursor, target.Fragment, null);
         }
 
         private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
@@ -369,7 +397,8 @@ namespace UsefulProteomicsDatabases
                 List<DisulfideBond> decoy_disulfides_slide = new List<DisulfideBond>();
                 List<SpliceSite> spliceSitesSlide = new List<SpliceSite>();
                 bool initMet = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
-                Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein);
+                Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedPossibleLocalizedModifications);
+                Dictionary<int, Modification> decoyFixedModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedFixedModifications);
 
                 var slided_sequence = new string(sequenceArraySlided);
 
@@ -446,7 +475,7 @@ namespace UsefulProteomicsDatabases
                     protein.FullName,
                     true,
                     protein.IsContaminant,
-                    null,
+                    TaxonomyReferencesOf(protein),
                     decoyVariationsSlide,
                     null,
                     protein.SampleNameForVariants,
@@ -454,15 +483,16 @@ namespace UsefulProteomicsDatabases
                     spliceSitesSlide,
                     protein.DatabaseFilePath,
                     uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                    isEntrapment: protein.IsEntrapment);
+                     uniProtSequenceAttributes: DecoySequenceAttributes(protein.UniProtSequenceAttributes),
+                     isEntrapment: protein.IsEntrapment,
+                     oneBasedFixedModifications: decoyFixedModifications);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }
 
-        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
+        private static Dictionary<int, Modification> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, int sequenceLength, IDictionary<int, Modification> sourceModifications)
         {
             // Do not include the initiator methionine in shuffle!!!
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -472,11 +502,11 @@ namespace UsefulProteomicsDatabases
             }
             for (int i = startIndex; i < sequenceArraySlided.Length; i++)
             {
-                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, protein.BaseSequence.Length, initiatorMethionine)];
+                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, sequenceLength, initiatorMethionine)];
             }
 
-            Dictionary<int, List<Modification>> decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
-            foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
+            Dictionary<int, Modification> decoyModifications = new Dictionary<int, Modification>(sourceModifications.Count);
+            foreach (var kvp in sourceModifications)
             {
                 if (initiatorMethionine && kvp.Key == 1)
                 {
@@ -484,11 +514,49 @@ namespace UsefulProteomicsDatabases
                 }
                 else
                 {
-                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, protein.BaseSequence.Length, initiatorMethionine)+1, kvp.Value);
+                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, sequenceLength, initiatorMethionine)+1, kvp.Value);
                 }
             }
 
             return decoyModifications;
+        }
+
+        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods(
+            char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine,
+            int numSlides, int sequenceLength, IDictionary<int, List<Modification>> sourceModifications)
+        {
+            int startIndex = initiatorMethionine ? 1 : 0;
+            if (numSlides % sequenceArraySlided.Length - startIndex == 0)
+                numSlides++;
+
+            for (int i = startIndex; i < sequenceArraySlided.Length; i++)
+                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, sequenceLength, initiatorMethionine)];
+
+            var decoyModifications = new Dictionary<int, List<Modification>>(sourceModifications.Count);
+            foreach (var kvp in sourceModifications)
+            {
+                int newPosition = initiatorMethionine && kvp.Key == 1
+                    ? 1
+                    : GetNewSlidedIndex(kvp.Key - 1, numSlides, sequenceLength, initiatorMethionine) + 1;
+                decoyModifications.Add(newPosition, kvp.Value);
+            }
+
+            return decoyModifications;
+        }
+
+        private static Dictionary<int, Modification> ReverseProteinModifications(
+            IDictionary<int, Modification> sourceModifications, int sequenceLength, bool startsWithM)
+        {
+            var reversed = new Dictionary<int, Modification>(sourceModifications.Count);
+            foreach (var kvp in sourceModifications)
+            {
+                int reverseKey = startsWithM
+                    ? kvp.Key == 1 ? 1 : sequenceLength - kvp.Key + 2
+                    : sequenceLength - kvp.Key + 1;
+                reversed.Add(reverseKey, kvp.Value);
+            }
+
+            return reversed;
         }
 
 

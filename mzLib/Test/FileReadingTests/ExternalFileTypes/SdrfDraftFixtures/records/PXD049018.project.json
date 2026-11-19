@@ -1,0 +1,212 @@
+{
+  "Accession": "PXD049018",
+  "Title": "BJ cyto-nuclear translocation upon STING activation",
+  "ProjectDescription": "The goal of this project is to identify changes of cyto-nuclear import upon STING activation by cGAMP. BJ cells stably expressing TurboID-NES were treated with biotin to label cytoplasmic proteins, after which cells were further treated with or without cGAMP to activate STING signaling. Cells were then fractionated to collect the nuclei. The biotinylated proteins in the nuclear pellets were purified by streptavidin beads for mass spectrometry analysis.",
+  "SampleProcessingProtocol": "BJ cells expressing Flag-TurboID-NES were cultured in 15 cm dishes until 90% confluent. Cells were treated with 50 μM biotin for 10 minutes to biotinylate cytoplasmic proteins, followed by digitonin buffer treatment with or without 1 μM cGAMP for 10 min. Warm fresh media were added to replace the digitonin buffer after the treatment. After 3 hours of incubation allowing shuttling of proteins between cytoplasm and nucleus, cells were washed twice with 10 mL pre-chilled PBS per dish and scraped into 10 mL of cold PBS per two dishes. Cells were spun down at 1000 g for 3 min at 4°C and were resuspended with 1.5 mL cold PBS into 2 mL Eppendorf tubes to pellet again at 1000 g for 3 min at 4°C. Nuclei were extracted from the pellet as described above and were resuspended with 1.5 mL IP lysis buffer (50 mM Tris-HCl, pH 8.0, 150 mM NaCl, 0.5% Triton X-100, 2 mM NaF, 2 mM NA3VO4, 5 mM MgCl2, 1x Roche protease inhibitor cocktail). The lysates were briefly sonicated to completely dissolve the nuclear membrane. The two samples were further spun at 12000 g for 10 min at 4°C to remove undissolved aggregates. The supernatants were transferred to 2 mL Eppendorf tubes containing 50 μL streptavidin magnetic beads (Thermo Scientific, #65002) which had been washed twice with the IP lysis buffer. The mixtures were rotated at 4°C for 2 hours. The beads were washed thrice with the IP lysis buffer and then washed sequentially with three different buffers: buffer 1 (50 mM Tris-HCl, pH 8.0, 150 mM NaCl, 0.8% SDS), buffer 2 (50 mM Tris-HCl, pH 8.0, 1 M NaCl, 0.5% Triton X-100), buffer 3 (50 mM Tris-HCl, pH 8.0, 150 mM NaCl, 0.5% Triton X-100). Proteins bound on the beads were eluted by adding 50 μL 2× SDS loading buffer (0.1 M Tris-HCl, pH 6.8, 4% SDS, 20% glycerol, 4% 2-mercaptoethanol, 0.01% bromphenol blue) and heated to 95°C for 5 min. Eluted proteins were saved at -80°C until mass spectrometry analysis.",
+  "DataProcessingProtocol": "Data were searched using a local copy of Mascot with the following parameters:  Enzyme: Trypsin Database: Swissprot Human (concatenated forward and reverse plus common contaminants) Fixed modification: Carbamidomethyl (C) Variable modifications: Oxidation (M), Acetyl (Protein N-term), Deamidation (NQ), Pyro-Glu (N-term Q) Mass values: Monoisotopic Peptide Mass Tolerance:  10 ppm Fragment Mass Tolerance: 20 ppm Max Missed Cleavages: 2  Mascot DAT files were parsed into the Scaffold software for validation, filtering and to create a non-redundant list per sample. Data were filtered at 1% protein and peptide level FDR and requiring at least two unique peptides per protein.",
+  "Doi": "10.6019/PXD049018",
+  "SubmissionType": "COMPLETE",
+  "License": "Creative Commons Public Domain (CC0)",
+  "SubmissionDate": "2024-01-30T00:00:00",
+  "PublicationDate": "2024-09-19T00:00:00",
+  "ProjectTags": [],
+  "Keywords": [
+    "Streptavidin purification",
+    "Sting",
+    "Biotinylation",
+    "Cgamp",
+    "Nuclear import"
+  ],
+  "Countries": [
+    "United States"
+  ],
+  "Submitters": [
+    {
+      "Title": "Dr",
+      "FirstName": "Jay Xiaojun",
+      "LastName": "Tan",
+      "Name": "Jay Xiaojun Tan",
+      "Affiliation": "University of Pittsburgh",
+      "Email": "jay.tan@pitt.edu",
+      "Country": "United States",
+      "Orcid": "0000-0003-3300-2240",
+      "Id": "2356796"
+    }
+  ],
+  "LabPIs": [
+    {
+      "Title": "Dr",
+      "FirstName": "Jay Xiaojun Tan,",
+      "LastName": "PhD",
+      "Name": "Jay Xiaojun Tan, PhD",
+      "Affiliation": "Assistant Professor Aging Institute Department of Cell Biology University of Pittsburgh School of Medicine/UPMC Bridgeside Point I Room 457 100 Technology Dr. Pittsburgh, PA 15219",
+      "Email": "Jay.Tan@pitt.edu",
+      "Country": "",
+      "Orcid": "",
+      "Id": "2831145"
+    }
+  ],
+  "References": [
+    {
+      "ReferenceLine": "",
+      "PubmedId": 0,
+      "Doi": "10.1016/J.MOLCEL.2024.08.026"
+    }
+  ],
+  "Instruments": [
+    {
+      "CvLabel": "MS",
+      "Accession": "MS:1003028",
+      "Name": "Orbitrap Exploris 480",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Softwares": [
+    {
+      "CvLabel": "MS",
+      "Accession": "MS:1001207",
+      "Name": "Mascot",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "ExperimentTypes": [
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000305",
+      "Name": "Gel-based experiment",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    },
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000428",
+      "Name": "Bottom-up proteomics",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    },
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000627",
+      "Name": "Data-dependent acquisition",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "QuantificationMethods": [
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000436",
+      "Name": "Spectrum counting",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Organisms": [
+    {
+      "CvLabel": "NEWT",
+      "Accession": "NEWT:9606",
+      "Name": "Homo sapiens (human)",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "OrganismParts": [
+    {
+      "CvLabel": "BTO",
+      "Accession": "BTO:0000214",
+      "Name": "Cell culture",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Diseases": [],
+  "IdentifiedPTMStrings": [
+    {
+      "CvLabel": "MOD",
+      "Accession": "MOD:00425",
+      "Name": "monohydroxylated residue",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    },
+    {
+      "CvLabel": "MOD",
+      "Accession": "MOD:00397",
+      "Name": "iodoacetamide derivatized residue",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "AdditionalAttributes": [],
+  "SampleAttributes": [
+    {
+      "Key": {
+        "CvLabel": "EFO",
+        "Accession": "EFO:0000635",
+        "Name": "organism part",
+        "Value": "",
+        "UnitCvLabel": "",
+        "UnitAccession": "",
+        "UnitName": ""
+      },
+      "Value": [
+        {
+          "CvLabel": "BTO",
+          "Accession": "BTO:0000214",
+          "Name": "cell culture",
+          "Value": "",
+          "UnitCvLabel": "",
+          "UnitAccession": "",
+          "UnitName": ""
+        }
+      ]
+    },
+    {
+      "Key": {
+        "CvLabel": "EFO",
+        "Accession": "OBI:0100026",
+        "Name": "organism",
+        "Value": "",
+        "UnitCvLabel": "",
+        "UnitAccession": "",
+        "UnitName": ""
+      },
+      "Value": [
+        {
+          "CvLabel": "NEWT",
+          "Accession": "NEWT:9606",
+          "Name": "Homo sapiens (Human)",
+          "Value": "",
+          "UnitCvLabel": "",
+          "UnitAccession": "",
+          "UnitName": ""
+        }
+      ]
+    }
+  ],
+  "TotalFileDownloads": 3297,
+  "BotCount": 1614,
+  "HubCount": 1585,
+  "OrganicCount": 98
+}

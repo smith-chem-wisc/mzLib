@@ -1,4 +1,5 @@
 using Omics.Fragmentation;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -11,7 +12,7 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
     public string UniqueSequence { get; private set; }
     public bool IsBetaPeptide { get; }
     public static Regex CrosslinkRegex = new Regex(@"\(\d+\)");
-    public override string Name => UniqueSequence + "/" + ChargeState;
+    public override string Name => UniqueSequence + "/" + ChargeState.ToString(CultureInfo.InvariantCulture);
 
     public CrosslinkLibrarySpectrum(
         string uniqueSequence,
@@ -82,10 +83,10 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
     {
         StringBuilder spectrum = new();
         spectrum.AppendLine("Name: " + Name);
-        spectrum.AppendLine("MW: " + PrecursorMz);
+        spectrum.AppendLine("MW: " + PrecursorMz.ToString(CultureInfo.InvariantCulture));
         spectrum.Append("Comment: ");
-        spectrum.Append("Parent=" + PrecursorMz);
-        spectrum.AppendLine(" RT=" + RetentionTime);
+        spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
+        spectrum.AppendLine(" RT=" + RetentionTime?.ToString(CultureInfo.InvariantCulture));
         spectrum.Append("Num alpha peaks: " + MatchedFragmentIons.Count);
         spectrum.AppendLine(", Num beta peaks: " + BetaPeptideSpectrum.MatchedFragmentIons.Count);
 
@@ -99,13 +100,13 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
             string neutralLoss = null;
             if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
             {
-                neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
+                neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss.ToString(CultureInfo.InvariantCulture);
             }
 
-            spectrum.AppendLine(matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
+            spectrum.AppendLine(matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" + intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t" + "\"" +
                                 matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
                                 matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                                matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"");
+                                matchedIon.Charge.ToString(CultureInfo.InvariantCulture) + neutralLoss + "/" + 0 + "ppm" + "\"");
         }
 
         foreach (MatchedFragmentIon matchedIon in BetaPeptideSpectrum.MatchedFragmentIons)
@@ -115,13 +116,13 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
             string neutralLoss = null;
             if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
             {
-                neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
+                neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss.ToString(CultureInfo.InvariantCulture);
             }
 
-            spectrum.AppendLine(matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
+            spectrum.AppendLine(matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" + intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t" + "\"" +
                                 matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
                                 matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                                matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"" +
+                                matchedIon.Charge.ToString(CultureInfo.InvariantCulture) + neutralLoss + "/" + 0 + "ppm" + "\"" +
                                 "\t" + "BetaPeptideIon");
         }
 

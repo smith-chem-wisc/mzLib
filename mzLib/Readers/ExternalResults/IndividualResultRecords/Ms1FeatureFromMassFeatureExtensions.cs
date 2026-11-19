@@ -42,9 +42,9 @@ namespace Readers
         {
             EnsureFinalised(feature);
             var (apexRt, apexIntensity) = Apex(feature);
-            // Single row spanning the full observed charge span. For a gapped charge
-            // set this collapses the gaps; callers that need exact fidelity should use
-            // ToMs1Features (which FromMassFeatures does).
+            // Single row spanning the full observed charge span; the reader expands it to
+            // every charge in the span, gaps included. This is what FromMassFeatures writes
+            // by default. Callers that need the exact observed set should use ToMs1Features.
             return BuildRow(feature, sequentialId, sampleId, fractionId,
                 feature.Charges.Min(), feature.Charges.Max(), apexRt, apexIntensity);
         }
@@ -52,13 +52,15 @@ namespace Readers
         /// <summary>
         /// Emit one <see cref="Ms1Feature"/> row per <em>contiguous</em> run of charge
         /// states. A gapped charge set (e.g. {10, 12, 15}, which arises when an
-        /// intermediate charge falls below the deconvolution score cutoff) would
-        /// otherwise be written as a single Min=10/Max=15 row that the reader re-expands
-        /// to 10..15 inclusive -- fabricating charges 11/13/14. Splitting into contiguous
-        /// runs lets the Min/Max-only <c>_ms1.feature</c> schema carry the exact set with
-        /// no invented charges. A contiguous set yields exactly one row, identical to
-        /// <see cref="ToMs1Feature"/>. Rows are returned without an Id assigned; the
-        /// caller numbers them.
+        /// intermediate charge falls below the deconvolution score cutoff) written as a
+        /// single Min=10/Max=15 row is re-expanded by the reader to 10..15 inclusive.
+        /// Splitting into contiguous runs lets the Min/Max-only <c>_ms1.feature</c> schema
+        /// carry the exact observed set instead. That exactness has a cost for search:
+        /// the missing charges are often real, and a FromFile search pairs MS2 scans that
+        /// isolated them only through the span, so this is not what
+        /// <see cref="Ms1FeatureFile.FromMassFeatures"/> writes unless asked. A contiguous
+        /// set yields exactly one row, identical to <see cref="ToMs1Feature"/>. Rows are
+        /// returned without an Id assigned; the caller numbers them.
         /// </summary>
         public static IReadOnlyList<Ms1Feature> ToMs1Features(
             this MassFeature feature,

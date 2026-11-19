@@ -22,6 +22,7 @@ namespace Test.Omics;
     public string DatabaseFilePath { get; } = "";
     public int Length => BaseSequence.Length;
     public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } = new Dictionary<int, List<Modification>>();
+    public IDictionary<int, Modification> OneBasedFixedModifications { get; } = new Dictionary<int, Modification>();
     public string SampleNameForVariants { get; set; } = "";
     public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; } = new Dictionary<int, List<Modification>>();
     public IBioPolymer ConsensusVariant => this;
@@ -60,7 +61,8 @@ namespace Test.Omics;
 
     public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original,
         IEnumerable<SequenceVariation> appliedSequenceVariants, IEnumerable<TruncationProduct> applicableProteolysisProducts,
-        IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        IDictionary<int, List<Modification>> oneBasedModifications, IDictionary<int, Modification> oneBasedFixedModifications,
+        string sampleNameForVariants)
         where TBioPolymerType : IHasSequenceVariants => original;
 
     public bool Equals(IBioPolymer? other) => other != null && Accession == other.Accession && BaseSequence == other.BaseSequence;

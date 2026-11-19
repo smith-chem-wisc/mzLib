@@ -1,0 +1,99 @@
+# Formal charges of PSI-MOD modifications: PSI-MOD accession <TAB> charge (signed integer).
+#
+# Source: PSI-MOD.obo from https://github.com/HUPO-PSI/psi-mod-CV, data-version 1.039.0
+# (date 18:09:2026), every term with an "xref: FormalCharge" line. 86 terms.
+#
+# Mods.cs reads this file to build the dictionary ModificationLoader.ReadMod uses to remove one
+# hydrogen per positive charge (and add one per negative charge) from a modification whose
+# PSI-MOD cross-reference is charged. Nothing else from PSI-MOD is used when loading
+# modifications, so this file replaces the embedded 2014 PSI-MOD.obo.xml for that purpose.
+#
+# To regenerate, download PSI-MOD.obo (Loaders.UpdatePsiModObo) and write each pair of
+# Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(path)) as accession <TAB> charge,
+# sorted by accession.
+MOD:00049	1
+MOD:00071	1
+MOD:00075	1
+MOD:00083	1
+MOD:00145	-2
+MOD:00146	-2
+MOD:00147	-3
+MOD:00148	-3
+MOD:00149	-2
+MOD:00230	-2
+MOD:00231	-1
+MOD:00285	1
+MOD:00289	-2
+MOD:00290	-2
+MOD:00291	-2
+MOD:00293	-2
+MOD:00294	-2
+MOD:00305	-3
+MOD:00331	-3
+MOD:00336	-2
+MOD:00353	1
+MOD:00361	-1
+MOD:00362	-2
+MOD:00364	1
+MOD:00711	1
+MOD:00801	-2
+MOD:00854	1
+MOD:00855	1
+MOD:00856	1
+MOD:00857	1
+MOD:00864	-2
+MOD:00888	1
+MOD:00889	1
+MOD:01145	1
+MOD:01382	1
+MOD:01443	-1
+MOD:01454	1
+MOD:01464	1
+MOD:01465	1
+MOD:01522	1
+MOD:01523	1
+MOD:01524	1
+MOD:01525	1
+MOD:01588	1
+MOD:01594	1
+MOD:01595	1
+MOD:01596	1
+MOD:01597	1
+MOD:01598	1
+MOD:01599	1
+MOD:01600	1
+MOD:01601	1
+MOD:01687	1
+MOD:01698	1
+MOD:01699	1
+MOD:01700	1
+MOD:01701	-1
+MOD:01702	-1
+MOD:01727	1
+MOD:01735	1
+MOD:01743	1
+MOD:01751	1
+MOD:01759	1
+MOD:01767	1
+MOD:01771	1
+MOD:01772	1
+MOD:01773	1
+MOD:01784	1
+MOD:01788	1
+MOD:01789	1
+MOD:01790	1
+MOD:01791	1
+MOD:01792	1
+MOD:01797	1
+MOD:01798	1
+MOD:01801	1
+MOD:01802	1
+MOD:01869	1
+MOD:01906	1
+MOD:01907	1
+MOD:01933	1
+MOD:01934	1
+MOD:01974	1
+MOD:01982	1
+MOD:01990	1
+MOD:01991	1

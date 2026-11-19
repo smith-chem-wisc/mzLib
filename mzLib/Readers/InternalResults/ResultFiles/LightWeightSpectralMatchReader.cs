@@ -154,7 +154,9 @@ namespace Readers
             parsedHeader[SpectrumMatchFromTsvHeader.OrganismName] = IndexOf(SpectrumMatchFromTsvHeader.OrganismName);
             parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] = IndexOf(SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime);
             parsedHeader[SpectrumMatchFromTsvHeader.QValue] = IndexOf(SpectrumMatchFromTsvHeader.QValue);
+            parsedHeader[SpectrumMatchFromTsvHeader.PEP] = IndexOf(SpectrumMatchFromTsvHeader.PEP);
             parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue] = IndexOf(SpectrumMatchFromTsvHeader.PEP_QValue);
+            parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] = IndexOf(SpectrumMatchFromTsvHeader.QValueNotch);
 
             // Accession — handle legacy column names
             if (columnIndex.ContainsKey(SpectrumMatchFromTsvHeader.Accession))

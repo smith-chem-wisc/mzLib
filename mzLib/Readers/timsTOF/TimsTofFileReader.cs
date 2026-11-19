@@ -377,16 +377,20 @@ namespace Readers
             {
                 case ScanMode.PASEF:
                     Ms1ScansNoPrecursorsBag = new();
+                    // each worker reads frames through a handle of its own; see OpenFrameReaderForWorker
                     Parallel.ForEach(
                         Partitioner.Create(0, Ms1FrameIds.Count),
                         new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
-                        (range) =>
+                        OpenFrameReaderForWorker,
+                        (range, _, frames) =>
                         {
                             for (int i = range.Item1; i < range.Item2; i++)
                             {
-                                BuildDDAScans(Ms1FrameIds[i], filteringParams);
+                                BuildDDAScans(Ms1FrameIds[i], filteringParams, frames);
                             }
-                        });
+                            return frames;
+                        },
+                        CloseFrameReaderForWorker);
                     AssignOneBasedPrecursorsToPasefScans();
                     break;
                 case ScanMode.MRM:
@@ -395,13 +399,16 @@ namespace Readers
                     Parallel.ForEach(
                         Partitioner.Create(0, NumberOfFrames),
                         new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
-                        (range) =>
+                        OpenFrameReaderForWorker,
+                        (range, _, frames) =>
                         {
                             for (int i = range.Item1; i < range.Item2; i++)
                             {
-                                BuildMrmScan(i + 1, filteringParams); // i is zero-based, frame ids are one-based
+                                BuildMrmScan(i + 1, filteringParams, frames); // i is zero-based, frame ids are one-based
                             }
-                        });
+                            return frames;
+                        },
+                        CloseFrameReaderForWorker);
                     AssignScanNumbersToMrmScans();
                     break;
                 default:
@@ -425,6 +432,44 @@ namespace Readers
                     break;
                 default:
                     throw new MzLibException($"The timsTOF file contains unsupported scan mode: {Enum.GetName((ScanMode)ScanMode)}. Only DMRM data is supported for .tsf files");
+            }
+        }
+
+        /// <summary>
+        /// Serializes opening and closing Bruker handles, which a parallel load does once per worker.
+        /// </summary>
+        private static readonly object BrukerHandleOpenCloseLock = new();
+
+        /// <summary>
+        /// The frame reader for one worker of a parallel load: a handle of its own on the file, so its frame reads do not
+        /// wait on any other worker's. Bruker's reader allows no two threads to read through one handle at once, so with
+        /// the one shared handle and its lock every frame read of a parallel load queued behind the others - nearly all of
+        /// a 1.6 GB timsTOF Ultra file's 46 s load. If the file cannot be opened again, the worker reads through the shared
+        /// handle under its lock, as every worker did before.
+        /// </summary>
+        private FrameProxyFactory OpenFrameReaderForWorker()
+        {
+            ulong handle;
+            lock (BrukerHandleOpenCloseLock)
+            {
+                handle = tims_open(BrukerFileReader.ConvertStringToUTF8ByteArray(FilePath), 0);
+            }
+            return handle == 0 ? FrameProxyFactory : FrameProxyFactory.WithOwnHandle(handle);
+        }
+
+        /// <summary>
+        /// Closes the handle a worker opened in <see cref="OpenFrameReaderForWorker"/>; the shared one is closed with the
+        /// dynamic connection.
+        /// </summary>
+        private void CloseFrameReaderForWorker(FrameProxyFactory frames)
+        {
+            if (ReferenceEquals(frames, FrameProxyFactory))
+            {
+                return;
+            }
+            lock (BrukerHandleOpenCloseLock)
+            {
+                tims_close(frames.FileHandle);
             }
         }
 
@@ -507,9 +552,11 @@ namespace Readers
         /// </summary>
         /// <param name="frameId"></param>
         /// <param name="filteringParams"></param>
-        internal void BuildDDAScans(long frameId, FilteringParams filteringParams)
+        /// <param name="frames"> Reads the frames; null for <see cref="FrameProxyFactory"/>. A parallel load gives each worker its own. </param>
+        internal void BuildDDAScans(long frameId, FilteringParams filteringParams, FrameProxyFactory frames = null)
         {
-            FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+            frames ??= FrameProxyFactory;
+            FrameProxy frame = frames.GetFrameProxy(frameId);
             if (frame == null || !frame.IsFrameValid())
             {
                 FaultyFrameIds.Add(frameId);
@@ -529,7 +576,7 @@ namespace Readers
             }
 
             // Then, build ONE MS2 scan by averaging every PASEF frame that sampled that precursor
-            var pasefScans = BuildPasefScanFromPrecursor(precursorIds: records.Select(r => r.PrecursorId), filteringParams);
+            var pasefScans = BuildPasefScanFromPrecursor(precursorIds: records.Select(r => r.PrecursorId), filteringParams, frames);
             foreach (var scan in pasefScans)
             {
                 if (scan?.PrecursorId != null)
@@ -543,9 +590,10 @@ namespace Readers
         /// </summary>
         /// <param name="frameId"></param>
         /// <param name="filteringParams"></param>
-        internal void BuildMrmScan(long frameId, FilteringParams filteringParams)
+        /// <param name="frames"> Reads the frame; null for <see cref="FrameProxyFactory"/>. A parallel load gives each worker its own. </param>
+        internal void BuildMrmScan(long frameId, FilteringParams filteringParams, FrameProxyFactory frames = null)
         {
-            FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+            FrameProxy frame = (frames ?? FrameProxyFactory).GetFrameProxy(frameId);
             if (frame == null || !frame.IsFrameValid())
             {
                 FaultyFrameIds.Add(frameId);
@@ -711,7 +759,8 @@ namespace Readers
             return dataScan;
         }
 
-        internal List<TimsDataScan> BuildPasefScanFromPrecursor(IEnumerable<int> precursorIds, FilteringParams filteringParams)
+        /// <param name="frames"> Reads the frames; null for <see cref="FrameProxyFactory"/>. </param>
+        internal List<TimsDataScan> BuildPasefScanFromPrecursor(IEnumerable<int> precursorIds, FilteringParams filteringParams, FrameProxyFactory frames = null)
         {
             HashSet<long> allFrames = new();
             List<TimsDataScan> pasefScans = new();
@@ -753,7 +802,7 @@ namespace Readers
                 pasefScans.Add(dataScan);
             }
 
-            PopulateSpectraForPasefScans(pasefScans, allFrames, filteringParams);
+            PopulateSpectraForPasefScans(pasefScans, allFrames, filteringParams, frames);
             return pasefScans;
         }
 
@@ -859,11 +908,14 @@ namespace Readers
         /// <param name="pasefScansWithNullSpectra">List of timsDataScans with metadata but no MzSpectrum</param>
         /// <param name="relevantFrameIds">Frames that contains scans to average for the given pasefScans</param>
         /// <param name="filteringParams">Filtering params that specify MS2 spectrum filtering options</param>
-        internal void PopulateSpectraForPasefScans(List<TimsDataScan> pasefScansWithNullSpectra, IEnumerable<long> relevantFrameIds, FilteringParams filteringParams)
+        /// <param name="frames">Reads the frames; null for <see cref="FrameProxyFactory"/></param>
+        internal void PopulateSpectraForPasefScans(List<TimsDataScan> pasefScansWithNullSpectra, IEnumerable<long> relevantFrameIds, FilteringParams filteringParams,
+            FrameProxyFactory frames = null)
         {
+            frames ??= FrameProxyFactory;
             foreach (long frameId in relevantFrameIds)
             {
-                FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+                FrameProxy frame = frames.GetFrameProxy(frameId);
                 if (frame == null || !frame.IsFrameValid())
                 {
                     FaultyFrameIds.Add(frameId);

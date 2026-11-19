@@ -469,7 +469,7 @@ public sealed class TestMslLibrary
 
 	/// <summary>
 	/// Verifies that after a <see cref="MslLibrary.QueryWindow"/> call in index-only mode,
-	/// <see cref="MslLibrary.GetEntry"/> successfully loads the full fragment data for a
+	/// <see cref="MslLibrary.GetEntry(int)"/> successfully loads the full fragment data for a
 	/// candidate returned by the window query.
 	/// </summary>
 	[Test]
@@ -873,5 +873,88 @@ public sealed class TestMslLibrary
 
 		Assert.That(() => lib.Dispose(), Throws.Nothing,
 			"Calling Dispose() a third time must not throw.");
+	}
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// Group 10 — GetEntry cache configuration per load path
+	// ════════════════════════════════════════════════════════════════════════════
+
+	/// <summary>
+	/// Every load path that holds all entries in memory builds its index with the
+	/// <see cref="MslLibrary.GetEntry"/> cache disabled. Reads every entry three times, then
+	/// one index below and one above the range, and checks that the right entries come back,
+	/// the out-of-range reads return null, and the cache counters never moved.
+	/// </summary>
+	private static void AssertGetEntryBypassesCache(MslLibrary lib, IReadOnlyList<MslLibraryEntry> expected)
+	{
+		for (int round = 0; round < 3; round++)
+			for (int i = 0; i < expected.Count; i++)
+				Assert.That(lib.GetEntry(i)!.PrecursorMz, Is.EqualTo(expected[i].PrecursorMz).Within(1e-3),
+					$"GetEntry({i}) returned the wrong entry.");
+
+		Assert.That(lib.GetEntry(-1), Is.Null, "A negative index must return null, not throw.");
+		Assert.That(lib.GetEntry(expected.Count), Is.Null, "An index past the end must return null, not throw.");
+
+		MslIndexStatistics stats = lib.IndexStatisticsForTesting;
+		Assert.That(stats.LruHits, Is.EqualTo(0), "A full-load library must not use the GetEntry cache.");
+		Assert.That(stats.LruMisses, Is.EqualTo(0), "A full-load library must not use the GetEntry cache.");
+	}
+
+	/// <summary><see cref="MslLibrary.Load"/> holds every entry, so GetEntry skips the cache.</summary>
+	[Test]
+	public void Load_GetEntry_BypassesCache()
+	{
+		using MslLibrary lib = MslLibrary.Load(SharedLibraryPath);
+		AssertGetEntryBypassesCache(lib, BuildFixtureEntries());
+	}
+
+	/// <summary>
+	/// <see cref="MslLibrary.LoadIndexOnly"/> on a compressed file falls back to a full load,
+	/// so GetEntry skips the cache exactly as after <see cref="MslLibrary.Load"/>.
+	/// </summary>
+	[Test]
+	public void LoadIndexOnly_CompressedFallback_GetEntry_BypassesCache()
+	{
+		string path = Path.Combine(OutputDirectory, "getentry_cache_compressed.msl");
+		MslWriter.Write(path, BuildFixtureEntries(), compressionLevel: 3);
+
+		using MslLibrary lib = MslLibrary.LoadIndexOnly(path);
+
+		Assert.That(lib.IsIndexOnly, Is.False);
+		AssertGetEntryBypassesCache(lib, BuildFixtureEntries());
+	}
+
+	/// <summary>
+	/// <see cref="MslConverter.FromMspLibrarySpectra"/> builds a file-less in-memory library,
+	/// so GetEntry skips the cache.
+	/// </summary>
+	[Test]
+	public void FromMspLibrarySpectra_GetEntry_BypassesCache()
+	{
+		List<MslLibraryEntry> fixture = BuildFixtureEntries();
+		List<LibrarySpectrum> spectra = fixture.Select(e => e.ToLibrarySpectrum()).ToList();
+
+		using MslLibrary lib = MslConverter.FromMspLibrarySpectra(spectra);
+
+		AssertGetEntryBypassesCache(lib, fixture);
+	}
+
+	/// <summary>
+	/// Contrast with the full-load paths: a true index-only library reads fragments from
+	/// disk, so GetEntry caches them — the first read misses and the second hits.
+	/// </summary>
+	[Test]
+	public void LoadIndexOnly_Uncompressed_GetEntry_UsesCache()
+	{
+		using MslLibrary lib = MslLibrary.LoadIndexOnly(SharedLibraryPath);
+		Assert.That(lib.IsIndexOnly, Is.True);
+
+		MslLibraryEntry? first = lib.GetEntry(0);
+		MslLibraryEntry? second = lib.GetEntry(0);
+
+		Assert.That(second, Is.SameAs(first), "The second read must be served from the cache.");
+		MslIndexStatistics stats = lib.IndexStatisticsForTesting;
+		Assert.That(stats.LruMisses, Is.EqualTo(1));
+		Assert.That(stats.LruHits, Is.EqualTo(1));
 	}
 }

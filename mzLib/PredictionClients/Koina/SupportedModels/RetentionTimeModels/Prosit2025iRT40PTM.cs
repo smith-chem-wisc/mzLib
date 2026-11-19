@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 
@@ -20,7 +21,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => true;
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public Prosit2025iRT40PTM(
@@ -45,5 +47,11 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
             }
             return batchedRequests;
         }
+
+        /// <summary>
+        /// Base cleaning, then the (residue, UNIMOD) pairs Koina refuses for this model; see <see cref="Prosit2025ModificationRules"/>.
+        /// </summary>
+        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
+            => Prosit2025ModificationRules.TryCleanSequence(ModelName, ModHandlingMode, sequence, sourceParser, base.TryCleanSequence, out apiSequence, out warning);
     }
 }

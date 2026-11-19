@@ -143,7 +143,15 @@ namespace Readers
             Results = rows;
         }
 
-        public override void WriteResults(string outputPath)
+        public override void WriteResults(string outputPath) => WriteResults(outputPath, out _);
+
+        /// <summary>
+        /// Writes the document, as <see cref="WriteResults(string)"/> does, and says where. A path this reader would
+        /// not read back gets the extension appended, the rule of every mzLib result file, so <c>x.tsv</c> is
+        /// written as <c>x.tsv.sdrf.tsv</c>. <paramref name="writtenPath"/> is the full path of the file actually
+        /// written, so a caller reporting it need not restate that rule (bridge SDRF-B3).
+        /// </summary>
+        public void WriteResults(string outputPath, out string writtenPath)
         {
             if (!CanRead(outputPath))
                 outputPath += FileType.GetFileExtension();
@@ -168,19 +176,41 @@ namespace Readers
             foreach (var row in rows)
                 RejectUnrepresentable(row.Cells, "value", outputPath);
 
-            // UTF8Encoding(false) -- no byte-order mark. Encoding.UTF8 emits one, and not one of the
-            // 1,236 corpus files has it; adding a BOM would break a byte-identical round trip on the
-            // very first byte.
-            using var writer = new StreamWriter(File.Create(outputPath), new UTF8Encoding(false));
-
-            writer.Write(string.Join(CellSeparator, header));
-            foreach (var row in rows)
+            // Written to a sibling temp file and moved over the target only once complete. File.Create
+            // on the target itself left a truncated SDRF behind any crash mid-write, and a pipeline
+            // that retries on "file missing" sees a truncated file as done. Same directory, so the
+            // move is a rename on one volume rather than a copy; a unique name, so two writers of one
+            // path cannot collide on the temp file (ProteinDbRetriever's pattern).
+            string fullPath = Path.GetFullPath(outputPath);
+            string tempPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".partial";
+            try
             {
-                writer.Write(_lineEnding);
-                writer.Write(string.Join(CellSeparator, row.Cells));
+                // UTF8Encoding(false) -- no byte-order mark. Encoding.UTF8 emits one, and not one of
+                // the 1,236 corpus files has it; adding a BOM would break a byte-identical round trip
+                // on the very first byte.
+                using (var writer = new StreamWriter(File.Create(tempPath), new UTF8Encoding(false)))
+                {
+                    writer.Write(string.Join(CellSeparator, header));
+                    foreach (var row in rows)
+                    {
+                        writer.Write(_lineEnding);
+                        writer.Write(string.Join(CellSeparator, row.Cells));
+                    }
+                    if (_endsWithNewline)
+                        writer.Write(_lineEnding);
+                }
+
+                File.Move(tempPath, fullPath, overwrite: true);
             }
-            if (_endsWithNewline)
-                writer.Write(_lineEnding);
+            finally
+            {
+                // Cleanup must never replace the exception that got us here.
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+
+            writtenPath = fullPath;
         }
 
         /// <summary>

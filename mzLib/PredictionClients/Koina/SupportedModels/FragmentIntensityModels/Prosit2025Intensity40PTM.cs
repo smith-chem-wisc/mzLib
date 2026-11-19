@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
@@ -35,7 +36,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
         public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
         public override int NumberOfPredictedFragmentIons => 174;
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
@@ -73,5 +75,11 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             }
             return batchedRequests;
         }
+
+        /// <summary>
+        /// Base cleaning, then the (residue, UNIMOD) pairs Koina refuses for this model; see <see cref="Prosit2025ModificationRules"/>.
+        /// </summary>
+        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
+            => Prosit2025ModificationRules.TryCleanSequence(ModelName, ModHandlingMode, sequence, sourceParser, base.TryCleanSequence, out apiSequence, out warning);
     }
 }

@@ -1,0 +1,118 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+Synthetic fixture for isoform-scoped UniProt data. The accessions Q9ZZZ1 and Q9ZZZ2 and every id below are invented;
+the element shapes are UniProt's, as they occur in the UniProt 2026_03 human gene-centric XML.
+
+What it exercises:
+ - Q9ZZZ1 displays isoform Q9ZZZ1-2, not -1 (UniProt's displayed isoform can carry any number);
+ - an interaction comment whose <interactant><id> must not be read as an isoform id;
+ - isoform <sequence type="described"> elements, which must not replace the entry's own <sequence>;
+ - a text-form <molecule> inside a comment, which is not a dbReference's molecule;
+ - dbReferences scoped to one isoform by <molecule id>: Ensembl, and Reactome for the displayed and a non-displayed
+   isoform, interleaved with whole-entry references so a molecule cannot leak into the next reference;
+ - Q9ZZZ2 lists no isoforms.
+-->
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="2026-01-01" modified="2026-09-02" version="1">
+<accession>Q9ZZZ1</accession>
+<name>ZZZ1_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>Isoform scope test protein 1</fullName>
+</recommendedName>
+</protein>
+<gene>
+<name type="primary">ZZZ1</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<dbReference type="NCBI Taxonomy" id="9606"/>
+</organism>
+<comment type="interaction">
+<interactant intactId="EBI-9000001">
+<id>Q9ZZZ1-3</id>
+<label>ZZZ1</label>
+</interactant>
+<interactant intactId="EBI-9000002">
+<id>Q9ZZZ2</id>
+<label>ZZZ2</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="alternative products">
+<event type="alternative splicing"/>
+<isoform>
+<id>Q9ZZZ1-1</id>
+<name>1</name>
+<sequence type="described" ref="VSP_900001"/>
+</isoform>
+<isoform>
+<id>Q9ZZZ1-2</id>
+<name>2</name>
+<sequence type="displayed"/>
+</isoform>
+<isoform>
+<id>Q9ZZZ1-3</id>
+<name>3</name>
+<sequence type="described" ref="VSP_900002"/>
+</isoform>
+</comment>
+<comment type="subcellular location">
+<molecule>Isoform 3</molecule>
+<subcellularLocation>
+<location>Cytoplasm</location>
+</subcellularLocation>
+</comment>
+<dbReference type="Ensembl" id="ENST00009000001.1">
+<molecule id="Q9ZZZ1-2"/>
+<property type="protein sequence ID" value="ENSP00009000001.1"/>
+<property type="gene ID" value="ENSG00009000001.1"/>
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-77289">
+<molecule id="Q9ZZZ1-1"/>
+<property type="pathway name" value="Mitochondrial Fatty Acid Beta-Oxidation"/>
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-70171">
+<property type="pathway name" value="Glycolysis"/>
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-556833">
+<molecule id="Q9ZZZ1-2"/>
+<property type="pathway name" value="Metabolism of lipids"/>
+</dbReference>
+<dbReference type="KEGG" id="hsa:9000001"/>
+<sequence length="12" mass="1300" checksum="00000000000000A1" modified="2026-09-02" version="2">MPEPTIDEKAAR</sequence>
+</entry>
+<entry dataset="Swiss-Prot" created="2026-01-01" modified="2026-09-02" version="1">
+<accession>Q9ZZZ2</accession>
+<name>ZZZ2_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>Isoform scope test protein 2</fullName>
+</recommendedName>
+</protein>
+<gene>
+<name type="primary">ZZZ2</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<dbReference type="NCBI Taxonomy" id="9606"/>
+</organism>
+<comment type="interaction">
+<interactant intactId="EBI-9000002">
+<id>Q9ZZZ2</id>
+<label>ZZZ2</label>
+</interactant>
+<interactant intactId="EBI-9000001">
+<id>Q9ZZZ1-3</id>
+<label>ZZZ1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<dbReference type="Reactome" id="R-HSA-70171">
+<property type="pathway name" value="Glycolysis"/>
+</dbReference>
+<sequence length="10" mass="1100" checksum="00000000000000A2" modified="2026-09-02" version="1">MSEQWENCER</sequence>
+</entry>
+</uniprot>

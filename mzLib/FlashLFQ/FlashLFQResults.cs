@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using MassSpectrometry;
 using FlashLFQ.IsoTracker;
+using Quantification.Strategies;
 
 namespace FlashLFQ
 {
@@ -446,18 +447,15 @@ namespace FlashLFQ
             {
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
-                    // set up peptide intensity table
-                    // top row is the column effects, left column is the row effects
-                    // the other cells are peptide intensity measurements
-                    int numSamples = SpectraFiles.Select(p => p.Condition + p.BiologicalReplicate).Distinct().Count();
-                    double[][] peptideIntensityMatrix = new double[peptidesForThisProtein.Count + 1][];
-                    for (int i = 0; i < peptideIntensityMatrix.Length; i++)
+                    // one row per peptide, one column per sample (condition + biological replicate)
+                    int numSamples = SpectraFiles.Select(p => (p.Condition, p.BiologicalReplicate)).Distinct().Count();
+                    double[][] peptideIntensities = new double[peptidesForThisProtein.Count][];
+                    for (int i = 0; i < peptideIntensities.Length; i++)
                     {
-                        peptideIntensityMatrix[i] = new double[numSamples + 1];
+                        peptideIntensities[i] = new double[numSamples];
                     }
 
-                    // populate matrix w/ log2-transformed peptide intensities
-                    // if a value is missing, it will be filled with NaN
+                    // populate the sample intensity of each peptide; 0 means not observed
                     int sampleN = 0;
                     foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
@@ -498,79 +496,14 @@ namespace FlashLFQ
                                     }
                                 }
 
-                                int sampleNumber = sample.Key;
-
-                                if (sampleIntensity == 0)
-                                {
-                                    sampleIntensity = double.NaN;
-                                }
-                                else
-                                {
-                                    sampleIntensity = Math.Log(sampleIntensity, 2);
-                                }
-
-                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide) + 1][sampleN + 1] = sampleIntensity;
+                                peptideIntensities[peptidesForThisProtein.IndexOf(peptide)][sampleN] = sampleIntensity;
                             }
 
                             sampleN++;
                         }
                     }
 
-                    // if there are any peptides that have only one measurement, mark them as NaN
-                    // unless we have ONLY peptides with one measurement
-                    var peptidesWithMoreThanOneMmt = peptideIntensityMatrix.Skip(1).Count(row => row.Skip(1).Count(cell => !double.IsNaN(cell)) > 1);
-                    if (peptidesWithMoreThanOneMmt > 0)
-                    {
-                        for (int i = 1; i < peptideIntensityMatrix.Length; i++)
-                        {
-                            int validValueCount = peptideIntensityMatrix[i].Count(p => !double.IsNaN(p) && p != 0);
-
-                            if (validValueCount < 2 && numSamples >= 2)
-                            {
-                                for (int j = 1; j < peptideIntensityMatrix[0].Length; j++)
-                                {
-                                    peptideIntensityMatrix[i][j] = double.NaN;
-                                }
-                            }
-                        }
-                    }
-
-                    // do median polish protein quantification
-                    // row effects in a protein can be considered ~ relative ionization efficiency
-                    // column effects are differences between conditions
-                    MedianPolish(peptideIntensityMatrix);
-
-                    double overallEffect = peptideIntensityMatrix[0][0];
-                    double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
-                    double referenceProteinIntensity = Math.Pow(2, overallEffect) * peptidesForThisProtein.Count;
-
-                    // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
-                    // the protein is still not quantifiable because there are not peptides to compare across runs
-                    List<string> possibleUnquantifiableSample = new List<string>();
-                    sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
-                    {
-                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
-                        {
-                            bool isMissingValue = true;
-
-                            foreach (SpectraFileInfo spectraFile in sample)
-                            {
-                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
-                                {
-                                    isMissingValue = false;
-                                    break;
-                                }
-                            }
-
-                            if (!isMissingValue && columnEffects[sampleN] == 0)
-                            {
-                                possibleUnquantifiableSample.Add(group.Key + "_" + sample.Key);
-                            }
-
-                            sampleN++;
-                        }
-                    }
+                    double[] proteinIntensities = MedianPolishRollUp.QuantifyGroup(peptideIntensities);
 
                     // set the sample protein intensities
                     sampleN = 0;
@@ -578,38 +511,7 @@ namespace FlashLFQ
                     {
                         foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                         {
-                            // this step un-logs the protein "intensity". in reality this value is more like a fold-change 
-                            // than an intensity, but unlike a fold-change it's not relative to a particular sample.
-                            // by multiplying this value by the reference protein intensity calculated earlier, then we get 
-                            // a protein intensity value
-                            double columnEffect = columnEffects[sampleN];
-                            double sampleProteinIntensity = Math.Pow(2, columnEffect) * referenceProteinIntensity;
-
-                            // the column effect can be 0 in some cases. sometimes it's a valid value and sometimes it's not.
-                            // so we need to check to see if it is actually a valid value
-                            bool isMissingValue = true;
-
-                            foreach (SpectraFileInfo spectraFile in sample)
-                            {
-                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
-                                {
-                                    isMissingValue = false;
-                                    break;
-                                }
-                            }
-
-                            if (!isMissingValue)
-                            {
-                                if (possibleUnquantifiableSample.Count > 1 && possibleUnquantifiableSample.Contains(group.Key + "_" + sample.Key))
-                                {
-                                    proteinGroup.SetIntensity(sample.First(), double.NaN);
-                                }
-                                else
-                                {
-                                    proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
-                                }
-                            }
-
+                            proteinGroup.SetIntensity(sample.First(), proteinIntensities[sampleN]);
                             sampleN++;
                         }
                     }
@@ -747,82 +649,13 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// The median polish fit itself. Kept here for existing callers; the implementation is
+        /// <see cref="MedianPolishRollUp.MedianPolish"/> in the Quantification project.
+        /// </summary>
         public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
         {
-            // technically, this is weighted mean polish and not median polish.
-            // but it should give similar results while being more robust to issues
-            // arising from missing values.
-            // the weights are inverse square difference to median.
-
-            // subtract overall effect
-            List<double> allValues = table.SelectMany(p => p.Where(p => !double.IsNaN(p) && p != 0)).ToList();
-
-            if (allValues.Any())
-            {
-                double overallEffect = allValues.Median();
-                table[0][0] += overallEffect;
-
-                for (int r = 1; r < table.Length; r++)
-                {
-                    for (int c = 1; c < table[0].Length; c++)
-                    {
-                        table[r][c] -= overallEffect;
-                    }
-                }
-            }
-
-            double sumAbsoluteResiduals = double.MaxValue;
-
-            for (int i = 0; i < maxIterations; i++)
-            {
-                // subtract row effects
-                for (int r = 0; r < table.Length; r++)
-                {
-                    List<double> rowValues = table[r].Skip(1).Where(p => !double.IsNaN(p)).ToList();
-
-                    if (rowValues.Any())
-                    {
-                        double rowMedian = rowValues.Median();
-                        double[] weights = rowValues.Select(p => 1.0 / Math.Max(0.0001, Math.Pow(p - rowMedian, 2))).ToArray();
-                        double rowEffect = rowValues.Sum(p => p * weights[rowValues.IndexOf(p)]) / weights.Sum();
-                        table[r][0] += rowEffect;
-
-                        for (int c = 1; c < table[0].Length; c++)
-                        {
-                            table[r][c] -= rowEffect;
-                        }
-                    }
-                }
-
-                // subtract column effects
-                for (int c = 0; c < table[0].Length; c++)
-                {
-                    List<double> colValues = table.Skip(1).Select(p => p[c]).Where(p => !double.IsNaN(p)).ToList();
-
-                    if (colValues.Any())
-                    {
-                        double colMedian = colValues.Median();
-                        double[] weights = colValues.Select(p => 1.0 / Math.Max(0.0001, Math.Pow(p - colMedian, 2))).ToArray();
-                        double colEffect = colValues.Sum(p => p * weights[colValues.IndexOf(p)]) / weights.Sum();
-                        table[0][c] += colEffect;
-
-                        for (int r = 1; r < table.Length; r++)
-                        {
-                            table[r][c] -= colEffect;
-                        }
-                    }
-                }
-
-                // calculate sum of absolute residuals and end the algorithm if it is not improving
-                double iterationSumAbsoluteResiduals = table.Skip(1).SelectMany(p => p.Skip(1)).Where(p => !double.IsNaN(p)).Sum(p => Math.Abs(p));
-
-                if (Math.Abs((iterationSumAbsoluteResiduals - sumAbsoluteResiduals) / sumAbsoluteResiduals) < improvementCutoff)
-                {
-                    break;
-                }
-
-                sumAbsoluteResiduals = iterationSumAbsoluteResiduals;
-            }
+            MedianPolishRollUp.MedianPolish(table, maxIterations, improvementCutoff);
         }
 
         /// <summary>

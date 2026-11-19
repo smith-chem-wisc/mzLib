@@ -1,0 +1,617 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using MassSpectrometry;
+
+namespace Readers
+{
+    /// <summary>
+    /// What a caller tells <see cref="SdrfLabelFreeDesign.Read(SdrfDocument, SdrfLabelFreeDesignOptions?)"/>
+    /// that the SDRF alone cannot say.
+    /// </summary>
+    public sealed class SdrfLabelFreeDesignOptions
+    {
+        /// <summary>
+        /// The <c>factor value[...]</c> columns the condition is built from, in order, by their exact
+        /// column names (column names match case-sensitively). The condition is their values joined
+        /// with <c>_</c>. Leave null or empty to build it from every factor value column, in the
+        /// document's order (MAP-07; ruled 2026-11-11, QP-S42 c), with a note when there are several.
+        /// A document with no factor value column, and none declared, is refused unless
+        /// <see cref="SingleCondition"/> is given.
+        /// </summary>
+        public IReadOnlyList<string>? ConditionColumns { get; init; }
+
+        /// <summary>
+        /// The name of the one condition every file belongs to, when the user states it (ruled 2026-11-11, QP-S42 b). It is
+        /// never assumed: an SDRF with no factor value column is refused without it. Any factor value columns are set aside,
+        /// and a note names them. Cannot be given with <see cref="ConditionColumns"/>.
+        /// </summary>
+        public string? SingleCondition { get; init; }
+
+        /// <summary>
+        /// The user states that files whose condition cell says nobody stated it (<c>not available</c>,
+        /// <c>not applicable</c>, or a blank, read as <c>not available</c>) are a condition of their own (ruled 2026-11-11,
+        /// QP-S44). Without it they are refused, each named. With it the word is kept as a level, and a note names the files.
+        /// </summary>
+        public bool UnknownFactorIsOwnCondition { get; init; }
+
+        /// <summary>
+        /// The files the search will read, as paths or bare names. When given, the design is checked
+        /// the way MetaMorpheus reads it: each searched file must be named EXACTLY (case and
+        /// extension) by one row, and rows naming a file that is not searched are dropped and
+        /// reported before any row is checked. Two searched paths sharing a file name, or a list naming
+        /// no file, are refused. No stem matching happens here: joining searched files to rows is
+        /// <c>SdrfSearchScope</c>'s job, and it writes the <c>comment[searched data file]</c> this
+        /// reader keys on.
+        /// </summary>
+        public IReadOnlyCollection<string>? SearchedFiles { get; init; }
+    }
+
+    /// <summary>
+    /// A label-free experimental design read from an SDRF (QuantProject M7): either a design that
+    /// MetaMorpheus will accept, or a refusal that lists every reason it would not.
+    ///
+    /// <para><b>Why refuse rather than repair.</b> An invalid <c>ExperimentalDesign.tsv</c> is worse
+    /// than none: MetaMorpheus skips quantification with one warning and no error exit. So this reader
+    /// refuses what MetaMorpheus's own validator refuses (MAP-32): two files at one condition, biological
+    /// replicate, fraction and technical replicate. It reports every such case at once rather than the
+    /// first, and writes nothing when anything fails. A gap in any of the numbers is not refused.</para>
+    ///
+    /// <para><b>Numbers are the SDRF's.</b> A biological replicate number the SDRF gives is written exactly
+    /// as given, never ranked or closed up: replicate 4 of one condition can be the same subject as replicate 4
+    /// of another, and a gap can be a lost sample. Only where the SDRF gives no number (no column, or
+    /// <c>not available</c>) is one added, per sample: the one number the sample's other rows give, or else one after
+    /// the highest the condition uses, so an added number never fills a gap. That,
+    /// and dropping rows that name a file the search does not read, are the only changes, and both are reported
+    /// in <see cref="Notes"/>, as are gaps in the numbering (biological replicates, fractions and technical
+    /// replicates alike; fractions are copied as given too, because they are matched across samples by number) and a sample name whose one number disagrees with
+    /// its replicate.</para>
+    ///
+    /// <para><b>Numbering.</b> The model (<see cref="SpectraFileInfo"/>) is 0-based; SDRF and
+    /// <c>ExperimentalDesign.tsv</c> are 1-based. The conversion happens once on the way in and once
+    /// in <see cref="WriteExperimentalDesignTsv"/>, and nowhere else.</para>
+    ///
+    /// <para><b>Pooled reference files</b> (GR-20; a QC pool, a reference) are never refused. A file the SDRF marks as one,
+    /// by <c>characteristics[sample type]</c> <c>reference</c> or <c>pooled</c>, by <c>characteristics[pooled sample]</c>
+    /// other than <c>not pooled</c>, or by a biological replicate of <c>pooled</c>, is kept, quantified as any file is, and
+    /// carried as <see cref="SpectraFileInfo.IsReference"/>, so statistics leave it out of every comparison. Any one signal
+    /// is enough; one that disagrees is reported, and the file is still a reference. A <c>pooled</c> replicate is a sample
+    /// that gives no number, numbered by the rule above, and a reference's unknown condition (<c>not applicable</c>) is kept
+    /// as written. <c>comment[reference channel]</c> names a channel, which a label-free file has none of. When every sample
+    /// of the design is marked by <c>characteristics[pooled sample]</c> or a <c>pooled</c> replicate, the mark says how the
+    /// samples were made, so it marks none of them, and a note says so (ruled 2026-10-26). A sample type of
+    /// <c>reference</c> or <c>pooled</c> still marks a reference, and a file it marks need not carry the other mark. When
+    /// every sample's sample type is <c>reference</c> or <c>pooled</c>, the role tells no sample apart, so it marks none of
+    /// them either, and a note says so (ruled 2026-11-03).</para>
+    ///
+    /// <para>The rules are the design ↔ SDRF mapping table's read rules: MAP-07 (condition), MAP-12
+    /// (file key), MAP-21/22 (technical replicate, fraction), MAP-32..34.</para>
+    /// </summary>
+    public sealed class SdrfLabelFreeDesign
+    {
+        public const string SearchedDataFileColumn = "comment[searched data file]";
+        public const string DataFileColumn = "comment[data file]";
+        public const string BiologicalReplicateColumn = "characteristics[biological replicate]";
+        public const string TechnicalReplicateColumn = "comment[technical replicate]";
+        public const string FractionColumn = "comment[fraction identifier]";
+        public const string LabelColumn = "comment[label]";
+        public const string SourceNameColumn = "source name";
+        public const string FactorValuePrefix = "factor value[";
+
+        /// <summary>One of the pooled-reference signals (GR-20): <c>reference</c> or <c>pooled</c> marks one.</summary>
+        public const string SampleTypeColumn = "characteristics[sample type]";
+
+        /// <summary>One of the pooled-reference signals (GR-20): anything but <c>not pooled</c> marks one.</summary>
+        public const string PooledSampleColumn = "characteristics[pooled sample]";
+
+        /// <summary>The header MetaMorpheus writes and reads, <c>EngineLayer.ExperimentalDesign</c>.</summary>
+        public const string ExperimentalDesignHeader = "FileName\tCondition\tBiorep\tFraction\tTechrep";
+
+        /// <summary>
+        /// The optional trailing column <see cref="WriteExperimentalDesignTsv"/> adds when a file is a pooled reference:
+        /// <c>reference</c> or <c>study sample</c>, as in MetaMorpheus's <c>TmtDesign.txt</c>. MetaMorpheus and the
+        /// FlashLFQ app read the first five columns of <c>ExperimentalDesign.tsv</c> and ignore it.
+        /// </summary>
+        public const string ExperimentalDesignSampleTypeColumn = "Sample Type";
+
+        private readonly List<SpectraFileInfo> _files;
+
+        private readonly SdrfDesignRules.ConditionRule _condition;
+
+        private SdrfLabelFreeDesign(List<SpectraFileInfo> files, List<string> refusals, List<string> notes,
+            string? fileKeyColumn, SdrfDesignRules.ConditionRule condition)
+        {
+            _files = files;
+            Refusals = refusals;
+            Notes = notes;
+            FileKeyColumn = fileKeyColumn;
+            _condition = condition;
+        }
+
+        /// <summary>True when there is nothing in <see cref="Refusals"/> and the design can be used.</summary>
+        public bool IsValid => Refusals.Count == 0;
+
+        /// <summary>
+        /// One entry per file, 0-based, in SDRF row order. Empty when the design is refused, so a
+        /// caller that forgets to check <see cref="IsValid"/> gets no design rather than a wrong one.
+        /// </summary>
+        public IReadOnlyList<SpectraFileInfo> Files => IsValid ? _files : Array.Empty<SpectraFileInfo>();
+
+        /// <summary>Every reason the design was refused. Empty when it is valid.</summary>
+        public IReadOnlyList<string> Refusals { get; }
+
+        /// <summary>
+        /// What was added, dropped or worth checking on the way to a valid design: biological replicates added
+        /// where the SDRF gives none (with the numbers), rows whose file is not searched, conditions whose
+        /// replicates are not numbered 1..N, and sample names whose one number disagrees with their replicate.
+        /// </summary>
+        public IReadOnlyList<string> Notes { get; }
+
+        /// <summary>The column the files were keyed on (MAP-12), or null when neither was present.</summary>
+        public string? FileKeyColumn { get; }
+
+        /// <summary>The factor columns the condition was built from, in join order. Empty with a stated single condition.</summary>
+        public IReadOnlyList<string> ConditionColumns => _condition.Columns;
+
+        /// <summary>The one condition every file belongs to, when the caller stated it; else null.</summary>
+        public string? SingleCondition => _condition.SingleCondition;
+
+        /// <summary>
+        /// The design as mzLib quantification takes it. Throws when the design was refused.
+        /// </summary>
+        public SampleExperimentalDesign ToExperimentalDesign()
+        {
+            ThrowIfRefused();
+            return SampleExperimentalDesign.LabelFree(_files);
+        }
+
+        /// <summary>
+        /// Writes <c>ExperimentalDesign.tsv</c> in MetaMorpheus's format: 1-based, one row per file,
+        /// the file named with its extension. When a file is a pooled reference, a trailing
+        /// <see cref="ExperimentalDesignSampleTypeColumn"/> says which (<c>reference</c> or <c>study sample</c>);
+        /// otherwise the file is written without it, exactly as before. Throws when the design was refused, so a
+        /// refusal can never leave a file behind for MetaMorpheus to find.
+        /// </summary>
+        public void WriteExperimentalDesignTsv(string path)
+        {
+            ThrowIfRefused();
+
+            bool withSampleType = _files.Any(f => f.IsReference);
+            var text = new StringBuilder();
+            text.Append(ExperimentalDesignHeader);
+            if (withSampleType)
+                text.Append('\t').Append(ExperimentalDesignSampleTypeColumn);
+            text.Append('\n');
+            foreach (var file in _files)
+            {
+                text.Append(SdrfFileNamePattern.FileName(file.FullFilePathWithExtension)).Append('\t')
+                    .Append(file.Condition).Append('\t')
+                    .Append((file.BiologicalReplicate + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
+                    .Append((file.Fraction + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
+                    .Append((file.TechnicalReplicate + 1).ToString(CultureInfo.InvariantCulture));
+                if (withSampleType)
+                    text.Append('\t').Append(file.IsReference ? "reference" : "study sample");
+                text.Append('\n');
+            }
+
+            File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
+        }
+
+        /// <summary>
+        /// A human-readable account of the projection: the columns used, what was added or dropped, and
+        /// every refusal. Print it wherever the design is built; it is the only record of a biological
+        /// replicate number this reader added.
+        /// </summary>
+        public string Report()
+        {
+            var report = new StringBuilder();
+            report.AppendLine(IsValid
+                ? $"Label-free design read from SDRF: {_files.Count} file(s), " +
+                  $"{_files.Select(f => f.Condition).Distinct(StringComparer.Ordinal).Count()} condition(s)."
+                : $"Label-free design REFUSED: {Refusals.Count} reason(s). No design was produced.");
+            report.AppendLine($"Files keyed on: {FileKeyColumn ?? "(none)"}");
+            report.AppendLine($"Condition from: {_condition.Description}");
+            if (IsValid)
+            {
+                var references = _files.Where(f => f.IsReference).Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)).ToList();
+                report.AppendLine(references.Count == 0
+                    ? "Reference files: none marked; every file is a study sample."
+                    : $"Reference files: {references.Count} ({string.Join(", ", references.Take(10))}" +
+                      (references.Count > 10 ? $", and {references.Count - 10} more" : string.Empty) +
+                      "), kept and carried, and left out of every comparison.");
+            }
+            foreach (var note in Notes)
+                report.AppendLine("  note: " + note);
+            foreach (var refusal in Refusals)
+                report.AppendLine("  refused: " + refusal);
+            return report.ToString();
+        }
+
+        /// <summary>Reads an SDRF file. See <see cref="Read(SdrfDocument, SdrfLabelFreeDesignOptions?)"/>.</summary>
+        public static SdrfLabelFreeDesign Read(string sdrfPath, SdrfLabelFreeDesignOptions? options = null)
+        {
+            if (sdrfPath == null)
+                throw new ArgumentNullException(nameof(sdrfPath));
+            return Read(new SdrfDocument(sdrfPath), options);
+        }
+
+        /// <summary>
+        /// Projects an SDRF onto a label-free design. Never throws for a bad document: every problem
+        /// is a refusal, listed in <see cref="Refusals"/>.
+        /// </summary>
+        public static SdrfLabelFreeDesign Read(SdrfDocument sdrf, SdrfLabelFreeDesignOptions? options = null)
+        {
+            if (sdrf == null)
+                throw new ArgumentNullException(nameof(sdrf));
+            return ReadRows(sdrf, options, sourceLines: null, rowsSetAside: null);
+        }
+
+        /// <summary>
+        /// Projects the rows an SDRF join kept (<see cref="SdrfSearchScope.Restrict"/>) onto a label-free design, as
+        /// <see cref="Read(SdrfDocument, SdrfLabelFreeDesignOptions?)"/> does with <c>scoping.Document</c>, except that the
+        /// report speaks of the file the user has open: every line number is the input SDRF's own
+        /// (<see cref="SdrfSearchScoping.SourceLines"/>), and a note on a gap in replicate or fraction numbers says how many
+        /// rows the join set aside (<see cref="SdrfSearchScoping.RowsSetAside"/>), so the gap may be a sample whose file is not
+        /// searched. It takes the scoping itself, not a document beside it, so the rows read and the lines reported cannot come
+        /// from two different joins. A scoping built directly, with no source lines, is read as its document.
+        /// </summary>
+        /// <exception cref="ArgumentException">The scoping gives source lines, but not one per row of its document.</exception>
+        public static SdrfLabelFreeDesign Read(SdrfSearchScoping scoping, SdrfLabelFreeDesignOptions? options = null)
+        {
+            if (scoping == null)
+                throw new ArgumentNullException(nameof(scoping));
+            var sourceLines = SdrfDesignRules.SourceLinesOf(scoping);
+            return ReadRows(scoping.Document, options, sourceLines, sourceLines == null ? null : scoping.RowsSetAside);
+        }
+
+        /// <param name="sourceLines">The input SDRF's line of each row, or null to number the rows as the document's own.</param>
+        /// <param name="rowsSetAside">The rows a join set aside before the read, or null when not known.</param>
+        private static SdrfLabelFreeDesign ReadRows(SdrfDocument sdrf, SdrfLabelFreeDesignOptions? options,
+            IReadOnlyList<int>? sourceLines, int? rowsSetAside)
+        {
+            options ??= new SdrfLabelFreeDesignOptions();
+
+            var refusals = new List<string>();
+            var notes = new List<string>();
+            var header = sdrf.Header;
+            var rows = sdrf.Results.ToList();
+
+            string? keyColumn = SdrfDesignRules.ChooseFileKeyColumn(header, refusals);
+
+            var condition = SdrfDesignRules.ResolveConditionColumns(header, rows, options.ConditionColumns,
+                options.SingleCondition, options.UnknownFactorIsOwnCondition, refusals, notes);
+            var keptUnknown = new List<(string Column, string Value, string FileName)>();
+
+            if (rows.Count == 0)
+                refusals.Add("The SDRF has no rows.");
+
+            if (refusals.Count > 0)
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
+
+            Dictionary<string, string>? searchedByName = null;
+            if (options.SearchedFiles != null)
+            {
+                searchedByName = SdrfDesignRules.IndexSearchedFiles(options.SearchedFiles, refusals);
+                if (refusals.Count > 0)
+                    return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
+            }
+
+            // Read every row, collecting every problem rather than stopping at the first. A row for a
+            // file the search does not read is dropped BEFORE it is checked, as MetaMorpheus's reader
+            // skips it: a problem in a row nothing reads must not refuse the design.
+            var parsed = new List<ParsedRow>();
+            var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
+            var dropped = new List<(int Line, string FileName)>();
+
+            // GR-20: a signal every sample of the design carries tells no sample apart. A preparation mark on every sample
+            // without a role says how the samples were made; a sample type of reference or pooled on every sample says
+            // nothing either.
+            var cleared = SdrfDesignRules.EverySampleIsMarked(rows
+                .Where(r => searchedByName == null || searchedByName.ContainsKey(SdrfDesignRules.FileNameOf(r, keyColumn!)))
+                .Select(r => SdrfDesignRules.ReadReferenceSignals(r, namesThisChannel: null))
+                .Select(s => ((IReadOnlyList<string>)s.Role, (IReadOnlyList<string>)s.Preparation))
+                .ToList(), notes);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                int line = sourceLines?[i] ?? i + 2;
+                string fileName = SdrfDesignRules.FileNameOf(rows[i], keyColumn!);
+                if (searchedByName != null && !searchedByName.ContainsKey(fileName))
+                {
+                    dropped.Add((line, fileName));
+                    notes.Add(SdrfDesignRules.DroppedRowNote(line, fileName, keyColumn!));
+                    continue;
+                }
+
+                var row = ParseRow(rows[i], line, keyColumn!, condition, cleared, refusals, keptUnknown);
+                if (row != null)
+                    parsed.Add(row);
+                else if (fileName.Length > 0)
+                    unreadFiles.Add(fileName);
+            }
+
+            SdrfDesignRules.NoteKeptUnknownFactorValues(keptUnknown, notes);
+
+            foreach (var row in parsed.Where(r => r.IsReference && r.StudySampleSignals.Count > 0))
+                notes.Add(SdrfDesignRules.DisagreementNote($"Line {row.Line}{SdrfDesignRules.Describe(row.FileName)}",
+                    row.ReferenceSignals, row.StudySampleSignals));
+
+            RefuseRepeatedFiles(parsed, refusals);
+            SdrfDesignRules.RefuseConditionCollisions(parsed.Select(r => (r.Condition, r.FactorValues)), refusals);
+
+            if (searchedByName != null)
+            {
+                SdrfDesignRules.RefuseSearchedFilesWithoutRows(parsed.Select(r => r.FileName), unreadFiles, dropped, searchedByName, refusals);
+                foreach (var row in parsed)
+                    row.FilePath = searchedByName[row.FileName];
+            }
+
+            if (refusals.Count > 0)
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
+
+            var setAside = rowsSetAside is { } joined
+                ? new SdrfDesignRules.SetAsideRows(joined + dropped.Count, Counted: true)
+                : new SdrfDesignRules.SetAsideRows(dropped.Count, Counted: false);
+            var bioreps = NumberBiologicalReplicates(parsed, setAside, notes, refusals);
+            if (refusals.Count > 0)
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
+
+            var files = parsed
+                .Select(r => new SpectraFileInfo(r.FilePath, r.Condition, bioreps[r] - 1, r.TechnicalReplicate - 1, r.Fraction - 1)
+                {
+                    IsReference = r.IsReference,
+                })
+                .ToList();
+
+            RefuseWhatMetaMorpheusWouldReject(files, refusals);
+            NoteFractionAndTechrepGaps(files, setAside, notes);
+
+            return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, condition);
+        }
+
+        private sealed class ParsedRow
+        {
+            public required int Line { get; init; }
+            public required string FileName { get; init; }
+            public required string FilePath { get; set; }
+            public required string Condition { get; init; }
+            public required IReadOnlyList<string> FactorValues { get; init; }
+            /// <summary>The SDRF's number, or null where it gives none.</summary>
+            public required int? BiologicalReplicate { get; init; }
+            public required string SourceName { get; init; }
+            public required int Fraction { get; init; }
+            public required int TechnicalReplicate { get; init; }
+            /// <summary>The pooled-reference signals this row carries (GR-20); any one makes the file a reference.</summary>
+            public required IReadOnlyList<string> ReferenceSignals { get; init; }
+            /// <summary>What this row says that reads as a study sample, reported when a reference signal is also present.</summary>
+            public required IReadOnlyList<string> StudySampleSignals { get; init; }
+            public bool IsReference => ReferenceSignals.Count > 0;
+        }
+
+        private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, SdrfDesignRules.ConditionRule condition,
+            SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals,
+            List<(string Column, string Value, string FileName)> keptUnknown)
+        {
+            int before = refusals.Count;
+
+            string? label = row[LabelColumn];
+            if (label != null && label.IndexOf("label free sample", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                refusals.Add($"Line {line}: '{LabelColumn}' is '{label}', not label free. " +
+                             $"An isobaric design is read with {nameof(SdrfIsobaricDesign)}.");
+            }
+
+            string fileName = SdrfDesignRules.FileNameOf(row, keyColumn);
+            if (fileName.Length == 0)
+                refusals.Add($"Line {line}: '{keyColumn}' is empty.");
+
+            // GR-20: a label-free file has no channel, so comment[reference channel] is not read. A kind of signal every
+            // sample of the design carries is cleared (SdrfDesignRules.EverySampleIsMarked).
+            var (roleSignals, preparationSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
+            var referenceSignals = cleared.Kept(roleSignals, preparationSignals);
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, condition, refusals, keptUnknown,
+                isReference: referenceSignals.Count > 0);
+
+            int? biorep = ReadBiologicalReplicate(row, line, fileName, refusals);
+            int fraction = SdrfDesignRules.ReadPositiveInteger(row, FractionColumn, line, fileName, required: false, refusals);
+            int techrep = SdrfDesignRules.ReadPositiveInteger(row, TechnicalReplicateColumn, line, fileName, required: false, refusals);
+
+            if (refusals.Count > before)
+                return null;
+
+            return new ParsedRow
+            {
+                Line = line,
+                FileName = fileName,
+                FilePath = fileName,
+                Condition = SdrfDesignRules.JoinCondition(factorValues),
+                FactorValues = factorValues,
+                BiologicalReplicate = biorep,
+                SourceName = (row[SourceNameColumn] ?? string.Empty).Trim(),
+                Fraction = fraction,
+                TechnicalReplicate = techrep,
+                ReferenceSignals = referenceSignals,
+                StudySampleSignals = studySampleSignals,
+            };
+        }
+
+        // Label-free measures a file once. Case-insensitive, like SampleExperimentalDesign's keys.
+        private static void RefuseRepeatedFiles(List<ParsedRow> rows, List<string> refusals)
+        {
+            foreach (var group in rows.GroupBy(r => r.FileName, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+            {
+                refusals.Add($"'{group.Key}' is named by {group.Count()} rows (lines {string.Join(", ", group.Select(r => r.Line))}). " +
+                             "A label-free design has one row per file.");
+            }
+        }
+
+        /// <summary>
+        /// The SDRF's biological replicate number, or null where it gives none: no column, an empty cell,
+        /// <c>not available</c> / <c>not applicable</c>, or <c>pooled</c>, the word the SDRF specification prescribes for a
+        /// pooled sample, which is a pooled reference (GR-20). Anything else that is not an integer of 1 or more is
+        /// refused, because it is a number the SDRF gives that cannot be kept.
+        /// </summary>
+        private static int? ReadBiologicalReplicate(SdrfRow row, int line, string fileName, List<string> refusals)
+        {
+            string text = (row[BiologicalReplicateColumn] ?? string.Empty).Trim();
+            if (text.Length == 0 || SdrfDesignRules.IsUnknownWord(text) || SdrfDesignRules.IsPooledWord(text))
+                return null;
+
+            if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value >= 1)
+                return value;
+
+            refusals.Add($"Line {line}{SdrfDesignRules.Describe(fileName)}: '{BiologicalReplicateColumn}' is '{text}', not an integer of 1 or more.");
+            return null;
+        }
+
+        /// <summary>
+        /// Every row's biological replicate, 1-based. A number the SDRF gives is kept exactly. A row the SDRF gives no
+        /// number whose <c>source name</c> carries exactly one number on its other rows in the condition is that sample
+        /// and takes its number; several numbers there is refused, since which one is meant cannot be told. Any other
+        /// sample without a number (its rows share a <c>source name</c>; a row without one is a sample of its own) is
+        /// numbered after the highest number the condition uses, in row order, so an added number never fills a gap.
+        /// Reports what it added, any condition whose given numbers are not 1..N, and any sample name whose only number
+        /// is not its replicate.
+        /// </summary>
+        private static Dictionary<ParsedRow, int> NumberBiologicalReplicates(List<ParsedRow> rows, SdrfDesignRules.SetAsideRows setAside,
+            List<string> notes, List<string> refusals)
+        {
+            var numbers = new Dictionary<ParsedRow, int>();
+            foreach (var condition in rows.GroupBy(r => r.Condition, StringComparer.Ordinal))
+            {
+                var given = condition.Where(r => r.BiologicalReplicate.HasValue).Select(r => r.BiologicalReplicate!.Value).ToHashSet();
+                foreach (var row in condition.Where(r => r.BiologicalReplicate.HasValue))
+                    numbers[row] = row.BiologicalReplicate!.Value;
+
+                var givenBySource = condition.Where(r => r.BiologicalReplicate.HasValue && r.SourceName.Length > 0)
+                    .GroupBy(r => r.SourceName, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Select(r => r.BiologicalReplicate!.Value).Distinct().OrderBy(v => v).ToList(), StringComparer.Ordinal);
+
+                int highest = given.Count > 0 ? given.Max() : 0;
+                var added = new List<string>();
+                foreach (var sample in condition.Where(r => !r.BiologicalReplicate.HasValue)
+                             .GroupBy(r => r.SourceName.Length > 0 ? r.SourceName : "line " + r.Line, StringComparer.Ordinal))
+                {
+                    int number;
+                    if (givenBySource.TryGetValue(sample.Key, out var ofSource) && ofSource.Count == 1)
+                    {
+                        number = ofSource[0];
+                        added.Add($"'{sample.Key}' -> {number} (the number its other rows give)");
+                    }
+                    else if (ofSource != null)
+                    {
+                        foreach (var row in sample)
+                        {
+                            refusals.Add($"Line {row.Line}{SdrfDesignRules.Describe(row.FileName)}: the SDRF gives no biological replicate, " +
+                                         $"and the other rows of '{sample.Key}' in condition '{condition.Key}' give several " +
+                                         $"({string.Join(", ", ofSource)}), so which one it is cannot be told.");
+                        }
+                        number = ofSource[0];
+                    }
+                    else
+                    {
+                        number = ++highest;
+                        added.Add($"'{sample.Key}' -> {number}");
+                    }
+
+                    foreach (var row in sample)
+                        numbers[row] = number;
+                }
+
+                if (added.Count > 0)
+                {
+                    notes.Add($"Condition '{condition.Key}': the SDRF gives no biological replicate for {added.Count} sample(s), " +
+                              "so these were numbered here: " + string.Join(", ", added) + ".");
+                }
+
+                // Over the numbers the SDRF gives, before any are added: an added number must not hide a gap.
+                var present = given.OrderBy(v => v).ToList();
+                if (present.Select((v, i) => v != i + 1).Any(gap => gap))
+                {
+                    notes.Add($"Condition '{condition.Key}': biological replicates {string.Join(", ", present)}, kept as the SDRF numbers them. " +
+                              setAside.SampleGapReason);
+                }
+
+                foreach (var sample in condition.Where(r => r.BiologicalReplicate.HasValue && r.SourceName.Length > 0)
+                             .GroupBy(r => r.SourceName, StringComparer.Ordinal))
+                {
+                    var numbersInName = Regex.Matches(sample.Key, @"\d+");
+                    if (numbersInName.Count != 1
+                        || !int.TryParse(numbersInName[0].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int inName))
+                        continue;
+
+                    var disagreeing = sample.Select(r => r.BiologicalReplicate!.Value).Distinct().Where(v => v != inName).ToList();
+                    if (disagreeing.Count > 0)
+                    {
+                        notes.Add($"Line {sample.First().Line}: '{SourceNameColumn}' is '{sample.Key}', whose only number ({inName}) is not " +
+                                  $"its biological replicate ({string.Join(", ", disagreeing)}). Kept as the SDRF gives it; check which is meant.");
+                    }
+                }
+            }
+
+            return numbers;
+        }
+
+        // The one refusal MetaMorpheus's ExperimentalDesign.GetErrorsInExperimentalDesign makes: two files at one
+        // (condition, biorep, fraction, techrep). Every one is reported, not the first. A gap in fraction or
+        // technical replicate numbers is not refused, any more than a gap in biological replicates: the numbers
+        // are the SDRF's, a gap can be a lost file, and fractions are matched across samples by number. Each gap
+        // is reported in Notes (NoteFractionAndTechrepGaps). MetaMorpheus quantifies such a design with a warning
+        // from the change that ships with this one; current MetaMorpheus still rejects it.
+        private static void RefuseWhatMetaMorpheusWouldReject(List<SpectraFileInfo> files, List<string> refusals)
+        {
+            foreach (var shared in files
+                         .GroupBy(f => (f.Condition, f.BiologicalReplicate, f.Fraction, f.TechnicalReplicate))
+                         .Where(g => g.Count() > 1)
+                         .OrderBy(g => g.Key.Condition, StringComparer.Ordinal).ThenBy(g => g.Key.BiologicalReplicate)
+                         .ThenBy(g => g.Key.Fraction).ThenBy(g => g.Key.TechnicalReplicate))
+            {
+                refusals.Add($"Condition '{shared.Key.Condition}' biorep {shared.Key.BiologicalReplicate + 1} fraction {shared.Key.Fraction + 1} " +
+                             $"techrep {shared.Key.TechnicalReplicate + 1} is named by {shared.Count()} files: " +
+                             string.Join(", ", shared.Select(f => $"'{SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)}'")) +
+                             ". Different samples cannot share one replicate; declare the factor that tells them apart.");
+
+                // QP-S45: never renumbered, but names that read like fractions or repeat injections are said, with the column.
+                if (SdrfDesignRules.SharedReplicateHint(shared.Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)).ToList()) is { } hint)
+                    refusals[^1] += " " + hint;
+            }
+        }
+
+        // A biological replicate's fractions, and a fraction's technical replicates, that are not 1..N: kept as the
+        // SDRF numbers them and noted, in the same words as a gap in biological replicates
+        // (NumberBiologicalReplicates). A missing last fraction of one sample is no gap; its own numbers are 1..N.
+        private static void NoteFractionAndTechrepGaps(List<SpectraFileInfo> files, SdrfDesignRules.SetAsideRows setAside, List<string> notes)
+        {
+            string why = setAside.FileGapReason;
+
+            foreach (var condition in files.GroupBy(f => f.Condition, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                foreach (var biorep in condition.GroupBy(f => f.BiologicalReplicate).OrderBy(g => g.Key))
+                {
+                    string owner = $"Condition '{condition.Key}' biorep {biorep.Key + 1}";
+                    NoteGap(notes, owner, "fractions", biorep.Select(f => f.Fraction), why);
+
+                    foreach (var fraction in biorep.GroupBy(f => f.Fraction).OrderBy(g => g.Key))
+                        NoteGap(notes, $"{owner} fraction {fraction.Key + 1}", "technical replicates", fraction.Select(f => f.TechnicalReplicate), why);
+                }
+            }
+        }
+
+        private static void NoteGap(List<string> notes, string owner, string level, IEnumerable<int> zeroBasedNumbers, string why)
+        {
+            var present = zeroBasedNumbers.Select(n => n + 1).Distinct().OrderBy(n => n).ToList();
+            if (present.Select((v, i) => v != i + 1).Any(gap => gap))
+                notes.Add($"{owner}: {level} {string.Join(", ", present)}, kept as the SDRF numbers them. {why}");
+        }
+
+        private void ThrowIfRefused()
+        {
+            if (!IsValid)
+                throw new InvalidOperationException("The design was refused and cannot be used:" + Environment.NewLine + Report());
+        }
+    }
+}

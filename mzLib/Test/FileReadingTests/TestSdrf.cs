@@ -218,6 +218,35 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// The written path is reported, so a caller need not restate the extension rule to say where the file went
+        /// (bridge SDRF-B3: `sdrf pool --out x.tsv` reported x.tsv while the file was x.tsv.sdrf.tsv).
+        /// </summary>
+        [Test]
+        [TestCase("x.tsv", "x.tsv.sdrf.tsv")]
+        [TestCase("x", "x.sdrf.tsv")]
+        [TestCase("x.sdrf.tsv", "x.sdrf.tsv")]
+        public void Write_SaysWhichFileItWrote(string asked, string written)
+        {
+            var header = new SdrfHeader(new[] { "source name" });
+            var document = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "Sample 1" }) });
+
+            string folder = Path.Combine(TestContext.CurrentContext.TestDirectory, $"written_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(folder);
+            try
+            {
+                document.WriteResults(Path.Combine(folder, asked), out string writtenPath);
+
+                Assert.That(writtenPath, Is.EqualTo(Path.GetFullPath(Path.Combine(folder, written))));
+                Assert.That(File.Exists(writtenPath), Is.True);
+                Assert.That(Directory.GetFiles(folder), Has.Length.EqualTo(1), "nothing else was written");
+            }
+            finally
+            {
+                Directory.Delete(folder, true);
+            }
+        }
+
+        /// <summary>
         /// The line ending must come from the FILE, not from the platform or from a survey.
         ///
         /// Regression for a real defect: the writer pinned CRLF because a corpus survey reported
@@ -390,6 +419,62 @@ namespace Test.FileReadingTests
             finally
             {
                 if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// The write is atomic: a complete file replaces an existing one, and no temp file survives.
+        /// A pipeline that treats "the file exists" as "the file is done" must never find a
+        /// truncated SDRF.
+        /// </summary>
+        [Test]
+        public void Write_OverAnExistingFile_ReplacesItWhole_AndLeavesNoTempFile()
+        {
+            string folder = Path.Combine(TestContext.CurrentContext.TestDirectory, $"atomic_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder, "experiment.sdrf.tsv");
+            try
+            {
+                File.WriteAllText(path, "OLD CONTENT THAT IS LONGER THAN THE NEW DOCUMENT WILL BE, BY SOME MARGIN");
+                var header = new SdrfHeader(new[] { "source name", "assay name" });
+                var document = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "S1", "run 1" }) });
+
+                document.WriteResults(path);
+
+                Assert.That(File.ReadAllText(path), Is.EqualTo("source name\tassay name\r\nS1\trun 1\r\n"));
+                Assert.That(Directory.GetFiles(folder), Is.EquivalentTo(new[] { path }),
+                    "the temp file must be renamed over the target, not left beside it");
+            }
+            finally
+            {
+                Directory.Delete(folder, true);
+            }
+        }
+
+        /// <summary>
+        /// A write that fails after the temp file is written -- here the target path is a folder,
+        /// so the final move cannot happen -- throws, and cleans up the temp file rather than leaving
+        /// a stray partial SDRF for the next reader to find.
+        /// </summary>
+        [Test]
+        public void Write_ThatFailsAtTheFinalMove_Throws_AndLeavesNoTempFile()
+        {
+            string folder = Path.Combine(TestContext.CurrentContext.TestDirectory, $"atomicfail_{Guid.NewGuid():N}");
+            string blocked = Path.Combine(folder, "experiment.sdrf.tsv");
+            Directory.CreateDirectory(blocked);
+            try
+            {
+                var header = new SdrfHeader(new[] { "source name", "assay name" });
+                var document = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "S1", "run 1" }) });
+
+                Assert.That(() => document.WriteResults(blocked),
+                    Throws.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
+                Assert.That(Directory.GetFiles(folder), Is.Empty, "no .partial file may survive a failed write");
+                Assert.That(Directory.Exists(blocked), Is.True, "what was at the target is untouched");
+            }
+            finally
+            {
+                Directory.Delete(folder, true);
             }
         }
 

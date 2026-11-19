@@ -343,5 +343,26 @@ namespace Test.MassSpectrometryTests.Deconvolution
                     $"Perfect synthetic Averagine envelope must score > 0.5. Got {envelope.GenericScore}");
             }
         }
+
+        // ── Argument validation, envelope-only overload ───────────────────────
+
+        /// <summary>
+        /// The two guards in the envelope-only ComputeFeatures overload were executed by no test at
+        /// all -- the equivalent guards on the three-argument overload were covered, these were not.
+        /// </summary>
+        [Test]
+        public void ComputeFeatures_EnvelopeOnlyOverload_ThrowsOnNullArguments()
+        {
+            var env = BuildPerfectEnvelope();
+
+            var exEnv = Assert.Throws<ArgumentNullException>(
+                () => DeconvolutionScorer.ComputeFeatures((IsotopicEnvelope)null, Model));
+            Assert.That(exEnv.ParamName, Is.EqualTo("envelope"));
+
+            var exModel = Assert.Throws<ArgumentNullException>(
+                () => DeconvolutionScorer.ComputeFeatures(env, (AverageResidue)null));
+            Assert.That(exModel.ParamName, Is.EqualTo("model"));
+        }
+
     }
 }

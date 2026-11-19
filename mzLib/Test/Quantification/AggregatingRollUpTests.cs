@@ -35,9 +35,9 @@ namespace Test.Quantification
         /// A roll-up that mzLib does not ship, standing in for one a caller would add. Two lines is the
         /// whole cost of a new estimator now, which is the point of the base class.
         /// </summary>
-        private class MaxRollUp : AggregatingRollUp
+        private class MeanRollUp : AggregatingRollUp
         {
-            public MaxRollUp() : base(new MaxAggregation()) { }
+            public MeanRollUp() : base(new MeanAggregation()) { }
         }
 
         /// <summary>Exists only to reach the base constructor with null.</summary>
@@ -216,11 +216,29 @@ namespace Test.Quantification
                 new[] { 30.0 });
 
             var target = new Key("protein");
-            var result = new MaxRollUp().RollUp(matrix, MapAllRowsTo(target, 3));
+            var result = new MeanRollUp().RollUp(matrix, MapAllRowsTo(target, 3));
 
-            // MaxRollUp is defined at the top of this file and is the whole implementation.
+            // MeanRollUp is defined at the top of this file and is the whole implementation.
             // Previously this needed a full IRollUpStrategy with its own copy of the loop.
-            Assert.That(result.GetRow(target)[0], Is.EqualTo(70.0));
+            Assert.That(result.GetRow(target)[0], Is.EqualTo(110.0 / 3));
+            Assert.That(new MeanRollUp().Name, Is.EqualTo("Mean Roll-Up"));
+        }
+
+        [Test]
+        public void MaxRollUp_TakesTheLargestObservedValue()
+        {
+            var (matrix, _) = Matrix(
+                new[] { 10.0, 0, -5 },
+                new[] { 70.0, 0, -9 },
+                new[] { 30.0, 0, 0 });
+
+            var target = new Key("protein");
+            var row = new MaxRollUp().RollUp(matrix, MapAllRowsTo(target, 3)).GetRow(target);
+
+            Assert.That(row[0], Is.EqualTo(70.0));
+            // A column never observed stays 0, and a zero does not outrank observed negative values.
+            Assert.That(row[1], Is.EqualTo(0.0));
+            Assert.That(row[2], Is.EqualTo(-5.0));
         }
 
         [Test]

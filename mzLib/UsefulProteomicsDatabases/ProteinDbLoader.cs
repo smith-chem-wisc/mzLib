@@ -23,7 +23,8 @@ namespace UsefulProteomicsDatabases
 
     public static class ProteinDbLoader
     {
-        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"[|](.+)[|]", 0, 1);
+        // Captures the last pipe-delimited field, not everything between the first and last pipe.
+        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"^>.*\|([^|]*)\|", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
@@ -51,6 +52,58 @@ namespace UsefulProteomicsDatabases
         /// do not each repeat the string.
         /// </summary>
         public const string NcbiTaxonomyDatabaseReferenceType = Protein.NcbiTaxonomyDatabaseReferenceType;
+
+        /// <summary>
+        /// Marks a protein as entrapment. A protein is treated as entrapment when its accession
+        /// contains this anywhere, and it is prepended when a caller flags entrapment without it.
+        /// </summary>
+        public const string DefaultEntrapmentIdentifier = "Random";
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Gene Ontology annotations. Re-exported here for the
+        /// same reason as the taxonomy type: a caller that already references the loader should not
+        /// have to reach into Proteomics for the string. Read the terms themselves from
+        /// <see cref="Protein.GoTerms"/>, which filters and deduplicates them.
+        /// </summary>
+        public const string GeneOntologyDatabaseReferenceType = Protein.GeneOntologyDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Ensembl transcript/gene links. Re-exported for the same
+        /// reason as the taxonomy and GO types. Read the genes from <see cref="Protein.EnsemblGeneIds"/>.
+        /// </summary>
+        public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Reactome pathways. Re-exported for the same reason as the taxonomy, GO
+        /// and Ensembl types. Read the pathways from <see cref="Protein.ReactomePathways"/>.
+        /// </summary>
+        public const string ReactomeDatabaseReferenceType = Protein.ReactomeDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for KEGG GENES ids. Re-exported for the same reason. Read the ids from
+        /// <see cref="Protein.KeggGeneIds"/>.
+        /// </summary>
+        public const string KeggDatabaseReferenceType = Protein.KeggDatabaseReferenceType;
+
+        /// <summary>
+        /// Whether an accession is entrapment by the rule the loaders apply when no whole-database flag is
+        /// given: it contains <paramref name="entrapmentIdentifier"/> anywhere, ignoring case. A caller holding
+        /// only accessions -- a stored results file, which MetaMorpheus writes T/D/C without an entrapment
+        /// mark -- gets the same answer the search did. A decoy of an entrapment protein (DECOY_Random_X) is
+        /// entrapment too, so test decoy status separately. A database loaded with isEntrapment = true marks
+        /// proteins this cannot see: use <see cref="Protein.IsEntrapment"/> when the protein is at hand.
+        /// </summary>
+        /// <returns>False for a null or empty accession.</returns>
+        /// <exception cref="ArgumentException">The identifier is null or empty, which would make every accession entrapment.</exception>
+        public static bool IsEntrapmentAccession(string accession, string entrapmentIdentifier = DefaultEntrapmentIdentifier)
+        {
+            if (string.IsNullOrEmpty(entrapmentIdentifier))
+            {
+                throw new ArgumentException("An empty entrapment identifier would match every accession.", nameof(entrapmentIdentifier));
+            }
+            return !string.IsNullOrEmpty(accession)
+                && accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
@@ -85,7 +138,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "Random", bool isEntrapment = false)
+            string entrapmentIdentifier = DefaultEntrapmentIdentifier, bool isEntrapment = false)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -102,17 +155,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".xml");
+            string newProteinDbLocation = database.Location;
 
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -154,11 +198,6 @@ namespace UsefulProteomicsDatabases
 
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             // Expand the targets first, then mirror each expanded entry, so that every generated decoy is the
@@ -244,7 +283,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
             FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "Random", bool isEntrapment = false, FastaHeaderFieldRegex organismIdRegex = null)
+            string entrapmentIdentifier = DefaultEntrapmentIdentifier, bool isEntrapment = false, FastaHeaderFieldRegex organismIdRegex = null)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -261,17 +300,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".fasta");
+            string newProteinDbLocation = database.Location;
 
             using (var fastaFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -365,12 +395,12 @@ namespace UsefulProteomicsDatabases
                         }
                         unique_accessions.Add(accession);
                         // Auto-detect entrapment if the accession contains the entrapment identifier anywhere
-                        bool proteinIsEntrapment = isEntrapment || accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                        bool proteinIsEntrapment = isEntrapment || IsEntrapmentAccession(accession, entrapmentIdentifier);
                         if (proteinIsEntrapment && isContaminant)
                             throw new MzLibUtil.MzLibException($"Protein accession '{accession}' cannot be both a contaminant and an entrapment protein.",
                                 new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                         // Prepend entrapment identifier if the caller flagged this as entrapment but accession doesn't already contain it
-                        if (proteinIsEntrapment && accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                        if (proteinIsEntrapment && !IsEntrapmentAccession(accession, entrapmentIdentifier))
                         {
                             bool startsWithDecoy = accession.StartsWith(decoyIdentifier, StringComparison.OrdinalIgnoreCase);
                             if (startsWithDecoy)
@@ -418,11 +448,6 @@ namespace UsefulProteomicsDatabases
                         break;
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             if (!targets.Any())
@@ -515,9 +540,28 @@ namespace UsefulProteomicsDatabases
                         createds.FirstOrDefault(),
                         modifieds.FirstOrDefault(),
                         versions.FirstOrDefault(),
-                        xmlnses.FirstOrDefault())
+                        xmlnses.FirstOrDefault()),
+                    // the merged entries share accession and sequence; keep their sequence attributes (incl. the displayed isoform)
+                    uniProtSequenceAttributes: MergedSequenceAttributes(proteins.Value)
                     );
             }
+        }
+
+        /// <summary>
+        /// The first entry's sequence attributes, with the displayed isoform the entries agree on: a known isoform wins
+        /// over an unknown one, and two known isoforms that differ leave it unknown, whatever the input order.
+        /// </summary>
+        private static UniProtSequenceAttributes MergedSequenceAttributes(List<Protein> proteins)
+        {
+            var first = proteins[0].UniProtSequenceAttributes;
+            var known = proteins.Select(p => p.UniProtSequenceAttributes.DisplayedIsoformId).Where(id => id != null).Distinct().ToList();
+            string displayedIsoformId = known.Count == 1 ? known[0] : null;
+            if (first.DisplayedIsoformId == displayedIsoformId)
+            {
+                return first;
+            }
+            return new UniProtSequenceAttributes(first.Length, first.Mass, first.Checksum, first.EntryModified,
+                first.SequenceVersion, first.IsPrecursor, first.Fragment, displayedIsoformId);
         }
 
         internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)

@@ -170,7 +170,7 @@ public class PrideFtpListingTests
             uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)
                 ? Ok(ProjectJson)
                 : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
 
         Assert.ThrowsAsync<HttpRequestException>(async () =>
             await client.GetProjectFilesFromFtpAsync("PXD000001"));
@@ -397,7 +397,8 @@ public class PrideFtpListingLiveTests
     public Task GetProjectFilesFromFtp_LivePxd000001_IsMoreCompleteThanTheRestManifest() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
 
             List<PrideFtpFile> ftpFiles = await client.GetProjectFilesFromFtpAsync("PXD000001");
             List<PrideArchiveFile> restFiles = await client.GetProjectFilesAsync("PXD000001");

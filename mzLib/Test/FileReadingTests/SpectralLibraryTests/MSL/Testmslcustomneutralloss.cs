@@ -213,8 +213,8 @@ public sealed class TestMslCustomNeutralLoss
 	[Test]
 	public void CustomLoss_MixedNamedAndCustom_AllCorrect()
 	{
-		const double h2oLoss = -18.010565;
-		const double nh3Loss = -17.026549;
+		const double h2oLoss = 18.010565;
+		const double nh3Loss = 17.026549;
 		const double glycanLoss = -203.0794;
 
 		string path = TempPath("mixed_named_custom");
@@ -273,13 +273,13 @@ public sealed class TestMslCustomNeutralLoss
 	}
 
 	/// <summary>
-	/// H3PO4 loss (−97.976895 Da, a named code) is stored in the 3-bit field, not in the
+	/// H3PO4 loss (97.976895 Da, a named code) is stored in the 3-bit field, not in the
 	/// extended annotation table; FileFlagHasExtAnnotations is 0.
 	/// </summary>
 	[Test]
 	public void CustomLoss_NamedLoss_NotInTable()
 	{
-		const double h3po4Loss = -97.976895;
+		const double h3po4Loss = 97.976895;
 		string path = TempPath("named_phospho");
 
 		MslWriter.Write(path, new[] { EntryWithLoss(h3po4Loss) });
@@ -314,7 +314,7 @@ public sealed class TestMslCustomNeutralLoss
 	{
 		string path = TempPath("flag_clear");
 
-		MslWriter.Write(path, new[] { EntryWithLoss(-18.010565) }); // H2O — named loss
+		MslWriter.Write(path, new[] { EntryWithLoss(18.010565) }); // H2O — named loss
 		using MslLibrary lib = MslLibrary.Load(path);
 
 		Assert.That((lib.Header.FileFlags & MslFormat.FileFlagHasExtAnnotations), Is.Zero,

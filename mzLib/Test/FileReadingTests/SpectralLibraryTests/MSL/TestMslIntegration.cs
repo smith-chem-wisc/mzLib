@@ -406,6 +406,11 @@ public sealed class TestMslIntegration
 		Assert.That(ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b));
 		Assert.That(ion.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(5));
 		Assert.That(ion.NeutralTheoreticalProduct.Terminus, Is.EqualTo(FragmentationTerminus.N));
+
+		MatchedFragmentIon cTerminalIon = SpectralLibraryClass.ReadFragmentIon(
+			"200.0\t0.9\t\"y2^1/0ppm\"", FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
+		Assert.That(cTerminalIon.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(2));
+		Assert.That(cTerminalIon.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(6));
 	}
 
 	/// <summary>
@@ -682,7 +687,7 @@ public sealed class TestMslIntegration
 	public void FromLibrarySpectrum_NeutralLoss_Preserved()
 	{
 		// Build a spectrum with an H2O loss on the y ion
-		double h2oLoss = -18.010565;
+		double h2oLoss = 18.010565;
 		var yProduct = new Product(ProductType.y, FragmentationTerminus.C,
 			neutralMass: 0, fragmentNumber: 3, residuePosition: 5, neutralLoss: h2oLoss);
 		var yIon = new MatchedFragmentIon(yProduct, experMz: 373.2, experIntensity: 0.6, charge: 1);

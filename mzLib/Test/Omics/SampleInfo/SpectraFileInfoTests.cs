@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
 using NUnit.Framework;
@@ -14,6 +15,33 @@ namespace Test.Omics.SampleInfo
     [ExcludeFromCodeCoverage]
     public class SpectraFileInfoTests
     {
+        /// <summary>
+        /// The hash is now computed once, at construction, because FlashLFQ looks files up by this key in its innermost
+        /// loops. It must equal what the per-call computation returned, copied here verbatim, for any identity components.
+        /// </summary>
+        [Test]
+        public void GetHashCode_EqualsThePerCallComputation()
+        {
+            var random = new Random(3);
+            string[] paths = { "C:/Data/a.raw", "F:/runs/out/Task2CalibrationTask/04-30-13_CAST_Frac4_6uL-calib.mzML", "", "x.mzML" };
+            string[] conditions = { "", "Control", "Treatment" };
+            for (int i = 0; i < 2000; i++)
+            {
+                string path = paths[random.Next(paths.Length)] + (random.Next(2) == 0 ? "" : random.Next().ToString());
+                var sample = new SpectraFileInfo(path, conditions[random.Next(conditions.Length)], random.Next(-2, 5), random.Next(-2, 5), random.Next(-2, 5));
+                int perCall = HashCode.Combine(
+                    StringComparer.Ordinal.GetHashCode(sample.FullFilePathWithExtension ?? string.Empty),
+                    StringComparer.Ordinal.GetHashCode(sample.Condition ?? string.Empty),
+                    sample.BiologicalReplicate,
+                    sample.Fraction,
+                    sample.TechnicalReplicate);
+                Assert.That(sample.GetHashCode(), Is.EqualTo(perCall));
+            }
+
+            // Null path and condition hash like the empty strings they are stored as
+            Assert.That(new SpectraFileInfo(null, null, 1, 2, 3).GetHashCode(), Is.EqualTo(new SpectraFileInfo("", "", 1, 2, 3).GetHashCode()));
+        }
+
         /// <summary>
         /// Verifies all properties are correctly set by constructor.
         /// Critical: Ensures sample metadata is properly stored for quantification.
@@ -32,6 +60,28 @@ namespace Test.Omics.SampleInfo
                 Assert.That(sample.BiologicalReplicate, Is.EqualTo(1));
                 Assert.That(sample.TechnicalReplicate, Is.EqualTo(2));
                 Assert.That(sample.Fraction, Is.EqualTo(3));
+            });
+        }
+
+        /// <summary>
+        /// The pooled-reference role (GR-20) is carried but is not part of a file's identity: FlashLFQ and the quant
+        /// engine key dictionaries on SpectraFileInfo, so a file must be the same key whatever its role. Default false.
+        /// </summary>
+        [Test]
+        public void IsReference_DefaultsFalseAndIsNotPartOfIdentity()
+        {
+            var study = new SpectraFileInfo(@"C:\Data\qc.raw", "QC", 0, 1, 2);
+            var reference = new SpectraFileInfo(@"C:\Data\qc.raw", "QC", 0, 1, 2) { IsReference = true };
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(study.IsReference, Is.False);
+                Assert.That(reference.IsReference, Is.True);
+                Assert.That(reference, Is.EqualTo(study));
+                Assert.That(reference == study, Is.True);
+                Assert.That(reference.GetHashCode(), Is.EqualTo(study.GetHashCode()));
+                Assert.That(reference.CompareTo(study), Is.EqualTo(0));
+                Assert.That(new HashSet<SpectraFileInfo> { study }.Contains(reference), Is.True);
             });
         }
 

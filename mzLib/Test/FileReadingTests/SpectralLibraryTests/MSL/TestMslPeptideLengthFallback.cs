@@ -62,9 +62,8 @@ public sealed class TestMslPeptideLengthFallback
     // ══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// y3 for a 7-residue plain peptide "PEPTIDE" must have ResiduePosition = 7 - 3 = 4.
-    /// This case was already correct before the fix (no modification text to overcount),
-    /// but must remain correct after.
+    /// y3 for a 7-residue plain peptide "PEPTIDE" has the break-adjacent residue at
+    /// one-based position 7 - 3 + 1 = 5.
     /// </summary>
     [Test]
     public void YIon_PlainSequence_ResiduePosition_UsesActualLength()
@@ -76,8 +75,8 @@ public sealed class TestMslPeptideLengthFallback
 
         Assert.That(ion.NeutralTheoreticalProduct.Terminus, Is.EqualTo(FragmentationTerminus.C),
             "y-ion must have C-terminal terminus.");
-        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(4),
-            "y3 for 7-residue 'PEPTIDE': ResiduePosition must be 7 - 3 = 4.");
+        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(5),
+            "y3 for 7-residue 'PEPTIDE': ResiduePosition must be 7 - 3 + 1 = 5.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -87,8 +86,7 @@ public sealed class TestMslPeptideLengthFallback
     /// <summary>
     /// "PEPTM[Common Variable:Oxidation on M]IDE" has 8 residues but string.Length = 40.
     ///
-    /// Before the fix: peptideLength = 40, y3 ResiduePosition = 40 - 3 = 37 (WRONG).
-    /// After the fix:  peptideLength =  8, y3 ResiduePosition =  8 - 3 =  5 (CORRECT).
+    /// The peptide has 8 residues; y3 ResiduePosition is 8 - 3 + 1 = 6.
     /// </summary>
     [Test]
     public void YIon_ModifiedSequence_OneModification_ResiduePosition_StripsModText()
@@ -103,9 +101,8 @@ public sealed class TestMslPeptideLengthFallback
         MatchedFragmentIon ion = Readers.SpectralLibrary.SpectralLibrary.ReadFragmentIon(
             line, FragSplit, NeutralLossSplit, modSeq);
 
-        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(5),
-            "y3 for PEPTM[ox]IDE (8 residues) must have ResiduePosition = 8 - 3 = 5. " +
-            "Before fix this was string.Length - 3 = a large wrong value.");
+        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(6),
+            "y3 for PEPTM[ox]IDE (8 residues) must have ResiduePosition = 8 - 3 + 1 = 6.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -127,9 +124,9 @@ public sealed class TestMslPeptideLengthFallback
         MatchedFragmentIon ion = Readers.SpectralLibrary.SpectralLibrary.ReadFragmentIon(
             line, FragSplit, NeutralLossSplit, modSeq);
 
-        // 9 residues, y4: 9 - 4 = 5
-        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(5),
-            "y4 for a doubly-modified 9-residue peptide must have ResiduePosition = 9 - 4 = 5.");
+        // 9 residues, y4: 9 - 4 + 1 = 6
+        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(6),
+            "y4 for a doubly-modified 9-residue peptide must have ResiduePosition = 9 - 4 + 1 = 6.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -162,7 +159,7 @@ public sealed class TestMslPeptideLengthFallback
 
     /// <summary>
     /// When peptideSequence is null, the method must not throw, must fall back to
-    /// peptideLength = 25, and must produce ResiduePosition = 25 - fragmentNumber.
+    /// peptideLength = 25, and must produce ResiduePosition = 25 - fragmentNumber + 1.
     /// </summary>
     [Test]
     public void YIon_NullSequence_FallsBackTo25_DoesNotThrow()
@@ -176,9 +173,9 @@ public sealed class TestMslPeptideLengthFallback
                 line, FragSplit, NeutralLossSplit, peptideSequence: null);
         }, "ReadFragmentIon must not throw when peptideSequence is null.");
 
-        // Fallback: 25 - 3 = 22
-        Assert.That(ion!.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(22),
-            "y3 with null sequence must use fallback length 25: ResiduePosition = 25 - 3 = 22.");
+        // Fallback: 25 - 3 + 1 = 23
+        Assert.That(ion!.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(23),
+            "y3 with null sequence must use fallback length 25: ResiduePosition = 25 - 3 + 1 = 23.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -200,8 +197,8 @@ public sealed class TestMslPeptideLengthFallback
                 line, FragSplit, NeutralLossSplit, peptideSequence: string.Empty);
         }, "ReadFragmentIon must not throw when peptideSequence is empty.");
 
-        Assert.That(ion!.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(22),
-            "y3 with empty sequence must use fallback length 25: ResiduePosition = 25 - 3 = 22.");
+        Assert.That(ion!.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(23),
+            "y3 with empty sequence must use fallback length 25: ResiduePosition = 25 - 3 + 1 = 23.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -240,17 +237,16 @@ public sealed class TestMslPeptideLengthFallback
     [Test]
     public void YIon_ModTextWithColonsAndSpaces_OnlyCountsResiduesOutsideBrackets()
     {
-        // "PEPTM[Common Variable:Oxidation on M]IDE" has 8 residues
+        // "PEPTM[Common Variable:Oxidation on M]IDE" has 8 residues; y1 is at position 8.
         string modSeq = "PEPTM[Common Variable:Oxidation on M]IDE";
         string line = PeakLine(175.12, 1.0, "y1^1");
 
         MatchedFragmentIon ion = Readers.SpectralLibrary.SpectralLibrary.ReadFragmentIon(
             line, FragSplit, NeutralLossSplit, modSeq);
 
-        // y1 for 8 residues: ResiduePosition = 8 - 1 = 7
-        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(7),
+        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(8),
             "y1 for PEPTM[Common Variable:Oxidation on M]IDE (8 residues) must have " +
-            "ResiduePosition = 8 - 1 = 7. Colons/spaces inside brackets must be skipped.");
+            "ResiduePosition = 8 - 1 + 1 = 8. Colons/spaces inside brackets must be skipped.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -258,18 +254,18 @@ public sealed class TestMslPeptideLengthFallback
     // ══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// y1 has ResiduePosition = peptideLength - 1. For a 5-residue peptide that is 4.
+    /// y1 has ResiduePosition = peptideLength - 1 + 1, the last residue's position.
     /// </summary>
     [Test]
-    public void YIon_y1_ResiduePosition_EqualsPeptideLengthMinusOne()
+    public void YIon_y1_ResiduePosition_EqualsPeptideLength()
     {
         string line = PeakLine(116.07, 1.0, "y1^1");
 
         MatchedFragmentIon ion = Readers.SpectralLibrary.SpectralLibrary.ReadFragmentIon(
             line, FragSplit, NeutralLossSplit, "GILAV");
 
-        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(4),
-            "y1 for a 5-residue peptide must have ResiduePosition = 5 - 1 = 4.");
+        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(5),
+            "y1 for a 5-residue peptide must have ResiduePosition = 5 - 1 + 1 = 5.");
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -277,7 +273,7 @@ public sealed class TestMslPeptideLengthFallback
     // ══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// A y3 ion parsed correctly from MSP (ResiduePosition = 4 for a 7-residue peptide)
+    /// A y3 ion parsed correctly from MSP (ResiduePosition = 5 for a 7-residue peptide)
     /// must produce the same ResiduePosition when converted to an MslFragmentIon.
     /// This is the MSP → MSL round-trip scenario the comment identifies.
     /// </summary>
@@ -290,8 +286,8 @@ public sealed class TestMslPeptideLengthFallback
             line, FragSplit, NeutralLossSplit, "PEPTIDE");
 
         // Verify correct position before conversion
-        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(4),
-            "ResiduePosition must be 4 (= 7 - 3) before MslFragmentIon conversion.");
+        Assert.That(ion.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(5),
+            "ResiduePosition must be 5 (= 7 - 3 + 1) before MslFragmentIon conversion.");
 
         // Convert to MslFragmentIon and verify position is preserved
         var mslFrag = new MslFragmentIon
@@ -305,7 +301,7 @@ public sealed class TestMslPeptideLengthFallback
             NeutralLoss = ion.NeutralTheoreticalProduct.NeutralLoss
         };
 
-        Assert.That(mslFrag.ResiduePosition, Is.EqualTo(4),
-            "ResiduePosition = 4 must survive intact through conversion to MslFragmentIon.");
+        Assert.That(mslFrag.ResiduePosition, Is.EqualTo(5),
+            "ResiduePosition = 5 must survive intact through conversion to MslFragmentIon.");
     }
 }

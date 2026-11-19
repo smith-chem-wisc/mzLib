@@ -60,8 +60,30 @@ namespace Test.Omics.SampleInfo
         }
 
         /// <summary>
+        /// A sample name is display text and takes no part in identity: two channels that differ only
+        /// by the name the design gives them are the same measurement, and collections keyed on the
+        /// sample must treat them so.
+        /// </summary>
+        [Test]
+        public void SampleName_TakesNoPartInIdentity()
+        {
+            var named = new IsobaricQuantSampleInfo(@"C:\a.raw", "A", 1, 1, 0, 1, "126", 126.0, false) { SampleName = "Patient7" };
+            var renamed = new IsobaricQuantSampleInfo(@"C:\a.raw", "A", 1, 1, 0, 1, "126", 126.0, false) { SampleName = "Patient8" };
+            var unnamed = new IsobaricQuantSampleInfo(@"C:\a.raw", "A", 1, 1, 0, 1, "126", 126.0, false);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unnamed.SampleName, Is.Null, "a design that names no sample leaves it absent");
+                Assert.That(named, Is.EqualTo(renamed));
+                Assert.That(named, Is.EqualTo(unnamed));
+                Assert.That(named.GetHashCode(), Is.EqualTo(renamed.GetHashCode()));
+                Assert.That(named.UniqueIdentifier, Is.EqualTo(unnamed.UniqueIdentifier));
+            });
+        }
+
+        /// <summary>
         /// Verifies ToString returns filename (without extension) and channel label.
-        /// Critical: Used in output file headers for intensity columns.
+        /// Column headers no longer come from here; they come from SampleGroupLabels.ForSample.
         /// </summary>
         [Test]
         public void ToString_ReturnsFileNameAndChannelLabel()

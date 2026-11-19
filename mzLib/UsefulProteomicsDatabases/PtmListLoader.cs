@@ -345,13 +345,16 @@ namespace UsefulProteomicsDatabases
             {
                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
                 {
-                    if (_monoisotopicMass.HasValue)
-                    {
-                        _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
-                    }
+                    // Same arithmetic as ModificationLoader.AdjustMonoIsotopicMassForFormalCharge, which says why
+                    // the mass comes from the corrected formula.
                     if (_chemicalFormula != null)
                     {
                         _chemicalFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                        _monoisotopicMass = _chemicalFormula.MonoisotopicMass;
+                    }
+                    else if (_monoisotopicMass.HasValue)
+                    {
+                        _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
                     }
                     break;
                 }

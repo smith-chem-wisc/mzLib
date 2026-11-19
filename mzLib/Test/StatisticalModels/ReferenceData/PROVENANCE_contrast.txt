@@ -1,0 +1,7 @@
+generated_utc 2026-10-08 14:52:48 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+limma 3.68.5
+seed 20261008
+script make_contrast_fixtures.R
+files limma_contrast_{design,weights,responses_complete,responses_na}.tsv and limma_contrast_{complete,na}_{none,trend}.tsv
+complete = limma lmFit + contrasts.fit + eBayes(legacy = TRUE) + topTable(confint = 0.95); na = exact per-feature unscaled SD with squeezeVar(legacy = TRUE)

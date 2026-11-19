@@ -14,7 +14,7 @@ TG   M
 PP   Peptide C-terminal.
 MT   Protease
 CF   C-1 H-4 S-1
-DR   Unimod; 10.
+DR   Unimod; 11.
 //
 ID   Homoserine lactone N-terminal on M
 TG   M

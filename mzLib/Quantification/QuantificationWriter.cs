@@ -26,6 +26,11 @@ namespace Quantification
     /// </list>
     ///
     /// Each method returns the full path it wrote, or null when there was nothing to write.
+    ///
+    /// The three names mean isobaric (TMT, iTRAQ) quantification to every reader: dataRepo switches to isobaric ingest
+    /// when either matrix exists, and PXReprise requires them of a TMT search. A file name tells the mode, so the
+    /// engine writes them only for an isobaric experimental design and refuses a run of any other mode that asks to
+    /// (<see cref="QuantificationEngine"/>). Label-free and DIA write tables of their own.
     /// </summary>
     public static class QuantificationWriter
     {
@@ -158,16 +163,15 @@ namespace Quantification
         }
 
         /// <summary>
-        /// The column header for one sample. Isobaric samples are labelled
-        /// <c>{file}_{channel}</c>; label-free samples by file name. Falls back to
-        /// <see cref="object.ToString"/> for other <see cref="ISampleInfo"/> implementations.
+        /// The column header for one sample, before <see cref="UniqueColumnLabels"/> makes repeats
+        /// distinct. Every sample takes the label <see cref="SampleGroupLabels.ForSample"/> gives it:
+        /// an isobaric channel the label the grouped protein table starts from for the same channel, and
+        /// a label-free sample its file name. Falls back to <see cref="object.ToString"/> when a sample
+        /// has no file name.
         /// </summary>
         internal static string SampleColumnLabel(ISampleInfo sample)
         {
-            if (sample is IsobaricQuantSampleInfo isobaric)
-                return isobaric.ToString();
-
-            string name = sample.FilenameWithoutExtension;
+            string name = SampleGroupLabels.ForSample(sample, labelFreeByFileName: true);
             return string.IsNullOrEmpty(name) ? sample.ToString() : name;
         }
 

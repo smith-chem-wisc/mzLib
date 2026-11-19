@@ -9,16 +9,16 @@ namespace Transcriptomics.Digestion
     /// </summary>
     public class NucleolyticOligo : DigestionProduct
     {
-        protected IHasChemicalFormula _fivePrimeTerminus;
-        protected IHasChemicalFormula _threePrimeTerminus;
+        public IHasChemicalFormula FivePrimeTerminus { get; protected set; }
+        public IHasChemicalFormula ThreePrimeTerminus { get; protected set; }
 
         internal NucleolyticOligo(NucleicAcid nucleicAcid, int oneBaseStartResidue,
             int oneBasedEndResidue, int missedCleavages, CleavageSpecificity cleavageSpecificity,
             IHasChemicalFormula? fivePrimeTerminus, IHasChemicalFormula? threePrimeTerminus, string? description = null)
         : base(nucleicAcid, oneBaseStartResidue, oneBasedEndResidue, missedCleavages, cleavageSpecificity, description)
         {
-            _fivePrimeTerminus = fivePrimeTerminus ?? NucleicAcid.DefaultFivePrimeTerminus;
-            _threePrimeTerminus = threePrimeTerminus ?? NucleicAcid.DefaultThreePrimeTerminus;
+            FivePrimeTerminus = fivePrimeTerminus ?? NucleicAcid.DefaultFivePrimeTerminus;
+            ThreePrimeTerminus = threePrimeTerminus ?? NucleicAcid.DefaultThreePrimeTerminus;
         }
 
         /// <summary>
@@ -62,12 +62,13 @@ namespace Transcriptomics.Digestion
                 PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, in fixedModDictionary);
 
                 // Add the mods to the oligo by return numerous OligoWithSetMods
-                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
+                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength,
+                             fixedModDictionary.Count))
                 {
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
 
                     yield return new OligoWithSetMods(NucleicAcid, digestionParams, OneBasedStartResidue, OneBasedEndResidue, MissedCleavages,
-                        CleavageSpecificityForFdrCategory, variableModPattern, numFixedMods, _fivePrimeTerminus, _threePrimeTerminus);
+                        CleavageSpecificityForFdrCategory, variableModPattern, numFixedMods, FivePrimeTerminus, ThreePrimeTerminus);
 
                     variableModificationIsoforms++;
                     if (variableModificationIsoforms == maximumVariableModificationIsoforms)

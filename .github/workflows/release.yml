@@ -8,10 +8,12 @@ on:
 env:
   DOTNET_VERSION: 10.0.x
 
-# Least privilege, and enough to create the Release page in the last step. Everything else this
-# workflow does is authenticated by NUGET_KEY rather than by the job token.
+# Least privilege. contents: write is enough to create the Release page in the last step.
+# id-token: write lets the job request a GitHub OIDC token, which the NuGet login step trades for
+# a short-lived push key (nuget.org Trusted Publishing). It grants nothing on this repository.
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   build:
@@ -66,14 +68,33 @@ jobs:
           $version= &git describe --tags
           cd mzLib
           dotnet test --configuration Release /p:Platform="Any CPU" /p:Version=${version} --no-build --settings ./Test/required.runsettings
+
+      # nuget.org Trusted Publishing: no stored API key. This step sends the job's OIDC token to
+      # nuget.org, which checks it against a Trusted Publishing policy and returns a push key that
+      # lasts one hour. The policy is on the nuget.org account named in `user`. It names
+      # smith-chem-wisc/mzLib, workflow file release.yml (file name only), no environment, and the
+      # mzLib package. Renaming this file or moving the push to another workflow breaks the match.
+      #
+      # This replaced the NUGET_KEY secret, a classic API key whose expiry failed 1.0.597's first
+      # run with a 403 at the push. A failure here, or a 403 below, happens before anything reaches
+      # NuGet, so the version is not spent. Fix the policy on nuget.org, then re-run the failed job
+      # on the same tag. Do not re-tag.
+      #
+      # It runs after the tests, so a failing suite never requests a key. The key it returns is
+      # masked in the log.
+      - name: NuGet login (Trusted Publishing)
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: mrshortreed_smith_software
       - name: Pack and Push NuGet Package
         run: |
           $version= &git describe --tags
           cd mzLib
           nuget pack mzLib.nuspec -Version ${version} -Properties Configuration=Release
-          dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
+          dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:NUGET_API_KEY}
         env:
-          GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
 
       # Pushing the tag publishes the package but does NOT create the Release page: this workflow
       # triggers on the tag, and until now nothing here wrote a page, so someone had to remember to

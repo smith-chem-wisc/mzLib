@@ -3,7 +3,9 @@ using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Chemistry;
 using Omics.SequenceConversion;
 
@@ -12,6 +14,44 @@ namespace Test.Omics.SequenceConversion;
 public class PeptideAndProteinConversion
 {
     #region PeptideWithSetModifications Conversion Tests
+
+    [TestCase("Unimod", "Methyl on X", "N-terminal.")]
+    [TestCase("Unimod", "Methyl on X", "Peptide N-terminal.")]
+    [TestCase("Unimod", "Methyl on X", "Peptide C-terminal.")]
+    [TestCase("Unimod", "Ethyl on X", "N-terminal.")]
+    [TestCase("Unimod", "Ethyl on X", "Peptide N-terminal.")]
+    [TestCase("Unimod", "Ethyl on X", "Peptide C-terminal.")]
+    [TestCase("Unimod", "Propyl on X", "Peptide N-terminal.")]
+    [TestCase("Unimod", "Propyl on X", "Peptide C-terminal.")]
+    [TestCase("Unimod", "Propyl on X", "C-terminal.")]
+    [TestCase("Less Common", "Methylation on X", "N-terminal.")]
+    [TestCase("Less Common", "Methylation on X", "C-terminal.")]
+    public static void TestDigestedTerminalModificationSharingItsName_ResolvesToItsTerminus(
+        string modificationType, string idWithMotif, string locationRestriction)
+    {
+        var catalog = modificationType == "Unimod" ? Mods.UnimodModifications : Mods.MetaMorpheusProteinModifications;
+        var mod = catalog.Single(m => m.ModificationType == modificationType && m.IdWithMotif == idWithMotif
+                                      && m.LocationRestriction == locationRestriction);
+        var nTerminal = locationRestriction.Contains("N-terminal");
+        var digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1,
+            initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+        var peptide = new Protein("ACDEFGHIKLMNPQRSTVWYRACDEFGHIKLMNPQRSTVWY", "P1")
+            .Digest(digestionParams, new List<Modification>(), new List<Modification> { mod })
+            .First(p => p.AllModsOneIsNterminus.Values.Any(m => ReferenceEquals(m, mod)));
+        var written = peptide.FullSequence;
+        Assert.That(written, nTerminal ? Does.StartWith($"[{modificationType}:{idWithMotif}]") : Does.EndWith($"-[{modificationType}:{idWithMotif}]"));
+
+        var parsed = MzLibSequenceParser.Instance.Parse(written)!.Value.Modifications.Single();
+        var ownLookup = modificationType == "Unimod" ? (IModificationLookup)UnimodModificationLookup.Instance : MzLibModificationLookup.Instance;
+        foreach (var lookup in new[] { ownLookup, GlobalModificationLookup.Instance })
+        {
+            var resolved = lookup.TryResolve(parsed)?.MzLibModification;
+
+            Assert.That(resolved, Is.Not.Null, $"{lookup.Name}: {written}");
+            Assert.That(resolved!.LocationRestriction, Does.Contain(nTerminal ? "N-terminal" : "C-terminal"), $"{lookup.Name}: {written}");
+            Assert.That(resolved.MonoisotopicMass, Is.EqualTo(mod.MonoisotopicMass).Within(1e-6), $"{lookup.Name}: {written}");
+        }
+    }
 
     [Test]
     public static void TestConvertModificationsOnPeptideWithSetModifications()
