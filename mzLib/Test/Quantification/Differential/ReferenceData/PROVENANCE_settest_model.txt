@@ -1,6 +1,8 @@
-generated_utc 2026-10-26 13:20:10 UTC
+generated_utc 2026-11-03 17:32:10 UTC
 R R version 4.6.1 (2026-06-24 ucrt)
-lme4 2.0.6; lmerTest 3.2.1
+lme4 2.0.6; lmerTest 3.2.1; MASS 7.3.65; msqrob2 1.20.0
 seed 20261026
 script make_settest_model_fixtures.R
 lmer REML on an explicit fixed matrix (member:(intercept, old[, treatment b]) + peptides within member), (1|sample) + (1|sample:member), bobyqa rhoend 1e-12; beta-bar and its Satterthwaite df via lmerTest::contest
+robust (*_robust_*) = msqrob2 1.20.0 .robust_fitting rules (psi.huber k = 1.345 on resid / mad(res, 0); pwrss tol 1e-6), cap 100, each round refitted from scratch with weights in the call, as make_robust_lmm_fixtures.R (#1499); then lmerTest::contest on the final weighted fit
+not settled within the cap (settest_model_incomplete_*, hand-made values, no random numbers) = one round, as msqrob2's default maxitRob = 1 (GR-22 as amended 2026-11-03): weights from the unweighted fit's residuals, checked equal to msqrob2:::.robust_fitting(maxitRob = 1)'s, then a fresh weighted fit with those weights in the call
