@@ -367,6 +367,28 @@ namespace Test.FileReadingTests
                 Has.Some.Contain(why));
         }
 
+        /// <summary>The same claims are reported where nothing is labelled: on a record that names no isobaric labelling,
+        /// and on a deposit with no raw files. ApplyEvidence leaves every kit claim to the isobaric step, so a claim it
+        /// dropped there would leave no trace (sdrf G92).</summary>
+        [TestCase(true, "spectra", "TMT11plex", "a guess is kept for review, never applied")]
+        [TestCase(false, "reporter ions", "TMT11plex", "the method 'reporter ions' is not one the drafter knows")]
+        [TestCase(false, "spectra", "label free sample", "only a TMT or iTRAQ kit is read")]
+        public void AKitClaimTheDrafterCannotUseIsReportedWhereNothingIsLabelled(bool guess, string method, string value, string why)
+        {
+            var claim = Kit("", value) with { Method = method, Confidence = guess ? SdrfEvidenceConfidence.Guess : SdrfEvidenceConfidence.Certain };
+
+            var labelFree = SdrfDrafter.Draft(Project("Label-free quantification."), Files, new[] { claim });
+            var noFiles = SdrfDrafter.Draft(Project(Tmt10), Array.Empty<string>(), new[] { claim });
+
+            Assert.That(labelFree.Rows, Has.Count.EqualTo(2));
+            Assert.That(labelFree.Rows.All(r => r.Label == null), "the rows are label free, as before");
+            Assert.That(noFiles.Rows, Is.Empty);
+            Assert.That(labelFree.EvidenceNotes.Where(n => n.Column == "comment[label]" && n.EvidenceValue == value).Select(n => n.Why),
+                Has.Some.Contain(why), "a record that names no labelling");
+            Assert.That(noFiles.EvidenceNotes.Where(n => n.Column == "comment[label]" && n.EvidenceValue == value).Select(n => n.Why),
+                Has.Some.Contain(why), "a deposit with no raw files");
+        }
+
         /// <summary>A kit claim about a file the deposit does not have labels nothing, and a claim reported beside it stays
         /// reported.</summary>
         [TestCase(false)]

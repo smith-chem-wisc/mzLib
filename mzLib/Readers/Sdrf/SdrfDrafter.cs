@@ -193,11 +193,11 @@ namespace Readers
         /// row already uses (<c>S1 TMT126 (2)</c>), and its biological replicate is 1 marked <c>default</c>, which
         /// QuantProject's reader refuses (their QP-S48). Exactly <c>not available</c> in <c>comment[plex]</c> is refused too.</para>
         ///
-        /// <para>A deposit that names no isobaric labelling, and gets no kit claim, is returned unchanged.</para>
+        /// <para>A deposit that names no isobaric labelling, and gets no kit claim it can use, keeps its rows. A kit claim set
+        /// aside is still reported in <see cref="SdrfDraft.EvidenceNotes"/>, even for a deposit with no raw files.</para>
         /// </summary>
         private static SdrfDraft IsobaricChannels(SdrfDraft draft, SdrfDepositRecord record, IReadOnlyList<SdrfEvidence>? evidence)
         {
-            if (draft.Rows.Count == 0) return draft;
             var notes = new List<SdrfEvidenceNote>();
             var text = string.Join("\n", new[] { record.Title, record.Description, record.SampleProcessingProtocol, record.DataProcessingProtocol }
                 .Concat(record.Keywords).Concat(record.ProjectTags));
@@ -219,7 +219,9 @@ namespace Readers
             bool About(SdrfEvidence e, string file) => e.DataFilePattern.Length > 0
                 ? SdrfEvidence.GlobMatches(e.DataFilePattern, file)
                 : SdrfFileNamePattern.Stem(e.DataFile).Equals(SdrfFileNamePattern.Stem(file), StringComparison.OrdinalIgnoreCase);
-            if (claims.Count == 0 && !fromRecord.Labelled) return draft;
+            // ApplyEvidence leaves kit claims to this step, so a claim set aside above is reported here or nowhere (sdrf G92).
+            if (claims.Count == 0 && !fromRecord.Labelled)
+                return notes.Count == 0 ? draft : draft with { EvidenceNotes = draft.EvidenceNotes.Concat(notes).ToList() };
             SdrfDraftCell RecordKitCell() => new(fromRecord.Quote, record.Source, $"{record.TextName} names '{fromRecord.Quote}'");
 
             // ---- each file's kit: (kit or null, the label cell that cites it), or no entry when it is not labelled ----
