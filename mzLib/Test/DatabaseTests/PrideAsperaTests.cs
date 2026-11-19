@@ -140,14 +140,46 @@ public class PrideAsperaTests
             AsperaRouteState = route ?? new AsperaRoute(() => _now)
         };
 
-    private static string StagingOf(ProcessStartInfo psi) => psi.ArgumentList[^1];
+    /// <summary>
+    /// What a path argument names inside ascp's process. ascp starts in <see cref="ProcessStartInfo.WorkingDirectory"/>
+    /// (which the OS takes from this process's directory, when relative), so a relative argument is relative to that
+    /// folder, not to this process's. A rooted argument is unchanged.
+    /// </summary>
+    private static string InAscp(ProcessStartInfo psi, string argument) =>
+        Path.Combine(Path.GetFullPath(psi.WorkingDirectory), argument);
 
-    /// <summary>ascp writes <paramref name="bytes"/> under the source's name and exits with <paramref name="exit"/>.</summary>
+    /// <summary>The folder ascp was told to write into, as ascp sees it.</summary>
+    private static string StagingOf(ProcessStartInfo psi) => InAscp(psi, psi.ArgumentList[^1]);
+
+    /// <summary>The key ascp was told to log in with (the argument after <c>-i</c>), as ascp sees it.</summary>
+    private static string KeyOf(ProcessStartInfo psi) => InAscp(psi, psi.ArgumentList[psi.ArgumentList.IndexOf("-i") + 1]);
+
+    /// <summary>
+    /// ascp writes <paramref name="bytes"/> under the source's name and exits with <paramref name="exit"/>, as the real
+    /// one would from its own folder: a key it cannot find there ends the session with ascp 4.4.8's own line (seen
+    /// offline, 2026-11-19), and so does a destination folder it cannot find (a line of this fake's, since ascp
+    /// reaches that check only after logging in).
+    /// </summary>
     private static Func<ProcessStartInfo, FakeAscp> Writes(byte[] bytes, int exit = 0, string line = "Completed: 1 file") => psi =>
     {
+        if (!File.Exists(KeyOf(psi)))
+            return new FakeAscp().Exit(1, $"Session Stop  (Error: Private key file not found at path {KeyOf(psi)})");
+        if (!Directory.Exists(StagingOf(psi)))
+            return new FakeAscp().Exit(1, $"Session Stop  (Error: fake ascp: no folder at {StagingOf(psi)})");
         File.WriteAllBytes(Path.Combine(StagingOf(psi), "run1.raw"), bytes);
         return new FakeAscp().Exit(exit, line);
     };
+
+    /// <summary>
+    /// Points the test's folder at a new one under this process's current directory, and returns its relative name.
+    /// (The temp folder can be on another drive than the current directory, where no relative path reaches it.)
+    /// </summary>
+    private string RelativeTempDir()
+    {
+        string relative = "PrideAsperaTests-" + Guid.NewGuid().ToString("N");
+        _tempDir = Path.GetFullPath(relative);
+        return relative;
+    }
 
     /// <summary>ascp writes nothing and exits with <paramref name="exit"/>, having said <paramref name="line"/> last.</summary>
     private static Func<ProcessStartInfo, FakeAscp> Says(int exit, string line) => _ => new FakeAscp().Exit(exit, line);
@@ -220,7 +252,7 @@ public class PrideAsperaTests
         string keyDuringRun = null;
         using var client = ClientWith(psi =>
         {
-            keyDuringRun = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(psi.ArgumentList[6]))).ToLowerInvariant();
+            keyDuringRun = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(KeyOf(psi)))).ToLowerInvariant();
             return Writes(Body)(psi);
         });
 
@@ -253,6 +285,59 @@ public class PrideAsperaTests
         Assert.That(_started.Single().ArgumentList[2], Is.EqualTo("50m"));
         Assert.That(_started.Single().ArgumentList[6], Is.EqualTo(myKey));
         Assert.That(File.Exists(myKey), Is.True, "a caller's key is never deleted");
+    }
+
+    // ascp starts in its staging folder (WorkingDirectory), so a relative path it is given names a file under that
+    // folder, not under the caller's directory. These three are Alexander-Sol's cases on #1612.
+
+    [Test]
+    public async Task ViaAspera_RelativeDestination_IsResolvedBeforeAscpStarts_SoAscpFindsTheBundledKeyAndItsFolder()
+    {
+        string relative = RelativeTempDir();
+        using var client = ClientWith(Writes(Body));
+
+        string path = await client.DownloadFileViaAsperaAsync(MakeFile(Aspera), relative, Expected, Options);
+
+        Assert.That(path, Is.EqualTo(Destination), "the full path, as documented");
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
+        ProcessStartInfo psi = _started.Single();
+        Assert.That(psi.WorkingDirectory, Does.StartWith(AsperaFolder + Path.DirectorySeparatorChar));
+        Assert.That(psi.ArgumentList[6], Does.StartWith(AsperaFolder + Path.DirectorySeparatorChar), "the bundled key's full path");
+        Assert.That(psi.ArgumentList[^1], Does.StartWith(AsperaFolder + Path.DirectorySeparatorChar), "the staging folder's full path");
+        Assert.That(Directory.Exists(AsperaFolder), Is.False);
+    }
+
+    [Test]
+    public async Task ViaAspera_RelativeDestination_WithAGivenKey_AscpWritesIntoItsFolder()
+    {
+        string relative = RelativeTempDir();
+        Directory.CreateDirectory(_tempDir);
+        string myKey = Path.Combine(_tempDir, "my_key");
+        File.WriteAllText(myKey, "key");
+        using var client = ClientWith(Writes(Body));
+
+        string path = await client.DownloadFileViaAsperaAsync(MakeFile(Aspera), relative, Expected,
+            new PrideAsperaOptions { AscpPath = Options.AscpPath, KeyPath = myKey });
+
+        Assert.That(path, Is.EqualTo(Destination));
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
+        Assert.That(_started.Single().ArgumentList[^1], Does.StartWith(AsperaFolder + Path.DirectorySeparatorChar));
+    }
+
+    [Test]
+    public async Task ViaAspera_RelativeKeyPath_WithAFullDestination_IsResolvedBeforeAscpStarts()
+    {
+        string relativeKey = Path.Combine(RelativeTempDir(), "my_key");
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllText(relativeKey, "key");
+        using var client = ClientWith(Writes(Body));
+
+        await client.DownloadFileViaAsperaAsync(MakeFile(Aspera), _tempDir, Expected,
+            new PrideAsperaOptions { AscpPath = Options.AscpPath, KeyPath = relativeKey });
+
+        Assert.That(_started.Single().ArgumentList[6], Is.EqualTo(Path.Combine(_tempDir, "my_key")));
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
+        Assert.That(File.Exists(relativeKey), Is.True, "a caller's key is never deleted");
     }
 
     [Test]
@@ -524,6 +609,10 @@ public class PrideAsperaTests
         Assert.ThrowsAsync<ArgumentNullException>(() => client.DownloadFileViaAsperaAsync(file, _tempDir, null, Options));
         Assert.ThrowsAsync<ArgumentNullException>(() => client.DownloadFileViaAsperaAsync(file, _tempDir, Expected, null));
         Assert.ThrowsAsync<ArgumentException>(() => client.DownloadFileViaAsperaAsync(file, _tempDir, Expected, new PrideAsperaOptions()));
+        foreach (string key in new[] { "", " " })
+            Assert.That(Assert.ThrowsAsync<ArgumentException>(() => client.DownloadFileViaAsperaAsync(file, _tempDir, Expected,
+                new PrideAsperaOptions { AscpPath = Options.AscpPath, KeyPath = key })).Message,
+                Does.Contain("PrideAsperaOptions.KeyPath"), $"KeyPath '{key}'");
         foreach (string rate in new[] { "-T", "300x", "m", "", " 300m" })
             Assert.ThrowsAsync<ArgumentException>(() => client.DownloadFileViaAsperaAsync(file, _tempDir, Expected,
                 new PrideAsperaOptions { AscpPath = Options.AscpPath, MaxRate = rate }), rate);
@@ -961,6 +1050,19 @@ public class PrideAsperaTests
 
         Assert.That(tries.Single().Outcome, Is.EqualTo(PrideDownloadOutcome.Accepted));
         Assert.That(tries.Single().BytesReceived, Is.EqualTo(Body.Length));
+    }
+
+    [Test]
+    public async Task Policy_RelativeDestination_OverAspera_ReturnsTheFullPath()
+    {
+        string relative = RelativeTempDir();
+        using var client = ClientWith(Writes(Body));
+
+        string path = await client.DownloadFileWithPolicyAsync(MakeFile(Ftp, Aspera), relative, Expected,
+            new PrideDownloadPolicy { Aspera = Options, Attempts = 1 });
+
+        Assert.That(path, Is.EqualTo(Destination), "the full path, as documented");
+        Assert.That(File.ReadAllBytes(Destination), Is.EqualTo(Body));
     }
 
     [Test]

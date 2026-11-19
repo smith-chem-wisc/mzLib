@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
         /// </para>
         /// </remarks>
         /// <param name="file">The file to download.</param>
-        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist. A relative path is taken from the current directory when the call starts.</param>
         /// <param name="expected">PRIDE's checksum row for this file. Its <see cref="PrideFileChecksum.FileName"/> must equal <paramref name="file"/>'s.</param>
         /// <param name="policy">The routes, tries, waits and pause.</param>
         /// <param name="overwrite">
@@ -87,6 +87,9 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentNullException(nameof(expected));
             CheckPolicy(policy);
             string safeFileName = CheckDownloadTarget(file, destinationDirectory, expected);
+            // Resolved once, so every try writes into the same folder however long the waits between them, and the
+            // path returned is the full one.
+            destinationDirectory = Path.GetFullPath(destinationDirectory);
             string destinationPath = Path.Combine(destinationDirectory, safeFileName);
 
             if (!overwrite && File.Exists(destinationPath)
@@ -280,7 +283,7 @@ namespace UsefulProteomicsDatabases
         /// </para>
         /// </remarks>
         /// <param name="file">The file to download. It must have an Aspera location on <see cref="PrideArchiveExtensions.PrideAsperaHost"/>.</param>
-        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist. A relative path is taken from the current directory when the call starts.</param>
         /// <param name="expected">PRIDE's checksum row for this file. Its <see cref="PrideFileChecksum.FileName"/> must equal <paramref name="file"/>'s.</param>
         /// <param name="aspera">Where ascp is, and how to run it.</param>
         /// <param name="overwrite">
@@ -291,7 +294,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="cancellationToken">Stops ascp, or the check.</param>
         /// <returns>The full path of the written (or already-present and checked) file.</returns>
         /// <exception cref="ArgumentNullException">The file, <paramref name="expected"/> or <paramref name="aspera"/> is null.</exception>
-        /// <exception cref="ArgumentException">As for the HTTPS download, or <paramref name="aspera"/> has no <see cref="PrideAsperaOptions.AscpPath"/> or an unreadable <see cref="PrideAsperaOptions.MaxRate"/>.</exception>
+        /// <exception cref="ArgumentException">As for the HTTPS download, or <paramref name="aspera"/> has no <see cref="PrideAsperaOptions.AscpPath"/> or an unreadable <see cref="PrideAsperaOptions.MaxRate"/>, or a blank <see cref="PrideAsperaOptions.KeyPath"/>.</exception>
         /// <exception cref="ArgumentOutOfRangeException"><see cref="PrideAsperaOptions.StallTimeout"/> is not positive.</exception>
         /// <exception cref="NotSupportedException">The file has no Aspera location on <see cref="PrideArchiveExtensions.PrideAsperaHost"/>.</exception>
         /// <exception cref="PrideAsperaException">The attempt failed; <see cref="PrideAsperaException.Failure"/> says how.</exception>
@@ -313,6 +316,9 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentNullException(nameof(expected));
             CheckAsperaOptions(aspera);
             string safeFileName = CheckDownloadTarget(file, destinationDirectory, expected);
+            // ascp runs in its staging folder (WorkingDirectory below), where a relative path names another file. So the
+            // folder, and the key below, are resolved here, against this process's directory, before ascp is given them.
+            destinationDirectory = Path.GetFullPath(destinationDirectory);
             string destinationPath = Path.Combine(destinationDirectory, safeFileName);
 
             if (!overwrite && File.Exists(destinationPath)
@@ -335,7 +341,7 @@ namespace UsefulProteomicsDatabases
 
             try
             {
-                string keyPath = aspera.KeyPath ?? WriteBundledAsperaKey(attemptDirectory);
+                string keyPath = aspera.KeyPath != null ? Path.GetFullPath(aspera.KeyPath) : WriteBundledAsperaKey(attemptDirectory);
                 if (!File.Exists(keyPath))
                     throw new MzLibException($"The Aspera key file '{keyPath}' does not exist.");
 
@@ -408,6 +414,10 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentNullException(nameof(aspera));
             if (string.IsNullOrWhiteSpace(aspera.AscpPath))
                 throw new ArgumentException("The path of ascp is required (PrideAsperaOptions.AscpPath).", nameof(aspera));
+            if (aspera.KeyPath != null && string.IsNullOrWhiteSpace(aspera.KeyPath))
+                throw new ArgumentException(
+                    "PrideAsperaOptions.KeyPath is blank: leave it null for the bundled key, or give the key file's path.",
+                    nameof(aspera));
             if (!IsAscpRate(aspera.MaxRate))
                 throw new ArgumentException(
                     $"'{aspera.MaxRate}' is not a rate ascp takes: digits, optionally followed by k, m or g (PrideAsperaOptions.MaxRate).",

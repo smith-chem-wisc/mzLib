@@ -19,7 +19,8 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// The private key ascp logs in with. Null (the default) uses EBI's public key for anonymous PRIDE downloads,
-        /// which mzLib bundles; set it only to use another copy of that key.
+        /// which mzLib bundles; set it only to use another copy of that key. A relative path is taken from the current
+        /// directory when the download starts.
         /// </summary>
         public string KeyPath { get; init; }
 
