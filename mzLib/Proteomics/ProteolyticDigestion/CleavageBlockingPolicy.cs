@@ -307,25 +307,32 @@ namespace Proteomics.ProteolyticDigestion
             return unoccupied;
         }
 
-        // Inside the peptidoform a subsite carries what the peptidoform says it carries.
+        // Inside the peptidoform a subsite carries what the peptidoform says it carries. With the blocking correction on, a
+        // blocking modification on P1 also stops each motif that names P1, at the sites Blocks leaves to this decision: those
+        // another motif also cuts (trypsin's K[P]| beside IMPa's |S).
         private bool Justifies(int cut, int start, int end, Dictionary<int, Modification> variableMods,
             Dictionary<int, Modification> fixedMods)
         {
             Protein protein = _protein;
             List<Modification> configured = _configuredModifications;
             List<Modification> fixedModifications = _fixedModifications;
+            bool p1Blocked = _chargeDirectedSites is not null && !_chargeDirectedSites[cut] && cut >= start
+                && variableMods.TryGetValue(cut - start + 2, out Modification onP1)
+                && CleavageBlockingModifications.BlocksCleavageBy(onP1, _protease)
+                && !(cut == end && CleavageBlockingModifications.MayFormAfterDigestion(onP1));
             return Justifies(_protease, protein.BaseSequence, cut, (requirement, residue) =>
                 residue >= start && residue <= end
                     ? (variableMods.TryGetValue(residue - start + 2, out Modification placed)
                         || fixedMods.TryGetValue(residue - start + 2, out placed))
                       && requirement.IsSatisfiedBy(placed)
-                    : AssumedToCarry(protein, configured, fixedModifications, requirement, residue));
+                    : AssumedToCarry(protein, configured, fixedModifications, requirement, residue), p1Blocked);
         }
 
-        // True if a motif that cuts here has every glycan it requires and none it forbids.
-        private static bool Justifies(DigestionAgent protease, string sequence, int cut, Func<CleavageRequirement, int, bool> carries) =>
-            protease.MotifsCuttingAfter(sequence, cut).Any(motif =>
-                motif.CleavageRequirements.All(requirement =>
+        // True if a motif that cuts here has every glycan it requires and none it forbids, and is not stopped by a blocked P1.
+        private static bool Justifies(DigestionAgent protease, string sequence, int cut, Func<CleavageRequirement, int, bool> carries,
+            bool p1Blocked = false) =>
+            protease.MotifsCuttingAfter(sequence, cut).Any(motif => !(p1Blocked && motif.CleavesCTerminalTo(sequence[cut - 1]))
+                && motif.CleavageRequirements.All(requirement =>
                     carries(requirement, requirement.ConstrainedResidue(cut)) != requirement.IsForbidden));
 
         // Where no peptidoform says, assume what lets the protease cut: a required glycan wherever one could be, a forbidden
