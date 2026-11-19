@@ -1,0 +1,93 @@
+{
+ "results": [
+  {
+   "id": "UP000464024",
+   "taxonomy": {
+    "scientificName": "Severe acute respiratory syndrome coronavirus 2",
+    "commonName": "2019-nCoV",
+    "synonyms": [
+     "SARS-CoV-2"
+    ],
+    "taxonId": 2697049,
+    "mnemonic": "SARS2"
+   },
+   "proteomeType": "Reference proteome",
+   "proteinCount": 17,
+   "taxonLineage": [
+    {
+     "scientificName": "Viruses",
+     "taxonId": 10239,
+     "rank": "no rank",
+     "hidden": false
+    },
+    {
+     "scientificName": "Riboviria",
+     "commonName": "RNA viruses and retroviruses",
+     "taxonId": 2559587,
+     "rank": "realm",
+     "hidden": false
+    },
+    {
+     "scientificName": "Orthornavirae",
+     "taxonId": 2732396,
+     "rank": "kingdom",
+     "hidden": false
+    },
+    {
+     "scientificName": "Pisuviricota",
+     "taxonId": 2732408,
+     "rank": "phylum",
+     "hidden": false
+    },
+    {
+     "scientificName": "Pisoniviricetes",
+     "taxonId": 2732506,
+     "rank": "class",
+     "hidden": false
+    },
+    {
+     "scientificName": "Nidovirales",
+     "taxonId": 76804,
+     "rank": "order",
+     "hidden": false
+    },
+    {
+     "scientificName": "Cornidovirineae",
+     "taxonId": 2499399,
+     "rank": "suborder",
+     "hidden": false
+    },
+    {
+     "scientificName": "Coronaviridae",
+     "taxonId": 11118,
+     "rank": "family",
+     "hidden": false
+    },
+    {
+     "scientificName": "Orthocoronavirinae",
+     "taxonId": 2501931,
+     "rank": "subfamily",
+     "hidden": false
+    },
+    {
+     "scientificName": "Betacoronavirus",
+     "taxonId": 694002,
+     "rank": "genus",
+     "hidden": false
+    },
+    {
+     "scientificName": "Sarbecovirus",
+     "taxonId": 2509511,
+     "rank": "subgenus",
+     "hidden": false
+    },
+    {
+     "scientificName": "Betacoronavirus pandemicum",
+     "taxonId": 3418604,
+     "rank": "species",
+     "hidden": false
+    }
+   ]
+  }
+ ]
+}

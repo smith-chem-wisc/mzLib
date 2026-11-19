@@ -521,8 +521,11 @@ public static class EntrapmentProteinGenerator
             // about what the target's sequence is or does. The partner's sequence was built to be
             // nothing, so inheriting them would give it the target's function in any tool that
             // reads annotation from the searched database. The foreign arm keeps its sequence, and
-            // so its references.
-            databaseReferences: new List<DatabaseReference>());
+            // so its references. The one reference the partner does keep is the NCBI taxonomy: it
+            // says which organism's database the sequence came from, which is as true of the
+            // partner as of a decoy, and a consumer that groups proteins by taxon would otherwise
+            // have no organism for any entrapment entry.
+            databaseReferences: DecoyProteinGenerator.TaxonomyReferencesOf(target));
     }
 
     /// <summary>

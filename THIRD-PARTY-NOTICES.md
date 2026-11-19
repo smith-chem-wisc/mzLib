@@ -26,6 +26,22 @@ here because NuGet consumers receive the compiled assemblies rather than this re
 - **Embedded in:** `UsefulProteomicsDatabases.dll`
   (`UsefulProteomicsDatabases/Resources/pride_cv.obo`)
 
+## UniProt reference-proteome taxonomy — `taxonomy_nodes.tsv.gz`, `proteome_taxa.tsv.gz`
+
+- **Publisher:** The UniProt Consortium (EMBL-EBI, SIB Swiss Institute of Bioinformatics, Protein
+  Information Resource). The taxonomy it serves is the NCBI Taxonomy.
+- **Source:** https://rest.uniprot.org/proteomes/search?query=reference:true and
+  https://rest.uniprot.org/taxonomy
+- **Pinned version:** UniProt release `2026_04`
+- **Licence:** Creative Commons Attribution 4.0 International (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/ — see https://www.uniprot.org/help/license
+- **Changes:** reduced to each reference proteome's identifier, taxon, organism name, protein count and
+  type, and to the identifier, parent, rank, names and hidden flag of each taxon in those proteomes'
+  lineages; rewritten as tab-separated text.
+- **Embedded in:** `UsefulProteomicsDatabases.dll`
+  (`UsefulProteomicsDatabases/Resources/taxonomy_nodes.tsv.gz`,
+  `UsefulProteomicsDatabases/Resources/proteome_taxa.tsv.gz`)
+
 ---
 
 # Redistributed native libraries

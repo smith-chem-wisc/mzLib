@@ -125,6 +125,12 @@ public sealed record DifferentialResult
     public string? ModelUsed { get; init; }
     /// <summary>Whether outlying values were down-weighted.</summary>
     public bool? Robust { get; init; }
+    /// <summary>
+    /// Whether the row's robust reweighting did not settle and the row is the one-round fit (QuantProject GR-22 as amended
+    /// 2026-11-03, DATA-DEFINITIONS v3.21): true then, false when it settled, null when <see cref="Robust"/> is not true
+    /// and on a row with no fit.
+    /// </summary>
+    public bool? RobustFellBack { get; init; }
     /// <summary>The normalization that ran (<c>DEF-DIFF-NORM</c>).</summary>
     public string? Normalization { get; init; }
     /// <summary>Model terms besides the contrast's own factor, random ones marked, as given.</summary>
