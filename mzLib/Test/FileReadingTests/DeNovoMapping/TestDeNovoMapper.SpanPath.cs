@@ -58,6 +58,8 @@ namespace Test.FileReadingTests.DeNovoMapping
             yield return new TestCaseData(new DigestionParams("trypsin", 2, 7, 20, searchModeType: CleavageSpecificity.None)).SetName("Fallback(non-specific search)");
             yield return new TestCaseData(new DigestionParams("top-down", 0, 1)).SetName("Fallback(top-down)");
             yield return new TestCaseData(new DigestionParams("trypsin", 2, 5, keepNGlycopeptide: true)).SetName("Fallback(N-glycopeptides)");
+            // Digest emits nothing at a negative MaxMods; the walk alone would emit every peptide.
+            yield return new TestCaseData(new DigestionParams("trypsin", 2, 4, maxModsForPeptides: -1)).SetName("Fallback(negative MaxMods)");
         }
 
         [TestCaseSource(nameof(SpanPathDigestions))]
@@ -146,6 +148,21 @@ namespace Test.FileReadingTests.DeNovoMapping
                 // The policy's read-through peptides are why the blocked protein cannot be enumerated from its sites.
                 Assert.That(Windows(digester, blocked), Is.Not.EquivalentTo(Windows(digester, plain)));
             });
+        }
+
+        /// <summary>A subclass may override how it digests (a circular protein, say), so only an exact Protein is walked.</summary>
+        private sealed class ProteinSubclass(string sequence, string accession) : Protein(sequence, accession);
+
+        [Test]
+        public void ProteinSubclassGoesThroughDigest()
+        {
+            var digestionParams = new DigestionParams("trypsin", 2, 4);
+            var digester = new MappingSequenceDigester(digestionParams, true);
+            var subclass = new ProteinSubclass("PEPTIDEKAAAAKCCCCR", "SUBCLASS");
+
+            Assert.That(digester.EnumeratesWindows(subclass), Is.False);
+            Assert.That(digester.EnumeratesWindows(new Protein("PEPTIDEKAAAAKCCCCR", "PLAIN")), Is.True);
+            Assert.That(Windows(digester, subclass), Is.EquivalentTo(DigestPeptides(subclass, digestionParams, true)));
         }
 
         [Test]

@@ -23,15 +23,19 @@ internal interface IMappingWindowSink
 /// digestion it walks the cleavage sites and truncation products exactly as <c>DigestionAgent.FullDigestion</c> does,
 /// without building a <see cref="PeptideWithSetModifications"/> per peptide. Anything else (semi or non-specific
 /// digestion, glycopeptide filters, an active <see cref="CleavageBlockingPolicy"/>, a truncation product outside the
-/// protein, a protein that is not a <see cref="Protein"/>) goes through <see cref="IBioPolymer.Digest"/> itself. A
-/// peptide may be reported more than once.
+/// protein, a polymer whose type is not exactly <see cref="Protein"/>, a negative <see cref="DigestionParams.MaxMods"/>)
+/// goes through <see cref="IBioPolymer.Digest"/> itself. A peptide may be reported more than once.
 /// </summary>
+/// <remarks>
+/// This copies <c>DigestionAgent.FullDigestion</c>'s walk, truncation products included. If that walk changes, this must
+/// change with it; <c>TestDeNovoMapper.SpanPath</c> (Test/FileReadingTests/DeNovoMapping) asserts the two give the same
+/// peptides.
+/// </remarks>
 internal sealed class MappingSequenceDigester
 {
     private readonly DigestionParams _digestionParams;
     private readonly bool _replaceIWithL;
     private readonly bool _isFullDigestion;
-    private readonly bool _policyCanActivate;
     private readonly List<Modification> _fixedModifications = new();
     private readonly List<Modification> _variableModifications = new();
 
@@ -48,10 +52,9 @@ internal sealed class MappingSequenceDigester
         _isFullDigestion = digestionParams.SearchModeType == CleavageSpecificity.Full
                            && digestionParams.Protease.CleavageSpecificity == CleavageSpecificity.Full
                            && !digestionParams.KeepNGlycopeptide
-                           && !digestionParams.KeepOGlycopeptide;
-
-        // CleavageBlockingPolicy.For is inert unless one of these is on, so only then is it asked per protein.
-        _policyCanActivate = digestionParams.RespectCleavageBlockingModifications || digestionParams.RespectCleavagePromotingModifications;
+                           && !digestionParams.KeepOGlycopeptide
+                           // Digest emits nothing when MaxMods is negative; the walk would emit every peptide.
+                           && digestionParams.MaxMods >= 0;
     }
 
     /// <summary>
@@ -59,7 +62,8 @@ internal sealed class MappingSequenceDigester
     /// </summary>
     public bool EnumeratesWindows(IBioPolymer protein)
     {
-        if (!_isFullDigestion || protein is not Protein { BaseSequence.Length: > 0 } concrete)
+        // Exactly Protein: a subclass may digest differently (e.g. a circular protein's peptides across the junction).
+        if (!_isFullDigestion || protein is not Protein { BaseSequence.Length: > 0 } concrete || concrete.GetType() != typeof(Protein))
             return false;
 
         foreach (var truncation in concrete.TruncationProducts)
@@ -68,7 +72,7 @@ internal sealed class MappingSequenceDigester
                 return false;
         }
 
-        return !_policyCanActivate || !CleavageBlockingPolicy.For(_digestionParams, _variableModifications, concrete, _fixedModifications).IsActive;
+        return !CleavageBlockingPolicy.For(_digestionParams, _variableModifications, concrete, _fixedModifications).IsActive;
     }
 
     /// <summary>
