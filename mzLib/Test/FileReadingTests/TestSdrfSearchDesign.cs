@@ -124,12 +124,37 @@ namespace Test.FileReadingTests
         [Test]
         public void TheReadersRefusalsAreTheDesignsRefusals()
         {
-            var design = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), DataFiles("PXD067622.sdrf.tsv"));
+            // PXD049018 states no treatment ('not available' on every row), and with no column declared the treatment is
+            // part of the condition.
+            var design = SdrfSearchDesign.Read(Fixture("PXD049018.sdrf.tsv"), DataFiles("PXD049018.sdrf.tsv"));
 
             Assert.That(design.IsValid, Is.False);
             Assert.That(design.LabelFree, Is.Not.Null);
-            Assert.That(design.Refusals.Single(), Does.Contain("Several factor value columns and none declared"));
+            Assert.That(design.Refusals, Has.Count.EqualTo(20));
+            Assert.That(design.Refusals, Has.All.Contain($"'{Treatment}' is 'not available'"));
             Assert.That(design.Refusals, Is.EqualTo(design.LabelFree!.Refusals));
+        }
+
+        /// <summary>The two grouping statements of 2026-11-11 (QP-S42 b, QP-S44) reach the reader.</summary>
+        [Test]
+        public void TheGroupingStatementsReachTheReader()
+        {
+            var searched = DataFiles("PXD067622.sdrf.tsv");
+
+            var single = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), searched,
+                new SdrfSearchDesignOptions { SingleCondition = "all" });
+            var ownCondition = SdrfSearchDesign.Read(Fixture("PXD049018.sdrf.tsv"), DataFiles("PXD049018.sdrf.tsv"),
+                new SdrfSearchDesignOptions { ConditionColumns = new[] { "genotype", "treatment" }, UnknownFactorIsOwnCondition = true });
+
+            // One group on PXD067622 sets its two factor columns aside, and its replicates, numbered 1..3 within each of
+            // the eight groups, then collide: one condition cannot hold eight replicate 1s. Refused, as it should be.
+            Assert.That(single.LabelFree!.SingleCondition, Is.EqualTo("all"));
+            Assert.That(single.Notes, Has.Some.Contain("are set aside"));
+            Assert.That(single.Refusals, Has.Count.EqualTo(3));
+            Assert.That(single.Refusals, Has.All.StartWith("Condition 'all' biorep "));
+            Assert.That(ownCondition.Refusals, Has.None.Contain("'not available'. A condition cannot be built"),
+                "the unknown treatment is kept, not refused");
+            Assert.That(ownCondition.Notes, Has.Some.Contain("kept as a level of its own"));
         }
 
         // ---------------------------------------------------------------- condition columns
@@ -158,11 +183,12 @@ namespace Test.FileReadingTests
         // ---------------------------------------------------------------- the join to the searched files
 
         /// <summary>
-        /// A search of half the files: the other rows are set aside before the reader sees them, and the note says the
-        /// reader's line numbers and "every row is searched" then describe the kept rows.
+        /// A search of half the files: the other rows are set aside before the reader sees them, and the join report says
+        /// so. The reader reads the join itself (QP-S38), so no note has to warn that its line numbers or its "every row is
+        /// searched" describe only the kept rows.
         /// </summary>
         [Test]
-        public void ASearchOfSomeFilesSetsTheOtherRowsAsideAndSaysSo()
+        public void ASearchOfSomeFilesSetsTheOtherRowsAsideAndTheJoinReportSaysSo()
         {
             var all = DataFiles("PXD067622.sdrf.tsv");
             var searched = all.Where(f => f.Contains("DMSO")).ToList();
@@ -174,9 +200,42 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Is.Empty, design.Report());
             Assert.That(design.LabelFree!.Files, Has.Count.EqualTo(searched.Count));
             Assert.That(design.Scoping!.DroppedDataFiles, Has.Count.EqualTo(all.Count - searched.Count));
-            Assert.That(design.Notes.First(), Does.StartWith($"{all.Count - searched.Count} of {all.Count} SDRF row(s) were set aside"));
+            Assert.That(design.Notes, Is.EqualTo(design.LabelFree.Notes), "only the reader's own notes");
             Assert.That(design.Report(), Does.Contain($"SDRF joined to the searched files: {searched.Count} of {all.Count} SDRF rows kept.")
-                .And.Contain("DroppedDataFiles (the search does not read them): "));
+                .And.Contain("DroppedDataFiles (the search does not read them): ")
+                .And.Not.Contain("count the kept rows"));
+        }
+
+        /// <summary>
+        /// The readers read the join itself (QP-S38): a refusal names the SDRF file's line (b2.raw's bad number is on line
+        /// 5, the third kept row), for a label-free and an isobaric search alike.
+        /// </summary>
+        [Test]
+        public void TheReadersLineNumbersAreTheSdrfFilesLines()
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[biological replicate]", "comment[label]", "comment[fraction identifier]",
+                "comment[technical replicate]", "comment[data file]", "comment[plex]", "factor value[condition]"
+            });
+            SdrfRow Row(string file, string label, string biorep, string condition, string plex = "P1") =>
+                new(header, new[] { $"{condition} {biorep}", biorep, label, "1", "1", file, plex, condition });
+
+            var labelFree = new SdrfDocument(header, new[]
+            {
+                Row("a1.raw", "label free sample", "1", "A"), Row("a2.raw", "label free sample", "2", "A"),
+                Row("b1.raw", "label free sample", "1", "B"), Row("b2.raw", "label free sample", "x", "B"),
+            });
+            var design = SdrfSearchDesign.Read(labelFree, new[] { "a1-calib.mzML", "b1-calib.mzML", "b2-calib.mzML" });
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 5 (b2-calib.mzML):"), design.Report());
+
+            var isobaric = new SdrfDocument(header, new[]
+            {
+                Row("a.raw", "TMT126", "1", "A"), Row("c.raw", "TMT126", "1", "C", "P3"), Row("b.raw", "TMT131C", "1", "B", "P2"),
+            });
+            var tmt = SdrfSearchDesign.Read(isobaric, new[] { "a.raw", "b.raw" },
+                new SdrfSearchDesignOptions { Tag = Tmt10(), PlexColumn = "comment[plex]" });
+            Assert.That(tmt.Refusals.Single(), Does.StartWith("Line 4 (b.raw):").And.Contain("not a channel of TMT10"), tmt.Report());
         }
 
         /// <summary>A searched file whose name the suffix rule cannot join, matched by the acquired name the caller knows.</summary>
@@ -330,7 +389,7 @@ namespace Test.FileReadingTests
         public void ARefusedDesignWritesNothingAndBuildsNothing()
         {
             string path = Path.Combine(_directory, "ExperimentalDesign.tsv");
-            var refusedByReader = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), DataFiles("PXD067622.sdrf.tsv"));
+            var refusedByReader = SdrfSearchDesign.Read(Fixture("PXD049018.sdrf.tsv"), DataFiles("PXD049018.sdrf.tsv"));
             var refusedHere = SdrfSearchDesign.Read(Fixture("PXD067622.sdrf.tsv"), new[] { "elsewhere.raw" });
 
             foreach (var design in new[] { refusedByReader, refusedHere })

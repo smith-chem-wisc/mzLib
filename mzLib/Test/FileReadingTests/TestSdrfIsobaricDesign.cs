@@ -768,6 +768,62 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals[1], Does.Contain("'factor value[condition]' is empty"));
         }
 
+        /// <summary>QP-S44 (ruled 2026-11-11), per channel: stated, a channel whose factor nobody stated is its own condition.</summary>
+        [Test]
+        public void ChannelsWhoseFactorIsUnknownAreAConditionOfTheirOwnWhenStated()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1", "not applicable"),
+                new Row("a.raw", "TMT127N", "S2", "")), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, UnknownFactorIsOwnCondition = true,
+            });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition),
+                Is.EqualTo(new[] { "not applicable", "not available" }));
+            Assert.That(design.Notes, Has.Some.StartWith("'factor value[condition]' is 'not applicable' for 1 file(s), kept as a level of its own"));
+            Assert.That(design.Notes, Has.Some.StartWith("'factor value[condition]' is empty for 1 file(s), written 'not available'"));
+        }
+
+        /// <summary>QP-S42 (b) and (c), ruled 2026-11-11, in the isobaric reader: the same condition rules as label-free.</summary>
+        [Test]
+        public void AStatedSingleConditionMakesEveryChannelThatCondition()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SingleCondition = "all",
+            });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition), Is.All.EqualTo("all"));
+            Assert.That(design.SingleCondition, Is.EqualTo("all"));
+            Assert.That(design.Notes, Has.Some.Contain("'factor value[condition]' are set aside"));
+            Assert.That(design.Report(), Does.Contain("Condition from: one condition, 'all', as stated"));
+        }
+
+        [Test]
+        public void WithNoDeclarationEveryFactorColumnMakesTheChannelsCondition()
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[biological replicate]", "comment[label]", "comment[data file]", PlexColumn,
+                "factor value[genotype]", "factor value[treatment]"
+            });
+            var sdrf = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "S1", "1", "TMT126", "a.raw", "P1", "WT", "drug" }),
+                new SdrfRow(header, new[] { "S2", "1", "TMT127N", "a.raw", "P1", "KO", "drug" }),
+            });
+
+            var design = SdrfIsobaricDesign.Read(sdrf, ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.ConditionColumns, Is.EqualTo(new[] { "factor value[genotype]", "factor value[treatment]" }));
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition), Is.EqualTo(new[] { "WT_drug", "KO_drug" }));
+            Assert.That(design.Notes, Has.Some.Contain("every factor value column"));
+        }
+
         [TestCase("0")]
         [TestCase("two")]
         public void ABiologicalReplicateThatIsNotPositiveIsRefused(string biorep)
@@ -790,6 +846,29 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Is.Empty, "a problem in a row nothing reads must not refuse the design");
             Assert.That(design.Notes.Single(), Does.Contain("Line 4 ('b.raw') dropped"));
             Assert.That(design.Files.Single().FilePath, Is.EqualTo(searched));
+        }
+
+        /// <summary>
+        /// Read from the join itself (QP-S38), a refusal names the line of the SDRF file: b.raw's 127N row is line 6, though
+        /// it is the fourth row the join kept; read from the join's document, the same refusal says line 5.
+        /// </summary>
+        [Test]
+        public void AJoinsRowsAreReportedOnTheLinesOfTheSdrfFile()
+        {
+            var sdrf = Document(TwoChannels("a.raw")
+                .Concat(new[] { new Row("c.raw", "TMT126", "S5") })
+                .Concat(new[] { new Row("b.raw", "TMT126", "S3", Plex: "P2"), new Row("b.raw", "TMT131C", "S4", Plex: "P2") }).ToArray());
+            var searched = new[] { "a.raw", "b.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+            var options = new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SearchedFiles = searched };
+
+            var design = SdrfIsobaricDesign.Read(scoping, options);
+
+            Assert.That(scoping.SourceLines, Is.EqualTo(new[] { 2, 3, 5, 6 }));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 6 (b.raw):").And.Contain("not a channel of TMT10"));
+            Assert.That(SdrfIsobaricDesign.Read(scoping.Document, options).Refusals.Single(), Does.StartWith("Line 5 (b.raw):"));
+            Assert.That(() => SdrfIsobaricDesign.Read((SdrfSearchScoping)null!, options), Throws.ArgumentNullException);
+            Assert.That(() => SdrfIsobaricDesign.Read(scoping, null!), Throws.ArgumentNullException);
         }
 
         [Test]

@@ -18,10 +18,26 @@ namespace Readers
         /// <summary>
         /// The <c>factor value[...]</c> columns the condition is built from, in order, by their exact
         /// column names (column names match case-sensitively). The condition is their values joined
-        /// with <c>_</c>. Leave null or empty to use the document's only factor column; a document
-        /// with several and none declared is refused (MAP-07, N5).
+        /// with <c>_</c>. Leave null or empty to build it from every factor value column, in the
+        /// document's order (MAP-07; ruled 2026-11-11, QP-S42 c), with a note when there are several.
+        /// A document with no factor value column, and none declared, is refused unless
+        /// <see cref="SingleCondition"/> is given.
         /// </summary>
         public IReadOnlyList<string>? ConditionColumns { get; init; }
+
+        /// <summary>
+        /// The name of the one condition every file belongs to, when the user states it (ruled 2026-11-11, QP-S42 b). It is
+        /// never assumed: an SDRF with no factor value column is refused without it. Any factor value columns are set aside,
+        /// and a note names them. Cannot be given with <see cref="ConditionColumns"/>.
+        /// </summary>
+        public string? SingleCondition { get; init; }
+
+        /// <summary>
+        /// The user states that files whose condition cell says nobody stated it (<c>not available</c>,
+        /// <c>not applicable</c>, or a blank, read as <c>not available</c>) are a condition of their own (ruled 2026-11-11,
+        /// QP-S44). Without it they are refused, each named. With it the word is kept as a level, and a note names the files.
+        /// </summary>
+        public bool UnknownFactorIsOwnCondition { get; init; }
 
         /// <summary>
         /// The files the search will read, as paths or bare names. When given, the design is checked
@@ -104,14 +120,16 @@ namespace Readers
 
         private readonly List<SpectraFileInfo> _files;
 
+        private readonly SdrfDesignRules.ConditionRule _condition;
+
         private SdrfLabelFreeDesign(List<SpectraFileInfo> files, List<string> refusals, List<string> notes,
-            string? fileKeyColumn, List<string> conditionColumns)
+            string? fileKeyColumn, SdrfDesignRules.ConditionRule condition)
         {
             _files = files;
             Refusals = refusals;
             Notes = notes;
             FileKeyColumn = fileKeyColumn;
-            ConditionColumns = conditionColumns;
+            _condition = condition;
         }
 
         /// <summary>True when there is nothing in <see cref="Refusals"/> and the design can be used.</summary>
@@ -136,8 +154,11 @@ namespace Readers
         /// <summary>The column the files were keyed on (MAP-12), or null when neither was present.</summary>
         public string? FileKeyColumn { get; }
 
-        /// <summary>The factor columns the condition was built from, in join order.</summary>
-        public IReadOnlyList<string> ConditionColumns { get; }
+        /// <summary>The factor columns the condition was built from, in join order. Empty with a stated single condition.</summary>
+        public IReadOnlyList<string> ConditionColumns => _condition.Columns;
+
+        /// <summary>The one condition every file belongs to, when the caller stated it; else null.</summary>
+        public string? SingleCondition => _condition.SingleCondition;
 
         /// <summary>
         /// The design as mzLib quantification takes it. Throws when the design was refused.
@@ -167,7 +188,7 @@ namespace Readers
             text.Append('\n');
             foreach (var file in _files)
             {
-                text.Append(Path.GetFileName(file.FullFilePathWithExtension)).Append('\t')
+                text.Append(SdrfFileNamePattern.FileName(file.FullFilePathWithExtension)).Append('\t')
                     .Append(file.Condition).Append('\t')
                     .Append((file.BiologicalReplicate + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
                     .Append((file.Fraction + 1).ToString(CultureInfo.InvariantCulture)).Append('\t')
@@ -193,10 +214,10 @@ namespace Readers
                   $"{_files.Select(f => f.Condition).Distinct(StringComparer.Ordinal).Count()} condition(s)."
                 : $"Label-free design REFUSED: {Refusals.Count} reason(s). No design was produced.");
             report.AppendLine($"Files keyed on: {FileKeyColumn ?? "(none)"}");
-            report.AppendLine($"Condition from: {(ConditionColumns.Count == 0 ? "(none)" : string.Join(" + ", ConditionColumns))}");
+            report.AppendLine($"Condition from: {_condition.Description}");
             if (IsValid)
             {
-                var references = _files.Where(f => f.IsReference).Select(f => Path.GetFileName(f.FullFilePathWithExtension)).ToList();
+                var references = _files.Where(f => f.IsReference).Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)).ToList();
                 report.AppendLine(references.Count == 0
                     ? "Reference files: none marked; every file is a study sample."
                     : $"Reference files: {references.Count} ({string.Join(", ", references.Take(10))}" +
@@ -226,6 +247,32 @@ namespace Readers
         {
             if (sdrf == null)
                 throw new ArgumentNullException(nameof(sdrf));
+            return ReadRows(sdrf, options, sourceLines: null, rowsSetAside: null);
+        }
+
+        /// <summary>
+        /// Projects the rows an SDRF join kept (<see cref="SdrfSearchScope.Restrict"/>) onto a label-free design, as
+        /// <see cref="Read(SdrfDocument, SdrfLabelFreeDesignOptions?)"/> does with <c>scoping.Document</c>, except that the
+        /// report speaks of the file the user has open: every line number is the input SDRF's own
+        /// (<see cref="SdrfSearchScoping.SourceLines"/>), and a note on a gap in replicate or fraction numbers says how many
+        /// rows the join set aside (<see cref="SdrfSearchScoping.RowsSetAside"/>), so the gap may be a sample whose file is not
+        /// searched. It takes the scoping itself, not a document beside it, so the rows read and the lines reported cannot come
+        /// from two different joins. A scoping built directly, with no source lines, is read as its document.
+        /// </summary>
+        /// <exception cref="ArgumentException">The scoping gives source lines, but not one per row of its document.</exception>
+        public static SdrfLabelFreeDesign Read(SdrfSearchScoping scoping, SdrfLabelFreeDesignOptions? options = null)
+        {
+            if (scoping == null)
+                throw new ArgumentNullException(nameof(scoping));
+            var sourceLines = SdrfDesignRules.SourceLinesOf(scoping);
+            return ReadRows(scoping.Document, options, sourceLines, sourceLines == null ? null : scoping.RowsSetAside);
+        }
+
+        /// <param name="sourceLines">The input SDRF's line of each row, or null to number the rows as the document's own.</param>
+        /// <param name="rowsSetAside">The rows a join set aside before the read, or null when not known.</param>
+        private static SdrfLabelFreeDesign ReadRows(SdrfDocument sdrf, SdrfLabelFreeDesignOptions? options,
+            IReadOnlyList<int>? sourceLines, int? rowsSetAside)
+        {
             options ??= new SdrfLabelFreeDesignOptions();
 
             var refusals = new List<string>();
@@ -235,21 +282,22 @@ namespace Readers
 
             string? keyColumn = SdrfDesignRules.ChooseFileKeyColumn(header, refusals);
 
-            var conditionColumns = SdrfDesignRules.ResolveConditionColumns(header, options.ConditionColumns, refusals);
-            bool conditionDeclared = options.ConditionColumns is { Count: > 0 };
+            var condition = SdrfDesignRules.ResolveConditionColumns(header, rows, options.ConditionColumns,
+                options.SingleCondition, options.UnknownFactorIsOwnCondition, refusals, notes);
+            var keptUnknown = new List<(string Column, string Value, string FileName)>();
 
             if (rows.Count == 0)
                 refusals.Add("The SDRF has no rows.");
 
             if (refusals.Count > 0)
-                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
             Dictionary<string, string>? searchedByName = null;
             if (options.SearchedFiles != null)
             {
                 searchedByName = SdrfDesignRules.IndexSearchedFiles(options.SearchedFiles, refusals);
                 if (refusals.Count > 0)
-                    return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                    return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
             }
 
             // Read every row, collecting every problem rather than stopping at the first. A row for a
@@ -270,7 +318,7 @@ namespace Readers
 
             for (int i = 0; i < rows.Count; i++)
             {
-                int line = i + 2;
+                int line = sourceLines?[i] ?? i + 2;
                 string fileName = SdrfDesignRules.FileNameOf(rows[i], keyColumn!);
                 if (searchedByName != null && !searchedByName.ContainsKey(fileName))
                 {
@@ -279,12 +327,14 @@ namespace Readers
                     continue;
                 }
 
-                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, cleared, refusals);
+                var row = ParseRow(rows[i], line, keyColumn!, condition, cleared, refusals, keptUnknown);
                 if (row != null)
                     parsed.Add(row);
                 else if (fileName.Length > 0)
                     unreadFiles.Add(fileName);
             }
+
+            SdrfDesignRules.NoteKeptUnknownFactorValues(keptUnknown, notes);
 
             foreach (var row in parsed.Where(r => r.IsReference && r.StudySampleSignals.Count > 0))
                 notes.Add(SdrfDesignRules.DisagreementNote($"Line {row.Line}{SdrfDesignRules.Describe(row.FileName)}",
@@ -301,11 +351,14 @@ namespace Readers
             }
 
             if (refusals.Count > 0)
-                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
-            var bioreps = NumberBiologicalReplicates(parsed, rowsWereDropped: dropped.Count > 0, notes, refusals);
+            var setAside = rowsSetAside is { } joined
+                ? new SdrfDesignRules.SetAsideRows(joined + dropped.Count, Counted: true)
+                : new SdrfDesignRules.SetAsideRows(dropped.Count, Counted: false);
+            var bioreps = NumberBiologicalReplicates(parsed, setAside, notes, refusals);
             if (refusals.Count > 0)
-                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+                return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, condition);
 
             var files = parsed
                 .Select(r => new SpectraFileInfo(r.FilePath, r.Condition, bioreps[r] - 1, r.TechnicalReplicate - 1, r.Fraction - 1)
@@ -315,9 +368,9 @@ namespace Readers
                 .ToList();
 
             RefuseWhatMetaMorpheusWouldReject(files, refusals);
-            NoteFractionAndTechrepGaps(files, rowsWereDropped: dropped.Count > 0, notes);
+            NoteFractionAndTechrepGaps(files, setAside, notes);
 
-            return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, conditionColumns);
+            return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, condition);
         }
 
         private sealed class ParsedRow
@@ -339,8 +392,9 @@ namespace Readers
             public bool IsReference => ReferenceSignals.Count > 0;
         }
 
-        private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, List<string> conditionColumns,
-            bool conditionDeclared, SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals)
+        private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, SdrfDesignRules.ConditionRule condition,
+            SdrfDesignRules.ClearedReferenceSignals cleared, List<string> refusals,
+            List<(string Column, string Value, string FileName)> keptUnknown)
         {
             int before = refusals.Count;
 
@@ -359,7 +413,7 @@ namespace Readers
             // sample of the design carries is cleared (SdrfDesignRules.EverySampleIsMarked).
             var (roleSignals, preparationSignals, studySampleSignals) = SdrfDesignRules.ReadReferenceSignals(row, namesThisChannel: null);
             var referenceSignals = cleared.Kept(roleSignals, preparationSignals);
-            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals,
+            var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, condition, refusals, keptUnknown,
                 isReference: referenceSignals.Count > 0);
 
             int? biorep = ReadBiologicalReplicate(row, line, fileName, refusals);
@@ -423,7 +477,7 @@ namespace Readers
         /// Reports what it added, any condition whose given numbers are not 1..N, and any sample name whose only number
         /// is not its replicate.
         /// </summary>
-        private static Dictionary<ParsedRow, int> NumberBiologicalReplicates(List<ParsedRow> rows, bool rowsWereDropped,
+        private static Dictionary<ParsedRow, int> NumberBiologicalReplicates(List<ParsedRow> rows, SdrfDesignRules.SetAsideRows setAside,
             List<string> notes, List<string> refusals)
         {
             var numbers = new Dictionary<ParsedRow, int>();
@@ -479,9 +533,7 @@ namespace Readers
                 if (present.Select((v, i) => v != i + 1).Any(gap => gap))
                 {
                     notes.Add($"Condition '{condition.Key}': biological replicates {string.Join(", ", present)}, kept as the SDRF numbers them. " +
-                              (rowsWereDropped
-                                  ? "Rows were dropped from the SDRF, so a missing number may be a sample whose file is not searched."
-                                  : "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+                              setAside.SampleGapReason);
                 }
 
                 foreach (var sample in condition.Where(r => r.BiologicalReplicate.HasValue && r.SourceName.Length > 0)
@@ -520,19 +572,21 @@ namespace Readers
             {
                 refusals.Add($"Condition '{shared.Key.Condition}' biorep {shared.Key.BiologicalReplicate + 1} fraction {shared.Key.Fraction + 1} " +
                              $"techrep {shared.Key.TechnicalReplicate + 1} is named by {shared.Count()} files: " +
-                             string.Join(", ", shared.Select(f => $"'{Path.GetFileName(f.FullFilePathWithExtension)}'")) +
+                             string.Join(", ", shared.Select(f => $"'{SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)}'")) +
                              ". Different samples cannot share one replicate; declare the factor that tells them apart.");
+
+                // QP-S45: never renumbered, but names that read like fractions or repeat injections are said, with the column.
+                if (SdrfDesignRules.SharedReplicateHint(shared.Select(f => SdrfFileNamePattern.FileName(f.FullFilePathWithExtension)).ToList()) is { } hint)
+                    refusals[^1] += " " + hint;
             }
         }
 
         // A biological replicate's fractions, and a fraction's technical replicates, that are not 1..N: kept as the
         // SDRF numbers them and noted, in the same words as a gap in biological replicates
         // (NumberBiologicalReplicates). A missing last fraction of one sample is no gap; its own numbers are 1..N.
-        private static void NoteFractionAndTechrepGaps(List<SpectraFileInfo> files, bool rowsWereDropped, List<string> notes)
+        private static void NoteFractionAndTechrepGaps(List<SpectraFileInfo> files, SdrfDesignRules.SetAsideRows setAside, List<string> notes)
         {
-            string why = rowsWereDropped
-                ? "Rows were dropped from the SDRF, so a missing number may be a file that is not searched."
-                : "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files.";
+            string why = setAside.FileGapReason;
 
             foreach (var condition in files.GroupBy(f => f.Condition, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
             {

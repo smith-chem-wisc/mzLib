@@ -699,6 +699,103 @@ public static class MslReader
 	}
 
 	/// <summary>
+	/// Copies <c>destination.Length</c> fragment records, starting at byte <paramref name="offset"/>,
+	/// from a memory-mapped view of the file into <paramref name="destination"/>. Allocates nothing.
+	/// Used in index-only mode by <c>MslLibraryData.ReadFragments</c>.
+	///
+	/// Thread-safe without a lock: the view is read-only and has no shared position.
+	/// </summary>
+	/// <param name="view">Read-only view over the whole file, starting at offset 0.</param>
+	/// <param name="fileLength">File length; the view's capacity is page-rounded, so it bounds the read.</param>
+	/// <param name="offset">Absolute byte offset of the first record.</param>
+	/// <param name="destination">Receives the records.</param>
+	/// <exception cref="EndOfStreamException">The records extend past the end of the file.</exception>
+	internal static void ReadFragmentRecordsAt(
+		MemoryMappedViewAccessor view,
+		long fileLength,
+		long offset,
+		Span<MslFragmentRecord> destination)
+	{
+		long end = offset + (long)destination.Length * MslFormat.FragmentRecordSize;
+		if (offset < 0 || end > fileLength)
+			throw new EndOfStreamException(
+				$"Fragment records at offset {offset} extend past the end of the file.");
+
+		// ReadArray takes only arrays; the view's buffer can read straight into the span
+		view.SafeMemoryMappedViewHandle.ReadSpan((ulong)(view.PointerOffset + offset), destination);
+	}
+
+	/// <summary>
+	/// Copies <c>destination.Length</c> fragment records, starting at byte <paramref name="offset"/>,
+	/// into <paramref name="destination"/> with positional reads from <paramref name="handle"/>.
+	/// Allocates nothing. Used in index-only mode for files that are not memory-mapped (see
+	/// <see cref="IsOnLocalFixedDrive"/>). Thread-safe without a lock: positional reads do not
+	/// use a shared file position.
+	/// </summary>
+	/// <exception cref="EndOfStreamException">The records extend past the end of the file.</exception>
+	internal static void ReadFragmentRecordsAt(
+		SafeFileHandle handle,
+		long offset,
+		Span<MslFragmentRecord> destination)
+	{
+		Span<byte> target = MemoryMarshal.AsBytes(destination);
+
+		// RandomAccess.Read may return fewer bytes than asked; loop until the span is full
+		int filled = 0;
+		while (filled < target.Length)
+		{
+			int read = RandomAccess.Read(handle, target[filled..], offset + filled);
+			if (read == 0)
+				throw new EndOfStreamException(
+					$"Fragment records at offset {offset} extend past the end of the file.");
+			filled += read;
+		}
+	}
+
+	/// <summary>
+	/// Decodes one on-disk fragment record into an <see cref="MslFragmentValue"/>, the same way
+	/// <see cref="ConvertFragment"/> decodes it into an <see cref="MslFragmentIon"/>, including
+	/// <c>ResiduePosition</c> = 0 for a fragment with a custom neutral loss. A test compares the two
+	/// field by field, so they cannot drift apart.
+	/// </summary>
+	/// <param name="r">Raw fragment record, passed by read-only reference to avoid a copy.</param>
+	/// <param name="customLossMasses">
+	/// Extended annotation table masses. Index 0 is the sentinel (0.0 = no loss).
+	/// </param>
+	internal static MslFragmentValue ToFragmentValue(in MslFragmentRecord r, double[] customLossMasses)
+	{
+		var (_, _, lossCode, excludeFromQuant) = MslFormat.DecodeFragmentFlags(r.Flags);
+
+		double neutralLoss;
+		int residuePosition;
+
+		if (lossCode == MslFormat.NeutralLossCode.Custom)
+		{
+			// ResiduePosition holds the 1-based index into the ext annotation table
+			int extIdx = r.ResiduePosition;
+			neutralLoss = extIdx > 0 && extIdx < customLossMasses.Length ? customLossMasses[extIdx] : 0.0;
+			residuePosition = 0;
+		}
+		else
+		{
+			neutralLoss = DecodeNeutralLoss(lossCode);
+			residuePosition = r.ResiduePosition;
+		}
+
+		return new MslFragmentValue(
+			r.Mz,
+			r.Intensity,
+			(ProductType)r.ProductType,
+			r.SecondaryProductType == -1 ? null : (ProductType)r.SecondaryProductType,
+			r.FragmentNumber,
+			r.SecondaryFragmentNumber,
+			residuePosition,
+			r.Charge,
+			neutralLoss,
+			excludeFromQuant);
+	}
+
+	/// <summary>
 	/// True when <paramref name="filePath"/> is on a local fixed (or RAM) drive. Index-only mode
 	/// memory-maps only such files: if a network or removable drive fails while a mapped page is
 	/// read, the fault ends the process instead of raising a catchable <see cref="IOException"/>.
@@ -831,6 +928,8 @@ public static class MslReader
 		// Decode the single flags byte into its named Booleans
 		var (isDecoy, isProteotypic, rtCalibrated) = MslFormat.DecodePrecursorFlags(p.PrecursorFlags);
 		bool isEntrapment = MslFormat.DecodeIsEntrapment(p.PrecursorFlags);
+		MslFormat.RetentionTimeStatus rtStatus = MslFormat.DecodeRetentionTimeStatus(p.PrecursorFlags);
+		bool rtStruckByPrediction = MslFormat.DecodeRtStruckByPrediction(p.PrecursorFlags);
 
 		// Resolve the optional protein record (ProteinIdx == -1 means no protein)
 		bool hasProtein = p.ProteinIdx >= 0 && p.ProteinIdx < proteins.Length;
@@ -846,6 +945,8 @@ public static class MslReader
 			ChargeState = (int)p.Charge,
 			RetentionTime = p.Irt,
 			RtIsCalibrated = rtCalibrated,
+			RtStatus = rtStatus,
+			RtStruckByPrediction = rtStruckByPrediction,
 			IonMobility = p.IonMobility,
 			IsDecoy = isDecoy,
 			IsEntrapment = isEntrapment,

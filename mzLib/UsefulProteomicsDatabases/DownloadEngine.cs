@@ -425,8 +425,12 @@ namespace UsefulProteomicsDatabases
         /// its own becomes an <see cref="HttpRequestException"/>. A caller who cancels gets the
         /// <see cref="OperationCanceledException"/> they asked for, because reporting that as a transport
         /// failure would make <c>ExternalServiceTestHelper</c> skip a test that was deliberately cancelled.
+        /// <para>
+        /// Internal, not private, because it is the one part of a download that is not HTTP's: the MassIVE client
+        /// copies an FTP data connection through it, whose read failures arrive as an <see cref="IOException"/> too.
+        /// </para>
         /// </remarks>
-        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string described,
+        internal async Task CopyUntilStalledAsync(Stream source, Stream destination, string described,
             IDownloadInspector inspector, CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[81920];
