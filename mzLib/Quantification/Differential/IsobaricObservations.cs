@@ -172,6 +172,44 @@ public sealed class IsobaricObservationTable
     }
 
     /// <summary>
+    /// The sha256 of <see cref="ToCanonicalText"/> (lower-case hex): the <c>observation_table</c> input the STAT1 runner
+    /// records (M5b ruling 10). The same table gives the same hash on any machine and culture; a different value, ion,
+    /// plex run, group, group fact, few-channel count or warning gives another.
+    /// </summary>
+    internal string Sha256() => CanonicalText.Sha256(ToCanonicalText());
+
+    /// <summary>
+    /// The table as canonical text: a header (isobaric), the samples in order with their plex (<c>sample:plex</c>), each
+    /// described protein group by name with its q-value, flags and genes, each row in order (peptide, charge, plex,
+    /// technical replicate, file, scan) with its plex samples' log2 values in order, the few-channel count, then the
+    /// warnings (<see cref="CanonicalText"/>). A cell's state follows from its value, so it is not written.
+    /// </summary>
+    internal string ToCanonicalText()
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append("observation_table\tisobaric\n");
+        text.Append("samples");
+        for (int s = 0; s < Samples.Count; s++)
+            text.Append('\t').Append(CanonicalText.Escape(Samples[s])).Append(':').Append(CanonicalText.Number(_samplePlex[s]));
+        text.Append('\n');
+        CanonicalText.AppendGroups(text, ProteinGroups);
+        for (int r = 0; r < Rows.Count; r++)
+        {
+            var row = Rows[r];
+            text.Append("ion\t");
+            CanonicalText.AppendPeptide(text, row.Peptide);
+            text.Append('\t').Append(CanonicalText.Number(row.Charge)).Append('\t').Append(CanonicalText.Number(row.Plex))
+                .Append('\t').Append(CanonicalText.Number(row.TechnicalReplicate)).Append('\t').Append(CanonicalText.Escape(row.FileName))
+                .Append('\t').Append(CanonicalText.Number(row.ScanNumber));
+            foreach (double v in _log2[r]) text.Append('\t').Append(CanonicalText.Number(v));
+            text.Append('\n');
+        }
+        text.Append("ions_with_few_channels\t").Append(CanonicalText.Number(IonsWithFewChannels)).Append('\n');
+        CanonicalText.AppendWarnings(text, Warnings);
+        return text.ToString();
+    }
+
+    /// <summary>
     /// The same table with each cell of a row's plex replaced by <paramref name="log2"/>(row, sample); a missing cell must
     /// stay missing, because the state is read from the value.
     /// </summary>

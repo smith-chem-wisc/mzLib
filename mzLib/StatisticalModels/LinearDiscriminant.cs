@@ -33,6 +33,20 @@ namespace StatisticalModels
                 score += _weights[i] * features[i];
             return score;
         }
+
+        /// <summary>
+        /// <see cref="Score(ReadOnlySpan{double})"/> for doubles or floats, each float widened exactly: the same score as the
+        /// same values in doubles.
+        /// </summary>
+        internal double ScoreOf<T>(ReadOnlySpan<T> features) where T : unmanaged, System.Numerics.IBinaryFloatingPointIeee754<T>
+        {
+            if (features.Length != _weights.Length)
+                throw new ArgumentException($"Expected {_weights.Length} features; got {features.Length}.", nameof(features));
+            double score = Bias;
+            for (int i = 0; i < _weights.Length; i++)
+                score += _weights[i] * double.CreateTruncating(features[i]);
+            return score;
+        }
     }
 
     /// <summary>
@@ -57,6 +71,14 @@ namespace StatisticalModels
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="ridge"/> is negative or not finite.</exception>
         public static LinearDiscriminantFit Fit(IReadOnlyList<double[]> features, IReadOnlyList<bool> isPositive, double ridge = DefaultRidge)
+            => FitRows(features, isPositive, ridge);
+
+        /// <summary>
+        /// <see cref="Fit(IReadOnlyList{double[]}, IReadOnlyList{bool}, double)"/> on rows of doubles or of floats, each float
+        /// widened exactly: the same fit as the same values in double rows, without copying the rows.
+        /// </summary>
+        internal static LinearDiscriminantFit FitRows<T>(IReadOnlyList<T[]> features, IReadOnlyList<bool> isPositive, double ridge = DefaultRidge)
+            where T : unmanaged, System.Numerics.IBinaryFloatingPointIeee754<T>
         {
             ArgumentNullException.ThrowIfNull(features);
             ArgumentNullException.ThrowIfNull(isPositive);
@@ -71,7 +93,7 @@ namespace StatisticalModels
             {
                 if (row is null || row.Length != p)
                     throw new ArgumentException("Every feature row must have the same length.", nameof(features));
-                if (!row.All(double.IsFinite))
+                if (!FeatureRows.AllFinite(row))
                     throw new ArgumentException("Every feature value must be finite.", nameof(features));
             }
             int positives = isPositive.Count(b => b);
@@ -86,14 +108,14 @@ namespace StatisticalModels
             for (int i = 0; i < n; i++)
             {
                 var row = features[i];
-                for (int j = 0; j < p; j++) mean[j] += row[j];
+                for (int j = 0; j < p; j++) mean[j] += double.CreateTruncating(row[j]);
             }
             for (int j = 0; j < p; j++) mean[j] /= n;
             var squares = new double[p];
             for (int i = 0; i < n; i++)
             {
                 var row = features[i];
-                for (int j = 0; j < p; j++) squares[j] += (row[j] - mean[j]) * (row[j] - mean[j]);
+                for (int j = 0; j < p; j++) squares[j] += (double.CreateTruncating(row[j]) - mean[j]) * (double.CreateTruncating(row[j]) - mean[j]);
             }
             for (int j = 0; j < p; j++)
                 sd[j] = Math.Sqrt(squares[j] / Math.Max(1, n - 1));
@@ -110,7 +132,7 @@ namespace StatisticalModels
                 int c = isPositive[i] ? 1 : 0;
                 count[c]++;
                 for (int a = 0; a < k; a++)
-                    classMean[c, a] += (features[i][active[a]] - mean[active[a]]) / sd[active[a]];
+                    classMean[c, a] += (double.CreateTruncating(features[i][active[a]]) - mean[active[a]]) / sd[active[a]];
             }
             for (int c = 0; c < 2; c++)
                 for (int a = 0; a < k; a++)
@@ -126,7 +148,7 @@ namespace StatisticalModels
                 int c = isPositive[i] ? 1 : 0;
                 var row = features[i];
                 for (int a = 0; a < k; a++)
-                    centered[a] = (row[active[a]] - mean[active[a]]) / sd[active[a]] - classMean[c, a];
+                    centered[a] = (double.CreateTruncating(row[active[a]]) - mean[active[a]]) / sd[active[a]] - classMean[c, a];
                 for (int a = 0; a < k; a++)
                 {
                     double x = centered[a];
