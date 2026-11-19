@@ -48,11 +48,13 @@ namespace Proteomics.ProteolyticDigestion
         // The variable and fixed modifications, and the fixed alone; null unless the cleavage-promoting correction is on.
         private readonly List<Modification> _configuredModifications;
         private readonly List<Modification> _fixedModifications;
+        private readonly bool _initiatorMethionineRetained;
 
         private CleavageBlockingPolicy(DigestionAgent protease, int maxMissedCleavages, int generationSlack,
             bool[] sites, bool[] chargeDirectedSites, Protein protein, List<Modification> configuredModifications,
-            List<Modification> fixedModifications, List<int> cleavageSites)
+            List<Modification> fixedModifications, List<int> cleavageSites, bool initiatorMethionineRetained)
         {
+            _initiatorMethionineRetained = initiatorMethionineRetained;
             _protease = protease;
             MaxMissedCleavages = maxMissedCleavages;
             GenerationSlack = generationSlack;
@@ -142,7 +144,8 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             return new CleavageBlockingPolicy(protease, digestionParams.MaxMissedCleavages, generationSlack, sites,
-                chargeDirectedSites, protein, configured, fixedMods, promoting ? cleavageSites : null);
+                chargeDirectedSites, protein, configured, fixedMods, promoting ? cleavageSites : null,
+                digestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
         }
 
         private static bool AnyAnnotatedCanBlockCleavage(Protein protein, DigestionAgent protease) =>
@@ -287,7 +290,7 @@ namespace Proteomics.ProteolyticDigestion
                 return true;
             }
 
-            return (!DigestionProduct.IsCutBefore(_protein, start) || Justifies(start - 1, start, end, variableMods, fixedMods))
+            return (!DigestionProduct.IsCutBefore(_protein, start, _initiatorMethionineRetained) || Justifies(start - 1, start, end, variableMods, fixedMods))
                 && (!DigestionProduct.IsCutAfter(_protein, end) || Justifies(end, start, end, variableMods, fixedMods));
         }
 

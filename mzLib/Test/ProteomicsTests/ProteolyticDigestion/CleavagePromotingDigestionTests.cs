@@ -229,6 +229,17 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         [Test]
+        [TestCase("OpeRATOR")]
+        [TestCase("IMPa")]
+        public static void WithTheInitiatorMetRetained_StartingAfterItIsACut(string protease)
+        {
+            // M|SAAAKGG: with the Met retained, only the protease starts a product at S2, and it needs S2's glycan.
+            List<PeptideWithSetModifications> products = Digest(WithAnnotation("MSAAAKGG", 2, Mod("S")), protease);
+            CollectionAssert.AreEqual(new[] { "M", "MSAAAKGG", "SAAAKGG" }, BaseSequences(products));
+            Assert.IsTrue(products.Where(p => p.BaseSequence == "SAAAKGG").All(p => p.AllModsOneIsNterminus.ContainsKey(2)));
+        }
+
+        [Test]
         public static void AChainIsNotACut_AndReadsThroughTheSiteItsGlycanIsMissingFrom()
         {
             var protein = new Protein("AAAAK" + StcESubstrate + "GGG", "P", proteolysisProducts: new List<TruncationProduct> { new(6, 14, "chain") });

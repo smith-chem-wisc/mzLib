@@ -44,14 +44,16 @@ namespace Omics.Digestion
         /// is a cut, the conditions every motif cutting there imposes, keyed by the parent's one-based residue (which may lie
         /// on the neighbouring product). Nothing at an end no motif cuts, or one a motif without conditions also cuts.
         /// </summary>
-        public List<(int OneBasedResidue, CleavageRequirement Requirement)> GetCleavageConditions(DigestionAgent agent)
+        /// <param name="initiatorMethionineRetained">True when digestion kept the initiator Met, so a product starting after it was cut there.</param>
+        public List<(int OneBasedResidue, CleavageRequirement Requirement)> GetCleavageConditions(DigestionAgent agent,
+            bool initiatorMethionineRetained = false)
         {
             var conditions = new List<(int, CleavageRequirement)>();
             if (Parent is null)
             {
                 return conditions;
             }
-            if (IsCutBefore(Parent, OneBasedStartResidue))
+            if (IsCutBefore(Parent, OneBasedStartResidue, initiatorMethionineRetained))
             {
                 AddConditions(agent, OneBasedStartResidue - 1, conditions);
             }
@@ -82,9 +84,9 @@ namespace Omics.Digestion
         }
 
         /// <summary>True when the bond before one-based residue <paramref name="start"/> was cut by a protease: not the
-        /// parent's start, its initiator Met's removal, or a truncation boundary.</summary>
-        public static bool IsCutBefore(IBioPolymer parent, int start) =>
-            start > 1 && !(start == 2 && parent[0] == 'M') && !IsTruncationBoundary(parent, start - 1);
+        /// parent's start, its initiator Met's removal (unless the Met was retained), or a truncation boundary.</summary>
+        public static bool IsCutBefore(IBioPolymer parent, int start, bool initiatorMethionineRetained = false) =>
+            start > 1 && !(start == 2 && parent[0] == 'M' && !initiatorMethionineRetained) && !IsTruncationBoundary(parent, start - 1);
 
         /// <summary>True when the bond after one-based residue <paramref name="end"/> was cut by a protease: not the parent's
         /// end or a truncation boundary.</summary>

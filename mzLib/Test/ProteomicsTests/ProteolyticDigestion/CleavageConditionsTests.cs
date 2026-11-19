@@ -70,6 +70,12 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(Conditions(Product(unknownStart, "OpeRATOR", 5, 9), "OpeRATOR"), Is.Empty, "the end of a product whose start is unknown");
         }
 
+        [Test]
+        public static void WithTheInitiatorMetRetained_StartingAfterItIsACut() =>
+            Assert.That(Product(new Protein("MTGGGG", "P1"), "OpeRATOR", 2, 6)
+                .GetCleavageConditions(ProteaseDictionary.Dictionary["OpeRATOR"], initiatorMethionineRetained: true)
+                .Select(c => c.OneBasedResidue), Is.EqualTo(new[] { 2 }));
+
         /// <summary>GTKSGG: T2-K3|S4 is a StcE cut (TX|S) and a trypsin cut (K|), and trypsin needs no glycan.</summary>
         [Test]
         public static void ACutARequirementFreeMotifAlsoMakes_ImposesNothing()
