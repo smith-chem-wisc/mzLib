@@ -1,4 +1,5 @@
 using MzLibUtil;
+using Readers.DeNovoMapping;
 using Readers.ExternalResults.ResultFiles;
 
 namespace Readers
@@ -45,7 +46,8 @@ namespace Readers
         FlashLFQQuantifiedOligo,
         DiaNnReportParquet,
         DiaPrecursorTsv,
-        DiaPeptideTsv
+        DiaPeptideTsv,
+        DenovoMappingResult,
     }
 
     public static class SupportedFileTypeExtensions
@@ -116,6 +118,10 @@ namespace Readers
                 // MetaMorpheus's DIA precursor and peptide tables, recognized by the names MetaMorpheus gives them
                 SupportedFileType.DiaPrecursorTsv => "AllDiaPrecursors.tsv",
                 SupportedFileType.DiaPeptideTsv => "AllDiaPeptides.tsv",
+                // mzLib's de novo mapping summary (Readers.DeNovoMapping). Older MetaCurator/DeNovoMapper
+                // output was named MappingSummary.tsv, which this suffix also matches; a renamed file is
+                // recognized by its header instead.
+                SupportedFileType.DenovoMappingResult => "MappingSummary.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -205,6 +211,8 @@ namespace Readers
                         return SupportedFileType.DiaPrecursorTsv;
                     if (filePath.EndsWith(SupportedFileType.DiaPeptideTsv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.DiaPeptideTsv;
+                    if (filePath.EndsWith(SupportedFileType.DenovoMappingResult.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.DenovoMappingResult;
 
                         // these tsv cases are just .tsv and need an extra step to determine the type
                         // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -231,6 +239,10 @@ namespace Readers
                         && tsvHeaders.Contains("Stripped.Sequence")
                         && tsvHeaders.Contains("File.Name"))
                         return SupportedFileType.DiaNnReport;
+
+                    // A de novo mapping summary under a name other than *MappingSummary.tsv.
+                    if (DeNovoMappingResultFile.HasMappingSummaryColumns(tsvHeaders))
+                        return SupportedFileType.DenovoMappingResult;
 
                     throw new MzLibException("Tsv file type not supported");
                 }
@@ -345,6 +357,7 @@ namespace Readers
                 SupportedFileType.DiaNnReportParquet => typeof(DiaNnParquetReportFile),
                 SupportedFileType.DiaPrecursorTsv => typeof(DiaPrecursorFile),
                 SupportedFileType.DiaPeptideTsv => typeof(DiaPeptideFile),
+                SupportedFileType.DenovoMappingResult => typeof(DeNovoMappingResultFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
