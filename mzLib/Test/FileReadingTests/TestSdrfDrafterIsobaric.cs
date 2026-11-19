@@ -132,10 +132,10 @@ namespace Test.FileReadingTests
         [Test]
         public void AMadeUpNameAlreadyTakenIsNumbered()
         {
-            var d = SdrfDrafter.Draft(Project(Tmt10), new[] { "S1.raw", "S1.mzML" });
+            var d = SdrfDrafter.Draft(Project(Tmt10), new[] { "S1.raw", "S1.mzML", "S1.mgf" });
 
             var first = d.Rows.Where(r => r.Label!.Value == "TMT126").Select(r => r.SourceName.Value).ToList();
-            Assert.That(first, Is.EquivalentTo(new[] { "S1 TMT126", "S1 TMT126 (2)" }));
+            Assert.That(first, Is.EquivalentTo(new[] { "S1 TMT126", "S1 TMT126 (2)", "S1 TMT126 (3)" }));
             Assert.That(d.Rows.Select(r => r.SourceName.Value).Distinct().Count(), Is.EqualTo(d.Rows.Count));
         }
 
@@ -295,6 +295,123 @@ namespace Test.FileReadingTests
             var doc = SdrfDrafter.ToDocument(d);
             Assert.That(Written(doc, "lf.raw").Single()["comment[label]"], Is.EqualTo("label free sample"),
                 "bare in a document that holds channels");
+        }
+
+        /// <summary>A claim about a set of files (a pattern) is a claim about each file it matches, and only those.</summary>
+        [Test]
+        public void AKitClaimedForAFilePatternMakesChannelsOfTheFilesItMatches()
+        {
+            var claim = Kit("", "TMT10plex") with { DataFilePattern = "tmt_*.raw" };
+
+            var d = SdrfDrafter.Draft(Project("Label-free quantification."), new[] { "lf_1.raw", "tmt_1.raw", "tmt_2.raw" }, new[] { claim });
+
+            Assert.That(Of(d, "tmt_1.raw").Count(), Is.EqualTo(10));
+            Assert.That(Of(d, "tmt_2.raw").Count(), Is.EqualTo(10));
+            Assert.That(Of(d, "lf_1.raw").Single().Label, Is.Null);
+        }
+
+        /// <summary>A claim about a file beats a claim about the whole deposit. The deposit-wide claim it overrides is
+        /// reported for that file; a file's claim that agrees with it overrides nothing.</summary>
+        [Test]
+        public void AClaimAboutAFileOverridesTheDepositWideClaimAndIsReported()
+        {
+            var files = new[] { "Plex1_F01.raw", "Plex1_F02.raw", "Plex1_F03.raw" };
+            var claims = new[] { Kit("", "TMT10plex"), Kit("Plex1_F02.raw", "TMT11plex"), Kit("Plex1_F03.raw", "tmt10plex ") };
+
+            var d = SdrfDrafter.Draft(Project("Isobaric labelling."), files, claims);
+
+            Assert.That(Of(d, "Plex1_F01.raw").Count(), Is.EqualTo(10));
+            Assert.That(Of(d, "Plex1_F02.raw").Count(), Is.EqualTo(11));
+            Assert.That(d.EvidenceNotes.Where(n => n.Why.Contains("overrides the deposit-wide claim")).Select(n => (n.DataFile, n.EvidenceValue)),
+                Is.EqualTo(new[] { ("Plex1_F02.raw", "TMT10plex") }));
+        }
+
+        /// <summary>A claim that names only the family (TMT) says the runs are labelled, not with which kit: one row per file,
+        /// its label <c>not available</c>, citing the claim.</summary>
+        [Test]
+        public void AKitClaimThatNamesOnlyTheFamilyStatesNoKit()
+        {
+            var d = SdrfDrafter.Draft(Project("Isobaric labelling."), Files, new[] { Kit("", "TMT") });
+
+            Assert.That(d.Rows, Has.Count.EqualTo(2));
+            Assert.That(d.Rows.All(r => r.Label!.Source == SdrfDraftSource.NotAvailable));
+            Assert.That(d.Rows[0].Label!.Evidence, Does.Contain("'TMT', which names no kit with its size"));
+        }
+
+        /// <summary>Only a guess is withheld: a likely kit claim states its kit, as a certain one does.</summary>
+        [Test]
+        public void ALikelyKitClaimStatesItsKit()
+        {
+            var likely = Kit("", "TMT11plex") with { Confidence = SdrfEvidenceConfidence.Likely };
+
+            var d = SdrfDrafter.Draft(Project(Tmt10), Files, new[] { likely });
+
+            Assert.That(Of(d, "Plex1_F01.raw").Select(r => r.Label!.Value).Last(), Is.EqualTo("TMT131C"));
+            Assert.That(d.Rows.All(r => r.Label!.Source == SdrfDraftSource.Deposit));
+        }
+
+        /// <summary>A kit claim the drafter cannot use (a guess, a method it does not know, a value that names no TMT or
+        /// iTRAQ kit) is reported and changes nothing: the record's TMT10 stands.</summary>
+        [TestCase(true, "spectra", "TMT11plex", "a guess is kept for review, never applied")]
+        [TestCase(false, "reporter ions", "TMT11plex", "the method 'reporter ions' is not one the drafter knows")]
+        [TestCase(false, "spectra", "label free sample", "only a TMT or iTRAQ kit is read")]
+        public void AKitClaimTheDrafterCannotUseIsReportedAndTheRecordsKitStands(bool guess, string method, string value, string why)
+        {
+            var claim = Kit("", value) with { Method = method, Confidence = guess ? SdrfEvidenceConfidence.Guess : SdrfEvidenceConfidence.Certain };
+
+            var d = SdrfDrafter.Draft(Project(Tmt10), Files, new[] { claim });
+
+            Assert.That(Of(d, "Plex1_F01.raw").Count(), Is.EqualTo(10));
+            Assert.That(d.Rows.All(r => r.Label!.Source == SdrfDraftSource.PrideProjectRecord));
+            Assert.That(d.EvidenceNotes.Where(n => n.Column == "comment[label]" && n.EvidenceValue == value).Select(n => n.Why),
+                Has.Some.Contain(why));
+        }
+
+        /// <summary>A kit claim about a file the deposit does not have labels nothing, and a claim reported beside it stays
+        /// reported.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AKitClaimAboutAFileTheDepositDoesNotHaveLabelsNothing(bool withAGuess)
+        {
+            var claims = new List<SdrfEvidence> { Kit("absent.raw", "TMT10plex") };
+            if (withAGuess) claims.Add(Kit("", "TMT11plex") with { Confidence = SdrfEvidenceConfidence.Guess });
+
+            var d = SdrfDrafter.Draft(Project("Label-free quantification."), Files, claims);
+
+            Assert.That(d.Rows, Has.Count.EqualTo(2));
+            Assert.That(d.Rows.All(r => r.Label == null && r.Plex == null));
+            Assert.That(d.EvidenceNotes.Any(n => n.Why.Contains("a guess is kept for review")), Is.EqualTo(withAGuess));
+        }
+
+        [Test]
+        public void ANullAmongTheClaimsIsSkipped()
+        {
+            var d = SdrfDrafter.Draft(Project(Tmt10), Files, new[] { null!, Kit("", "TMT11plex") });
+
+            Assert.That(Of(d, "Plex1_F01.raw").Count(), Is.EqualTo(11));
+        }
+
+        /// <summary>Only a plex nothing states is written exactly <c>not available</c>; a stated one (P2: MaxQuant's
+        /// Experiment) is written per row as stated, with its source.</summary>
+        [Test]
+        public void AStatedPlexIsWrittenWithItsSource()
+        {
+            var d = SdrfDrafter.Draft(Project(Tmt10), Files);
+            var stated = d with
+            {
+                Rows = d.Rows.Select(r => r with
+                {
+                    Plex = new SdrfDraftCell(r.DataFile == "Plex1_F01.raw" ? "A" : "B", SdrfDraftSource.Deposit, "MaxQuant's Experiment",
+                        Reference: "txt/summary.txt", Method: "rules")
+                }).ToList()
+            };
+
+            var doc = SdrfDrafter.ToDocument(stated);
+
+            Assert.That(Written(doc, "Plex1_F01.raw").Select(r => r["comment[plex]"]), Is.All.EqualTo("A"));
+            Assert.That(Written(doc, "Plex1_F02.raw").Select(r => r["comment[plex]"]), Is.All.EqualTo("B"));
+            Assert.That(doc.Results.Select(r => r["comment[plex source]"]), Is.All.EqualTo("deposited"));
+            Assert.That(doc.Results.Select(r => r["comment[plex source reference]"]), Is.All.EqualTo("txt/summary.txt"));
         }
 
         /// <summary>A claim about a whole multiplexed run describes the run: its characteristics (organism part) hold for every

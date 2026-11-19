@@ -88,5 +88,35 @@ namespace Test.FileReadingTests
         {
             Assert.That(SdrfIsobaricKit.Holds(kit, smaller), Is.EqualTo(holds));
         }
+
+        /// <summary>A claim's value states a kit only when it is a kit's name and nothing else. Any other value is read as
+        /// text, where TMT6plex is again the modification's name, a family alone names no kit, and a value naming no TMT or
+        /// iTRAQ is not labelled.</summary>
+        [TestCase("TMT6plex", IsobaricMassTagType.TMT6, true)]
+        [TestCase("TMT6plex (K), TMT6plex (N-term)", null, true)]
+        [TestCase("TMT", null, true)]
+        [TestCase("label free sample", null, false)]
+        [TestCase("  ", null, false)]
+        [TestCase(null, null, false)]
+        public void AClaimThatIsNotOnlyAKitsNameIsReadAsText(string? value, IsobaricMassTagType? kit, bool labelled)
+        {
+            var reading = SdrfIsobaricKit.ReadClaim(value);
+
+            Assert.That((reading.Kit, reading.Labelled), Is.EqualTo((kit, labelled)));
+        }
+
+        /// <summary>A kit's name with a size no kit has (TMT duplex, which mzLib has no channels for; a size TMTpro or iTRAQ
+        /// does not come in) says the runs are labelled, and names no kit.</summary>
+        [TestCase("TMT 2plex")]
+        [TestCase("TMTpro 11plex")]
+        [TestCase("iTRAQ 6plex")]
+        public void AClaimNamingASizeNoKitHasIsLabelledButNamesNoKit(string value)
+        {
+            var reading = SdrfIsobaricKit.ReadClaim(value);
+
+            Assert.That(reading.Kit, Is.Null);
+            Assert.That(reading.Labelled, Is.True);
+            Assert.That(reading.Quote, Is.EqualTo(value));
+        }
     }
 }
