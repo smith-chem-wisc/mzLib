@@ -245,6 +245,119 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
+    /// The same two peptides in two label-free files: one sample per file, one intensity per match.
+    /// </summary>
+    private static void BuildLabelFreeFixture(
+        out IExperimentalDesign design,
+        out List<ISpectralMatch> spectralMatches,
+        out List<IBioPolymerWithSetMods> peptides,
+        out List<IBioPolymerGroup> proteinGroups)
+    {
+        BuildFixture(out _, out var isobaricMatches, out peptides, out proteinGroups);
+        design = new TestExperimentalDesign
+        {
+            FileNameSampleInfoDictionary = new Dictionary<string, ISampleInfo[]>
+            {
+                [File1] = new ISampleInfo[] { new SpectraFileInfo(File1, "A", 0, 0, 0) },
+                [File2] = new ISampleInfo[] { new SpectraFileInfo(File2, "B", 0, 0, 0) },
+            }
+        };
+        spectralMatches = isobaricMatches
+            .Select(m => (ISpectralMatch)new MockSpectralMatch(m.FullFilePath, m.FullSequence, m.BaseSequence, m.Score,
+                m.OneBasedScanNumber, m.GetIdentifiedBioPolymersWithSetMods().ToArray()) { Intensities = new[] { m.Intensities[0] } })
+            .ToList();
+    }
+
+    /// <summary>
+    /// A file name tells the mode. The three tables are isobaric output, so a label-free run (or a DIA run, which
+    /// reaches the engine with the same file-level samples) that asks for any of them is refused, and nothing is
+    /// written under a name that would tell dataRepo and PXReprise it was TMT.
+    /// </summary>
+    [TestCase("raw")]
+    [TestCase("peptide")]
+    [TestCase("protein")]
+    public void Run_WithALabelFreeDesignAndAWriteFlagOn_IsRefusedAndWritesNothing(string table)
+    {
+        string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantLabelFreeRefused_" + TestContext.CurrentContext.Test.ID);
+        try
+        {
+            BuildLabelFreeFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+            var parameters = SimpleParameters(outputDirectory);
+            parameters.WriteRawInformation = table == "raw";
+            parameters.WritePeptideInformation = table == "peptide";
+            parameters.WriteProteinInformation = table == "protein";
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(results.Success, Is.False);
+                Assert.That(results.Summary, Does.Contain("are isobaric (TMT, iTRAQ) quantification tables"));
+                Assert.That(results.WrittenFiles, Is.Empty);
+                Assert.That(Directory.Exists(outputDirectory) ? Directory.GetFiles(outputDirectory) : Array.Empty<string>(),
+                    Is.Empty, "nothing may be written under the isobaric names");
+            });
+            foreach (var group in proteinGroups)
+                Assert.That(group.IntensitiesBySample, Is.Null, "a rejected run must not touch the entities");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// The guard is about the files, not the arithmetic: the same label-free run with writing off quantifies.
+    /// </summary>
+    [Test]
+    public void Run_WithALabelFreeDesignAndWritingOff_Quantifies()
+    {
+        BuildLabelFreeFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.That(results.Success, Is.True, results.Summary);
+        Assert.That(results.WrittenFiles, Is.Empty);
+        Assert.That(results.ProteinIntensities, Has.Count.EqualTo(2));
+    }
+
+    /// <summary>
+    /// One label-free file in an otherwise isobaric design is enough: the tables would carry its column under a name
+    /// that claims every sample is a channel.
+    /// </summary>
+    [Test]
+    public void Run_WithADesignMixingChannelsAndALabelFreeFile_IsRefusedWhenWriting()
+    {
+        string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantMixedRefused_" + TestContext.CurrentContext.Test.ID);
+        try
+        {
+            BuildFixture(out var isobaricDesign, out var spectralMatches, out var peptides, out var proteinGroups);
+            var design = new TestExperimentalDesign
+            {
+                FileNameSampleInfoDictionary = new Dictionary<string, ISampleInfo[]>
+                {
+                    [File1] = isobaricDesign.FileNameSampleInfoDictionary[File1],
+                    [File2] = new ISampleInfo[] { new SpectraFileInfo(File2, "B", 0, 0, 0) },
+                }
+            };
+            var parameters = SimpleParameters(outputDirectory);
+            parameters.WriteProteinInformation = true;
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain("are isobaric (TMT, iTRAQ) quantification tables"));
+            Assert.That(Directory.Exists(outputDirectory), Is.False);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Bare file names and relative paths resolve against the process's working directory, which is the
     /// ambiguity the default exists to avoid, so neither may produce one.
     /// </summary>

@@ -86,7 +86,9 @@ namespace Quantification.Strategies
         /// <param name="peptideIntensities">One row per peptide, one column per sample, all rows the same length.
         /// Values are un-logged intensities; a value that is not positive means the peptide was not observed.</param>
         /// <returns>One protein intensity per sample: 0 where no peptide was observed, NaN where peptides were
-        /// observed but the protein is unquantifiable in that sample, and the median polish estimate otherwise. When no
+        /// observed but the protein is unquantifiable in that sample (each of its peptides was seen in it alone, while
+        /// another of the group's peptides was seen in two or more samples, so the fit cannot place it), and the median
+        /// polish estimate otherwise. When no
         /// peptide is seen in more than one sample, each observed sample gets the value its own peptides give as a
         /// protein seen only in that sample, scaled to the group's number of peptides.</returns>
         public static double[] QuantifyGroup(double[][] peptideIntensities)
@@ -175,6 +177,21 @@ namespace Quantification.Strategies
                 }
             }
 
+            // A sample whose peptides were all set aside above, each seen in that sample alone, has no value left in the
+            // fit. Nothing links it to the other samples: its column effect stays at its starting 0, and a value built
+            // from that would not depend on its own data at all. Such a sample is unquantifiable. This tests the fit's
+            // input directly. The test it replaces, a column effect of exactly 0 in two or more samples, gave the
+            // sample a made-up value when it was the only one in this state, and took the value away from samples
+            // whose fitted effect happened to be exactly 0.
+            bool[] sampleIsInFit = new bool[numSamples];
+            for (int p = 1; p < peptideIntensityMatrix.Length; p++)
+            {
+                for (int s = 0; s < numSamples; s++)
+                {
+                    sampleIsInFit[s] |= !double.IsNaN(peptideIntensityMatrix[p][s + 1]);
+                }
+            }
+
             // do median polish protein quantification
             // row effects in a protein can be considered ~ relative ionization efficiency
             // column effects are differences between conditions
@@ -184,18 +201,6 @@ namespace Quantification.Strategies
             double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
             double referenceProteinIntensity = Math.Pow(2, overallEffect) * numPeptides;
 
-            // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
-            // the protein is still not quantifiable because there are not peptides to compare across runs.
-            // the column effect can be 0 in some cases. sometimes it's a valid value and sometimes it's not.
-            int possibleUnquantifiableSampleCount = 0;
-            for (int s = 0; s < numSamples; s++)
-            {
-                if (sampleIsObserved[s] && columnEffects[s] == 0)
-                {
-                    possibleUnquantifiableSampleCount++;
-                }
-            }
-
             for (int s = 0; s < numSamples; s++)
             {
                 if (!sampleIsObserved[s])
@@ -203,7 +208,7 @@ namespace Quantification.Strategies
                     continue;
                 }
 
-                if (possibleUnquantifiableSampleCount > 1 && columnEffects[s] == 0)
+                if (!sampleIsInFit[s])
                 {
                     proteinIntensities[s] = double.NaN;
                 }

@@ -30,12 +30,14 @@ namespace Readers
             {"scan number only nativeID format", "MS:1000776"},
             {"Thermo nativeID format", "MS:1000768"},
             {"no nativeID format", "MS:1000824" },
+            {"multiple peak list nativeID format", "MS:1000774"},
         };
 
         private static readonly Dictionary<string, string> MassSpectrometerFileFormatAccessions = new Dictionary<string, string>
         {
             {"Thermo RAW format", "MS:1000563"},
             {"mzML format", "MS:1000584"},
+            {"Mascot MGF format", "MS:1001062"},
         };
 
         private static readonly Dictionary<string, string> FileChecksumAccessions = new Dictionary<string, string>
