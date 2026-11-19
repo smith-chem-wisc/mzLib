@@ -11,6 +11,7 @@
 # 4. PSI-MS Accession        - Standard identifier (e.g., MS:1001313)					
 # 5. PSI-MS Name             - Standard name from PSI-MS ontology					
 # 6. Cleavage Modification   - Name of modification applied at cleavage site (optional)					
+# 7. Cleavage Requirement    - Modification a motif needs to cut, e.g. P2:O-glycan (optional)					
 #					
 # ============================================================================					
 # CUSTOM PROTEASES					
@@ -28,7 +29,7 @@
 #					
 # Example custom proteases file:					
 # ----------------------------------------------------------------------------					
-# Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+# Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification	Cleavage Requirement
 # MyCustomProtease	K|,R|	full			
 # MyTrypsinNoProline	K|,R|	full	MS:1001313	Trypsin	
 # ----------------------------------------------------------------------------					
@@ -95,7 +96,7 @@
 # ============================================================================					
 # PROTEASE DEFINITIONS					
 # ============================================================================					
-Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification	Cleavage Requirement
 Arg-C	R|	full	MS:1001303	Arg-C	
 Asp-N	|D	full	MS:1001304	Asp-N	
 chymotrypsin|P	F[P]|,W[P]|,Y[P]|,L[P]|	full	MS:1001306	Chymotrypsin	
@@ -121,18 +122,19 @@ collagenase	GPX|GPX	full
 # but ONLY when the FIRST S/T is O-GLYCOSYLATED. Activity is abolished by
 # deglycosylation. Malaker et al., PNAS 2019 (doi:10.1073/pnas.1813020116).
 #
-# WARNING: the motif syntax below matches SEQUENCE ONLY. It cannot express the
-# glycan requirement, so both StcE entries OVER-DIGEST relative to the real
-# enzyme -- their peptides are a superset of true StcE peptides.
+# The Cleavage Requirement column carries the glycan rule (P2:O-glycan). It is
+# honoured only when DigestionParams.RespectCleavagePromotingModifications is set,
+# which defaults to false. With it off both StcE entries match SEQUENCE ONLY and
+# OVER-DIGEST: their peptides are a superset of true StcE peptides.
 #
 # Other mucinases (SmE, OgpA/OpeRATOR, IMPa) are deliberately NOT listed. All
 # three cleave N-terminal to a glycosylated S/T and differ only in glycan
 # tolerance, which is invisible to a sequence motif, so they would be identical
 # '|S,|T' entries under three different names. '|S,|T' also cuts at every S and
 # T, leaving at most one candidate glycosite per peptide, which is not what any
-# of those enzymes does. Modelling them needs glycosylation-aware digestion.
-StcE	TX|T,TX|S,SX|T,SX|S	full		StcE	
-StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin	
+# of those enzymes does. They wait until MetaMorpheus can set that flag.
+StcE	TX|T,TX|S,SX|T,SX|S	full		StcE		P2:O-glycan
+StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin		P2:O-glycan
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Homoserine lactone N-terminal on M
 ProAlanase	P|,A|	full			

@@ -16,7 +16,7 @@ namespace Proteomics.ProteolyticDigestion
             int maxModificationIsoforms = 1024, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Variable,
             int maxModsForPeptides = 2, CleavageSpecificity searchModeType = CleavageSpecificity.Full, FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
             bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false,
-            bool respectCleavageBlockingModifications = false)
+            bool respectCleavageBlockingModifications = false, bool respectCleavagePromotingModifications = false)
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
@@ -33,6 +33,7 @@ namespace Proteomics.ProteolyticDigestion
             KeepNGlycopeptide = keepNGlycopeptide;
             KeepOGlycopeptide = keepOGlycopeptide;
             RespectCleavageBlockingModifications = respectCleavageBlockingModifications;
+            RespectCleavagePromotingModifications = respectCleavagePromotingModifications;
         }
 
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; private set; }
@@ -122,6 +123,12 @@ namespace Proteomics.ProteolyticDigestion
         /// </remarks>
         public bool RespectCleavageBlockingModifications { get; private set; }
 
+        /// <summary>
+        /// When true, a protease with a cleavage requirement (StcE: an O-glycan at P2) cuts only where the requirement is met.
+        /// Full-specificity searches only. With nothing able to carry the glycan, such a protease cuts nowhere.
+        /// </summary>
+        public bool RespectCleavagePromotingModifications { get; private set; }
+
         #region Properties overridden by more generic interface
 
         /// <summary>
@@ -174,7 +181,8 @@ namespace Proteomics.ProteolyticDigestion
                    && GeneratehUnlabeledProteinsForSilac == other.GeneratehUnlabeledProteinsForSilac
                    && KeepNGlycopeptide == other.KeepNGlycopeptide
                    && KeepOGlycopeptide == other.KeepOGlycopeptide
-                   && RespectCleavageBlockingModifications == other.RespectCleavageBlockingModifications;
+                   && RespectCleavageBlockingModifications == other.RespectCleavageBlockingModifications
+                   && RespectCleavagePromotingModifications == other.RespectCleavagePromotingModifications;
         }
 
         public override int GetHashCode()
@@ -194,6 +202,7 @@ namespace Proteomics.ProteolyticDigestion
             hash.Add(KeepNGlycopeptide);
             hash.Add(KeepOGlycopeptide);
             hash.Add(RespectCleavageBlockingModifications);
+            hash.Add(RespectCleavagePromotingModifications);
             return hash.ToHashCode();
         }
 
@@ -204,7 +213,7 @@ namespace Proteomics.ProteolyticDigestion
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinLength + "," + MaxLength + ","
                    + MaxModificationIsoforms + "," + MaxMods + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
                    + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide + ","
-                   + RespectCleavageBlockingModifications;
+                   + RespectCleavageBlockingModifications + "," + RespectCleavagePromotingModifications;
         }
 
         public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
@@ -214,11 +223,11 @@ namespace Proteomics.ProteolyticDigestion
                 return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
                     MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
                     GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide,
-                    RespectCleavageBlockingModifications);
+                    RespectCleavageBlockingModifications, RespectCleavagePromotingModifications);
             return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
                 MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
                 GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide,
-                RespectCleavageBlockingModifications);
+                RespectCleavageBlockingModifications, RespectCleavagePromotingModifications);
         }
 
         private void RecordSpecificProtease()
