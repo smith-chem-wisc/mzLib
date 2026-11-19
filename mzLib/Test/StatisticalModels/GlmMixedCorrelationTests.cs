@@ -106,6 +106,42 @@ public class GlmMixedCorrelationTests
         Assert.That(PValueCombination.Stouffer(new[] { 1e-12 }).Statistic, Is.EqualTo(7.0344838253011321).Within(1e-12));
     }
 
+    /// <summary>u = 1 is Fisher over every p; u = n is the largest p alone (Fisher of one p is that p).</summary>
+    [Test]
+    public void FisherPartialConjunction_AtTheEnds_IsFisher_AndTheLargestP()
+    {
+        var p = new[] { 0.004, 0.03, 0.47 };
+        var one = PValueCombination.FisherPartialConjunction(p, 1);
+        Assert.That(one.Method, Is.EqualTo(PValueCombinationMethod.FisherPartialConjunction));
+        Assert.That(one.PValue, Is.EqualTo(PValueCombination.Fisher(p).PValue).Within(1e-15));
+        Assert.That(PValueCombination.FisherPartialConjunction(p, 3).PValue, Is.EqualTo(0.47).Within(1e-14));
+    }
+
+    /// <summary>
+    /// "At least 2 of 3" combines the two LARGEST p's, 0.5 and 0.04: X = −2 ln(0.02), and p = 0.02·(1 + ln 50) on χ²(4).
+    /// Keeping the two smallest instead (0.001 and 0.04) would give a far smaller p.
+    /// </summary>
+    [Test]
+    public void FisherPartialConjunction_CombinesTheLargestPValues()
+    {
+        var r = PValueCombination.FisherPartialConjunction(new[] { 0.001, 0.5, 0.04 }, 2);
+        Assert.That(r.Studies, Is.EqualTo(3));
+        Assert.That(r.Statistic, Is.EqualTo(-2 * Math.Log(0.02)).Within(1e-13));
+        Assert.That(r.PValue, Is.EqualTo(0.02 * (1 + Math.Log(50))).Within(1e-14));
+    }
+
+    [Test]
+    public void FisherPartialConjunction_OmitsNonFinite_AndNeedsAtLeastUTests()
+    {
+        var r = PValueCombination.FisherPartialConjunction(new[] { 0.01, double.NaN, 0.2 }, 2);
+        Assert.That(r.Studies, Is.EqualTo(2));
+        Assert.That(r.PValue, Is.EqualTo(0.2).Within(1e-15));
+        var tooFew = PValueCombination.FisherPartialConjunction(new[] { 0.01, double.NaN, 0.2 }, 3);
+        Assert.That(double.IsNaN(tooFew.PValue) && double.IsNaN(tooFew.Statistic));
+        Assert.That(() => PValueCombination.FisherPartialConjunction(new[] { 0.01 }, 0), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => PValueCombination.FisherPartialConjunction(new[] { 1.5, 0.1 }, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
     // ---------------------------------------------------------------- Spearman
 
     [Test]

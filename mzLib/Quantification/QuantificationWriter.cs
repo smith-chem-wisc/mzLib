@@ -26,6 +26,11 @@ namespace Quantification
     /// </list>
     ///
     /// Each method returns the full path it wrote, or null when there was nothing to write.
+    ///
+    /// The three names mean isobaric (TMT, iTRAQ) quantification to every reader: dataRepo switches to isobaric ingest
+    /// when either matrix exists, and PXReprise requires them of a TMT search. A file name tells the mode, so the
+    /// engine writes them only for an isobaric experimental design and refuses a run of any other mode that asks to
+    /// (<see cref="QuantificationEngine"/>). Label-free and DIA write tables of their own.
     /// </summary>
     public static class QuantificationWriter
     {

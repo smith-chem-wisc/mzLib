@@ -1,0 +1,6 @@
+generated_utc 2026-11-14 19:59:43 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+metafor 5.2.1
+seed 20261114
+script make_hartung_knapp_fixtures.R
+call rma(yi, sei, method = "DL", test = "knha", level = 95 and 90)

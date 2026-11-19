@@ -29,7 +29,22 @@ namespace Readers
         /// <summary>The one-based scan number of the apex MS2 scan.</summary>
         public const string ApexScanNumber = "ApexScanNumber";
 
-        /// <summary>The precursor's quantity: its fragments' summed peak areas.</summary>
+        /// <summary>The precursor's quantity (DEF-DIA-PREC): its selected fragments' summed peak areas, MS2 only.</summary>
         public const string PrecursorQuantity = "Precursor Quantity";
+
+        /// <summary>What the precursor quantity is (DEF-DIA-KIND): Value, BelowFloor or NotLooked.</summary>
+        public const string QuantityState = "Quantity State";
+
+        /// <summary>The floor the precursor quantity's fragments were judged against.</summary>
+        public const string QuantityFloor = "Quantity Floor";
+
+        /// <summary>The precursor's MS1 quantity (DEF-DIA-MS1).</summary>
+        public const string Ms1Quantity = "MS1 Quantity";
+
+        /// <summary>What the MS1 quantity is (DEF-DIA-KIND).</summary>
+        public const string Ms1QuantityState = "MS1 Quantity State";
+
+        /// <summary>The floor the MS1 quantity was judged against.</summary>
+        public const string Ms1QuantityFloor = "MS1 Quantity Floor";
     }
 }
