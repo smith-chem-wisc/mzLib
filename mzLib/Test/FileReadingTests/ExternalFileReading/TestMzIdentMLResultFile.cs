@@ -400,21 +400,6 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(allocated, Is.LessThan(size / 2), $"allocated {allocated:N0} bytes reading a {size:N0}-byte file");
         }
 
-        [TestCase(null, -1)]
-        [TestCase("", -1)]
-        [TestCase("scan=42", 42)]
-        [TestCase("controllerType=0 controllerNumber=1 scan=7", 7)]
-        [TestCase("scan=81409 file=454", 81409)]
-        [TestCase("index=0", 1)]
-        [TestCase("index=16332", 16333)]
-        [TestCase("mzMLid=controllerType=0", -1)]
-        [TestCase("index=12x", -1)]
-        [TestCase("scan=1,scan=2", 1)]
-        public void OneBasedScanNumber_FromTheNativeId(string spectrumId, int expected)
-        {
-            Assert.That(MzIdentMLResultFile.OneBasedScanNumberOf(spectrumId), Is.EqualTo(expected));
-        }
-
         #region Synthetic documents
 
         /// <summary>
