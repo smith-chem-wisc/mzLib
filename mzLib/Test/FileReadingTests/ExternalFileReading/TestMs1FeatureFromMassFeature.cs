@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Chemistry;
 using MassSpectrometry;
 using MassSpectrometry.Deconvolution.Consensus;
 using NUnit.Framework;
@@ -209,25 +210,47 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         [Test]
-        public static void FromMassFeatures_GappedChargeSet_DoesNotFabricateIntermediateCharges()
+        public static void FromMassFeatures_GappedChargeSet_WritesOneRowSpanningEveryChargeInRange()
         {
-            // Charges {10, 12, 15} are non-contiguous (intermediate charges fell below the
-            // deconvolution score cutoff). Writing them as a single Min=10/Max=15 row would
-            // let the reader re-expand to 10..15 and invent charges 11/13/14. The
-            // contiguous-run split must round-trip exactly the observed set.
-            var feature = BuildMassFeature(id: 1, traces: new[]
-            {
-                BuildTrace(charge: 10, consensusMass: 5000.0, envelopes: new[] { (rt: 20.0, intensity: 8.0e7) }),
-                BuildTrace(charge: 12, consensusMass: 5000.0, envelopes: new[] { (rt: 20.1, intensity: 6.0e7) }),
-                BuildTrace(charge: 15, consensusMass: 5000.0, envelopes: new[] { (rt: 20.2, intensity: 4.0e7) }),
-            });
+            // Charges {10, 12, 15} are non-contiguous: 11, 13 and 14 fell below the
+            // deconvolution cutoff in MS1. By default the writer emits one Min=10/Max=15 row,
+            // the TopFD/FLASHDeconv convention, and the reader expands it to 10..15. A FromFile
+            // search then still offers a precursor to an MS2 scan that isolated charge 13;
+            // the contiguous-run form dropped those and cost 16% of proteoforms on Jurkat.
+            var feature = BuildGappedFeature();
 
-            string outputPath = Path.Combine(directoryPath, "gapped_ms1.feature");
+            string outputPath = Path.Combine(directoryPath, "gapped_span_ms1.feature");
             Ms1FeatureFile.FromMassFeatures(new[] { feature }).WriteResults(outputPath);
 
             var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
+            Assert.That(roundTripped.Results.Count, Is.EqualTo(1),
+                "a gapped {10,12,15} charge set should write as one row by default");
+            Assert.That(roundTripped.Results[0].ChargeStateMin, Is.EqualTo(10));
+            Assert.That(roundTripped.Results[0].ChargeStateMax, Is.EqualTo(15));
+
+            var singleCharge = roundTripped.GetMs1Features().ToList();
+            Assert.That(singleCharge.Select(f => f.Charge), Is.EqualTo(new[] { 10, 11, 12, 13, 14, 15 }),
+                "read-back expands the span, so the unobserved charges inside it are available to pair with MS2");
+            var z13 = singleCharge.Single(f => f.Charge == 13);
+            Assert.That(z13.Mz, Is.EqualTo(5000.0.ToMz(13)).Within(1e-9),
+                "a gap charge carries the feature's mass at that charge's m/z");
+        }
+
+        [Test]
+        public static void FromMassFeatures_SplitGappedChargeRuns_RoundTripsExactObservedCharges()
+        {
+            // Opt-in: one row per contiguous run, so the exact observed set survives.
+            var feature = BuildGappedFeature();
+
+            string outputPath = Path.Combine(directoryPath, "gapped_split_ms1.feature");
+            var written = Ms1FeatureFile.FromMassFeatures(new[] { feature }, splitGappedChargeRuns: true);
+            Assert.That(written.Results.Select(r => r.Id), Is.EqualTo(new[] { 0, 1, 2 }),
+                "split rows are numbered sequentially like whole-feature rows");
+            written.WriteResults(outputPath);
+
+            var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
             Assert.That(roundTripped.Results.Count, Is.EqualTo(3),
-                "a gapped {10,12,15} charge set should write as three contiguous-run rows");
+                "a gapped {10,12,15} charge set should write as three contiguous-run rows when asked");
 
             var charges = roundTripped.GetMs1Features()
                 .Select(f => f.Charge).Distinct().OrderBy(z => z).ToArray();
@@ -337,6 +360,14 @@ namespace Test.FileReadingTests.ExternalFileReading
         // ───────────────────────────────────────────────────────────────────
         // Fake-MassFeature builders
         // ───────────────────────────────────────────────────────────────────
+
+        // Charges {10, 12, 15} at 5000 Da: 11, 13 and 14 are gaps.
+        private static MassFeature BuildGappedFeature() => BuildMassFeature(id: 1, traces: new[]
+        {
+            BuildTrace(charge: 10, consensusMass: 5000.0, envelopes: new[] { (rt: 20.0, intensity: 8.0e7) }),
+            BuildTrace(charge: 12, consensusMass: 5000.0, envelopes: new[] { (rt: 20.1, intensity: 6.0e7) }),
+            BuildTrace(charge: 15, consensusMass: 5000.0, envelopes: new[] { (rt: 20.2, intensity: 4.0e7) }),
+        });
 
         private static MassFeature BuildMassFeature(int id, IReadOnlyList<CorrectedTrace> traces)
         {

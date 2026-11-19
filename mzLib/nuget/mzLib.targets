@@ -1,0 +1,37 @@
+<Project>
+
+  <!--
+    Ships the modification data files that mzLib embeds so a consuming application can also
+    expose them as editable files on disk.
+
+    The ~6.8 MB is NOT optional. The nuspec lists these files unconditionally, so every consumer
+    downloads them in the .nupkg whether or not they want them on disk. What this property gates
+    is only whether they are copied out beside the application; most consumers need nothing on
+    disk, because Omics.dll already carries its own embedded copies.
+
+    Opt in with <MzLibIncludeModificationData>true</MzLibIncludeModificationData>.
+    Files land in Mods\ and Data\ beside the application, and flow to the output of any
+    project that references the one opting in.
+
+    The Mods\ and Data\ names below have to match the nuspec's modificationData\Mods and
+    modificationData\Data targets. Nothing at pack time checks that, so
+    Test/NuGetPackagingTests.cs asserts the two agree.
+  -->
+
+  <PropertyGroup>
+    <MzLibIncludeModificationData Condition="'$(MzLibIncludeModificationData)' == ''">false</MzLibIncludeModificationData>
+    <MzLibModificationDataRoot>$(MSBuildThisFileDirectory)..\modificationData\</MzLibModificationDataRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MzLibIncludeModificationData)' == 'true'">
+    <None Include="$(MzLibModificationDataRoot)Mods\*"
+          Link="Mods\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="true" />
+    <None Include="$(MzLibModificationDataRoot)Data\*"
+          Link="Data\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="true" />
+  </ItemGroup>
+
+</Project>

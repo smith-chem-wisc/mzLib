@@ -8,6 +8,11 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
+// PtmListLoader is [Obsolete] in favour of Omics.Modifications.ModificationLoader, and this
+// fixture is that type's coverage. Migrating these calls would leave a shipped public type
+// untested, so the warning is suppressed rather than answered. This file goes when the type does.
+#pragma warning disable CS0618
+
 namespace Test.Omics.Modifications
 {
     [TestFixture]

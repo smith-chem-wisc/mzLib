@@ -30,7 +30,10 @@ namespace Test.FileReadingTests
         {
         }
 
-        public int GetClosestOneBasedSpectrumNumber(double retentionTime)
+        // Shadows rather than overrides, and does not agree with the base: this returns a binary-search
+        // insertion point, MsDataFile returns the nearest scan. Held as-is deliberately -- a variable
+        // typed MsDataFile gets the real one, a variable typed FakeMsDataFile gets this.
+        public new int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             int ok = Array.BinarySearch(Scans.Select(b => b.RetentionTime).ToArray(), retentionTime);
             if (ok < 0)
@@ -63,12 +66,12 @@ namespace Test.FileReadingTests
             throw new NotImplementedException();
         }
 
-        public IEnumerable<MsDataScan> GetMS1Scans()
+        public new IEnumerable<MsDataScan> GetMS1Scans()
         {
             throw new NotImplementedException();
         }
 
-        public MsDataScan GetOneBasedScan(int scanNumber)
+        public new MsDataScan GetOneBasedScan(int scanNumber)
         {
             return Scans[scanNumber - 1];
         }

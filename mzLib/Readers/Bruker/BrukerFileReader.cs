@@ -63,11 +63,11 @@ namespace Readers
 
 			if (!Directory.Exists(FilePath))
 			{
-				throw new FileNotFoundException(); 
+				throw new DirectoryNotFoundException($"Could not locate the Bruker .d directory: {FilePath}");
 			}
 
 			List<MsDataScan> scans = new(); 
-			OpenFileConnection(FilePath+@"\analysis.baf");
+			OpenFileConnection(Path.Combine(FilePath, "analysis.baf"));
 			int totalSpectra = GetTotalSpectraCount();
 			LoadTablesInMemory();
 			for (int i = 0; i < totalSpectra; i++)
@@ -101,7 +101,7 @@ namespace Readers
         {
 			// append the analysis.baf because the constructor for SourceFile will look for the 
 			// parent directory. 
-            string fileName = FilePath + @"\analysis.baf"; 
+            string fileName = Path.Combine(FilePath, "analysis.baf");
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
 				null, null, id: null, filePath: fileName);
         }
@@ -124,11 +124,12 @@ namespace Readers
 
 		public override void InitiateDynamicConnection()
 		{
-            if (!File.Exists(FilePath + @"\analysis.baf"))
+            string bafPath = Path.Combine(FilePath, "analysis.baf");
+            if (!File.Exists(bafPath))
             {
-                throw new FileNotFoundException();
+                throw new FileNotFoundException($"Could not locate analysis.baf in {FilePath}", bafPath);
             }
-            OpenFileConnection(FilePath + @"\analysis.baf");
+            OpenFileConnection(bafPath);
 		}
 
 		private const string GetFullSpectraTableString = "SELECT * FROM Spectra ORDER BY Rt";

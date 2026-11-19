@@ -1,0 +1,47 @@
+# SDRF design fixtures
+
+Hand-written SDRFs from the `aging` project (`design/fixtures/2026-09-23_sdrf-design/`, commit
+`74cd236`, 2026-09-23). One row per searched raw file. Nothing here was deposited by the authors;
+where the PRIDE record does not say something, the fixture says `not available`.
+
+- `PXD067622.sdrf.tsv`: 24 files. Construct (WT/CA) x treatment (DMSO/FA/NDC/THY) x 3, one fraction
+  each. The file names number replicates 1..24 across the whole study; the SDRF numbers them 1..3
+  within each condition.
+- `PXD049018.sdrf.tsv`: 20 files. Two streptavidin pulldowns x 10 gel bands, no replication. The
+  record says one is +cGAMP and one is -cGAMP but not which, so `factor value[treatment]` is
+  `not available` on both, and both carry biological replicate 1.
+
+Isobaric subsets, cut from `bigbio/sdrf-annotated-datasets` (Apache-2.0) at `4f823dc` (2026-08-06),
+every column and cell as deposited; only rows were removed, whole files at a time.
+
+- `PXD008841.subset.sdrf.tsv`: 40 rows, 4 files, TMT10. Fractions 1 and 2 of plex 1 and plex 5 of a
+  9-plex bridge design (360 files in all). No column names the plex; it survives only in a file-name
+  token spelled two ways (`TMTpool1`, `TMT_pool5`). Channel 131N is the reference, `source name`
+  `pool`, in every plex.
+- `PXD061609.subset.sdrf.tsv`: 108 rows, 6 files, TMTpro 18. Fractions 1 and 2 of each of three SAX
+  arms (`NoSAX`, `HighSalt`, `LowSalt` in `comment[sample preparation batch]`) of ONE plex: all 18
+  samples are in every arm, and each arm numbers its fractions from 1.
+- `PXD015833-Exp2.subset.sdrf.tsv`: 20 rows, 2 files, TMT10. Fractions 1 and 2 (`PAT8141A12RW2_A1.raw`,
+  `PAT8141A13RW2_B1.raw`) of the one plex of experiment 2 (12 files in all). It labels the last channel
+  `TMT131`, PRIDE's spelling (PRIDE:0000529), where mzLib says 131N. No column names the plex, and no
+  `factor value[...]` column is given.
+- `PXD048052.subset.sdrf.tsv`: 20 rows, 2 files (`230120_1.raw`, `230120_2.raw`), TMT10, single-cell. Each
+  file is its own plex, and no column names it. In each, channel 127N is a pooled reference, and it says so
+  four ways at once: `characteristics[sample type]` `reference`, `characteristics[pooled sample]` `pooled`,
+  `comment[reference channel]` `TMT127N`, and `characteristics[biological replicate]` `pooled`. The last
+  channel is labelled `TMT131`.
+
+Label-free subset, cut the same way from the same repository and commit (`datasets/PXD009086`):
+
+- `PXD009086.subset.sdrf.tsv`: 11 rows, 11 files. Chicken hypothalamus, fasting and fed: heavy birds 1 and 2 of each,
+  two injections each, plus the `hypothalamus_pool` MasterMix injected three times (technical replicates 1-3) with
+  `characteristics[biological replicate]` `pooled` and `factor value[treatment]` `not applicable`. The light birds are
+  left out: they reuse the heavy birds' replicate numbers in each condition, which the whole file is refused for.
+
+Two whole label-free files from the same repository and commit, each marking EVERY sample (GR-20: the mark then says how
+the samples were made, so all are study samples):
+
+- `PXD011349.sdrf.tsv`: 56 rows, 56 files, two heart regions, `characteristics[pooled sample]` `pooled` on every row and
+  integer biological replicates.
+- `PXD056661.sdrf.tsv`: 9 rows, 9 files, three glycoproteome assays of three samples each,
+  `characteristics[biological replicate]` `pooled` on every row.

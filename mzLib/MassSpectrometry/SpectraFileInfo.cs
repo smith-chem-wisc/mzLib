@@ -49,6 +49,21 @@ namespace MassSpectrometry
         public int TechnicalReplicate { get; }
 
         /// <summary>
+        /// True for a pooled reference file, such as a QC pool injection (GR-20): it is quantified like any file and
+        /// carried, but it is no biological sample, so statistics leave it out of every comparison (as
+        /// <see cref="IsobaricQuantSampleInfo.IsReferenceChannel"/> does for a channel). False unless set.
+        /// It is not part of the file's identity: <see cref="Equals(SpectraFileInfo?)"/>, <see cref="GetHashCode"/> and
+        /// <see cref="CompareTo"/> ignore it, so a file is the same dictionary key whatever its role.
+        /// </summary>
+        public bool IsReference { get; init; }
+
+        /// <summary>
+        /// The hash of every identity component, computed once: they are all read-only, and FlashLFQ looks a file up by
+        /// this key in its innermost peak-finding loops, where hashing the full file path each time was a measurable cost.
+        /// </summary>
+        private readonly int _hashCode;
+
+        /// <summary>
         /// Creates a new <see cref="SpectraFileInfo"/> instance with the specified parameters.
         /// </summary>
         /// <param name="fullFilePathWithExtension">The absolute path to the data file including extension.</param>
@@ -64,10 +79,17 @@ namespace MassSpectrometry
             BiologicalReplicate = biorep;
             TechnicalReplicate = techrep;
             Fraction = fraction;
+            _hashCode = HashCode.Combine(
+                StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension),
+                StringComparer.Ordinal.GetHashCode(Condition),
+                BiologicalReplicate,
+                Fraction,
+                TechnicalReplicate);
         }
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are equal.
-        /// Two samples are equal if they have the same <see cref="FullFilePathWithExtension"/> and <see cref="ChannelLabel"/>.
+        /// Two samples are equal if they have the same file path, condition, biological replicate,
+        /// fraction, and technical replicate.
         /// </summary>
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
@@ -80,7 +102,8 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are not equal.
-        /// Two samples are not equal if they differ in <see cref="FullFilePathWithExtension"/> or <see cref="ChannelLabel"/>.
+        /// Two samples are not equal if they differ in file path, condition, biological replicate,
+        /// fraction, or technical replicate.
         /// </summary>
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
@@ -149,15 +172,7 @@ namespace MassSpectrometry
         /// and <see cref="TechnicalReplicate"/>.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(
-                StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension ?? string.Empty),
-                StringComparer.Ordinal.GetHashCode(Condition ?? string.Empty),
-                BiologicalReplicate,
-                Fraction,
-                TechnicalReplicate);
-        }
+        public override int GetHashCode() => _hashCode;
 
         /// <summary>
         /// Returns the file name (with extension) extracted from <see cref="FullFilePathWithExtension"/>.

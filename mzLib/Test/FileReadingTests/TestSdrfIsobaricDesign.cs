@@ -1,0 +1,972 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
+using MassSpectrometry;
+using NUnit.Framework;
+using Omics.Modifications;
+using Readers;
+
+namespace Test.FileReadingTests
+{
+    /// <summary>
+    /// Covers <see cref="SdrfIsobaricDesign"/>, the SDRF → isobaric design projection (QuantProject M7,
+    /// TMT half). The contract is the label-free one: a design MetaMorpheus accepts, or a refusal that
+    /// lists every reason. The two real fixtures are corpus subsets chosen for the plex: PXD008841 names
+    /// it only in a file-name token, and PXD061609's batch column is not a plex. Everything else is built
+    /// in memory so the one defect under test is the only thing wrong.
+    /// </summary>
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
+    public class TestSdrfIsobaricDesign
+    {
+        private const string Batch = "comment[sample preparation batch]";
+        private const string PlexColumn = "comment[plex]";
+        private const string Pxd008841Pattern = @"TMT_?pool(?<plex>\d+)";
+
+        private static IsobaricMassTag Tag(IsobaricMassTagType type)
+        {
+            Assert.That(IsobaricMassTag.TryGetIsobaricMassTag(type, out var tag), Is.True, type.ToString());
+            return tag!;
+        }
+
+        private static string Fixture(string name) =>
+            Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests",
+                "ExternalFileTypes", "SdrfDesign", name);
+
+        private sealed record Row(string File, string Label, string Sample, string Condition = "A", string Biorep = "1",
+            string Plex = "P1", string Fraction = "1", string Techrep = "1", string ReplicateSource = "deposited");
+
+        /// <summary>An isobaric SDRF in memory, one row per (file, channel), with the plex in <c>comment[plex]</c>.</summary>
+        private static SdrfDocument Document(params Row[] rows)
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[biological replicate]", "assay name", "comment[label]",
+                "comment[fraction identifier]", "comment[technical replicate]", "comment[data file]",
+                PlexColumn, SdrfIsobaricDesign.BiologicalReplicateSourceColumn, "factor value[condition]"
+            });
+            return new SdrfDocument(header, rows.Select(r => new SdrfRow(header, new[]
+            {
+                r.Sample, r.Biorep, "run " + r.File, r.Label, r.Fraction, r.Techrep, r.File, r.Plex,
+                r.ReplicateSource, r.Condition
+            })));
+        }
+
+        private static SdrfIsobaricDesignOptions ByColumn(IsobaricMassTagType type = IsobaricMassTagType.TMT10) =>
+            new() { Tag = Tag(type), PlexColumn = PlexColumn };
+
+        /// <summary>A valid two-channel plex: file a.raw, 126 = S1 (A), 127N = S2 (B).</summary>
+        private static Row[] TwoChannels(string file = "a.raw", string fraction = "1") => new[]
+        {
+            new Row(file, "TMT126", "S1", "A", Fraction: fraction),
+            new Row(file, "TMT127N", "S2", "B", Fraction: fraction),
+        };
+
+        // ---------------------------------------------------------------- PXD008841
+
+        [Test]
+        public void Pxd008841WithTheFileNamePatternGivesTwoPlexesOfTenChannels()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD008841.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexFileNamePattern = Pxd008841Pattern });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Is.Empty);
+            Assert.That(design.FileKeyColumn, Is.EqualTo("comment[data file]"));
+            Assert.That(design.ConditionColumns, Is.EqualTo(new[] { "factor value[disease]" }));
+            Assert.That(design.Files, Has.Count.EqualTo(4));
+
+            // Both spellings of the token give the plex, and the ids are MetaMorpheus's: name order.
+            Assert.That(design.Files.Select(f => f.Plex).Distinct(), Is.EquivalentTo(new[] { "1", "5" }));
+            Assert.That(design.PlexIds, Is.EquivalentTo(new Dictionary<string, int> { ["1"] = 1, ["5"] = 2 }));
+
+            var pool1 = design.Files.First(f => f.Plex == "1");
+            Assert.That(pool1.Channels.Select(c => c.Label), Is.EqualTo(Tag(IsobaricMassTagType.TMT10).ChannelLabels),
+                "channels are in reporter m/z order, so 127N comes before 127C");
+            Assert.That(pool1.Channels[0].SampleName, Is.EqualTo("OSL.53E"));
+            Assert.That(pool1.Channels[0].Condition, Is.EqualTo("basal-like breast carcinoma"));
+            Assert.That(pool1.Channels.Last().SampleName, Is.EqualTo("pool"));
+
+            Assert.That(design.Files.Select(f => f.Fraction), Is.EquivalentTo(new[] { 1, 2, 1, 2 }));
+            Assert.That(design.Files.All(f => f.TechnicalReplicate == 1));
+        }
+
+        [Test]
+        public void Pxd008841WithNoPlexSourceIsRefusedRatherThanGuessed()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD008841.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10) });
+
+            Assert.That(design.IsValid, Is.False);
+            Assert.That(design.Refusals.Single(), Does.Contain("No plex source was declared"));
+            Assert.That(design.Files, Is.Empty);
+            Assert.Throws<InvalidOperationException>(() => design.ToExperimentalDesign());
+        }
+
+        [Test]
+        public void Pxd008841ReadAsTmt11GivesAnEmpty131CInEveryFile()
+        {
+            var tmt11 = Tag(IsobaricMassTagType.TMT11);
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD008841.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = tmt11, PlexFileNamePattern = Pxd008841Pattern });
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+
+            var experimentalDesign = design.ToExperimentalDesign();
+            Assert.That(experimentalDesign.FileNameSampleInfoDictionary, Has.Count.EqualTo(4));
+            foreach (var samples in experimentalDesign.FileNameSampleInfoDictionary.Values)
+            {
+                var channels = samples.Cast<IsobaricQuantSampleInfo>().ToList();
+                Assert.That(channels.Select(c => c.ChannelLabel), Is.EqualTo(tmt11.ChannelLabels));
+                Assert.That(channels.Select(c => c.ReporterIonMz), Is.EqualTo(tmt11.ReporterIonMzs));
+
+                var empty = channels.Last();
+                Assert.That(empty.ChannelLabel, Is.EqualTo("131C"));
+                Assert.That(empty.SampleName, Is.Null);
+                Assert.That(empty.Condition, Is.Empty);
+                Assert.That(empty.BiologicalReplicate, Is.EqualTo(0));
+                Assert.That(channels.Take(10).All(c => c.SampleName != null && c.BiologicalReplicate == 1));
+
+                // The pool's characteristics[pooled sample] lists the samples it pools (SN=OSL.53E;...), so 131N is
+                // a reference channel and nothing else is (GR-20).
+                Assert.That(channels.Where(c => c.IsReferenceChannel).Select(c => c.ChannelLabel), Is.EqualTo(new[] { "131N" }));
+            }
+        }
+
+        // ---------------------------------------------------------------- reference channels (GR-20)
+
+        private sealed record RoleRow(string File, string Label, string Sample, string Biorep = "1",
+            string SampleType = "not available", string PooledSample = "not pooled", string ReferenceChannel = "not applicable",
+            string Plex = "P1", string Condition = "A", string Fraction = "1");
+
+        /// <summary>An isobaric SDRF in memory carrying the three columns that can mark a reference channel.</summary>
+        private static SdrfDocument RoleDocument(params RoleRow[] rows)
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[sample type]", "characteristics[pooled sample]",
+                "characteristics[biological replicate]", "assay name", "comment[label]", "comment[reference channel]",
+                "comment[fraction identifier]", "comment[technical replicate]", "comment[data file]", PlexColumn,
+                "factor value[condition]"
+            });
+            return new SdrfDocument(header, rows.Select(r => new SdrfRow(header, new[]
+            {
+                r.Sample, r.SampleType, r.PooledSample, r.Biorep, "run " + r.File, r.Label, r.ReferenceChannel,
+                r.Fraction, "1", r.File, r.Plex, r.Condition
+            })));
+        }
+
+        private static IsobaricQuantSampleInfo ChannelOf(SdrfIsobaricDesign design, string file, string label) =>
+            design.ToExperimentalDesign().FileNameSampleInfoDictionary[file].Cast<IsobaricQuantSampleInfo>()
+                .Single(c => c.ChannelLabel == label);
+
+        private static string[] WrittenTmtDesign(SdrfIsobaricDesign design)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"RefPool_{Guid.NewGuid():N}_TmtDesign.txt");
+            try
+            {
+                design.WriteTmtDesign(path);
+                return File.ReadAllLines(path);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// Each of the four ways an SDRF marks a pooled reference is enough on its own (sdrf QP-S28 and QP-S31, ruled
+        /// 2026-10-08): the channel is kept, and carried as a reference channel, so statistics leave it out of every
+        /// comparison. The other channel stays a study sample.
+        /// </summary>
+        [TestCase("sample type reference")]
+        [TestCase("sample type pooled")]
+        [TestCase("reference channel")]
+        [TestCase("reference channel, PRIDE's TMT10 spelling")]
+        [TestCase("pooled sample")]
+        [TestCase("biological replicate pooled")]
+        public void EachReferenceSignalAloneMarksTheChannelAReference(string signal)
+        {
+            var study = new RoleRow("a.raw", "TMT126", "S1");
+            var pool = new RoleRow("a.raw", "TMT131N", "pool", Condition: "pool");
+            (study, pool) = signal switch
+            {
+                "sample type reference" => (study, pool with { SampleType = "NT=reference;AC=PRIDE:0000899" }),
+                "sample type pooled" => (study, pool with { SampleType = "pooled" }),
+                "reference channel" => (study with { ReferenceChannel = "TMT131N" }, pool with { ReferenceChannel = "TMT131N" }),
+                "reference channel, PRIDE's TMT10 spelling" => (study with { ReferenceChannel = "TMT131" }, pool with { ReferenceChannel = "TMT131" }),
+                "pooled sample" => (study, pool with { PooledSample = "SN=S1;SN=S2" }),
+                "biological replicate pooled" => (study, pool with { Biorep = "pooled" }),
+                _ => throw new ArgumentException(signal),
+            };
+
+            var design = SdrfIsobaricDesign.Read(RoleDocument(study, pool), ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.True, signal);
+            Assert.That(ChannelOf(design, "a.raw", "126").IsReferenceChannel, Is.False);
+            Assert.That(ChannelOf(design, "a.raw", "131N").SampleName, Is.EqualTo("pool"), "the channel is kept, not dropped");
+        }
+
+        /// <summary>
+        /// What is not a reference signal: a sample type that names something else, a pooled sample of
+        /// <c>not pooled</c> or an unknown word, and a reference channel cell naming another channel or none.
+        /// </summary>
+        [TestCase("NT=study sample;AC=PRIDE:0000898", "not pooled", "not applicable")]
+        [TestCase("carrier", "not available", "not available")]
+        [TestCase("single cell", "not applicable", "TMT126")]
+        public void WithoutASignalTheChannelIsAStudySample(string sampleType, string pooledSample, string referenceChannel)
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1", ReferenceChannel: referenceChannel),
+                new RoleRow("a.raw", "TMT131N", "S2", SampleType: sampleType, PooledSample: pooledSample, ReferenceChannel: referenceChannel)),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.False);
+            Assert.That(ChannelOf(design, "a.raw", "126").IsReferenceChannel, Is.EqualTo(referenceChannel == "TMT126"));
+        }
+
+        /// <summary>
+        /// A <c>pooled</c> biological replicate gives no number, and MetaMorpheus's TmtDesign.txt needs one. It is added
+        /// here and reported, per plex and sample, in channel order, after any number that sample is given in its plex, so
+        /// an added number never repeats one. A pool in two plexes is numbered in each.
+        /// </summary>
+        [Test]
+        public void APooledReplicateIsNumberedHereAndSaysSo()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "pool", Biorep: "1", SampleType: "reference", Condition: "pool"),
+                new RoleRow("a.raw", "TMT127N", "S1"),
+                new RoleRow("a.raw", "TMT130C", "pool", Biorep: "pooled", Condition: "pool"),
+                new RoleRow("a.raw", "TMT131N", "pool", Biorep: "pooled", Condition: "pool"),
+                new RoleRow("b.raw", "TMT126", "S2", Plex: "P2"),
+                new RoleRow("b.raw", "TMT131N", "pool", Biorep: "pooled", Plex: "P2", Condition: "pool")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "a.raw", "126").BiologicalReplicate, Is.EqualTo(1), "a number the SDRF gives is kept");
+            Assert.That(ChannelOf(design, "a.raw", "130C").BiologicalReplicate, Is.EqualTo(2));
+            Assert.That(ChannelOf(design, "a.raw", "131N").BiologicalReplicate, Is.EqualTo(3));
+            Assert.That(ChannelOf(design, "b.raw", "131N").BiologicalReplicate, Is.EqualTo(1));
+            Assert.That(new[] { "126", "130C", "131N" }.All(c => ChannelOf(design, "a.raw", c).IsReferenceChannel));
+            Assert.That(ChannelOf(design, "a.raw", "127N").IsReferenceChannel, Is.False);
+
+            Assert.That(design.Notes, Has.Some.Contains("Plex 'P1' sample 'pool': channel(s) 130C, 131N give 'pooled'")
+                .And.Some.Contains("130C -> 2, 131N -> 3"));
+            Assert.That(design.Notes, Has.Some.Contains("Plex 'P2' sample 'pool'").And.Some.Contains("131N -> 1"));
+        }
+
+        /// <summary>
+        /// A reference channel that gives no number in another way (<c>not available</c>, an empty cell) is numbered too,
+        /// never refused; a study sample that gives none is still refused, because its number cannot be guessed.
+        /// </summary>
+        [TestCase("not available")]
+        [TestCase("")]
+        public void AReferenceWithNoNumberIsNumberedButAStudySampleWithNoneIsRefused(string biorep)
+        {
+            var reference = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "pool", Biorep: biorep, SampleType: "reference")),
+                ByColumn());
+            Assert.That(reference.Refusals, Is.Empty, reference.Report());
+            Assert.That(ChannelOf(reference, "a.raw", "131N").BiologicalReplicate, Is.EqualTo(1));
+
+            var study = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "S2", Biorep: biorep)), ByColumn());
+            Assert.That(study.Refusals.Single(), Does.Contain("not an integer of 1 or more"));
+        }
+
+        /// <summary>
+        /// Two signals that disagree (a sample type of study sample beside a <c>pooled</c> replicate) are reported, and the
+        /// channel is read as a reference: a pool read as a study sample pulls its group towards the mean of all groups,
+        /// the worse error (sdrf 041).
+        /// </summary>
+        [TestCase("NT=study sample;AC=PRIDE:0000898", "not pooled", "pooled")]
+        [TestCase("reference", "not pooled", "1")]
+        public void SignalsThatDisagreeAreReportedAndTheChannelIsAReference(string sampleType, string pooledSample, string biorep)
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"),
+                new RoleRow("a.raw", "TMT131N", "pool", Biorep: biorep, SampleType: sampleType, PooledSample: pooledSample)),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.True);
+            Assert.That(design.Notes, Has.Some.Contains("Plex 'P1' channel 131N ('pool')").And.Some.Contains("read as a reference"));
+        }
+
+        /// <summary>
+        /// A pool of every condition often says its condition is <c>not applicable</c>. For a reference that is kept as
+        /// written, because a reference is in no comparison; for a study sample it is still refused (SDRF-P1).
+        /// </summary>
+        [Test]
+        public void AReferencesUnknownConditionIsKeptButAStudySamplesIsRefused()
+        {
+            var reference = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"),
+                new RoleRow("a.raw", "TMT131N", "pool", Biorep: "pooled", Condition: "not applicable")), ByColumn());
+            Assert.That(reference.Refusals, Is.Empty, reference.Report());
+            Assert.That(ChannelOf(reference, "a.raw", "131N").Condition, Is.EqualTo("not applicable"));
+
+            var study = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "S2", Condition: "not applicable")), ByColumn());
+            Assert.That(study.Refusals.Single(), Does.Contain("A condition cannot be built from an unknown factor"));
+        }
+
+        /// <summary>
+        /// GR-20, ruled 2026-10-26: when every channel of the whole design carries a pooled signal, the mark says how the
+        /// samples were made, so every channel is a study sample, and the notes say which signal.
+        /// </summary>
+        [Test]
+        public void AMarkOnEveryChannelOfTheWholeDesignSaysHowTheSamplesWereMade()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1", PooledSample: "pooled"), new RoleRow("a.raw", "TMT131N", "S2", PooledSample: "pooled", Condition: "B"),
+                new RoleRow("b.raw", "TMT126", "S3", PooledSample: "pooled", Plex: "P2"),
+                new RoleRow("b.raw", "TMT131N", "S4", PooledSample: "pooled", Plex: "P2", Condition: "B")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(new[] { ("a.raw", "126"), ("a.raw", "131N"), ("b.raw", "126"), ("b.raw", "131N") }
+                .All(c => !ChannelOf(design, c.Item1, c.Item2).IsReferenceChannel));
+            Assert.That(design.Notes, Has.Some.StartsWith("Every sample in this design is marked by pooled sample"));
+            Assert.That(WrittenTmtDesign(design)[0], Is.EqualTo(SdrfIsobaricDesign.TmtDesignHeader), "no channel is a reference");
+        }
+
+        /// <summary>
+        /// It is judged over the whole design, never per plex: a plex holding only its reference channel, beside a plex of
+        /// study samples, keeps the reference.
+        /// </summary>
+        [Test]
+        public void APlexOfOnlyReferencesBesideStudySamplesKeepsThem()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "pool", SampleType: "reference"),
+                new RoleRow("b.raw", "TMT131N", "pool", SampleType: "reference", Plex: "P2")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "b.raw", "131N").IsReferenceChannel, Is.True);
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.True);
+            Assert.That(ChannelOf(design, "a.raw", "126").IsReferenceChannel, Is.False);
+            Assert.That(design.Notes, Has.None.Contains("Every sample in this design"));
+        }
+
+        /// <summary>
+        /// A mark on every channel clears only the marks that can say how a sample was made. A channel that
+        /// comment[reference channel] names stays the reference: every channel's pooled sample is SN=..., and PRIDE's TMT10
+        /// TMT131 still names 131N.
+        /// </summary>
+        [Test]
+        public void ANamedReferenceChannelKeepsItsRoleWhenEveryChannelIsMarkedPooled()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1", PooledSample: "SN=S1a;SN=S1b", ReferenceChannel: "TMT131"),
+                new RoleRow("a.raw", "TMT127N", "S2", PooledSample: "SN=S2a;SN=S2b", ReferenceChannel: "TMT131", Condition: "B"),
+                new RoleRow("a.raw", "TMT131N", "pool", PooledSample: "SN=S1a;SN=S1b;SN=S2a;SN=S2b", ReferenceChannel: "TMT131")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(ChannelOf(design, "a.raw", "131N").IsReferenceChannel, Is.True, "the named reference stands");
+            Assert.That(ChannelOf(design, "a.raw", "126").IsReferenceChannel, Is.False);
+            Assert.That(ChannelOf(design, "a.raw", "127N").IsReferenceChannel, Is.False);
+            Assert.That(design.Notes, Has.Some.EqualTo("Every sample in this design is marked by pooled sample, so the mark says how the " +
+                "samples were made, not that they are pooled references: all are read as study samples, except those that sample type " +
+                "or reference channel marks as a reference."));
+        }
+
+        /// <summary>
+        /// A role every channel of the whole design carries tells no channel apart (ruled 2026-11-03), so it is cleared and
+        /// every channel is a study sample: a sample type of <c>reference</c> or <c>pooled</c> on every channel, or a reference
+        /// channel cell that names every channel of its plex (a cell may list several). Judged over the whole design, as the
+        /// pooled mark is; <see cref="APlexOfOnlyReferencesBesideStudySamplesKeepsThem"/> is the control.
+        /// </summary>
+        [TestCase("sample type reference", "sample type 'reference'")]
+        [TestCase("sample type pooled", "sample type 'pooled'")]
+        [TestCase("reference channel", "reference channel 'TMT126,TMT131'")]
+        public void ARoleEveryChannelCarriesTellsNoChannelApart(string signal, string roles)
+        {
+            RoleRow Mark(RoleRow row) => signal switch
+            {
+                "sample type reference" => row with { SampleType = "NT=reference;AC=PRIDE:0000899" },
+                "sample type pooled" => row with { SampleType = "pooled" },
+                "reference channel" => row with { ReferenceChannel = "TMT126,TMT131" },
+                _ => throw new ArgumentException(signal),
+            };
+
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                Mark(new RoleRow("a.raw", "TMT126", "S1")), Mark(new RoleRow("a.raw", "TMT131N", "S2", Condition: "B")),
+                Mark(new RoleRow("b.raw", "TMT126", "S3", Plex: "P2")), Mark(new RoleRow("b.raw", "TMT131N", "S4", Plex: "P2", Condition: "B"))),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(new[] { ("a.raw", "126"), ("a.raw", "131N"), ("b.raw", "126"), ("b.raw", "131N") }
+                .Where(c => ChannelOf(design, c.Item1, c.Item2).IsReferenceChannel), Is.Empty, "no channel is a reference");
+            Assert.That(design.Notes, Has.Some.EqualTo($"Every sample in this design is marked a reference by {roles}, so the role " +
+                "tells no sample apart: all are read as study samples."));
+            Assert.That(WrittenTmtDesign(design)[0], Is.EqualTo(SdrfIsobaricDesign.TmtDesignHeader));
+        }
+
+        [Test]
+        public void AChannelThatIsAReferenceInOneFileOfAPlexOnlyIsRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("f1.raw", "TMT126", "S1"), new RoleRow("f1.raw", "TMT131N", "pool", SampleType: "reference"),
+                new RoleRow("f2.raw", "TMT126", "S1", Fraction: "2"), new RoleRow("f2.raw", "TMT131N", "pool", Fraction: "2")),
+                ByColumn());
+
+            Assert.That(design.Refusals.Single(), Does.Contain("Plex 'P1' channel 131N is described 2 ways"));
+        }
+
+        /// <summary>
+        /// TmtDesign.txt gains MetaMorpheus's optional Sample Type column, but only when a reference channel exists, so a
+        /// design without one is written exactly as before.
+        /// </summary>
+        [Test]
+        public void TmtDesignCarriesTheSampleTypeOnlyWhenAReferenceIsMarked()
+        {
+            var withReference = WrittenTmtDesign(SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "pool", Biorep: "pooled")), ByColumn()));
+
+            Assert.That(withReference[0], Is.EqualTo(SdrfIsobaricDesign.TmtDesignHeader + "\tSample Type"));
+            Assert.That(withReference[1], Is.EqualTo("a.raw\tP1\tS1\t126\tA\t1\t1\t1\tstudy sample"));
+            Assert.That(withReference[2], Is.EqualTo("a.raw\tP1\tpool\t131N\tA\t1\t1\t1\treference"));
+
+            var without = WrittenTmtDesign(SdrfIsobaricDesign.Read(RoleDocument(
+                new RoleRow("a.raw", "TMT126", "S1"), new RoleRow("a.raw", "TMT131N", "S2")), ByColumn()));
+            Assert.That(without[0], Is.EqualTo(SdrfIsobaricDesign.TmtDesignHeader));
+            Assert.That(without[2], Is.EqualTo("a.raw\tP1\tS2\t131N\tA\t1\t1\t1"));
+        }
+
+        // ---------------------------------------------------------------- PXD048052
+
+        /// <summary>
+        /// A deposited single-cell TMT10 SDRF whose 127N pool says it is a reference in all four ways, including a
+        /// <c>pooled</c> replicate. Before GR-20 the design was refused for exactly those two cells; now each file's 127N is
+        /// its plex's reference, numbered 1, and every other channel keeps the number the SDRF gives.
+        /// </summary>
+        [Test]
+        public void Pxd048052ReadsEachPlexsPooled127NAsItsReference()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD048052.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexFileNamePattern = @"^(?<plex>230120_\d+)\.raw$" });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.ConditionColumns, Is.EqualTo(new[] { "factor value[cell line]" }));
+            foreach (var file in new[] { "230120_1.raw", "230120_2.raw" })
+            {
+                var channels = design.ToExperimentalDesign().FileNameSampleInfoDictionary[file].Cast<IsobaricQuantSampleInfo>().ToList();
+                Assert.That(channels.Where(c => c.IsReferenceChannel).Select(c => c.ChannelLabel), Is.EqualTo(new[] { "127N" }), file);
+                Assert.That(channels.Single(c => c.ChannelLabel == "127N").BiologicalReplicate, Is.EqualTo(1), file);
+            }
+            Assert.That(ChannelOf(design, "230120_2.raw", "126").BiologicalReplicate, Is.EqualTo(4), "a given number is kept");
+            Assert.That(design.Notes, Has.Exactly(2).Contains("give 'pooled'"));
+
+            var written = WrittenTmtDesign(design);
+            Assert.That(written[0], Does.EndWith("\tSample Type"));
+            Assert.That(written.Skip(1).Count(l => l.EndsWith("\treference")), Is.EqualTo(2));
+            Assert.That(design.Report(), Does.Contain("Reference channels: 2 (plex '230120_1': 127N; plex '230120_2': 127N)"));
+        }
+
+        // ---------------------------------------------------------------- PXD061609
+
+        [Test]
+        public void Pxd061609AsOnePlexIsRefusedBecauseEachSaxArmReusesTheFractionNumbers()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD061609.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT18), SinglePlex = "tube1" });
+
+            Assert.That(design.IsValid, Is.False);
+            // 18 samples x 2 fractions, each named by three files (one per arm): MetaMorpheus's
+            // (sample, biorep, fraction, techrep) rule, reported in full.
+            Assert.That(design.Refusals, Has.Count.EqualTo(36), design.Report());
+            Assert.That(design.Refusals, Has.All.Contains("more than once"));
+            Assert.That(design.Refusals.First(), Does.Contain("'ea12578.raw'").And.Contain("'ea12603.raw'").And.Contain("'ea12628.raw'"));
+        }
+
+        [Test]
+        public void Pxd061609WithItsBatchColumnDeclaredAsThePlexGivesThreePlexes()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD061609.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT18), PlexColumn = Batch });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.PlexIds.Keys, Is.EquivalentTo(new[] { "HighSalt", "LowSalt", "NoSAX" }));
+            Assert.That(design.PlexSource, Does.Contain(Batch).And.Contain("declared"));
+
+            // Biological replicates are passed through as written (N3), not ranked: brain_male is 2.
+            var noSax = design.Files.First(f => f.Plex == "NoSAX");
+            Assert.That(noSax.Channels, Has.Count.EqualTo(18));
+            Assert.That(noSax.Channels.Single(c => c.Label == "127N").SampleName, Is.EqualTo("brain_male"));
+            Assert.That(noSax.Channels.Single(c => c.Label == "127N").BiologicalReplicate, Is.EqualTo(2));
+            Assert.That(noSax.Channels.Single(c => c.Label == "127N").Condition, Is.EqualTo("NT=brain;AC=UBERON:0000955"));
+        }
+
+        [Test]
+        public void Pxd061609ReadAsTmt10IsRefusedForEveryChannelTmt10DoesNotHave()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD061609.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = Batch });
+
+            // 131C and 132N..135N: 8 channels x 6 files.
+            Assert.That(design.Refusals, Has.Count.EqualTo(48), design.Report());
+            Assert.That(design.Refusals, Has.All.Contains("not a channel of TMT10"));
+        }
+
+        // ---------------------------------------------------------------- PXD015833 (TMT131)
+
+        [Test]
+        public void Pxd015833LabelsTmt10sLastChannelTmt131AndReadsAsTenChannels()
+        {
+            var tmt10 = Tag(IsobaricMassTagType.TMT10);
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD015833-Exp2.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions
+                {
+                    // The deposit gives no factor value column; cell type is filled on every row.
+                    Tag = tmt10, SinglePlex = "Exp2", ConditionColumns = new[] { "characteristics[cell type]" }
+                });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files, Has.Count.EqualTo(2));
+            foreach (var file in design.Files)
+            {
+                Assert.That(file.Channels.Select(c => c.Label), Is.EqualTo(tmt10.ChannelLabels), file.FilePath);
+                Assert.That(file.Channels.Last().SampleName, Is.EqualTo("Sample 40"), "the TMT131 row");
+            }
+        }
+
+        // ---------------------------------------------------------------- options
+
+        [Test]
+        public void MissingTagAndPlexSourceAreBothReported()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()), new SdrfIsobaricDesignOptions());
+
+            Assert.That(design.Refusals, Has.Count.EqualTo(2));
+            Assert.That(design.Refusals[0], Does.Contain("No isobaric tag"));
+            Assert.That(design.Refusals[1], Does.Contain("No plex source"));
+            Assert.That(design.Report(), Does.Contain("REFUSED: 2 reason(s)").And.Contain("Plex from: (not declared)"));
+        }
+
+        [Test]
+        public void TwoPlexSourcesAreRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SinglePlex = "P1" });
+
+            Assert.That(design.Refusals.Single(), Does.Contain("2 plex sources were declared"));
+        }
+
+        [TestCase("comment[no such column]", null, "is not in the SDRF")]
+        [TestCase(null, "pool(", "is not a valid regular expression")]
+        [TestCase(null, @"pool\d+", "has no group")]
+        [TestCase(null, @"(zzz)", "does not capture a plex from 'a.raw'")]
+        public void AnUnusablePlexSourceIsRefused(string? column, string? pattern, string expected)
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10),
+                PlexColumn = column,
+                PlexFileNamePattern = pattern,
+            });
+
+            Assert.That(design.IsValid, Is.False);
+            Assert.That(design.Refusals, Has.Some.Contains(expected), design.Report());
+        }
+
+        [Test]
+        public void AFileNamePatternUsesItsFirstGroupWhenNoneIsNamedPlex()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels("run_set7_f1.raw")),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexFileNamePattern = @"SET(\d+)" });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Plex, Is.EqualTo("7"), "the pattern ignores case");
+        }
+
+        [TestCase("")]
+        [TestCase("not available")]
+        public void APlexColumnCellThatNamesNoPlexIsRefused(string plex)
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1", Plex: plex),
+                new Row("a.raw", "TMT127N", "S2", Plex: "P1")), ByColumn());
+
+            Assert.That(design.Refusals, Has.Some.Contains($"the plex column '{PlexColumn}' is '{plex}'"), design.Report());
+        }
+
+        [Test]
+        public void MissingRequiredColumnsAreAllReported()
+        {
+            var header = new SdrfHeader(new[] { "assay name", "comment[data file]", PlexColumn, "factor value[condition]" });
+            var sdrf = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "run a", "a.raw", "P1", "A" }) });
+
+            var design = SdrfIsobaricDesign.Read(sdrf, ByColumn());
+
+            Assert.That(design.Refusals, Has.Count.EqualTo(3), design.Report());
+            Assert.That(design.Refusals, Has.Some.Contains("'comment[label]'"));
+            Assert.That(design.Refusals, Has.Some.Contains("'source name'"));
+            Assert.That(design.Refusals, Has.Some.Contains("'characteristics[biological replicate]'"));
+        }
+
+        // ---------------------------------------------------------------- labels (MAP-06)
+
+        [TestCase("TMT127N")]
+        [TestCase("tmt127n")]
+        [TestCase("127N")]
+        [TestCase("NT=TMT127N;AC=PRIDE:0000519")]
+        [TestCase("AC=PRIDE:0000519;NT=TMT127N")]
+        public void EveryLabelFormReadsAsTheKitsChannel(string label)
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"),
+                new Row("a.raw", label, "S2")), ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Select(c => c.Label), Is.EqualTo(new[] { "126", "127N" }));
+        }
+
+        // TMT10's last channel is 131N to mzLib and TmtDesign.txt, and TMT131 in an SDRF (PRIDE:0000529, and the
+        // tmt10plex table of sdrf-pipelines). Both read as 131N; TMT131N is what PXD008841 writes (sdrf QP-S26).
+        [TestCase("TMT131")]
+        [TestCase("tmt131")]
+        [TestCase("NT=TMT131;AC=PRIDE:0000529")]
+        [TestCase("TMT131N")]
+        public void Tmt10sLastChannelReadsInEitherSpelling(string label)
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"),
+                new Row("a.raw", label, "S2")), ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Select(c => c.Label), Is.EqualTo(new[] { "126", "131N" }));
+        }
+
+        [Test]
+        public void TmtProLabelsReadForTmtProKitsOnly()
+        {
+            var rows = new[] { new Row("a.raw", "TMTpro126", "S1") };
+            Assert.That(SdrfIsobaricDesign.Read(Document(rows), ByColumn(IsobaricMassTagType.TMT18)).Refusals, Is.Empty);
+            Assert.That(SdrfIsobaricDesign.Read(Document(rows), ByColumn(IsobaricMassTagType.TMT10)).Refusals.Single(),
+                Does.Contain("not a channel of TMT10"));
+        }
+
+        [TestCase("ITRAQ115", IsobaricMassTagType.diLeu4, "not a channel of diLeu4")]
+        [TestCase("TMT131C", IsobaricMassTagType.TMT10, "not a channel of TMT10")]
+        [TestCase("TMT131", IsobaricMassTagType.TMT11, "not a channel of TMT11")]
+        [TestCase("label free sample", IsobaricMassTagType.TMT10, "a label-free row in an isobaric design")]
+        [TestCase("TMT10plex", IsobaricMassTagType.TMT10, "not a channel of TMT10")]
+        [TestCase("", IsobaricMassTagType.TMT10, "'comment[label]' is empty")]
+        public void ALabelThatIsNotAChannelOfTheKitIsRefused(string label, IsobaricMassTagType type, string expected)
+        {
+            // 115 is a channel of iTRAQ4 and of DiLeu4; only the family prefix tells them apart.
+            var design = SdrfIsobaricDesign.Read(Document(new Row("a.raw", label, "S1")), ByColumn(type));
+
+            Assert.That(design.Refusals.Single(), Does.Contain(expected));
+        }
+
+        // ---------------------------------------------------------------- QP-S23
+
+        [Test]
+        public void DraftedChannelsWithUnknownSamplesAreEachRefusedByName()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"),
+                new Row("a.raw", "TMT127N", "not available"),
+                new Row("a.raw", "TMT127C", "a 127C", ReplicateSource: "default"),
+                new Row("a.raw", "TMT128N", "", Condition: "B")), ByColumn());
+
+            Assert.That(design.Refusals, Has.Count.EqualTo(3), design.Report());
+            Assert.That(design.Refusals[0], Does.Contain("channel 127N").And.Contain("'not available'"));
+            Assert.That(design.Refusals[1], Does.Contain("channel 127C").And.Contain("'default'"));
+            Assert.That(design.Refusals[2], Does.Contain("'source name' is empty"));
+        }
+
+        // ---------------------------------------------------------------- MetaMorpheus's checks
+
+        [Test]
+        public void AFileGivenTwoFractionsOrTwoPlexesIsRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1", Fraction: "1"),
+                new Row("a.raw", "TMT127N", "S2", Fraction: "2"),
+                new Row("b.raw", "TMT126", "S1", Plex: "P1"),
+                new Row("b.raw", "TMT127N", "S2", Plex: "P2")), ByColumn());
+
+            Assert.That(design.Refusals, Has.Some.Matches<string>(r => r.Contains("'a.raw' is given 2 different") && r.Contains("fraction 2")), design.Report());
+            Assert.That(design.Refusals, Has.Some.Matches<string>(r => r.Contains("'b.raw' is given 2 different") && r.Contains("plex 'P2'")));
+        }
+
+        [Test]
+        public void AChannelNamedTwiceInOneFileIsRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"),
+                new Row("a.raw", "NT=TMT126;AC=PRIDE:0000516", "S1")), ByColumn());
+
+            Assert.That(design.Refusals.Single(), Does.Contain("names channel 126 on 2 rows (lines 2, 3)"));
+        }
+
+        [Test]
+        public void APlexThatDescribesAChannelTwoWaysIsRefused()
+        {
+            // Fraction 2 of the same plex says 127N holds another sample.
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels("f1.raw", "1")
+                .Concat(new[]
+                {
+                    new Row("f2.raw", "TMT126", "S1", "A", Fraction: "2"),
+                    new Row("f2.raw", "TMT127N", "S3", "B", Fraction: "2"),
+                }).ToArray()), ByColumn());
+
+            Assert.That(design.Refusals.Single(), Does.Contain("Plex 'P1' channel 127N is described 2 ways")
+                .And.Contain("'S2'").And.Contain("'S3'"));
+        }
+
+        [Test]
+        public void TheSameSampleTwiceInAPlexAtOneFractionIsRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"),
+                new Row("a.raw", "TMT127N", "S1")), ByColumn());
+
+            Assert.That(design.Refusals.Single(), Does.Contain("sample 'S1' biorep 1 fraction 1 techrep 1 more than once"));
+        }
+
+        [Test]
+        public void ABridgeSampleInTwoPlexesIsNotARepeat()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"), new Row("a.raw", "TMT131N", "bridge", "pool", Plex: "P1"),
+                new Row("b.raw", "TMT126", "S2", Plex: "P2"), new Row("b.raw", "TMT131N", "bridge", "pool", Plex: "P2")),
+                ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.PlexIds, Is.EquivalentTo(new Dictionary<string, int> { ["P1"] = 1, ["P2"] = 2 }));
+        }
+
+        [Test]
+        public void AFileMissingAChannelRowTakesItsPlexsAnnotationAndSaysSo()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels("f1.raw", "1")
+                .Append(new Row("f2.raw", "TMT126", "S1", "A", Fraction: "2")).ToArray()), ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files[1].Channels.Select(c => c.SampleName), Is.EqualTo(new[] { "S1", "S2" }));
+            Assert.That(design.Notes.Single(), Does.Contain("'f2.raw' has no row for channel(s) 127N"));
+        }
+
+        [Test]
+        public void ConditionsFollowTheLabelFreeRules()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1", "not applicable"),
+                new Row("a.raw", "TMT127N", "S2", "")), ByColumn());
+
+            Assert.That(design.Refusals, Has.Count.EqualTo(2), design.Report());
+            Assert.That(design.Refusals[0], Does.Contain("'factor value[condition]' is 'not applicable'"));
+            Assert.That(design.Refusals[1], Does.Contain("'factor value[condition]' is empty"));
+        }
+
+        /// <summary>QP-S44 (ruled 2026-11-11), per channel: stated, a channel whose factor nobody stated is its own condition.</summary>
+        [Test]
+        public void ChannelsWhoseFactorIsUnknownAreAConditionOfTheirOwnWhenStated()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1", "not applicable"),
+                new Row("a.raw", "TMT127N", "S2", "")), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, UnknownFactorIsOwnCondition = true,
+            });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition),
+                Is.EqualTo(new[] { "not applicable", "not available" }));
+            Assert.That(design.Notes, Has.Some.StartWith("'factor value[condition]' is 'not applicable' for 1 file(s), kept as a level of its own"));
+            Assert.That(design.Notes, Has.Some.StartWith("'factor value[condition]' is empty for 1 file(s), written 'not available'"));
+        }
+
+        /// <summary>QP-S42 (b) and (c), ruled 2026-11-11, in the isobaric reader: the same condition rules as label-free.</summary>
+        [Test]
+        public void AStatedSingleConditionMakesEveryChannelThatCondition()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()), new SdrfIsobaricDesignOptions
+            {
+                Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SingleCondition = "all",
+            });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition), Is.All.EqualTo("all"));
+            Assert.That(design.SingleCondition, Is.EqualTo("all"));
+            Assert.That(design.Notes, Has.Some.Contain("'factor value[condition]' are set aside"));
+            Assert.That(design.Report(), Does.Contain("Condition from: one condition, 'all', as stated"));
+        }
+
+        [Test]
+        public void WithNoDeclarationEveryFactorColumnMakesTheChannelsCondition()
+        {
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[biological replicate]", "comment[label]", "comment[data file]", PlexColumn,
+                "factor value[genotype]", "factor value[treatment]"
+            });
+            var sdrf = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "S1", "1", "TMT126", "a.raw", "P1", "WT", "drug" }),
+                new SdrfRow(header, new[] { "S2", "1", "TMT127N", "a.raw", "P1", "KO", "drug" }),
+            });
+
+            var design = SdrfIsobaricDesign.Read(sdrf, ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.ConditionColumns, Is.EqualTo(new[] { "factor value[genotype]", "factor value[treatment]" }));
+            Assert.That(design.Files.Single().Channels.Take(2).Select(c => c.Condition), Is.EqualTo(new[] { "WT_drug", "KO_drug" }));
+            Assert.That(design.Notes, Has.Some.Contain("every factor value column"));
+        }
+
+        [TestCase("0")]
+        [TestCase("two")]
+        public void ABiologicalReplicateThatIsNotPositiveIsRefused(string biorep)
+        {
+            var design = SdrfIsobaricDesign.Read(Document(new Row("a.raw", "TMT126", "S1", Biorep: biorep)), ByColumn());
+
+            Assert.That(design.Refusals.Single(), Does.Contain($"'characteristics[biological replicate]' is '{biorep}'"));
+        }
+
+        // ---------------------------------------------------------------- searched files
+
+        [Test]
+        public void SearchedFilesDropOtherRowsAndGiveTheSearchedPath()
+        {
+            string searched = Path.Combine("data", "a.raw");
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels("a.raw")
+                .Concat(new[] { new Row("b.raw", "TMT126", "not available") }).ToArray()),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SearchedFiles = new[] { searched } });
+
+            Assert.That(design.Refusals, Is.Empty, "a problem in a row nothing reads must not refuse the design");
+            Assert.That(design.Notes.Single(), Does.Contain("Line 4 ('b.raw') dropped"));
+            Assert.That(design.Files.Single().FilePath, Is.EqualTo(searched));
+        }
+
+        /// <summary>
+        /// Read from the join itself (QP-S38), a refusal names the line of the SDRF file: b.raw's 127N row is line 6, though
+        /// it is the fourth row the join kept; read from the join's document, the same refusal says line 5.
+        /// </summary>
+        [Test]
+        public void AJoinsRowsAreReportedOnTheLinesOfTheSdrfFile()
+        {
+            var sdrf = Document(TwoChannels("a.raw")
+                .Concat(new[] { new Row("c.raw", "TMT126", "S5") })
+                .Concat(new[] { new Row("b.raw", "TMT126", "S3", Plex: "P2"), new Row("b.raw", "TMT131C", "S4", Plex: "P2") }).ToArray());
+            var searched = new[] { "a.raw", "b.raw" };
+            var scoping = SdrfSearchScope.Restrict(sdrf, searched);
+            var options = new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SearchedFiles = searched };
+
+            var design = SdrfIsobaricDesign.Read(scoping, options);
+
+            Assert.That(scoping.SourceLines, Is.EqualTo(new[] { 2, 3, 5, 6 }));
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 6 (b.raw):").And.Contain("not a channel of TMT10"));
+            Assert.That(SdrfIsobaricDesign.Read(scoping.Document, options).Refusals.Single(), Does.StartWith("Line 5 (b.raw):"));
+            Assert.That(() => SdrfIsobaricDesign.Read((SdrfSearchScoping)null!, options), Throws.ArgumentNullException);
+            Assert.That(() => SdrfIsobaricDesign.Read(scoping, null!), Throws.ArgumentNullException);
+        }
+
+        [Test]
+        public void ASearchedFileWithNoRowIsRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels("a.raw")),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SearchedFiles = new[] { "a.raw", "a-calib.mzML" } });
+
+            Assert.That(design.Refusals.Single(), Does.Contain("Searched file 'a-calib.mzML' has no SDRF row"));
+        }
+
+        [Test]
+        public void AnEmptySearchedListIsRefused()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), PlexColumn = PlexColumn, SearchedFiles = new[] { " " } });
+
+            Assert.That(design.Refusals.Single(), Does.Contain("names no file"));
+        }
+
+        // ---------------------------------------------------------------- output
+
+        [Test]
+        public void TheTmtDesignFileNameIsTheOneMetaMorpheusLooksFor()
+        {
+            // MetaMorpheus finds a TMT design only under GlobalVariables.TmtExperimentalDesignFileName, so a
+            // caller that names the file from this constant (bridge, SDRF-B4) must get exactly that name.
+            Assert.That(SdrfIsobaricDesign.TmtDesignFileName, Is.EqualTo("TmtDesign.txt"));
+        }
+
+        [Test]
+        public void WriteTmtDesignWritesOneRowPerFileAndChannelInReporterOrder()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT127C", "S3", "B", "2", Fraction: "3", Techrep: "2"),
+                new Row("a.raw", "TMT126", "S1", "A", "1", Fraction: "3", Techrep: "2"),
+                new Row("a.raw", "TMT127N", "S2", "A", "2", Fraction: "3", Techrep: "2")), ByColumn());
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+
+            string folder = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestSdrfIsobaricDesign_Write");
+            string path = Path.Combine(folder, SdrfIsobaricDesign.TmtDesignFileName);
+            Directory.CreateDirectory(folder);
+            try
+            {
+                design.WriteTmtDesign(path);
+                Assert.That(File.ReadAllText(path), Is.EqualTo(
+                    SdrfIsobaricDesign.TmtDesignHeader + "\n" +
+                    "a.raw\tP1\tS1\t126\tA\t1\t3\t2\n" +
+                    "a.raw\tP1\tS2\t127N\tA\t2\t3\t2\n" +
+                    "a.raw\tP1\tS3\t127C\tB\t2\t3\t2\n"));
+            }
+            finally
+            {
+                Directory.Delete(folder, true);
+            }
+        }
+
+        [Test]
+        public void ARefusedDesignWritesNothing()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(new Row("a.raw", "TMT126", "not available")), ByColumn());
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestSdrfIsobaricDesign_Refused.txt");
+
+            Assert.Throws<InvalidOperationException>(() => design.WriteTmtDesign(path));
+            Assert.That(File.Exists(path), Is.False);
+        }
+
+        [Test]
+        public void TheSampleNameReachesTheColumnLabel()
+        {
+            var design = SdrfIsobaricDesign.Read(Document(TwoChannels()), ByColumn());
+            var samples = design.ToExperimentalDesign().FileNameSampleInfoDictionary["a.raw"].Cast<IsobaricQuantSampleInfo>().ToList();
+
+            Assert.That(samples, Has.Count.EqualTo(10));
+            Assert.That(samples[0].SampleName, Is.EqualTo("S1"));
+            Assert.That(samples[0].PlexId, Is.EqualTo(1));
+            Assert.That(samples[0].Fraction, Is.EqualTo(1), "1-based, passed through (N3)");
+            Assert.That(samples[2].SampleName, Is.Null, "127C is not annotated");
+        }
+
+        [Test]
+        public void TheReportNamesItsSources()
+        {
+            var report = SdrfIsobaricDesign.Read(Document(TwoChannels()), ByColumn()).Report();
+
+            Assert.That(report, Does.Contain("1 file(s), 1 plex(es), kit TMT10"));
+            Assert.That(report, Does.Contain($"Plex from: column '{PlexColumn}' (declared)"));
+            Assert.That(report, Does.Contain("Condition from: factor value[condition]"));
+            Assert.That(report, Does.Contain("Reference channels: none marked"));
+        }
+
+        [Test]
+        public void ALabelFreeSdrfReadAsIsobaricPointsAtTheLabelFreeReader()
+        {
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD067622.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions { Tag = Tag(IsobaricMassTagType.TMT10), SinglePlex = "P", ConditionColumns = new[] { "factor value[genotype]" } });
+
+            Assert.That(design.Refusals, Has.All.Contains(nameof(SdrfLabelFreeDesign)));
+        }
+    }
+}

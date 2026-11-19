@@ -73,6 +73,62 @@ namespace Test.DatabaseTests
             Assert.That(term.Accession, Is.EqualTo(expected));
         }
 
+        /// <summary>
+        /// A free-text instrument name resolves only to a specific instrument model, never to whatever other term shares
+        /// the name. This is what lets the mzML writer and the SDRF builder take a Thermo RAW's model name on trust.
+        /// </summary>
+        [Test]
+        [TestCase("Orbitrap Fusion Lumos", "MS:1002732")]
+        [TestCase("  q exactive   HF ", "MS:1002523")]
+        [TestCase("LTQ Orbitrap Velos", "MS:1001742")]
+        [TestCase("Orbitrap Astral", "MS:1003378")]
+        public void InstrumentModelCvTerms_ResolvesAnInstrumentName(string name, string expected)
+        {
+            Assert.That(InstrumentModelCvTerms.TryGetByName(name, out var model), Is.True);
+            Assert.That(model.Accession, Is.EqualTo(expected));
+        }
+
+        [Test]
+        [TestCase("MS")]                                       // resolves by name to UO:0000028 "millisecond"
+        [TestCase("HCD")]                                      // a dissociation method
+        [TestCase("instrument model")]                         // MS:1000031 itself, the parent term
+        [TestCase("Thermo Fisher Scientific instrument model")] // an abstract vendor branch
+        [TestCase("not a real instrument")]
+        [TestCase("   ")]
+        [TestCase(null)]
+        public void InstrumentModelCvTerms_RefusesANameThatIsNoInstrumentModel(string name)
+        {
+            Assert.That(InstrumentModelCvTerms.TryGetByName(name, out var model), Is.False);
+            Assert.That(model, Is.Null);
+        }
+
+        /// <summary>
+        /// Why the name index alone is not enough. A RAW file that records no model falls back to its device family,
+        /// typically "MS" (ThermoRawFileReader.BuildInstrumentModel). psi-ms.obo imports UO, whose "millisecond" has
+        /// the exact synonym "ms", and the name index ignores case: so "MS" resolves to a unit of time.
+        /// </summary>
+        [Test]
+        public void TheDeviceFamilyNameARawFileFallsBackToNamesATermThatIsNoInstrument()
+        {
+            Assert.That(ControlledVocabulary.PsiMs.TryGetByName("MS", out var term), Is.True);
+            Assert.That(term.Accession, Is.EqualTo("UO:0000028"), "millisecond");
+            Assert.That(ControlledVocabulary.PsiMs.IsA(term.Accession, InstrumentModelCvTerms.InstrumentModelAccession), Is.False);
+        }
+
+        [Test]
+        public void IsA_FollowsIsAEdgesTransitivelyAndIsStrict()
+        {
+            var psiMs = ControlledVocabulary.PsiMs;
+            // MS:1002732 Orbitrap Fusion Lumos -> MS:1000494 Thermo Scientific instrument model
+            //   -> MS:1000483 Thermo Fisher Scientific instrument model -> MS:1000031.
+            Assert.That(psiMs.IsA("MS:1002732", "MS:1000031"), Is.True);
+            Assert.That(psiMs.IsA("MS:1002732", "MS:1000483"), Is.True);
+            Assert.That(psiMs.IsA("MS:1000031", "MS:1000031"), Is.False, "a term is not its own ancestor");
+            Assert.That(psiMs.IsA("MS:1000031", "MS:1002732"), Is.False, "edges point one way");
+            Assert.That(psiMs.IsA("MS:9999999", "MS:1000031"), Is.False);
+            Assert.That(psiMs.IsA(null, "MS:1000031"), Is.False);
+        }
+
         [Test]
         public void UnknownAccessionAndNameResolveToFalse()
         {

@@ -22,8 +22,10 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("MzIdentML", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1.0", IsNullable = false)]
+    // mzIdentML 1.1.0's targetNamespace is .../1.1, not .../1.1.0 -- the schema version and the
+    // namespace differ. Every other type in this file already says .../1.1.
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    [System.Xml.Serialization.XmlRootAttribute("MzIdentML", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1", IsNullable = false)]
     public partial class MzIdentMLType110 : IdentifiableType
     {
 

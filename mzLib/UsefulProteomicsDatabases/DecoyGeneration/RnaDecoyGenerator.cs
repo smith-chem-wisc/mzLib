@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Omics.Modifications;
 using Transcriptomics;
 using Omics.BioPolymer;
+using Omics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -63,14 +64,29 @@ namespace UsefulProteomicsDatabases
                     indexMapping[i + 1] = nucleicAcid.BaseSequence.Length - i;
                 }
 
-                // reverse modifications
+                // reverse modifications; terminus-restricted mods stay on their terminus, otherwise a 5' mod
+                // lands on the decoy's 3' residue (decoy digestion products skip location checks)
                 var reverseModifications = new Dictionary<int, List<Modification>>();
                 foreach (var kvp in nucleicAcid.OneBasedPossibleLocalizedModifications)
                 {
-                    var reverseKey = indexMapping[kvp.Key];
-                    reverseModifications.Add(reverseKey, kvp.Value);
+                    foreach (var mod in kvp.Value)
+                    {
+                        var key = DecoyModificationKey(mod, kvp.Key, indexMapping);
+                        if (!reverseModifications.TryGetValue(key, out var modsAtKey))
+                            reverseModifications.Add(key, modsAtKey = new List<Modification>());
+                        modsAtKey.Add(mod);
+                    }
                 }
-                
+
+                var reverseFixedModifications = new Dictionary<int, Modification>();
+                if (nucleicAcid is IBioPolymer bioPol)
+                {
+                    foreach (var kvp in bioPol.OneBasedFixedModifications)
+                    {
+                        reverseFixedModifications[DecoyModificationKey(kvp.Value, kvp.Key, indexMapping)] = kvp.Value;
+                    }
+                }
+
                 List<TruncationProduct> reverseTruncs = new List<TruncationProduct>();
                 List<SequenceVariation> reverseVariations = new List<SequenceVariation>();
                 List<SequenceVariation> reverseAppliedVariations = new List<SequenceVariation>();
@@ -114,13 +130,26 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, reverseTruncs, reverseVariations, reverseAppliedVariations, decoyIdentifier);
+                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, reverseTruncs, reverseVariations, reverseAppliedVariations, decoyIdentifier, reverseFixedModifications);
                 lock (decoyNucleicAcids)
                 {
                     decoyNucleicAcids.Add(newNucleicAcid);
                 }
             });
             return decoyNucleicAcids;
+        }
+
+        /// <summary>
+        /// Decoy position of a modification: 5'- and 3'-terminal mods keep their own terminus, all others are reversed.
+        /// </summary>
+        private static int DecoyModificationKey(Modification mod, int oneBasedPosition, Dictionary<int, int> indexMapping)
+        {
+            return mod.LocationRestriction switch
+            {
+                "5'-terminal." or "Oligo 5'-terminal." or "N-terminal." or "Peptide N-terminal." when oneBasedPosition == 1 => 1,
+                "3'-terminal." or "Oligo 3'-terminal." or "C-terminal." or "Peptide C-terminal." when oneBasedPosition == indexMapping.Count => indexMapping.Count,
+                _ => indexMapping[oneBasedPosition]
+            };
         }
 
         private static List<T> GenerateSlidedDecoys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier) where T : INucleicAcid

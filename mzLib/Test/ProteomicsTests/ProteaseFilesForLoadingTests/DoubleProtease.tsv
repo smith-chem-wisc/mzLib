@@ -4,4 +4,4 @@ Test2	"K|,D|"			full
 Test3	K|			full					
 CNBr_custom	M|			full	MS:1001307	CNBr	(?<=M)	Homoserine lactone on M
 CNBr_old_custom	M|			full	MS:1001307	CNBr	(?<=M)		
-CNBr_N_custom	|M			full	MS:1001307	CNBr	(?<=M)	Test on M
+CNBr_N_custom	|M			full	MS:1001307	CNBr	(?<=M)	Homoserine lactone N-terminal on M

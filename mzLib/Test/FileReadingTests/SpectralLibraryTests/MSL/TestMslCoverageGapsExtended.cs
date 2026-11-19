@@ -156,9 +156,9 @@ public class TestMslCoverageGapsExtended
 	/// would survive a naive round-trip test but fail here because the mass
 	/// is compared against the analytically known constant.
 	/// </summary>
-	[TestCase(-97.976895, "H3PO4", TestName = "DecodeNeutralLoss_H3PO4_Exact")]
-	[TestCase(-79.966331, "HPO3", TestName = "DecodeNeutralLoss_HPO3_Exact")]
-	[TestCase(-97.976895 + -18.010565, "H3PO4AndH2O", TestName = "DecodeNeutralLoss_H3PO4AndH2O_Exact")]
+	[TestCase(97.976895, "H3PO4", TestName = "DecodeNeutralLoss_H3PO4_Exact")]
+	[TestCase(79.966331, "HPO3", TestName = "DecodeNeutralLoss_HPO3_Exact")]
+	[TestCase(97.976895 + 18.010565, "H3PO4AndH2O", TestName = "DecodeNeutralLoss_H3PO4AndH2O_Exact")]
 	public void DecodeNeutralLoss_IsolatedMassCheck(double expectedLoss, string codeName)
 	{
 		// Write a fragment with this exact loss mass, then read and assert
@@ -217,11 +217,11 @@ public class TestMslCoverageGapsExtended
 	/// independent of whether the file format correctly handles that code.
 	/// </summary>
 	[TestCase(0.0, MslFormat.NeutralLossCode.None, TestName = "Classify_None")]
-	[TestCase(-18.010565, MslFormat.NeutralLossCode.H2O, TestName = "Classify_H2O")]
-	[TestCase(-17.026549, MslFormat.NeutralLossCode.NH3, TestName = "Classify_NH3")]
-	[TestCase(-97.976895, MslFormat.NeutralLossCode.H3PO4, TestName = "Classify_H3PO4")]
-	[TestCase(-79.966331, MslFormat.NeutralLossCode.HPO3, TestName = "Classify_HPO3")]
-	[TestCase(-97.976895 + -18.010565, MslFormat.NeutralLossCode.H3PO4AndH2O, TestName = "Classify_H3PO4AndH2O")]
+	[TestCase(18.010565, MslFormat.NeutralLossCode.H2O, TestName = "Classify_H2O")]
+	[TestCase(17.026549, MslFormat.NeutralLossCode.NH3, TestName = "Classify_NH3")]
+	[TestCase(97.976895, MslFormat.NeutralLossCode.H3PO4, TestName = "Classify_H3PO4")]
+	[TestCase(79.966331, MslFormat.NeutralLossCode.HPO3, TestName = "Classify_HPO3")]
+	[TestCase(97.976895 + 18.010565, MslFormat.NeutralLossCode.H3PO4AndH2O, TestName = "Classify_H3PO4AndH2O")]
 	[TestCase(-203.0794, MslFormat.NeutralLossCode.Custom, TestName = "Classify_Custom")]
 	public void ClassifyNeutralLoss_ReturnsCorrectCode(
 		double mass, MslFormat.NeutralLossCode expectedCode)

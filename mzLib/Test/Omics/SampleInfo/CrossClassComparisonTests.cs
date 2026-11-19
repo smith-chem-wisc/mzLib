@@ -136,13 +136,16 @@ namespace Test.Omics.SampleInfo
 
             // Null handling
             IsobaricQuantSampleInfo nullSample = null;
+            // a second null rather than comparing nullSample with itself: the operator sees the same
+            // (null, null) arguments either way, without the self-comparison the compiler flags
+            IsobaricQuantSampleInfo alsoNullSample = null;
             Assert.That(isobaric1 == nullSample, Is.False);
             Assert.That(nullSample == isobaric1, Is.False);
-            Assert.That(nullSample == nullSample, Is.True);
+            Assert.That(nullSample == alsoNullSample, Is.True);
 
             Assert.That(isobaric1 != nullSample, Is.True);
             Assert.That(nullSample != isobaric1, Is.True);
-            Assert.That(nullSample != nullSample, Is.False);
+            Assert.That(nullSample != alsoNullSample, Is.False);
         }
 
         [Test]

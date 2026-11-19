@@ -392,5 +392,37 @@ namespace Test.FileReadingTests.SpectraFileReading
                 Is.EqualTo(3));
             dynamicReader.CloseDynamicConnection();
         }
+
+        // Both not-found paths have to be reached through the reader directly: MsDataFileReader.GetDataFile
+        // rejects a missing path itself, so going through the factory never runs either check.
+        [Test]
+        public void TestLoadAllStaticDataThrowsWhenTheDotDDirectoryIsMissing()
+        {
+            string missing = Path.Combine(Path.GetTempPath(), "mzLibBrukerMissing_" + Guid.NewGuid().ToString("N") + ".d");
+            var reader = new BrukerFileReader(missing);
+
+            var exception = Assert.Throws<DirectoryNotFoundException>(() => reader.LoadAllStaticData());
+            Assert.That(exception.Message, Does.Contain(missing));
+        }
+
+        // A .d directory that exists but has no analysis.baf: the reader has to say which file is missing
+        // rather than fall through to the native connection with a path it never checked.
+        [Test]
+        public void TestInitiateDynamicConnectionThrowsWhenAnalysisBafIsMissing()
+        {
+            string emptyDotD = Path.Combine(Path.GetTempPath(), "mzLibBrukerEmpty_" + Guid.NewGuid().ToString("N") + ".d");
+            Directory.CreateDirectory(emptyDotD);
+            try
+            {
+                var reader = new BrukerFileReader(emptyDotD);
+
+                var exception = Assert.Throws<FileNotFoundException>(() => reader.InitiateDynamicConnection());
+                Assert.That(exception.FileName, Is.EqualTo(Path.Combine(emptyDotD, "analysis.baf")));
+            }
+            finally
+            {
+                Directory.Delete(emptyDotD, true);
+            }
+        }
     }
 }

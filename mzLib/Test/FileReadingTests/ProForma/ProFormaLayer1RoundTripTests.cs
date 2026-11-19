@@ -91,5 +91,117 @@ namespace Test.FileReadingTests.ProForma
                 Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(r.ProformaString),
                     $"{r.Id} now parses via single-term Read — build the multi-term facade and move it out.");
         }
+
+        /// <summary>
+        /// ProForma 2.1 (section 6.3) allows several modifications on one terminus. Since TopDownProteomics 0.0.301 the term
+        /// holds them all, in the order written (<see cref="Tdp.ProFormaTerm.NTerminalModifications"/>,
+        /// <see cref="Tdp.ProFormaTerm.CTerminalModifications"/>), so the reader returns them. 0.0.299 kept only the last
+        /// C-terminal one and read stacked N-terminal ones as unlocalized, with no error. Examples from the 2.1
+        /// specification and the HUPO-PSI grammar tests.
+        /// </summary>
+        [TestCase("PEPTIDE-[UNIMOD:2][UNIMOD:35]", "C", "UNIMOD:2|UNIMOD:35")]
+        [TestCase("PEPTIDEG-[Methyl][Amidated]", "C", "Methyl|Amidated")]
+        [TestCase("PEPTIDEG-[Methyl][Amidated][INFO:A lot of C terminal mods]", "C", "Methyl|Amidated|A lot of C terminal mods")]
+        [TestCase("[UNIMOD:1][UNIMOD:35]-PEPTIDE", "N", "UNIMOD:1|UNIMOD:35")]
+        [TestCase("[Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Carbamyl")]
+        [TestCase("[Acetyl][Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Acetyl|Carbamyl")]
+        // After an unlocalized prefix: the unlocalized groups must stay unlocalized and the terminal ones terminal
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2][UNIMOD:35]", "C", "UNIMOD:2|UNIMOD:35")]
+        [TestCase("[Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Carbamyl")]
+        [TestCase("[Phospho][Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Carbamyl")]
+        [TestCase("[Phospho]^2?[Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Carbamyl")]
+        [TestCase("[Phospho]?[Methyl]^2?[Acetyl][Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Acetyl|Carbamyl")]
+        [TestCase("[Phospho]?{Glycan:Hex}[Acetyl][Carbamyl]-QPEPTIDE", "N", "Acetyl|Carbamyl")]
+        [TestCase("{Glycan:Hex}[Phospho]?PEPTIDEG-[Methyl][Amidated]", "C", "Methyl|Amidated")]
+        public void Read_StackedTerminalModifications_KeepEveryModification(string proForma, string terminus, string expected)
+        {
+            var term = ProFormaReader.Read(proForma);
+            Assert.That(TerminalValues(term, terminus), Is.EqualTo(expected));
+
+            var unlocalized = term.UnlocalizedTags?.SelectMany(t => t.Descriptors).Select(d => d.Value).ToList() ?? new List<string>();
+            Assert.That(unlocalized, Has.None.AnyOf("Acetyl", "Carbamyl", "UNIMOD:1", "UNIMOD:35"),
+                "a terminal modification was read as unlocalized");
+
+            var reread = ProFormaReader.Read(ProFormaWriter.Write(term));
+            Assert.That(TerminalValues(reread, terminus), Is.EqualTo(expected), "the written string reads back the same");
+        }
+
+        /// <summary>Several labile groups (ProForma 2.0, section 4.3.2) are each kept; 0.0.299 kept only the last.</summary>
+        [Test]
+        public void Read_SeveralLabileModifications_KeepEveryOne()
+        {
+            var term = ProFormaReader.Read("{Glycan:Hex}{Glycan:NeuAc}EMEVNESPEK");
+
+            Assert.That(term.LabileModifications!.Select(m => m.Single().Value), Is.EqualTo(new[] { "Hex", "NeuAc" }));
+            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("{Glycan:Hex}{Glycan:NeuAc}EMEVNESPEK"));
+        }
+
+        private static string TerminalValues(Tdp.ProFormaTerm term, string terminus) => string.Join("|",
+            (terminus == "N" ? term.NTerminalModifications : term.CTerminalModifications)!.Select(m => m.Single().Value));
+
+        /// <summary>No residue may follow the C-terminal modification (ProForma 2.0 section 4.3.1). 0.0.299 read
+        /// "PEPTIDE-[UNIMOD:2]K" as PEPTIDEK; 0.0.301 refuses it.</summary>
+        [TestCase("PEPTIDE-[UNIMOD:2]K", 18)]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2]K", 37)]
+        [TestCase("[Phospho]^2?PEPTIDE-[UNIMOD:2]K", 30)]
+        public void Read_ResidueAfterCTerminalModification_IsNotValidProForma(string proForma, int position)
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(proForma));
+            Assert.That(ex!.Message, Does.Contain($"at index {position} follows the C-terminal '-'"));
+        }
+
+        /// <summary>A string that is only modifications has no residue: a parse failure, never an index exception and
+        /// never a term with an empty sequence.</summary>
+        [TestCase("[UNIMOD:1]")]
+        [TestCase("[UNIMOD:1][UNIMOD:35]")]
+        [TestCase("[UNIMOD:1]-")]
+        [TestCase("[Phospho]?")]
+        [TestCase("[Phospho]?[Acetyl]")]
+        [TestCase("[Phospho]?[Acetyl]-")]
+        [TestCase("[Phospho]^2")]
+        [TestCase("-[UNIMOD:2]")]
+        public void Read_ModificationWithoutAResidue_IsAParseFailure(string proForma)
+        {
+            Assert.That(() => ProFormaReader.Read(proForma), Throws.TypeOf<Tdp.ProFormaParseException>());
+        }
+
+        /// <summary>The C-terminal '-' needs a residue before it. 0.0.299 read "-PEPTIDE" as PEPTIDE; 0.0.301 refuses it.</summary>
+        [Test]
+        public void Read_LeadingHyphen_IsNotValidProForma()
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read("-PEPTIDE"));
+            Assert.That(ex!.Message, Does.Contain("follows the C-terminal '-'"));
+        }
+
+        /// <summary>One modification per terminus, residue stacks, unlocalized and labile groups, nested brackets inside
+        /// a modification, and a global fixed modification all still parse as before.</summary>
+        [TestCase("[UNIMOD:1]-PEPTIDE-[UNIMOD:2]")]
+        [TestCase("PEPC[UNIMOD:4][UNIMOD:35]TIDE")]
+        [TestCase("[Phospho]?EMEVTSESPEK")]
+        [TestCase("[Phospho][Phospho]?EMEVTSESPEK")]
+        [TestCase("[Phospho]^2?EMEVTSESPEK")]
+        [TestCase("[Phospho][Phospho]?[Acetyl]-EM[Oxidation]EVTSESPEK")]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2]")]
+        [TestCase("<[MOD:01090]@C>[Phospho]?EM[Oxidation]EVTSECSPEK")]
+        [TestCase("[Phospho]?{Glycan:Hex}[Acetyl]-PEPTIDE")]
+        [TestCase("{Glycan:Hex}EM[Oxidation]EVNES[Phospho]PEK")]
+        [TestCase("{Glycan:Hex}[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]")]
+        [TestCase("<[S-carboxamidomethyl-L-cysteine]@C>ATPEILTCNSIGCLK")]
+        [TestCase("SEQUEN[Formula:[13C2][12C-2]H2N]CE")]
+        [TestCase("PEPTIDE-[Formula:[13C2]C-2H2N]")]
+        [TestCase("EM[-17.026549]EVEES[+79.966331]PEK")]
+        public void Read_SupportedShapes_StillParse(string proForma)
+        {
+            Assert.That(() => ProFormaReader.Read(proForma), Throws.Nothing);
+        }
+
+        /// <summary>Empty brackets are still refused by the SDK, with its own message (pinned elsewhere).</summary>
+        [TestCase("[]-PEPTIDE")]
+        [TestCase("PEPTIDE-[]")]
+        public void Read_EmptyTerminalBrackets_AreLeftToTheSdk(string proForma)
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(proForma));
+            Assert.That(ex, Is.Not.InstanceOf<ProFormaUnsupportedException>());
+        }
     }
 }

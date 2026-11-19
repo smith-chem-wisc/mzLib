@@ -1,14 +1,16 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
+using UsefulProteomicsDatabases;
 
 namespace Readers
 {
@@ -16,7 +18,6 @@ namespace Readers
     {
         internal static readonly XmlSerializer indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
         internal static readonly XmlSerializer mzmlSerializer = new XmlSerializer(typeof(Generated.mzMLType));
-        private static readonly string NewLine = "\n";
 
         private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = Mzml.DissociationDictionary.ToDictionary(p => p.Value, p => p.Key);
 
@@ -29,12 +30,14 @@ namespace Readers
             {"scan number only nativeID format", "MS:1000776"},
             {"Thermo nativeID format", "MS:1000768"},
             {"no nativeID format", "MS:1000824" },
+            {"multiple peak list nativeID format", "MS:1000774"},
         };
 
         private static readonly Dictionary<string, string> MassSpectrometerFileFormatAccessions = new Dictionary<string, string>
         {
             {"Thermo RAW format", "MS:1000563"},
             {"mzML format", "MS:1000584"},
+            {"Mascot MGF format", "MS:1001062"},
         };
 
         private static readonly Dictionary<string, string> FileChecksumAccessions = new Dictionary<string, string>
@@ -63,12 +66,61 @@ namespace Readers
             {Polarity.Positive, "positive scan"}
         };
 
+        /// <summary>
+        /// Turns an arbitrary file name into something usable as an mzML id.
+        ///
+        /// run/@id and sourceFile/@id are xs:ID, i.e. NCName, so a name may not start with a digit,
+        /// '.' or '-', and may not contain ':' or a space anywhere. Ordinary instrument file names
+        /// break all of those rules -- dated names such as "12-10-16_yeast_rep1.raw" lead with a
+        /// digit, and spaces and parentheses are routine. Left unsanitised, the resulting mzML is
+        /// rejected by schema-validating consumers such as ProteomeXchange (mzLib issue 259).
+        ///
+        /// Illegal characters become '_' and a leading '_' is prepended when the first character
+        /// cannot start an NCName. Any name made only of ASCII letters, digits, '_', '-' and '.' and
+        /// starting with a letter or '_' is returned unchanged, so ordinary file names keep the ids
+        /// they have always had and only previously-invalid output moves. The unmodified file name
+        /// is still available on sourceFile/@name and sourceFile/@location.
+        /// </summary>
+        private static string ToValidXmlId(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return "id";
+            }
+
+            var sanitized = new StringBuilder(fileName.Length + 1);
+            foreach (char c in fileName)
+            {
+                // EncodeNmToken escapes exactly the characters that are illegal in an XML Name, and
+                // NCName is Name minus ':'.
+                bool legal = c != ':' && XmlConvert.EncodeNmToken(c.ToString()).Length == 1;
+                sanitized.Append(legal ? c : '_');
+            }
+
+            if (!char.IsLetter(sanitized[0]) && sanitized[0] != '_')
+            {
+                sanitized.Insert(0, '_');
+            }
+
+            return sanitized.ToString();
+        }
+
         public static void CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed)
         {
+            CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, outputFile, writeIndexed, completeIndexInOnePass: true);
+        }
+
+        /// <param name="completeIndexInOnePass">
+        /// False forces the way an indexed file was always completed - read it back line by line, serialize it
+        /// twice more, hash it - which <see cref="TryCompleteIndexedFileInOnePass"/> otherwise replaces and
+        /// falls back to. Tests write both and compare the bytes.
+        /// </param>
+        /// <returns> True if the index was completed in one pass. </returns>
+        internal static bool CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed,
+            bool completeIndexInOnePass)
+        {
             string title = Path.GetFileNameWithoutExtension(outputFile);
-            string idTitle = char.IsNumber(title[0]) ?
-                "id:" + title :
-                title;
+            string idTitle = ToValidXmlId(title);
 
             var mzML = new Generated.mzMLType()
             {
@@ -98,10 +150,12 @@ namespace Readers
                 version = "12:10:2011"
             };
 
+            // sourceFileList is left unset unless it can be filled in below: it is minOccurs="0" in
+            // the schema, but requires a count attribute and at least one sourceFile child once
+            // present, so an empty one is invalid.
             mzML.fileDescription = new Generated.FileDescriptionType()
             {
                 fileContent = new Generated.ParamGroupType(),
-                sourceFileList = new Generated.SourceFileListType()
             };
 
             if (myMsDataFile.SourceFile.NativeIdFormat != null && myMsDataFile.SourceFile.MassSpectrometerFileFormat != null && myMsDataFile.SourceFile.FileChecksumType != null)
@@ -112,14 +166,17 @@ namespace Readers
                     sourceFile = new Generated.SourceFileType[1]
                 };
 
-                string idName = char.IsNumber(myMsDataFile.SourceFile.FileName[0]) ?
-                    "id:" + myMsDataFile.SourceFile.FileName[0] :
-                    myMsDataFile.SourceFile.FileName;
+                string idName = ToValidXmlId(myMsDataFile.SourceFile.FileName);
                 mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType
                 {
                     id = idName,
-                    name = myMsDataFile.SourceFile.FileName,
-                    location = myMsDataFile.SourceFile.Uri.ToString(),
+                    // name and location are both use="required" in the mzML schema, and a null string
+                    // attribute is OMITTED by XmlSerializer rather than written empty -- so either being
+                    // null produced exactly the schema-invalid output this method exists to avoid.
+                    // FileName is null whenever the id-only SourceFile constructor was used; Uri is null
+                    // for that same case and when a path failed to parse.
+                    name = myMsDataFile.SourceFile.FileName ?? SourceFile.UnknownName,
+                    location = myMsDataFile.SourceFile.Uri?.ToString() ?? SourceFile.UnknownLocation,
                 };
 
                 mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
@@ -188,19 +245,27 @@ namespace Readers
 
             // The instrument model the file came from, if the reader could determine it. mzML
             // records it as an accessioned PSI-MS term; a Thermo RAW yields only a name, so the
-            // accession may be empty and the term is then written name-only.
+            // accession is empty and the name is resolved against PSI-MS here, which is what
+            // ThermoRawFileReader.BuildInstrumentModel's empty accession asks a caller to do.
             //
             // Before this was carried through, every mzML written here declared the bare parent
             // term MS:1000031 "instrument model" and nothing else, so writing a file -- which
             // calibration and spectral averaging both do -- silently discarded which mass
             // spectrometer produced the data. Reading such a file back reported no instrument at
             // all, and the loss was invisible because MS:1000031 looks like a real declaration.
+            // Without the name lookup a RAW file's copies still lost it: a MetaMorpheus
+            // Calibrate -> Search of PXD034564 read its 16 calibrated files back with no instrument.
             var instrumentModel = myMsDataFile.SourceFile.InstrumentModel;
+            if (instrumentModel is not null
+                && string.IsNullOrEmpty(instrumentModel.Accession)
+                && InstrumentModelCvTerms.TryGetByName(instrumentModel.Name, out var resolvedModel))
+                instrumentModel = resolvedModel;
+            var serialNumber = myMsDataFile.SourceFile.InstrumentSerialNumber;
 
             // One configuration is still emitted per mass analyzer present, which is not
             // necessarily how the original file was organised. Recovering the true configuration
-            // list (multiple instruments, sources, detectors, serial numbers) needs SourceFile to
-            // carry more than the model, and is left for later.
+            // list (multiple instruments, sources, detectors) needs SourceFile to carry more than
+            // the model and serial number, and is left for later.
             mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType
             {
                 count = analyzersInThisFile.Count.ToString(),
@@ -216,18 +281,15 @@ namespace Readers
                 {
                     id = "IC" + (i + 1).ToString(),
                     componentList = new Generated.ComponentListType(),
-                    cvParam = new Generated.CVParamType[1]
+                    cvParam = new Generated.CVParamType[serialNumber is null ? 1 : 2]
                 };
 
                 // A specific model when we have an ACCESSIONED one, otherwise the bare parent term
                 // as before. The accession is required: mzML types cvParam/@accession as mandatory,
                 // so emitting a name-only term would produce a file that does not validate -- a
-                // worse outcome than the loss being fixed here.
-                //
-                // That means a model read from a Thermo RAW, which records only free text, still
-                // does not survive a write. Recovering it needs a name-to-accession lookup against
-                // the PSI-MS vocabulary, which is a separate piece of work; until then the mzML
-                // path (every converted vendor file) is preserved and the RAW path is unchanged.
+                // worse outcome than the loss being fixed here. A RAW name PSI-MS does not hold as
+                // an instrument model (a prototype, or the bare device family "MS") stays unresolved
+                // above and is written as the parent term.
                 //
                 // The value stays empty either way: an instrument model is a presence flag, which
                 // is also how a reader tells it from the serial number written beside it.
@@ -252,6 +314,21 @@ namespace Readers
                             name = "instrument model",
                             value = ""
                         };
+
+                // The serial number beside the model, as ProteoWizard writes it. Unlike a RAW-read
+                // model it needs no lookup -- the accession is fixed and the serial is the value -- so
+                // it survives a write from either source. Its value is what keeps a reader from
+                // mistaking it for the model.
+                if (serialNumber is not null)
+                {
+                    mzML.instrumentConfigurationList.instrumentConfiguration[i].cvParam[1] = new Generated.CVParamType
+                    {
+                        cvRef = "MS",
+                        accession = "MS:1000529",
+                        name = "instrument serial number",
+                        value = serialNumber
+                    };
+                }
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList = new Generated.ComponentListType
                 {
@@ -342,6 +419,15 @@ namespace Readers
                 defaultInstrumentConfigurationRef = analyzersInThisFileDict[analyzersInThisFile[0]],
                 id = idTitle
             };
+
+            // startTimeStamp is a non-nullable DateTime in the generated type; the Specified flag is
+            // what emits or omits it. XmlSerializer writes the Kind back as it was read: "Z" for
+            // Utc, no offset for Unspecified (see SourceFile.AcquisitionStartTime).
+            if (myMsDataFile.SourceFile.AcquisitionStartTime is { } acquisitionStartTime)
+            {
+                mzML.run.startTimeStamp = acquisitionStartTime;
+                mzML.run.startTimeStampSpecified = true;
+            }
 
             mzML.run.chromatogramList = new Generated.ChromatogramListType
             {
@@ -917,11 +1003,13 @@ namespace Readers
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].cvParam = new Generated.CVParamType[3];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].cvParam[0] = new Generated.CVParamType
                     {
-                        accession = "MS:1000786",
-                        name = "non-standard data array",
+                        accession = "MS:1002743",
+                        name = "sampled noise m/z array",
                         cvRef = "MS",
-                        value = "mass",
+                        value = "",
                         unitCvRef = "MS",
+                        unitAccession = "MS:1000040",
+                        unitName = "m/z"
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].cvParam[1] = new Generated.CVParamType
                     {
@@ -937,27 +1025,26 @@ namespace Readers
                         cvRef = "MS",
                         value = ""
                     };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].userParam = new Generated.UserParamType[1];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2].userParam[0] = new Generated.UserParamType
-                    {
-                        name = "kelleherCustomType",
-                        value = "noise m/z",
-                    };
 
-                    // noise
+                    // noise: PSI-MS's sampled noise intensity is the noise above the baseline, so noise minus baseline;
+                    // the readers add the baseline back.
+                    double[,] noiseTable = myMsDataFile.GetOneBasedScan(i).NoiseData;
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3] = new Generated.BinaryDataArrayType
                     {
-                        binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataNoise()
+                        binary = MzSpectrum.Get64Bitarray(Enumerable.Range(0, noiseTable.Length / 3).Select(k => noiseTable[1, k] - noiseTable[2, k]))
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].arrayLength = (mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 8).ToString();
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].encodedLength = (4 * Math.Ceiling(((double)mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam = new Generated.CVParamType[3];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[0] = new Generated.CVParamType
                     {
-                        accession = "MS:1000786",
-                        name = "non-standard data array",
+                        accession = "MS:1002744",
+                        name = "sampled noise intensity array",
                         cvRef = "MS",
-                        value = "SignalToNoise"
+                        value = "",
+                        unitCvRef = "MS",
+                        unitAccession = "MS:1000131",
+                        unitName = "number of detector counts"
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[1] = new Generated.CVParamType
                     {
@@ -973,12 +1060,6 @@ namespace Readers
                         cvRef = "MS",
                         value = ""
                     };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].userParam = new Generated.UserParamType[1];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].userParam[0] = new Generated.UserParamType
-                    {
-                        name = "kelleherCustomType",
-                        value = "noise baseline",
-                    };
 
                     // baseline
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4] = new Generated.BinaryDataArrayType
@@ -990,10 +1071,10 @@ namespace Readers
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam = new Generated.CVParamType[3];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam[0] = new Generated.CVParamType
                     {
-                        accession = "MS:1000786",
-                        name = "non-standard data array",
+                        accession = "MS:1002745",
+                        name = "sampled noise baseline array",
                         cvRef = "MS",
-                        value = "baseline"
+                        value = ""
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam[1] = new Generated.CVParamType
                     {
@@ -1008,12 +1089,6 @@ namespace Readers
                         name = "no compression",
                         cvRef = "MS",
                         value = ""
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].userParam = new Generated.UserParamType[1];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].userParam[0] = new Generated.UserParamType
-                    {
-                        name = "kelleherCustomType",
-                        value = "noise intensity",
                     };
                 }
 
@@ -1085,6 +1160,11 @@ namespace Readers
                 using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
                     indexedSerializer.Serialize(writer, indexedMzml);
+                }
+
+                if (completeIndexInOnePass && TryCompleteIndexedFileInOnePass(outputFile))
+                {
+                    return true;
                 }
 
                 // open the initial file and compute byte offset of the index, and the byte offset for each scan/chromatogram
@@ -1199,44 +1279,492 @@ namespace Readers
                     indexedSerializer.Serialize(writer, indexedMzml);
                 }
             }
+
+            return false;
         }
 
-        public static SHA1 GetSHA1Hash(string filePath)
+        /// <summary>
+        /// Completes an indexed mzML whose body has just been written with a placeholder index, the way the
+        /// three-pass code that follows its call does, but without serializing the whole document twice more and
+        /// reading it back twice. That code read the file line by line for the offsets, serialized it all again
+        /// with the index and a placeholder checksum, hashed it, and serialized it all a third time - three of
+        /// every four seconds of writing a calibrated file.
+        /// <para>
+        /// Everything before the &lt;indexList&gt; element is the same in all three passes; only the tail - the
+        /// index, its offset and the checksum - differs. So the file is read once, taking the same offsets the
+        /// line-by-line read took and hashing the bytes before &lt;indexList&gt;; the tail is serialized on its
+        /// own, from a document with no mzML in it, so it comes out exactly as it does inside the full document;
+        /// the hash is finished over the tail through its &lt;fileChecksum&gt; tag; and the file is cut back at
+        /// &lt;indexList&gt; and the final tail written in its place.
+        /// </para>
+        /// <para>
+        /// Returns false, having changed nothing, whenever the result could differ from the three-pass code:
+        /// any byte outside ASCII after the byte-order mark (the line reader's byte offsets are only certain to
+        /// match for one-byte characters), no &lt;indexList&gt; line or more than one, a line start that cannot
+        /// be classified from its first <see cref="LineHeadBytes"/> bytes, or a tail that does not serialize as
+        /// expected. The caller then runs the three-pass code.
+        /// </para>
+        /// </summary>
+        internal static bool TryCompleteIndexedFileInOnePass(string outputFile)
         {
-            SHA1 sha1hash = SHA1.Create();
-
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan))
+            if (!TryScanIndexedFileBody(outputFile, out var spectrumOffsets, out var chromatogramOffsets,
+                    out long indexListOffset, out IncrementalHash prefixHash, ScanChunkBytes))
             {
-                using (StreamReader reader = new StreamReader(stream, bufferSize: 4096))
+                prefixHash?.Dispose();
+                return false;
+            }
+
+            using (prefixHash)
+            {
+                var tail = new Generated.indexedmzML
                 {
-                    string line;
-                    byte[] buffer = new byte[10000000]; //write mzML method will crash is line.Length exceeds this value.
-                    bool foundChecksumField = false;
+                    indexList = IndexListFrom(spectrumOffsets, chromatogramOffsets),
+                    indexListOffset = indexListOffset,
+                    fileChecksum = "0"
+                };
 
-                    while (reader.Peek() > 0 && !foundChecksumField)
+                // The checksum covers the file through the <fileChecksum> open tag, which comes after the index
+                // and its offset, so the provisional tail (checksum "0") hashes the same as the final one.
+                byte[] provisional = SerializeIndexedTail(tail);
+                if (provisional == null)
+                {
+                    return false;
+                }
+
+                int throughOpenTag = IndexPastSequence(provisional, provisional.Length, Encoding.UTF8.GetBytes("<fileChecksum>"));
+                if (throughOpenTag < 0)
+                {
+                    return false;
+                }
+
+                prefixHash.AppendData(provisional, 0, throughOpenTag);
+                tail.fileChecksum = BitConverter.ToString(prefixHash.GetHashAndReset()).Replace("-", string.Empty).ToLowerInvariant();
+
+                byte[] final = SerializeIndexedTail(tail);
+                if (final == null || final.Length < throughOpenTag
+                    || !final.AsSpan(0, throughOpenTag).SequenceEqual(provisional.AsSpan(0, throughOpenTag)))
+                {
+                    return false;
+                }
+
+                using (var stream = new FileStream(outputFile, FileMode.Open, FileAccess.Write, FileShare.None))
+                {
+                    stream.SetLength(indexListOffset);
+                    stream.Position = indexListOffset;
+                    stream.Write(final, 0, final.Length);
+                }
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// The index of an indexed mzML, built from the offsets exactly as the three-pass code builds it: spectra
+        /// first, then chromatograms, each in the order its offsets were found.
+        /// </summary>
+        private static Generated.IndexListType IndexListFrom(Dictionary<string, long> spectrumOffsets, Dictionary<string, long> chromatogramOffsets)
+        {
+            var indexList = new Generated.IndexListType
+            {
+                count = "2",
+                index = new Generated.IndexType[2]
+            };
+
+            indexList.index[0] = new Generated.IndexType
+            {
+                name = new Generated.IndexTypeName(),
+            };
+
+            var scans = spectrumOffsets.ToList();
+            indexList.index[0].offset = new Generated.OffsetType[scans.Count];
+            for (int i = 0; i < scans.Count; i++)
+            {
+                indexList.index[0].offset[i] = new Generated.OffsetType
+                {
+                    idRef = scans[i].Key,
+                    Value = scans[i].Value
+                };
+            }
+
+            indexList.index[1] = new Generated.IndexType
+            {
+                name = Generated.IndexTypeName.chromatogram,
+            };
+
+            var chromas = chromatogramOffsets.ToList();
+            indexList.index[1].offset = new Generated.OffsetType[chromas.Count];
+            for (int i = 0; i < chromas.Count; i++)
+            {
+                indexList.index[1].offset[i] = new Generated.OffsetType
+                {
+                    idRef = chromas[i].Key,
+                    Value = chromas[i].Value
+                };
+            }
+
+            return indexList;
+        }
+
+        /// <summary>
+        /// The bytes an indexed document serializes to from its &lt;indexList&gt; tag to the end, written with the
+        /// same serializer and settings as the file. Null if there is no &lt;indexList&gt; tag.
+        /// </summary>
+        private static byte[] SerializeIndexedTail(Generated.indexedmzML tail)
+        {
+            using var memory = new MemoryStream();
+            using (XmlWriter writer = XmlWriter.Create(memory, new() { NewLineChars = "\n", Indent = true }))
+            {
+                indexedSerializer.Serialize(writer, tail);
+            }
+
+            byte[] bytes = memory.ToArray();
+            int start = bytes.AsSpan().IndexOf("<indexList "u8);
+            return start < 0 ? null : bytes[start..];
+        }
+
+        /// <summary>
+        /// How much of a line is looked at to decide whether it starts a spectrum, a chromatogram or the index.
+        /// Indentation in a written mzML is two spaces a level, a few dozen bytes at most.
+        /// </summary>
+        internal const int LineHeadBytes = 256;
+
+        internal const int ScanChunkBytes = 1 << 20;
+
+        /// <summary>
+        /// Reads a just-written indexed mzML once. Takes the offset of every &lt;spectrum&gt;, &lt;chromatogram&gt;
+        /// and &lt;indexList&gt; line exactly as the three-pass code's line-by-line read takes them (the position of
+        /// the line, plus its leading spaces; the id by <see cref="GetIdFromLine"/> on the trimmed line) and hashes
+        /// every byte before the &lt;indexList&gt; offset. False if the file is not one this can do exactly; see
+        /// <see cref="TryCompleteIndexedFileInOnePass"/>. <paramref name="chunkBytes"/> is how much is read at a
+        /// time; tests shrink it to put chunk boundaries inside lines and line endings.
+        /// </summary>
+        internal static bool TryScanIndexedFileBody(string path, out Dictionary<string, long> spectrumOffsets,
+            out Dictionary<string, long> chromatogramOffsets, out long indexListOffset, out IncrementalHash prefixHash,
+            int chunkBytes)
+        {
+            spectrumOffsets = new Dictionary<string, long>();
+            chromatogramOffsets = new Dictionary<string, long>();
+            indexListOffset = -1;
+            prefixHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+
+            byte[] buffer = new byte[chunkBytes + LineHeadBytes];
+            long bufferStart = 0;        // file offset of buffer[0]
+            long hashedTo = 0;           // file offset up to which the prefix is hashed
+            bool hashing = true;
+            int carried = 0;             // buffer[0..carried) is the head of a line read before but not yet classified
+            bool firstChunk = true;
+            bool skipLeadingLineFeed = false;   // the previous chunk ended in '\r'; a '\n' starting this one belongs to it
+
+            bool inLine = false;         // inside a classified line, looking for its end
+            List<byte> lineBytes = null; // the whole of a spectrum or chromatogram line, for its id
+            LineKind lineKind = LineKind.Other;
+            long lineOffset = 0;
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan);
+
+            while (true)
+            {
+                int read = stream.Read(buffer, carried, chunkBytes);
+                int count = carried + read;
+                bool endOfFile = read == 0;
+                int i = 0;
+
+                if (firstChunk)
+                {
+                    firstChunk = false;
+                    // StreamReader skips a UTF-8 byte-order mark; the offsets still count it.
+                    if (count >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF)
                     {
-                        line = reader.ReadLine() + NewLine;
+                        i = 3;
+                    }
+                }
 
-                        if (line.Trim().StartsWith("<fileChecksum>", StringComparison.InvariantCultureIgnoreCase))
+                int newBytesFrom = Math.Max(carried, i);
+                if (buffer.AsSpan(newBytesFrom, count - newBytesFrom).IndexOfAnyInRange((byte)0x80, (byte)0xFF) >= 0)
+                {
+                    return false;
+                }
+
+                if (skipLeadingLineFeed && carried == 0 && count > 0)
+                {
+                    skipLeadingLineFeed = false;
+                    if (buffer[0] == (byte)'\n')
+                    {
+                        i = 1;
+                    }
+                }
+
+                int carryFrom = -1;
+                long indexListFoundAt = -1;
+
+                while (i < count)
+                {
+                    if (inLine)
+                    {
+                        int relative = buffer.AsSpan(i, count - i).IndexOfAny((byte)'\n', (byte)'\r');
+                        int end = relative < 0 ? count : i + relative;
+                        lineBytes?.AddRange(buffer.AsSpan(i, end - i));
+                        if (relative < 0)
                         {
-                            int f = line.IndexOf('>');
-                            line = line.Substring(0, f + 1);
-                            foundChecksumField = true;
+                            i = count;
+                            break;
                         }
 
-                        int bytesRead = Encoding.UTF8.GetBytes(line, 0, line.Length, buffer, 0);
-
-                        if (bytesRead != 0)
+                        if (!FinishLine(lineKind, lineBytes, lineOffset, spectrumOffsets, chromatogramOffsets))
                         {
-                            sha1hash.TransformBlock(buffer, 0, bytesRead, buffer, 0);
+                            return false;
                         }
+                        inLine = false;
+                        lineBytes = null;
+
+                        // a line ends at "\n", "\r" or "\r\n", as StreamReader.ReadLine ends it
+                        i = end + 1;
+                        if (buffer[end] == (byte)'\r')
+                        {
+                            if (i < count)
+                            {
+                                if (buffer[i] == (byte)'\n')
+                                {
+                                    i++;
+                                }
+                            }
+                            else
+                            {
+                                skipLeadingLineFeed = true;
+                            }
+                        }
+                        continue;
                     }
 
-                    sha1hash.TransformFinalBlock(buffer, 0, 0);
+                    // a line starts at i; classify it from its head
+                    int available = count - i;
+                    ReadOnlySpan<byte> head = buffer.AsSpan(i, Math.Min(available, LineHeadBytes));
+                    int terminator = head.IndexOfAny((byte)'\n', (byte)'\r');
+                    if (terminator < 0 && available < LineHeadBytes && !endOfFile)
+                    {
+                        carryFrom = i;   // too little of the line in this chunk; take it to the next
+                        break;
+                    }
+
+                    int headLength = terminator < 0 ? head.Length : terminator;
+                    if (!TryClassifyLine(head[..headLength], terminator >= 0 || headLength == available,
+                            out lineKind, out int leadingSpaces))
+                    {
+                        return false;
+                    }
+
+                    lineOffset = bufferStart + i + leadingSpaces;
+                    if (lineKind == LineKind.IndexList)
+                    {
+                        if (indexListOffset >= 0 || lineOffset < hashedTo)
+                        {
+                            return false;
+                        }
+                        indexListOffset = lineOffset;
+                        indexListFoundAt = lineOffset;
+                    }
+
+                    lineBytes = lineKind is LineKind.Spectrum or LineKind.Chromatogram ? new List<byte>(512) : null;
+                    inLine = true;
+                }
+
+                if (endOfFile && inLine)
+                {
+                    // the last line has no terminator
+                    if (!FinishLine(lineKind, lineBytes, lineOffset, spectrumOffsets, chromatogramOffsets))
+                    {
+                        return false;
+                    }
+                    inLine = false;
+                }
+
+                if (hashing)
+                {
+                    long hashEnd = indexListFoundAt >= 0 ? indexListFoundAt
+                        : carryFrom >= 0 ? bufferStart + carryFrom
+                        : bufferStart + count;
+                    if (hashEnd > hashedTo)
+                    {
+                        prefixHash.AppendData(buffer, (int)(hashedTo - bufferStart), (int)(hashEnd - hashedTo));
+                        hashedTo = hashEnd;
+                    }
+                    if (indexListFoundAt >= 0)
+                    {
+                        hashing = false;
+                    }
+                }
+
+                if (endOfFile)
+                {
+                    break;
+                }
+
+                if (carryFrom >= 0)
+                {
+                    carried = count - carryFrom;
+                    Buffer.BlockCopy(buffer, carryFrom, buffer, 0, carried);
+                    bufferStart += carryFrom;
+                }
+                else
+                {
+                    carried = 0;
+                    bufferStart += count;
                 }
             }
 
-            return sha1hash;
+            return indexListOffset >= 0;
+        }
+
+        private enum LineKind { Other, Spectrum, Chromatogram, IndexList }
+
+        /// <summary>
+        /// Which of the lines the offsets are taken for <paramref name="head"/> starts, compared the way the
+        /// line-by-line read compares the trimmed line: case-insensitively. In a written mzML a line that starts
+        /// with '&lt;' is markup, so its element name is plain ASCII and a byte comparison is that comparison.
+        /// <paramref name="leadingSpaces"/> counts only spaces, as that read's offset does. False when the head
+        /// is all whitespace and the line goes on past it, so it cannot be classified here.
+        /// </summary>
+        private static bool TryClassifyLine(ReadOnlySpan<byte> head, bool headIsWholeLine, out LineKind kind, out int leadingSpaces)
+        {
+            kind = LineKind.Other;
+            leadingSpaces = 0;
+            while (leadingSpaces < head.Length && head[leadingSpaces] == (byte)' ')
+            {
+                leadingSpaces++;
+            }
+
+            int start = leadingSpaces;
+            while (start < head.Length && char.IsWhiteSpace((char)head[start]))
+            {
+                start++;
+            }
+
+            ReadOnlySpan<byte> trimmed = head[start..];
+            if (trimmed.Length < "<chromatogram ".Length && !headIsWholeLine)
+            {
+                return false;
+            }
+
+            if (AsciiStartsWithIgnoreCase(trimmed, "<spectrum "u8))
+            {
+                kind = LineKind.Spectrum;
+            }
+            else if (AsciiStartsWithIgnoreCase(trimmed, "<chromatogram "u8))
+            {
+                kind = LineKind.Chromatogram;
+            }
+            else if (AsciiStartsWithIgnoreCase(trimmed, "<indexList "u8))
+            {
+                kind = LineKind.IndexList;
+            }
+
+            return true;
+        }
+
+        private static bool AsciiStartsWithIgnoreCase(ReadOnlySpan<byte> text, ReadOnlySpan<byte> prefix)
+        {
+            return text.Length >= prefix.Length && Ascii.EqualsIgnoreCase(text[..prefix.Length], prefix);
+        }
+
+        /// <summary>
+        /// Records a finished spectrum or chromatogram line by the id <see cref="GetIdFromLine"/> takes from it,
+        /// after checking the trimmed line with the very comparison the line-by-line read makes. False if that
+        /// comparison disagrees with the byte one, which would make the offsets differ, or if the id was seen
+        /// before: the line-by-line read throws on a repeated id, and is left to throw it the same way.
+        /// </summary>
+        private static bool FinishLine(LineKind kind, List<byte> lineBytes, long offset,
+            Dictionary<string, long> spectrumOffsets, Dictionary<string, long> chromatogramOffsets)
+        {
+            if (kind is not (LineKind.Spectrum or LineKind.Chromatogram))
+            {
+                return true;
+            }
+
+            string line = Encoding.ASCII.GetString(CollectionsMarshal.AsSpan(lineBytes)).Trim();
+            if (kind == LineKind.Spectrum)
+            {
+                return line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase)
+                    && spectrumOffsets.TryAdd(GetIdFromLine(line), offset);
+            }
+
+            return !line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase)
+                && line.StartsWith("<chromatogram ", StringComparison.InvariantCultureIgnoreCase)
+                && chromatogramOffsets.TryAdd(GetIdFromLine(line), offset);
+        }
+
+        /// <summary>
+        /// SHA-1 of the raw bytes of <paramref name="filePath"/> from the first byte of the file
+        /// through the closing '&gt;' of the &lt;fileChecksum&gt; open tag, per the indexedmzML schema:
+        /// "SHA-1 checksum from beginning of file to end of 'fileChecksum' open tag."
+        /// If the tag is absent the whole file is hashed.
+        /// </summary>
+        public static SHA1 GetSHA1Hash(string filePath)
+        {
+            // Hash raw bytes: decoding to text drops the byte-order mark XmlWriter emits,
+            // and re-encoding normalizes line endings.
+            byte[] openTag = Encoding.UTF8.GetBytes("<fileChecksum>");
+            int overlap = openTag.Length - 1;
+            SHA1 sha1hash = SHA1.Create();
+
+            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.SequentialScan))
+            {
+                byte[] buffer = new byte[65536 + overlap];
+                int pending = 0;
+
+                while (true)
+                {
+                    int bytesRead = stream.Read(buffer, pending, buffer.Length - pending);
+                    pending += bytesRead;
+
+                    int bytesThroughOpenTag = IndexPastSequence(buffer, pending, openTag);
+
+                    if (bytesThroughOpenTag >= 0)
+                    {
+                        sha1hash.TransformFinalBlock(buffer, 0, bytesThroughOpenTag);
+                        return sha1hash;
+                    }
+
+                    if (bytesRead == 0)
+                    {
+                        sha1hash.TransformFinalBlock(buffer, 0, pending);
+                        return sha1hash;
+                    }
+
+                    // Hold back the last (openTag.Length - 1) bytes; the tag may straddle two reads.
+                    int hashable = Math.Max(pending - overlap, 0);
+
+                    if (hashable > 0)
+                    {
+                        sha1hash.TransformBlock(buffer, 0, hashable, null, 0);
+                        Buffer.BlockCopy(buffer, hashable, buffer, 0, pending - hashable);
+                        pending -= hashable;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Index one past the last byte of the first occurrence of <paramref name="sequence"/> in the
+        /// first <paramref name="count"/> bytes of <paramref name="buffer"/>, or -1 if not present.
+        /// </summary>
+        private static int IndexPastSequence(byte[] buffer, int count, byte[] sequence)
+        {
+            for (int i = 0; i <= count - sequence.Length; i++)
+            {
+                int j = 0;
+
+                while (j < sequence.Length && buffer[i + j] == sequence[j])
+                {
+                    j++;
+                }
+
+                if (j == sequence.Length)
+                {
+                    return i + sequence.Length;
+                }
+            }
+
+            return -1;
         }
 
         private static string GetIdFromLine(string line)

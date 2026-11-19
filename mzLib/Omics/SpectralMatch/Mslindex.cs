@@ -39,9 +39,9 @@ public readonly struct MslPrecursorIndexEntry : IComparable<MslPrecursorIndexEnt
 
 	/// <summary>
 	/// Ion-mobility value for this precursor (float32, 4 bytes).
-	/// Used as the IM filter key when both IM bounds are non-zero in
+	/// Used as the IM filter key when either IM bound is non-zero in
 	/// <see cref="MslIndex.QueryWindow"/>. Zero indicates ion mobility is not applicable
-	/// or was not measured for this precursor.
+	/// or was not measured for this precursor; such a precursor fails any IM filter.
 	/// </summary>
 	public readonly float IonMobility;
 
@@ -79,9 +79,20 @@ public readonly struct MslPrecursorIndexEntry : IComparable<MslPrecursorIndexEnt
 
 	/// <summary>
 	/// Packed flags byte (1 byte). Bits 0–1 encode <see cref="MslFormat.MoleculeType"/>;
-	/// bits 2–7 are reserved for future use and must be written as zero.
+	/// bit 2 is the entrapment flag (see <see cref="IsEntrapment"/>);
+	/// bits 3–7 are reserved for future use and must be written as zero.
 	/// </summary>
 	public readonly byte Flags;
+
+	/// <summary>Bit of <see cref="Flags"/> that marks an entrapment precursor.</summary>
+	public const byte FlagIsEntrapment = 0b_0000_0100;
+
+	/// <summary>
+	/// True for entrapment precursors. Unlike decoys, entrapment precursors are NOT filtered by
+	/// <see cref="MslIndex.QueryWindow"/>'s <c>includeDecoys</c> switch: they compete as targets,
+	/// and callers separate them when estimating the false discovery proportion.
+	/// </summary>
+	public bool IsEntrapment => (Flags & FlagIsEntrapment) != 0;
 
 	// ── Constructor ──────────────────────────────────────────────────────
 
@@ -149,28 +160,40 @@ public readonly struct MslPrecursorIndexEntry : IComparable<MslPrecursorIndexEnt
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Disposable, zero-extra-allocation result container returned by
+/// Disposable result container returned by
 /// <see cref="MslIndex.QueryWindow"/>. Internally backed by a pooled
 /// <see cref="MslPrecursorIndexEntry"/> array rented from
 /// <see cref="ArrayPool{T}.Shared"/>. Callers <b>must</b> call
 /// <see cref="Dispose"/> (or use a <c>using</c> statement) after processing the
 /// <see cref="Entries"/> span to return the buffer to the pool. Failing to dispose
 /// will not cause data corruption but will increase GC pressure over time.
+/// A non-empty result allocates one small holder object, which is what lets every copy
+/// of this struct see that the buffer has been returned.
 /// </summary>
 public readonly struct MslWindowResults : IDisposable
 {
 	// ── Private state ────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Pooled array rented from <see cref="ArrayPool{T}.Shared"/>. May be larger than
-	/// <see cref="_count"/> because the pool returns the next-larger power-of-two size.
-	/// Null only when <see cref="_count"/> is zero (empty result, no rental required).
+	/// Holds the pooled array so that Dispose can take it exactly once, even when the struct
+	/// has been copied: every copy shares the one holder.
 	/// </summary>
-	private readonly MslPrecursorIndexEntry[]? _buffer;
+	private sealed class BufferHolder
+	{
+		/// <summary>The rented array, or null once returned to the pool.</summary>
+		public MslPrecursorIndexEntry[]? Array;
+	}
 
 	/// <summary>
-	/// Number of valid entries written into <see cref="_buffer"/>.
-	/// May be less than <c>_buffer.Length</c> when the pool over-allocated.
+	/// Holder of the array rented from <see cref="ArrayPool{T}.Shared"/>. The array may be
+	/// larger than <see cref="_count"/> because the pool returns the next-larger power-of-two
+	/// size. Null only when the result is empty (no rental required).
+	/// </summary>
+	private readonly BufferHolder? _holder;
+
+	/// <summary>
+	/// Number of valid entries written into the rented array.
+	/// May be less than its length when the pool over-allocated.
 	/// </summary>
 	private readonly int _count;
 
@@ -190,7 +213,7 @@ public readonly struct MslWindowResults : IDisposable
 	/// </param>
 	internal MslWindowResults(MslPrecursorIndexEntry[]? buffer, int count)
 	{
-		_buffer = buffer;
+		_holder = buffer is null ? null : new BufferHolder { Array = buffer };
 		_count = count;
 	}
 
@@ -201,11 +224,12 @@ public readonly struct MslWindowResults : IDisposable
 	/// this <see cref="MslWindowResults"/> is alive — do not hold the span past
 	/// <see cref="Dispose"/>. The entries are in ascending <see cref="MslPrecursorIndexEntry.PrecursorMz"/>
 	/// order, reflecting the sort order of the backing index array.
+	/// After <see cref="Dispose"/> it is empty.
 	/// </summary>
 	public ReadOnlySpan<MslPrecursorIndexEntry> Entries
-		=> _buffer is null
-			? ReadOnlySpan<MslPrecursorIndexEntry>.Empty
-			: _buffer.AsSpan(0, _count);
+		=> _holder?.Array is { } array
+			? array.AsSpan(0, _count)
+			: ReadOnlySpan<MslPrecursorIndexEntry>.Empty;
 
 	/// <summary>
 	/// Number of matching index entries in this result set.
@@ -217,14 +241,19 @@ public readonly struct MslWindowResults : IDisposable
 
 	/// <summary>
 	/// Returns the rented backing array to <see cref="ArrayPool{T}.Shared"/>.
-	/// Safe to call multiple times (idempotent due to null guard).
+	/// Safe to call more than once, on this value or on any copy of it: the array is returned
+	/// exactly once. (Returning it twice would let two later queries rent the same array and
+	/// overwrite each other's results.)
 	/// Must be called once the caller has finished processing <see cref="Entries"/>;
-	/// the span must not be used after this call.
+	/// a span taken before this call must not be used after it.
 	/// </summary>
 	public void Dispose()
 	{
-		if (_buffer is not null)
-			ArrayPool<MslPrecursorIndexEntry>.Shared.Return(_buffer);
+		if (_holder is null)
+			return;
+		MslPrecursorIndexEntry[]? array = Interlocked.Exchange(ref _holder.Array, null);
+		if (array is not null)
+			ArrayPool<MslPrecursorIndexEntry>.Shared.Return(array);
 	}
 }
 
@@ -317,7 +346,8 @@ public record MslIndexStatistics
 ///   <item>O(1) DDA-style lookup by modified-sequence + charge via a dictionary.</item>
 ///   <item>O(k) elution-group queries via a pre-built group dictionary.</item>
 ///   <item>O(N) RT calibration producing a new immutable index instance.</item>
-///   <item>LRU-buffered full-entry access to avoid repeated disk reads in index-only mode.</item>
+///   <item>A bounded full-entry cache to avoid repeated disk reads in index-only mode. It evicts
+///   first in, first out (a hit does not refresh an entry), although its members say "Lru".</item>
 /// </list>
 /// <para>
 /// This class is the hot path of DIA search — <see cref="QueryWindow"/> is called hundreds
@@ -378,8 +408,8 @@ public sealed class MslIndex : IDisposable
 	/// <summary>
 	/// Delegate that loads a full <see cref="MslLibraryEntry"/> by its zero-based
 	/// precursor index. Supplied at construction time; typically backed by
-	/// <see cref="MslLibrary.Entries"/> for full-load mode or
-	/// <see cref="MslLibrary.LoadFragmentsOnDemand"/> for index-only mode.
+	/// <c>MslLibrary.Entries</c> for full-load mode or
+	/// <c>MslLibrary.LoadFragmentsOnDemand</c> for index-only mode.
 	/// May return null for out-of-range indices.
 	/// </summary>
 	private readonly Func<int, MslLibraryEntry?> _entryLoader;
@@ -404,6 +434,19 @@ public sealed class MslIndex : IDisposable
 	/// When eviction is required, the front key is dequeued and removed from the cache.
 	/// </summary>
 	private readonly ConcurrentQueue<int> _lruOrder;
+
+	/// <summary>
+	/// Number of entries in <see cref="_lruCache"/>, maintained with <see cref="Interlocked"/>.
+	/// <see cref="ConcurrentDictionary{TKey,TValue}.Count"/> takes every bucket lock, so reading it
+	/// on each miss serialised all threads calling <see cref="GetEntry"/>.
+	/// </summary>
+	private int _lruCount;
+
+	/// <summary>Entries currently in the LRU cache (tests only; takes every bucket lock).</summary>
+	internal int LruCacheSizeForTesting => _lruCache.Count;
+
+	/// <summary>The maintained cache counter (tests only).</summary>
+	internal int LruCountForTesting => Volatile.Read(ref _lruCount);
 
 	/// <summary>
 	/// Running count of <see cref="GetEntry"/> calls that found the requested entry
@@ -451,6 +494,8 @@ public sealed class MslIndex : IDisposable
 	/// <param name="maxBufferSize">
 	/// Maximum number of full entries kept in the LRU cache. Default is 10,000.
 	/// Larger values trade memory for reduced loader invocations in index-only mode.
+	/// Zero or less disables the cache: <see cref="GetEntry"/> calls the loader directly and
+	/// the LRU counters stay at zero. Use this when the loader is already an in-memory lookup.
 	/// </param>
 	/// <exception cref="ArgumentNullException">
 	/// Thrown when <paramref name="entries"/> or <paramref name="entryLoader"/> is null.
@@ -535,7 +580,7 @@ public sealed class MslIndex : IDisposable
 	/// <summary>
 	/// Builds an <see cref="MslIndex"/> directly from a list of
 	/// <see cref="MslLibraryEntry"/> objects. Typically called by
-	/// <see cref="MslLibrary"/> after a full or index-only load.
+	/// <c>MslLibrary</c> after a full or index-only load.
 	/// <para>
 	/// Each entry is converted to an <see cref="MslPrecursorIndexEntry"/> struct using
 	/// the entry's own fields; the loader delegate is wired to the list so that
@@ -543,13 +588,17 @@ public sealed class MslIndex : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="entries">
-	/// The ordered list of library entries as returned by <see cref="MslReader.Load"/>
-	/// or <see cref="MslReader.LoadIndexOnly"/>. Must not be null; may be empty.
+	/// The ordered list of library entries as returned by <c>MslReader.Load</c>
+	/// or <c>MslReader.LoadIndexOnly</c>. Must not be null; may be empty.
 	/// </param>
 	/// <param name="loader">
 	/// Delegate used by <see cref="GetEntry"/> for LRU-cached full-entry access.
 	/// Should return <c>entries[idx]</c> when <c>idx</c> is in range, null otherwise.
 	/// Must not be null.
+	/// </param>
+	/// <param name="maxBufferSize">
+	/// LRU cache capacity, as on the constructor. Pass 0 when <paramref name="loader"/> is an
+	/// in-memory lookup (full load), so <see cref="GetEntry"/> skips the cache.
 	/// </param>
 	/// <returns>A fully-built <see cref="MslIndex"/> instance.</returns>
 	/// <exception cref="ArgumentNullException">
@@ -558,7 +607,8 @@ public sealed class MslIndex : IDisposable
 	public static MslIndex Build(
 		IReadOnlyList<MslLibraryEntry> entries,
 		Func<int, MslLibraryEntry?> loader,
-		bool deferSeqChargeIndex = false)
+		bool deferSeqChargeIndex = false,
+		int maxBufferSize = 10_000)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
 		if (loader is null) throw new ArgumentNullException(nameof(loader));
@@ -575,10 +625,11 @@ public sealed class MslIndex : IDisposable
 				elutionGroupId: e.ElutionGroupId,
 				charge: (short)e.ChargeState,
 				isDecoy: (byte)(e.IsDecoy ? 1 : 0),
-				flags: (byte)((int)e.MoleculeType & 0x03));
+				flags: (byte)(((int)e.MoleculeType & 0x03)
+							  | (e.IsEntrapment ? MslPrecursorIndexEntry.FlagIsEntrapment : 0)));
 		}
 
-		return new MslIndex(raw, loader, deferSeqChargeIndex: deferSeqChargeIndex);
+		return new MslIndex(raw, loader, maxBufferSize, deferSeqChargeIndex);
 	}
 
 	// ── Query: m/z range (zero-allocation) ───────────────────────────────────
@@ -644,14 +695,17 @@ public sealed class MslIndex : IDisposable
 	///     <term>RT window</term>
 	///     <description>
 	///       <see cref="MslPrecursorIndexEntry.Irt"/> in
-	///       [<paramref name="rtLow"/>, <paramref name="rtHigh"/>].
+	///       [<paramref name="rtLow"/>, <paramref name="rtHigh"/>]. An entry with no retention
+	///       time (NaN) passes any RT window: an unknown time cannot rule a candidate out.
 	///     </description>
 	///   </item>
 	///   <item>
 	///     <term>IM window (optional)</term>
 	///     <description>
-	///       Applied only when both <paramref name="imLow"/> and <paramref name="imHigh"/>
-	///       are non-zero. When either is zero the IM filter is skipped entirely.
+	///       Applied when either <paramref name="imLow"/> or <paramref name="imHigh"/>
+	///       is non-zero; only when both are zero is the IM filter skipped. A precursor
+	///       whose IonMobility is 0 (not measured) fails an applied filter, so on a library
+	///       without ion mobility any non-zero bound returns nothing.
 	///     </description>
 	///   </item>
 	///   <item>
@@ -732,11 +786,12 @@ public sealed class MslIndex : IDisposable
 			if (!includeDecoys && e.IsDecoy != 0)
 				continue;
 
-			// RT filter
-			if (e.Irt < rtLow || e.Irt > rtHigh)
+			// RT filter. An entry with no retention time (NaN) passes any RT window: an unknown
+			// time cannot rule a candidate out.
+			if (!float.IsNaN(e.Irt) && (e.Irt < rtLow || e.Irt > rtHigh))
 				continue;
 
-			// IM filter (only when both bounds are non-zero)
+			// IM filter (when either bound is non-zero)
 			if (applyIm && (e.IonMobility < imLow || e.IonMobility > imHigh))
 				continue;
 
@@ -799,8 +854,9 @@ public sealed class MslIndex : IDisposable
 	/// </summary>
 	/// <param name="elutionGroupId">
 	/// The integer elution-group ID as stored in
-	/// <see cref="MslPrecursorIndexEntry.ElutionGroupId"/>. Use 0 as the sentinel for
-	/// ungrouped precursors when the library was built without elution-group assignments.
+	/// <see cref="MslPrecursorIndexEntry.ElutionGroupId"/>. The writer assigns IDs densely
+	/// from 0, in first-seen order of the stripped sequence, so 0 is the first group, not a
+	/// sentinel for ungrouped precursors.
 	/// </param>
 	/// <returns>
 	/// A read-only span over the entries in the group in ascending m/z order.
@@ -843,6 +899,10 @@ public sealed class MslIndex : IDisposable
 	{
 		ThrowIfDisposed();
 
+		// Cache disabled: the loader is an in-memory lookup, so caching would only add contention
+		if (_maxBufferSize <= 0)
+			return _entryLoader(precursorIdx);
+
 		// Cache hit: return the cached entry without calling the loader
 		if (_lruCache.TryGetValue(precursorIdx, out MslLibraryEntry? cached))
 		{
@@ -858,15 +918,18 @@ public sealed class MslIndex : IDisposable
 			return null;
 
 		// Evict the oldest entry when the cache is at capacity
-		if (_lruCache.Count >= _maxBufferSize)
+		if (Volatile.Read(ref _lruCount) >= _maxBufferSize)
 		{
-			if (_lruOrder.TryDequeue(out int oldestKey))
-				_lruCache.TryRemove(oldestKey, out _);
+			if (_lruOrder.TryDequeue(out int oldestKey) && _lruCache.TryRemove(oldestKey, out _))
+				Interlocked.Decrement(ref _lruCount);
 		}
 
 		// Add the new entry to the cache and record its insertion order
 		if (_lruCache.TryAdd(precursorIdx, loaded))
+		{
+			Interlocked.Increment(ref _lruCount);
 			_lruOrder.Enqueue(precursorIdx);
+		}
 
 		return loaded;
 	}
@@ -879,6 +942,7 @@ public sealed class MslIndex : IDisposable
 	/// <see cref="MslIndex"/> containing the transformed entries.
 	/// The formula applied to each entry is:
 	/// <code>calibratedRT = (float)(slope * entry.RetentionTime + intercept)</code>
+	/// An entry with no retention time (NaN) keeps NaN.
 	/// <para>
 	/// The original index is not modified in any way. The new index shares the same
 	/// entry-loader delegate and LRU configuration but starts with an empty LRU cache.
@@ -890,8 +954,7 @@ public sealed class MslIndex : IDisposable
 	/// (output values are numerically identical to the input).
 	/// </param>
 	/// <param name="intercept">
-	/// Additive offset applied after scaling. Represents the iRT value corresponding to
-	/// a run-RT of zero.
+	/// Additive offset applied after scaling: the run RT that corresponds to an iRT of zero.
 	/// </param>
 	/// <returns>
 	/// A new <see cref="MslIndex"/> whose entries have calibrated RT values and whose
@@ -955,6 +1018,7 @@ public sealed class MslIndex : IDisposable
 
 			if (e.PrecursorMz < minMz) minMz = e.PrecursorMz;
 			if (e.PrecursorMz > maxMz) maxMz = e.PrecursorMz;
+			// A NaN time (no retention time) fails both comparisons, so it never sets a bound.
 			if (e.Irt < minIrt) minIrt = e.Irt;
 			if (e.Irt > maxIrt) maxIrt = e.Irt;
 		}
@@ -987,6 +1051,7 @@ public sealed class MslIndex : IDisposable
 			return;  // Already disposed
 
 		_lruCache.Clear();
+		Volatile.Write(ref _lruCount, 0);
 
 		// Drain the eviction queue (no finalizer needed; all resources are managed)
 		while (_lruOrder.TryDequeue(out _)) { }

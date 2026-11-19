@@ -105,7 +105,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, out var apiAlpha, out var alphaWarning);
+                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out var apiAlpha, out var alphaWarning);
 
                 string? cleanedBeta = null;
                 string? apiBeta = null;
@@ -113,7 +113,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 bool betaOk = true;
                 if (RequiresBetaSequence && ModelInputs[i].BetaSequence != null)
                 {
-                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, out apiBeta, out betaWarning);
+                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out apiBeta, out betaWarning);
                     betaOk = cleanedBeta != null && apiBeta != null;
                 }
 
@@ -147,29 +147,11 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             var predictions = new List<CrosslinkFragmentIntensityPrediction>();
+            IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
             if (validInputs.Count > 0)
             {
-                var batchedRequests = ToBatchedRequests(validInputs);
-                var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4);
-                sessionTimeoutInMinutes = Math.Max(sessionTimeoutInMinutes, 1);
-
-                var responses = new List<string>();
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
-
-                for (int i = 0; i < batchChunks.Count; i++)
-                {
-                    var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
-                    responses.AddRange(responseChunk);
-
-                    if (i < batchChunks.Count - 1)
-                    {
-                        await Task.Delay(ThrottlingDelayInMilliseconds);
-                    }
-                }
-
-                predictions = ResponseToPredictions(responses, validInputs);
+                // An input the model refuses is set false in ValidInputsMask, and the rest keep their predictions.
+                (predictions, refusedInputs) = await RequestPredictionsAsync(validInputs, ValidInputsMask, ResponseToPredictions);
             }
 
             var realignedPredictions = new List<CrosslinkFragmentIntensityPrediction>();
@@ -196,6 +178,10 @@ namespace PredictionClients.Koina.AbstractClasses
                     ));
                 }
             }
+
+            // An input the model refused carries Koina's reason rather than a validation warning.
+            foreach (var (index, warning) in refusedInputs)
+                realignedPredictions[index] = realignedPredictions[index] with { Warning = warning };
 
             Predictions = realignedPredictions;
             return Predictions;
@@ -227,8 +213,10 @@ namespace PredictionClients.Koina.AbstractClasses
         ///   2. Requires every bracketed annotation to be in UNIMOD:N notation.
         ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>.
         /// </summary>
+        // sourceParser is unused: crosslink sequences are inspected directly, never parsed.
         protected override string? TryCleanSequence(
             string sequence,
+            ISequenceParser? sourceParser,
             out string? apiSequence,
             out WarningException? warning)
         {

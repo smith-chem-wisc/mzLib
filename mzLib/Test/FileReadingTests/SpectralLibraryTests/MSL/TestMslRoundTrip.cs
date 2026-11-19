@@ -94,7 +94,7 @@ public class TestMslRoundTrip
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// The combined H₃PO₄ + H₂O loss (−115.987460 Da) must encode to
+	/// The combined H₃PO₄ + H₂O loss (115.987460 Da) must encode to
 	/// NeutralLossCode.H3PO4AndH2O (value = 5) and decode back to the
 	/// same mass within 1e-6 Da. This rules out both the "water-only" (−18)
 	/// and the "no loss" (0) misinterpretations.
@@ -102,7 +102,7 @@ public class TestMslRoundTrip
 	[Test]
 	public void NeutralLoss_H3PO4AndH2O_RoundTripsWithCorrectMass()
 	{
-		const double expectedLoss = -97.976895 + -18.010565;   // = −115.987460
+		const double expectedLoss = 97.976895 + 18.010565;   // = 115.987460
 		string path = Tmp(nameof(NeutralLoss_H3PO4AndH2O_RoundTripsWithCorrectMass));
 
 		MslWriter.Write(path, new List<MslLibraryEntry> { MakeEntry(neutralLoss: expectedLoss) });
@@ -115,14 +115,14 @@ public class TestMslRoundTrip
 
 	/// <summary>
 	/// Belt-and-suspenders: the recovered H3PO4AndH2O mass must NOT be
-	/// within 0.1 Da of the water-only loss (−18.010565). A cross-language
+	/// within 0.1 Da of the water-only loss (18.010565). A cross-language
 	/// reader that implements the old name as "water loss" would fail here.
 	/// </summary>
 	[Test]
 	public void NeutralLoss_H3PO4AndH2O_IsNotWaterOnly()
 	{
-		const double combinedLoss = -97.976895 + -18.010565;
-		const double waterOnly = -18.010565;
+		const double combinedLoss = 97.976895 + 18.010565;
+		const double waterOnly = 18.010565;
 		string path = Tmp(nameof(NeutralLoss_H3PO4AndH2O_IsNotWaterOnly));
 
 		MslWriter.Write(path, new List<MslLibraryEntry> { MakeEntry(neutralLoss: combinedLoss) });
@@ -130,7 +130,7 @@ public class TestMslRoundTrip
 		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(Math.Abs(actual - waterOnly), Is.GreaterThan(0.1),
-			$"H3PO4AndH2O (−115.987) must NOT decode as water-only (−18.011). " +
+			$"H3PO4AndH2O (115.987) must NOT decode as water-only (18.011). " +
 			$"Got {actual:F6} Da — difference from water-only: {Math.Abs(actual - waterOnly):F3} Da.");
 	}
 
@@ -145,7 +145,7 @@ public class TestMslRoundTrip
 	[Test]
 	public void ClassifyNeutralLoss_H3PO4AndH2O_ClassifiesAsCode5()
 	{
-		const double combinedLoss = -97.976895 + -18.010565;
+		const double combinedLoss = 97.976895 + 18.010565;
 
 		// MslWriter.ClassifyNeutralLoss is internal — accessible from the test assembly
 		// via [assembly: InternalsVisibleTo("Test")] if present, or via reflection otherwise.
@@ -162,11 +162,11 @@ public class TestMslRoundTrip
 	/// and recover the original mass within 1e-4 Da.
 	/// </summary>
 	[TestCase(0.0, TestName = "NeutralLoss_None")]
-	[TestCase(-18.010565, TestName = "NeutralLoss_H2O")]
-	[TestCase(-17.026549, TestName = "NeutralLoss_NH3")]
-	[TestCase(-97.976895, TestName = "NeutralLoss_H3PO4")]
-	[TestCase(-79.966331, TestName = "NeutralLoss_HPO3")]
-	[TestCase(-97.976895 + -18.010565, TestName = "NeutralLoss_H3PO4AndH2O")]
+	[TestCase(18.010565, TestName = "NeutralLoss_H2O")]
+	[TestCase(17.026549, TestName = "NeutralLoss_NH3")]
+	[TestCase(97.976895, TestName = "NeutralLoss_H3PO4")]
+	[TestCase(79.966331, TestName = "NeutralLoss_HPO3")]
+	[TestCase(97.976895 + 18.010565, TestName = "NeutralLoss_H3PO4AndH2O")]
 	public void NeutralLoss_AllNamedCodes_RoundTrip(double loss)
 	{
 		string path = Tmp($"NeutralLoss_RoundTrip_{loss:F3}".Replace("-", "m").Replace(".", "_"));
@@ -411,7 +411,7 @@ public class TestMslRoundTrip
 				Charge                  = 2,
 				Mz                      = 612.34f,
 				Intensity               = 0.75f,
-				NeutralLoss             = -18.010565   // H2O loss
+				NeutralLoss             = 18.010565   // H2O loss
             },
             // Internal ion
             new MslFragmentIon
@@ -445,7 +445,7 @@ public class TestMslRoundTrip
 			Assert.That(terminal_ion.FragmentNumber, Is.EqualTo(5), "terminal FragmentNumber");
 			Assert.That(terminal_ion.ResiduePosition, Is.EqualTo(4), "terminal ResiduePosition");
 			Assert.That(terminal_ion.Charge, Is.EqualTo(2), "terminal ChargeState");
-			Assert.That(terminal_ion.NeutralLoss, Is.EqualTo(-18.010565).Within(1e-4), "terminal NeutralLoss");
+			Assert.That(terminal_ion.NeutralLoss, Is.EqualTo(18.010565).Within(1e-4), "terminal NeutralLoss");
 			Assert.That(terminal_ion.Mz, Is.EqualTo(612.34f).Within(1e-4f), "terminal Mz");
 
 			// Internal bIy[2-5]

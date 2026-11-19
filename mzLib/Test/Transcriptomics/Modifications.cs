@@ -539,5 +539,35 @@ public static class Modifications
         Assert.That(invalidMod2.ValidModification, Is.False);
     }
 
+    [Test]
+    public static void ModificationLoader_EmptyKeywordLineIsSkipped()
+    {
+        string stored = string.Join(Environment.NewLine,
+            "ID   Methyl on G",
+            "MT   test",
+            "TG   G",
+            "PP   Anywhere.",
+            "CF   CH2",
+            "KW   ",
+            "//");
+
+        var mods = ModificationLoader.ReadModsFromString(stored, out var warnings).ToList();
+
+        Assert.That(mods.Count, Is.EqualTo(1));
+        Assert.That(mods[0].Keywords, Is.Null);
+    }
+
+    [Test]
+    public static void ModificationLocalization_FivePrimeTerminalOnlyFitsPositionOne()
+    {
+        ModificationMotif.TryGetMotif("X", out var motif);
+        var fivePrime = new Modification("Terminal", "", "test", "", motif, "5'-terminal.", ChemicalFormula.ParseFormula("CH2"));
+        var nTerm = new Modification("Terminal", "", "test", "", motif, "N-terminal.", ChemicalFormula.ParseFormula("CH2"));
+
+        Assert.That(ModificationLocalization.ModFits(fivePrime, "GUACUG", 1, 6, 1), Is.True);
+        Assert.That(ModificationLocalization.ModFits(fivePrime, "GUACUG", 1, 5, 2), Is.False);
+        Assert.That(ModificationLocalization.ModFits(nTerm, "MPEPTIDE", 1, 7, 2), Is.True);
+    }
+
     #endregion
 }

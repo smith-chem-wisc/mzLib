@@ -14,7 +14,6 @@ namespace FlashLFQ.IsoTracker
         /// Directly use the motif string to create a SearchingTarget
         /// </summary>
         /// <param name="motifs"></param>
-        /// <param name="option2"></param>
         public IsoTrackerIdFilter(List<char> motifs)
         {
             TargetMotifs = new List<ModificationMotif>();

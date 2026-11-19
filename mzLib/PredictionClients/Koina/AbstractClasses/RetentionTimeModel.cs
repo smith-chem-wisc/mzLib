@@ -13,7 +13,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents a retention time prediction result for a single peptide sequence.
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
-    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
+    /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
@@ -29,9 +29,13 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the input parameters for retention time prediction models from the Koina API.
     /// This record captures the input information required for peptide retention time prediction.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
+    /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another</param>
     public record RetentionTimePredictionInput(string FullSequence)
     {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
     }
@@ -122,7 +126,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
 
                 if (cleanedSequence != null && apiSequence != null)
                 {
@@ -139,36 +143,12 @@ namespace PredictionClients.Koina.AbstractClasses
             #endregion
 
             var predictions = new List<PeptideRTPrediction>();
+            IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
             if (validInputs.Count > 0)
             {
-                #region Request Batching, Throttling Setup
-                var batchedRequests = ToBatchedRequests(validInputs);
-                var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                // We calculate a dynamic timeout based on the number of batches at (BenchmarkedTimeForOneMaxBatchSizeInMilliseconds x 2)ms/batch
-                // for buffer to ensure we don't hit timeouts during processing plus throttling time.
-                // Note: the time per batch is benchmarked for the entire Predict() method, so it includes some overhead beyond just the API call. Large peptide
-                // requests will not necessarily scale linearly, so this is a rough estimate to provide a reasonable timeout and is an aggressive 
-                // upper bound to avoid timeouts.
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4); // 60000ms/min
-                #endregion
-
                 #region Throttled API Requests and Response Processing
-                var responses = new List<string>();
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
-
-                for (int i = 0; i < batchChunks.Count; i++)
-                {
-                    var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
-                    responses.AddRange(responseChunk);
-
-                    if (i < batchChunks.Count - 1) // No need to throttle after the last batch
-                    {
-                        await Task.Delay(ThrottlingDelayInMilliseconds);
-                    }
-                }
-
-                predictions = ResponseToPredictions(responses, validInputs);
+                // An input the model refuses is set false in ValidInputsMask, and the rest keep their predictions.
+                (predictions, refusedInputs) = await RequestPredictionsAsync(validInputs, ValidInputsMask, ResponseToPredictions);
                 #endregion
             }
 
@@ -196,6 +176,10 @@ namespace PredictionClients.Koina.AbstractClasses
                     ));
                 }
             }
+
+            // An input the model refused carries Koina's reason rather than a validation warning.
+            foreach (var (index, warning) in refusedInputs)
+                realignedPredictions[index] = realignedPredictions[index] with { Warning = warning };
             #endregion
 
             Predictions = realignedPredictions;
@@ -319,7 +303,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             try
             {
-                var cleaned = TryCleanSequence(peptide.FullSequence, out var apiSequence, out _);
+                var cleaned = TryCleanSequence(peptide.FullSequence, null, out var apiSequence, out _);
                 if (cleaned != null && apiSequence != null)
                     return apiSequence;
             }
@@ -427,6 +411,10 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
                 catch (Exception)
                 {
+                    // A failure of the whole call, such as an outage, a timeout, or any refusal in ThrowException mode.
+                    // A peptide the model refuses does not land here otherwise: Predict leaves just that one unpredicted,
+                    // with Koina's reason as its Warning, so below it gets IncompatibleModifications and the others keep
+                    // their values.
                     foreach (var peptide in validPeptides)
                         batchResults[peptide.FullSequence] = null;
                 }

@@ -109,13 +109,16 @@ public struct MslFileHeader
 
 	/// <summary>
 	/// Offset 16, 4 bytes. Number of protein records in the protein table.
-	/// Zero means the protein table is absent (FileFlags bit 1 should also be 0).
+	/// The writer gives the empty accession its own record, so a library whose precursors
+	/// carry no protein reports 1, not 0. Whether protein data is present is
+	/// <see cref="MslFormat.FileFlagHasProteinData"/> in <see cref="FileFlags"/>, not this count.
 	/// </summary>
 	public int NProteins;
 
 	/// <summary>
 	/// Offset 20, 4 bytes. Count of unique elution group IDs across all precursors.
 	/// Precursors that share the same stripped sequence share an elution group ID.
+	/// An empty stripped sequence counts as one group.
 	/// </summary>
 	public int NElutionGroups;
 
@@ -123,6 +126,7 @@ public struct MslFileHeader
 	/// Offset 24, 4 bytes. Total number of entries in the string table.
 	/// The string table stores all modified sequences, stripped sequences, protein
 	/// accessions, names, and gene names in a flat array indexed by int32 index.
+	/// The count includes the empty string the writer always stores at index 0.
 	/// </summary>
 	public int NStrings;
 
@@ -130,7 +134,9 @@ public struct MslFileHeader
 	/// Offset 28, 4 bytes. Absolute byte offset of the extended annotation table section.
 	/// 0 when <c>MslFormat.FileFlagHasExtAnnotations</c> is not set (section absent).
 	/// When the flag is set, this field holds the offset at which the extended annotation
-	/// table begins; readers must seek here to read custom neutral-loss masses.
+	/// table begins, or 0 when that offset does not fit in an int32 (files over 2 GB).
+	/// Current readers do not rely on it: the table always follows the fragment section and
+	/// ends where the offset table begins, so they locate it from that layout.
 	///
 	/// Formerly the <c>Reserved</c> field in format version 1 (always written as 0).
 	/// Repurposed in format version 2. Version-1 readers see this field as Reserved=0
@@ -342,8 +348,11 @@ public struct MslPrecursorRecord
 
 	/// <summary>
 	/// Offset 54, 1 byte. Bitfield of precursor-level Boolean properties.
-	/// bit 0: is_decoy; bit 1: is_proteotypic; bit 2: rt_is_calibrated; bits 3–7: reserved.
-	/// Use MslFormat.EncodePrecursorFlags / DecodePrecursorFlags to read or write this field.
+	/// bit 0: is_decoy; bit 1: is_proteotypic; bit 2: rt_is_calibrated (0 = iRT, 1 = run RT in minutes);
+	/// bit 3: is_entrapment; bits 4–5: rt_status (MslFormat.RetentionTimeStatus);
+	/// bit 6: rt_struck_by_prediction; bit 7: reserved.
+	/// Use MslFormat.EncodePrecursorFlags / DecodePrecursorFlags / DecodeIsEntrapment /
+	/// DecodeRetentionTimeStatus / DecodeRtStruckByPrediction to read or write this field.
 	/// </summary>
 	public byte PrecursorFlags;
 

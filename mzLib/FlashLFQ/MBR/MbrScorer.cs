@@ -25,6 +25,10 @@ namespace FlashLFQ
         private double _ppmMedianRaw;
         private double _ppmStdDevRaw;
 
+        // Set a floor on the minimum StdDev for RtErrorDistributions and add a default StdDev for when a donor file has no anchor peptides. This prevents degenerate distributions from being created and allows MBR scoring to proceed.
+        public readonly double RtStandardDeviationMin = 0.0167; // 0.0167 minutes = 1 second
+        public readonly double RtStandardDeviationDefault = 1;
+
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private readonly Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private readonly Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
@@ -233,36 +237,40 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Takes in a list of retention time differences for anchor peptides (donor RT - acceptor RT) and uses
-        /// this list to calculate the distribution of prediction errors of the local RT alignment strategy employed by
-        /// match-between-runs for the specified donor file
+        /// Uses the anchor peptides shared between the donor and acceptor files to calculate the distribution
+        /// of prediction errors of the local RT alignment strategy employed by match-between-runs for the
+        /// specified donor file. The curve carries its own donor-RT ordering, which the local alignment below
+        /// relies on, so callers do not have to sort before passing it in.
         /// </summary>
-        /// <param name="anchorPeptideRtDiffs">List of retention time differences (doubles) calculated as donor file RT - acceptor file RT</param>
-        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, List<double> anchorPeptideRtDiffs, int numberOfAnchorPeptides)
+        /// <param name="calibrationCurve">The anchor peptides shared between the donor and acceptor files, ordered by donor apex retention time</param>
+        /// <param name="numberOfAnchorPeptides">The number of neighboring anchor peptides used on either side to predict each anchor's RT shift</param>
+        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, RetentionTimeCalibrationCurve calibrationCurve, int numberOfAnchorPeptides)
         {
-            // Default distribution: safe, non-degenerate
-            Normal rtPredictionErrorDist = new Normal(0, 1);
+            // Default distribution: safe, non-degenerate. Also the distribution used when a donor file has too
+            // few anchor peptides to estimate a prediction-error spread.
+            Normal rtPredictionErrorDist = new Normal(0, RtStandardDeviationDefault);
+            RetentionTimeCalibDataPoint[] validCalibrationDataPoints = calibrationCurve.DataPoints.Where(x => !double.IsNaN(x.RtDiff)).ToArray();
 
             // in MBR, we use anchor peptides on either side of the donor to predict the retention time
-            // here, we're going to repeat the same process, using neighboring anchor peptides to predicte the Rt shift for each
+            // here, we're going to repeat the same process, using neighboring anchor peptides to predict the Rt shift for each
             // individual anchor peptide 
             // then, we'll check how close our predicted rt shift was to the observed rt shift
             // and build a distribution based on the predicted v actual rt diffs
-            if (anchorPeptideRtDiffs != null && numberOfAnchorPeptides >= 0 && anchorPeptideRtDiffs.Count >= (2 * numberOfAnchorPeptides + 1))
+            if (validCalibrationDataPoints != null && numberOfAnchorPeptides >= 0 && validCalibrationDataPoints.Length >= (2 * numberOfAnchorPeptides + 1))
             {
-                double cumSumRtDiffs;
                 List<double> rtPredictionErrors = new();
+                List<double> rtDiffs = new(2*numberOfAnchorPeptides);
 
-                for (int i = numberOfAnchorPeptides; i < (anchorPeptideRtDiffs.Count - numberOfAnchorPeptides); i++)
+                for (int i = numberOfAnchorPeptides; i < (validCalibrationDataPoints.Length - numberOfAnchorPeptides); i++)
                 {
-                    cumSumRtDiffs = 0;
+                    rtDiffs.Clear();
                     for (int j = 1; j <= numberOfAnchorPeptides; j++)
                     {
-                        cumSumRtDiffs += anchorPeptideRtDiffs[i - j];
-                        cumSumRtDiffs += anchorPeptideRtDiffs[i + j];
+                        rtDiffs.Add(validCalibrationDataPoints[i - j].RtDiff);
+                        rtDiffs.Add(validCalibrationDataPoints[i + j].RtDiff);
                     }
-                    double avgDiff = cumSumRtDiffs / (2 * numberOfAnchorPeptides);
-                    double err = avgDiff - anchorPeptideRtDiffs[i];
+                    double avgDiff = rtDiffs.Average();
+                    double err = avgDiff - validCalibrationDataPoints[i].RtDiff;
                     if (!double.IsNaN(err) && !double.IsInfinity(err))
                     {
                         rtPredictionErrors.Add(err);
@@ -272,20 +280,14 @@ namespace FlashLFQ
                 if (rtPredictionErrors.Count >= 2)
                 {
                     double medianRtError = rtPredictionErrors.Median();
-                    double stdDevRtError = rtPredictionErrors.StandardDeviation();
+                    double stdDevRtError = rtPredictionErrors.InterquartileRange() / 1.36; // Use IQR to estimate stddev for robustness. IQR/1.36 is a robust estimator of stddev for normal distributions, and is less sensitive to outliers than the standard deviation.
 
                     if (!double.IsNaN(medianRtError))
                     {
-                        double sigma = (double.IsNaN(stdDevRtError) || stdDevRtError <= 0 || !Normal.IsValidParameterSet(medianRtError, stdDevRtError))
-                            ? 1.0
-                            : stdDevRtError;
-
-                        //TODO: This distribution should use the calculated sigma value, not 1 for all cases
-                        // apparently, this is a long-standing bug that was introduced in PR #802
-                        // However, changing this now would change MBR scores in all existing tests that use MBR
-                        // I'm not sure what the overall effect of fixing this is, and plan to carefully evaluate it 
-                        // in the near future and then fix this issue.
-                        rtPredictionErrorDist = new Normal(medianRtError, 1);
+                        if(stdDevRtError < RtStandardDeviationMin)
+                            stdDevRtError = RtStandardDeviationMin;
+                        if(Normal.IsValidParameterSet(medianRtError, stdDevRtError))
+                           rtPredictionErrorDist = new Normal(medianRtError, stdDevRtError);
                     }
                 }
             }
@@ -307,7 +309,7 @@ namespace FlashLFQ
             // Use a safe default RT distribution if none was computed for this donor file
             if (!_rtPredictionErrorDistributionDictionary.TryGetValue(donorPeak.SpectraFileInfo, out var rtDist) || rtDist == null)
             {
-                rtDist = new Normal(0, 1);
+                rtDist = new Normal(0, RtStandardDeviationDefault);
             }
 
             acceptorPeak.RtScore = CalculateScore(rtDist, acceptorPeak.RtPredictionError);

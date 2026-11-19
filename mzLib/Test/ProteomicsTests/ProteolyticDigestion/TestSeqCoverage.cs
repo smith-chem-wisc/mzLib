@@ -126,13 +126,18 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             try
             {
                 // Test1 digestion
+                // Test1 includes |D[D], a CutIndex==0 preventing motif. With the corrected
+                // DigestionMotif.Fits logic, "prevent before D" now checks the residue before
+                // the cut site (E), not the D itself, so cleavage before D is no longer
+                // erroneously suppressed.
                 DigestionParams multiProtease1 = new DigestionParams(protease: "Test1", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
                 var digestedList1 = ParentProtein.Digest(multiProtease1, new List<Modification>(), new List<Modification>()).ToList();
                 var sequences1 = digestedList1.Select(p => p.BaseSequence).ToList();
-                Assert.That(sequences1.Count == 3);
+                Assert.That(sequences1.Count == 4);
                 Assert.That(sequences1.Contains("OK"));
                 Assert.That(sequences1.Contains("A"));
-                Assert.That(sequences1.Contains("REDY"));
+                Assert.That(sequences1.Contains("RE"));
+                Assert.That(sequences1.Contains("DY"));
 
                 // Test2 digestion
                 DigestionParams multiProtease2 = new DigestionParams(protease: "Test2", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
