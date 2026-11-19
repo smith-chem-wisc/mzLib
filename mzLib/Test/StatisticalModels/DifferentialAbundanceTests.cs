@@ -336,6 +336,23 @@ public class DifferentialAbundanceTests
         Assert.That(r.Estimate - r.ConfidenceLow, Is.EqualTo(0.5 * Math.Tan(0.475 * Math.PI)).Within(1e-11));
     }
 
+    /// <summary>
+    /// The same two studies under Knapp and Hartung's ad hoc correction: Hartung–Knapp's 0.5 is below DerSimonian–Laird's
+    /// √(1/2), so the standard error is √(1/2), still on t(1): p = 1 − 2·atan(1.5/√(1/2))/π and the 95% half-width is
+    /// √(1/2)·tan(0.475π).
+    /// </summary>
+    [Test]
+    public void RandomEffectsMeta_HartungKnappAdHocWorkedExample()
+    {
+        var r = RandomEffectsMeta.Pool(new[] { 1.0, 2.0 }, new[] { 1.0, 1.0 }, inference: RandomEffectsInference.HartungKnappAdHoc);
+        Assert.That(r.Inference, Is.EqualTo(RandomEffectsInference.HartungKnappAdHoc));
+        Assert.That(r.DegreesOfFreedom, Is.EqualTo(1));
+        Assert.That(r.Estimate, Is.EqualTo(1.5).Within(1e-15));
+        Assert.That(r.StandardError, Is.EqualTo(Math.Sqrt(0.5)).Within(1e-15));
+        Assert.That(r.PValue, Is.EqualTo(1 - 2 * Math.Atan(1.5 / Math.Sqrt(0.5)) / Math.PI).Within(1e-13));
+        Assert.That(r.ConfidenceHigh - r.Estimate, Is.EqualTo(Math.Sqrt(0.5) * Math.Tan(0.475 * Math.PI)).Within(1e-11));
+    }
+
     [Test]
     public void RandomEffectsMeta_TheNormalReferenceIsTheDefault()
     {
@@ -350,6 +367,8 @@ public class DifferentialAbundanceTests
     public void RandomEffectsMeta_HartungKnappWithOneStudy_IsRefused()
     {
         Assert.That(() => RandomEffectsMeta.Pool(new[] { 0.4 }, new[] { 0.1 }, inference: RandomEffectsInference.HartungKnapp),
+            Throws.ArgumentException.With.Message.Contains("at least two studies"));
+        Assert.That(() => RandomEffectsMeta.Pool(new[] { 0.4 }, new[] { 0.1 }, inference: RandomEffectsInference.HartungKnappAdHoc),
             Throws.ArgumentException.With.Message.Contains("at least two studies"));
         Assert.That(() => RandomEffectsMeta.Pool(new[] { 0.4 }, new[] { 0.1 }, inference: (RandomEffectsInference)7),
             Throws.TypeOf<ArgumentOutOfRangeException>());

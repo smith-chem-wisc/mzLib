@@ -236,6 +236,48 @@ public class ReferenceComparisonTests
         }
     }
 
+    /// <summary>
+    /// metafor <c>rma(method = "DL", test = "adhoc")</c> at 95% and 90% (make_hartung_knapp_adhoc_fixtures.R): the
+    /// Hartung–Knapp standard error never below the DerSimonian–Laird one. The fixture also carries metafor's plain
+    /// <c>knha</c> and <c>z</c> standard errors, so each case is checked to be the larger of the two, and the cases where
+    /// the correction binds (<c>agreeing_three</c>, <c>equal_estimates</c>, <c>near_identical_two</c>) are checked to
+    /// differ from plain Hartung–Knapp.
+    /// </summary>
+    [Test]
+    public void HartungKnappAdHocMatchesMetafor()
+    {
+        var (inHeader, inRows) = ReadTsv("hk_adhoc_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("hk_adhoc_results.tsv");
+        int c = Array.IndexOf(inHeader, "case"), yi = Array.IndexOf(inHeader, "yi"), sei = Array.IndexOf(inHeader, "sei");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        Assert.That(outRows, Has.Count.EqualTo(18));
+        int bound = 0;
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            double level = Out(expected, "level");
+            var studies = inRows.Where(r => r[c] == name).ToArray();
+            double[] b = studies.Select(s => Parse(s[yi])).ToArray(), se = studies.Select(s => Parse(s[sei])).ToArray();
+            var r = RandomEffectsMeta.Pool(b, se, level, RandomEffectsInference.HartungKnappAdHoc);
+            var plain = RandomEffectsMeta.Pool(b, se, level, RandomEffectsInference.HartungKnapp);
+            string what = $"{name} at {level}";
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "k")), what);
+            Assert.That(r.DegreesOfFreedom, Is.EqualTo(Out(expected, "df")), what);
+            AssertClose(new[] { r.Estimate, r.StandardError, r.ConfidenceLow, r.ConfidenceHigh, r.PValue },
+                new[] { Out(expected, "estimate"), Out(expected, "se"), Out(expected, "ci_lb"), Out(expected, "ci_ub"),
+                        Out(expected, "pval") }, what);
+            Assert.That(r.Tau2, Is.EqualTo(Out(expected, "tau2")).Within(1e-12), $"{what} tau2");
+            Assert.That(Out(expected, "se"), Is.EqualTo(Math.Max(Out(expected, "se_knha"), Out(expected, "se_dl"))).Within(1e-15),
+                $"{what}: metafor's adhoc se is the larger of knha and DL");
+            if (Out(expected, "se_dl") > Out(expected, "se_knha") * (1 + 1e-9))
+            {
+                bound++;
+                Assert.That(r.StandardError, Is.GreaterThan(plain.StandardError), $"{what}: the correction binds");
+            }
+        }
+        Assert.That(bound, Is.EqualTo(6), "agreeing_three, equal_estimates and near_identical_two, at two levels");
+    }
+
     /// <summary>The partial conjunction closed form with base R's <c>pchisq</c> (make_partial_conjunction_fixtures.R).</summary>
     [Test]
     public void FisherPartialConjunctionMatchesPchisq()
