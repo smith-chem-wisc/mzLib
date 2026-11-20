@@ -141,6 +141,7 @@ public static class DifferentialColumns
         E("method", "Method", "Status", r => r.Method),
         E("model_used", "Model Used", "Status", r => r.ModelUsed),
         E("robust", "Robust Weighting", "Status", r => r.Robust is { } b ? (b ? "true" : "false") : null),
+        E("robust_fell_back", "Robust Fell Back", "Status", r => r.RobustFellBack is { } b ? (b ? "true" : "false") : null),
         E("normalization", "Normalization", "Status", r => r.Normalization),
         E("covariates_fitted", "Covariates Fitted", "Status", r => r.CovariatesFitted),
         E("design_sha256", "Design SHA-256", "Status", r => r.DesignSha256),
@@ -255,7 +256,16 @@ public static class DifferentialResultWriter
     /// temporary file, so its size is not bounded by one string. Both files are finished, and the metadata validated,
     /// before either replaces anything; if a replacement fails, the previous files are put back.
     /// </summary>
-    public static string Write(string directory, IEnumerable<DifferentialResult> rows, DifferentialMetadata metadata)
+    public static string Write(string directory, IEnumerable<DifferentialResult> rows, DifferentialMetadata metadata) =>
+        Write(directory, rows, metadata, null);
+
+    /// <summary>
+    /// As <see cref="Write(string, IEnumerable{DifferentialResult}, DifferentialMetadata)"/>, and the decisions file
+    /// (<see cref="DifferentialDecisionWriter.FileName"/>) beside them when <paramref name="decisions"/> is given: all files
+    /// are finished and validated before any replaces anything.
+    /// </summary>
+    public static string Write(string directory, IEnumerable<DifferentialResult> rows, DifferentialMetadata metadata,
+        IEnumerable<DifferentialDecision>? decisions)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         ArgumentNullException.ThrowIfNull(metadata);
@@ -263,20 +273,28 @@ public static class DifferentialResultWriter
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, ResultsFileName);
         string metadataPath = Path.Combine(directory, MetadataFileName);
+        string decisionsPath = Path.Combine(directory, DifferentialDecisionWriter.FileName);
         string stamp = Guid.NewGuid().ToString("N");
-        string tableTemp = $"{path}.{stamp}.tmp", metadataTemp = $"{metadataPath}.{stamp}.tmp";
+        string tableTemp = $"{path}.{stamp}.tmp", metadataTemp = $"{metadataPath}.{stamp}.tmp", decisionsTemp = $"{decisionsPath}.{stamp}.tmp";
         try
         {
             int cleaned;
             using (var output = new StreamWriter(tableTemp, false, new UTF8Encoding(false)))
                 cleaned = Write(output, list, metadata.Settings.HeaderStyle);
             File.WriteAllBytes(metadataTemp, DifferentialMetadataWriter.ToBytes(metadata, list, cleaned));
-            Replace(new[] { (tableTemp, path), (metadataTemp, metadataPath) }, stamp);
+            var files = new List<(string, string)> { (tableTemp, path), (metadataTemp, metadataPath) };
+            if (decisions is not null)
+            {
+                File.WriteAllBytes(decisionsTemp, DifferentialDecisionWriter.ToBytes(metadata, list, decisions));
+                files.Add((decisionsTemp, decisionsPath));
+            }
+            Replace(files.ToArray(), stamp);
         }
         finally
         {
             File.Delete(tableTemp);
             File.Delete(metadataTemp);
+            File.Delete(decisionsTemp);
         }
         return path;
     }
@@ -367,6 +385,9 @@ public static class DifferentialResultWriter
                         $"{at} is '{r.Status}', an evidence-only status, but sets {string.Join(", ", set)}; those cells must be empty.",
                         nameof(rows));
             }
+            if (r.RobustFellBack is not null && r.Robust != true)
+                throw new ArgumentException($"{at} sets robust_fell_back, but robust is not true: only a robust fit can fall back.",
+                    nameof(rows));
             if (!keys.Add((r.AnalysisId, r.Stratum, r.FeatureId, r.ContrastId, r.QuantBasis ?? "", r.Method)))
                 throw new ArgumentException($"{at} appears twice for quant basis '{r.QuantBasis}' and method '{r.Method}'.", nameof(rows));
             _ = DifferentialColumns.SortedMembers(r).ToList();
@@ -417,6 +438,7 @@ public static class DifferentialResultWriter
         yield return ("p_adjusted", Finite(r.PAdjusted));
         yield return ("adjustment_method", r.AdjustmentMethod is not null);
         yield return ("family_size", r.FamilySize is not null);
+        yield return ("robust_fell_back", r.RobustFellBack is not null);
         yield return ("pep", Finite(r.Pep));
         yield return ("bayesian_fdr", Finite(r.BayesianFdr));
         yield return ("bayes_factor", Finite(r.BayesFactor));
@@ -447,6 +469,16 @@ public sealed record DifferentialSettings
     public string? NormalizationOverride { get; init; }
     /// <summary>A random seed, if any part of the analysis used one.</summary>
     public int? Seed { get; init; }
+    /// <summary>
+    /// The fewest samples with a value each side of a two-level comparison needs (GR-4; STAT1 M5b ruling 14), at least 2;
+    /// fewer gives <c>below_support:min_&lt;n&gt;_per_side</c>.
+    /// </summary>
+    public int MinimumSamplesPerSide { get; init; } = 2;
+    /// <summary>
+    /// The floor on the shared-peptide normalization's reference sets (GR-25; STAT1 M5b ruling 14), at least 1; below it
+    /// no sample is shifted.
+    /// </summary>
+    public int NormalizationFloor { get; init; } = SharedPeptideNormalization.DefaultMinimumPeptides;
 }
 
 /// <summary>A contrast a stratum could not run, and why.</summary>
@@ -475,11 +507,14 @@ public sealed record DifferentialStratumInfo(string Stratum, IReadOnlyDictionary
 
 /// <summary>
 /// A contrast's global shift in one stratum and quant basis: how far its two sides sit apart overall, before
-/// normalization. Over the peptides with a value in every sample on both sides of the contrast in that stratum's table
-/// for that basis, each peptide's mean log2 intensity on the numerator side minus its mean on the denominator side,
-/// computed on intensities before normalization; <see cref="Value"/> is the median of those differences and
-/// <see cref="Peptides"/> how many peptides it used. With no such peptide, <see cref="Value"/> is NaN (written
-/// <c>null</c>) and <see cref="Peptides"/> is 0. <see cref="QuantBasis"/> is null for styles with no basis.
+/// normalization (GR-27; STAT1 M5b ruling 9). Over the peptides with a value in every sample on both sides of the contrast
+/// in that stratum's table for that basis, each peptide's mean log2 intensity on the numerator side minus its mean on the
+/// denominator side, computed on intensities before normalization; <see cref="Value"/> is the median of those differences
+/// and <see cref="Peptides"/> how many peptides it used. Peptides of a decoy, contaminant or entrapment group never count,
+/// and a sample with no value on any peptide that may count (a lost run) is left out of "every sample". For an isobaric
+/// table the difference is taken per ion within its plex run, between that run's channels on each side, and
+/// <see cref="Peptides"/> counts those ions. With no such peptide, <see cref="Value"/> is NaN (written <c>null</c>) and
+/// <see cref="Peptides"/> is 0. <see cref="QuantBasis"/> is null for styles with no basis.
 /// </summary>
 public sealed record DifferentialGlobalShift(string Stratum, string? QuantBasis, double Value, int Peptides);
 
@@ -497,7 +532,9 @@ public sealed record DifferentialContrastInfo(string Id, string Label, string? N
 /// so <see cref="Variance"/> is null and the values belong in the report's mean-variance table. An infinite
 /// <see cref="Df"/> (the variances spread no more than sampling explains, so every feature takes the prior variance) is
 /// written as the string <c>"Infinity"</c>, as System.Text.Json writes a named floating-point literal; a NaN as
-/// <c>null</c>.
+/// <c>null</c>. A <see cref="Df"/> of 0 means no prior was fitted (fewer than 3 features fitted in the moderation, STAT1
+/// M5b ruling 5): each feature kept its own variance, so <see cref="Variance"/> is null and <see cref="Features"/> says how
+/// few there were.
 /// </summary>
 public sealed record DifferentialPriorInfo(string Estimator, double Df, bool Trended, double? Variance, int Features)
 {
@@ -826,8 +863,10 @@ public static class DifferentialMetadataWriter
             if (prior.Trended && prior.Variance is not null)
                 throw new ArgumentException($"{at} has a trended prior with one variance; a trended prior has a variance per feature.",
                     nameof(metadata));
-            if (!prior.Trended && prior.Variance is null)
+            if (!prior.Trended && prior.Variance is null && prior.Df != 0)
                 throw new ArgumentException($"{at} has a constant prior without its variance.", nameof(metadata));
+            if (prior.Df == 0 && prior.Variance is not null)
+                throw new ArgumentException($"{at} has no prior (df 0) but a prior variance.", nameof(metadata));
         }
 
         var normalization = new HashSet<(string, string)>();
@@ -872,6 +911,8 @@ public static class DifferentialMetadataWriter
         w.WriteString("normalization", s.Normalization);
         Optional(w, "normalization_override", s.NormalizationOverride);
         if (s.Seed is { } seed) w.WriteNumber("seed", seed);
+        w.WriteNumber("minimum_samples_per_side", s.MinimumSamplesPerSide);
+        w.WriteNumber("normalization_floor", s.NormalizationFloor);
         w.WriteEndObject();
     }
 

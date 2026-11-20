@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
+using MassSpectrometry;
 
 namespace Readers
 {
@@ -78,11 +79,56 @@ namespace Readers
         [Name(DiaTsvHeader.ApexScanNumber)]
         public int ApexScanNumber { get; set; }
 
+        private double? _precursorQuantity;
+        private double? _ms1Quantity;
+
         /// <summary>
-        /// The precursor's quantity: its fragments' summed peak areas. Empty when not reported; a 0 is an integrated area
-        /// of exactly 0 over a detected peak.
+        /// The precursor's quantity (QuantProject's DEF-DIA-PREC): its selected fragments' summed peak areas, MS2 only
+        /// (<see cref="FragmentQuantity"/>). Empty for every kind of "nothing", never 0, with the kind in
+        /// <see cref="QuantityState"/>. A 0, set here or read from a table an older search wrote (where it meant that nothing
+        /// was measured), is no value.
         /// </summary>
         [Name(DiaTsvHeader.PrecursorQuantity)]
-        public double? PrecursorQuantity { get; set; }
+        public double? PrecursorQuantity
+        {
+            get => _precursorQuantity;
+            set => _precursorQuantity = value == 0 ? null : value;
+        }
+
+        /// <summary>
+        /// What <see cref="PrecursorQuantity"/> is (DEF-DIA-KIND): Value, BelowFloor or NotLooked, written by name. Empty in
+        /// a table written before the column existed.
+        /// </summary>
+        [Name(DiaTsvHeader.QuantityState)]
+        [Optional]
+        public PrecursorQuantityKind? QuantityState { get; set; }
+
+        /// <summary>The floor <see cref="PrecursorQuantity"/>'s fragments were judged against, in its units.</summary>
+        [Name(DiaTsvHeader.QuantityFloor)]
+        [Optional]
+        public double? QuantityFloor { get; set; }
+
+        /// <summary>
+        /// The precursor's MS1 quantity (DEF-DIA-MS1). It is never added to, averaged with or substituted for
+        /// <see cref="PrecursorQuantity"/>. Empty for every kind of "nothing", never 0, with the kind in
+        /// <see cref="Ms1QuantityState"/>.
+        /// </summary>
+        [Name(DiaTsvHeader.Ms1Quantity)]
+        [Optional]
+        public double? Ms1Quantity
+        {
+            get => _ms1Quantity;
+            set => _ms1Quantity = value == 0 ? null : value;
+        }
+
+        /// <summary>What <see cref="Ms1Quantity"/> is (DEF-DIA-KIND), written by name.</summary>
+        [Name(DiaTsvHeader.Ms1QuantityState)]
+        [Optional]
+        public PrecursorQuantityKind? Ms1QuantityState { get; set; }
+
+        /// <summary>The floor <see cref="Ms1Quantity"/> was judged against, in its units.</summary>
+        [Name(DiaTsvHeader.Ms1QuantityFloor)]
+        [Optional]
+        public double? Ms1QuantityFloor { get; set; }
     }
 }

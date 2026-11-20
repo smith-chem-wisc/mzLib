@@ -13,8 +13,10 @@ namespace Test.Quantification.Differential;
 /// <summary>
 /// SETTEST1 S2 (QuantProject <c>DEF-DIFF-SET-CONTRAST</c>, <c>-MEMBER</c>, <c>-MODEL</c>, <c>-VERDICT</c>): contexts to a
 /// stratum and a design; the set model against lmerTest (<c>ReferenceData/make_settest_model_fixtures.R</c>, R never run
-/// here); the member states read from STAT1's rows; every prediction's p, 90% interval, <c>contradicted</c> rule and
-/// smallest margin against values from R's <c>pt</c>/<c>qt</c>; the guards; and the order of the verdict words.
+/// here), plain and (S2b, GR-8) under msqrob2-style robust weights run to convergence, or one round when they never settle
+/// (GR-22 amended 2026-11-03); the member states read from STAT1's
+/// rows; every prediction's p, 90% interval, <c>contradicted</c> rule and smallest margin against values from R's
+/// <c>pt</c>/<c>qt</c>; the guards; and the order of the verdict words.
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
@@ -96,7 +98,7 @@ public class SetTestModelTests
         var (setup, table, groups, r) = Scenario(name);
         Assert.That(setup.NotRun, Is.Null);
 
-        var estimate = SetModel.FitSet(setup, groups, table, out string? notRun);
+        var estimate = SetModel.FitSet(setup, groups, table, out string? notRun, robust: false);
 
         Assert.That(notRun, Is.Null);
         Close(estimate!.Log2Effect, r[0], Fit, name + " estimate");
@@ -130,7 +132,7 @@ public class SetTestModelTests
         var (setup, table, groups, r) = Scenario("context", i => i == 0 ? "treatment=b|a" : "treatment=a|b");
         Assert.That(setup.Design!.ColumnNames, Is.EqualTo(new[] { "intercept", "age group=old", "treatment=a" }));
 
-        var estimate = SetModel.FitSet(setup, groups, table, out string? notRun);
+        var estimate = SetModel.FitSet(setup, groups, table, out string? notRun, robust: false);
 
         // Recoding a nuisance factor spans the same columns, so lmerTest's fit with reference a still holds.
         Assert.That(notRun, Is.Null);
@@ -148,6 +150,57 @@ public class SetTestModelTests
         var (setup, table, groups, _) = Scenario("balanced");
         Assert.That(() => SetModel.FitSet(setup, groups.Append(groups[0]).ToList(), table, out _),
             Throws.ArgumentException.With.Message.Contains("at most once"));
+    }
+
+    // ── the set model under robust weighting (S2b, GR-8) ─────────────────────
+
+    [TestCase("balanced")]
+    [TestCase("missing")]
+    [TestCase("context", Explicit = true, Reason = "6 s (25 rounds on 174 values); balanced and missing run the same code in CI")]
+    public void TheRobustSetModel_MatchesMsqrob2StyleWeightsAndLmerTest(string name)
+    {
+        var (setup, table, groups, _) = Scenario(name);
+        var r = Tsv($"settest_model_{name}_robust_result.tsv").Single();
+        var expected = Tsv($"settest_model_{name}_robust_weights.tsv").ToDictionary(c => (c[0], c[1], c[2]), c => D(c[3]));
+
+        var estimate = SetModel.FitSet(setup, groups, table, out string? notRun, robust: true);
+
+        Assert.That(notRun, Is.Null);
+        Assert.That(estimate!.Robust, Is.True);
+        Assert.That(bool.Parse(r[8]), Is.True, "R settles");
+        Assert.That(estimate.RobustFellBack, Is.False, "settled, so no fallback");
+        Assert.That(estimate.Weights.Select(v => (v.ProteinGroup, v.Peptide, v.Sample)), Is.EquivalentTo(expected.Keys));
+        double worst = estimate.Weights.Max(v => Math.Abs(v.Weight - expected[(v.ProteinGroup, v.Peptide, v.Sample)]));
+        TestContext.Out.WriteLine($"{name} weights: largest |diff| {worst:E2}");
+        foreach (var v in estimate.Weights)
+            Assert.That(v.Weight, Is.EqualTo(expected[(v.ProteinGroup, v.Peptide, v.Sample)]).Within(Fit),
+                $"{name} weight {v.Peptide} {v.Sample}");
+        Assert.That(estimate.Weights.Count(v => v.Weight < 1), Is.EqualTo(int.Parse(r[9])), "values down-weighted, as R");
+        Close(estimate.Log2Effect, r[0], Fit, name + " robust estimate");
+        Close(estimate.StandardError, r[1], Fit, name + " robust se");
+        Close(estimate.Df, r[2], Df, name + " robust Satterthwaite df");
+        Close(estimate.ResidualVariance, r[3], Fit, name + " robust sigma^2");
+        Close(estimate.SampleVariance, r[4], Fit, name + " robust var (1|sample)");
+        Close(estimate.SampleMemberVariance, r[5], Fit, name + " robust var (1|sample:member)");
+        Assert.That(estimate.Observations, Is.EqualTo(int.Parse(r[12])));
+    }
+
+    [Test]
+    public void TheSetFit_IsRobustByDefault_AsStat1Is()
+    {
+        var (setup, table, groups) = SmallSet();
+
+        var byDefault = SetModel.FitSet(setup, groups, table, out _);
+        var plain = SetModel.FitSet(setup, groups, table, out _, robust: false);
+
+        Assert.That(byDefault!.Robust, Is.True);
+        Assert.That(byDefault.RobustFellBack, Is.False);
+        Assert.That(byDefault.Weights.Count(v => v.Weight < 1), Is.GreaterThan(0));
+        Assert.That(plain!.Robust, Is.False);
+        Assert.That(plain.RobustFellBack, Is.Null, "no reweighting, so nothing to fall back from");
+        Assert.That(plain.Weights, Has.Count.EqualTo(plain.Observations));
+        Assert.That(plain.Weights.Select(v => v.Weight), Is.All.EqualTo(1.0));
+        Assert.That(byDefault.Log2Effect, Is.Not.EqualTo(plain.Log2Effect));
     }
 
     [Test]
@@ -507,7 +560,7 @@ public class SetTestModelTests
     // ── a part on a contrast: singles, the minimum, the guards, the verdict words ──
 
     private static (SetHypothesisPart Part, SetContrastOutcome Outcome) RunPart(string prediction, string kind,
-        (string Group, double[] Values, string Status)[] groups, string mrna = "", double? stat1Effect = null)
+        (string Group, double[] Values, string Status)[] groups, string mrna = "", double? stat1Effect = null, bool? robust = null)
     {
         var freeze = Freeze(groups.Select(g => Row(g.Group, prediction, kind, mrna: mrna)).ToArray());
         var part = freeze.Parts.Single();
@@ -515,10 +568,41 @@ public class SetTestModelTests
         var setup = SetContrastSetup.Build(contrast, FourSamples, AgeSpec);
         var (table, resolved) = Members(groups.Select(g => (g.Group, g.Values)).ToArray());
         var rows = groups.ToDictionary(g => g.Group, g => Stat1(g.Group, g.Status, stat1Effect, stat1Effect is null ? null : 0.1, stat1Effect is null ? null : 12));
-        return (part, SetTest.Run(part, contrast, setup, resolved, table, rows));
+        return (part, robust is null
+            ? SetTest.Run(part, contrast, setup, resolved, table, rows)
+            : SetTest.Run(part, contrast, setup, resolved, table, rows, robust.Value));
     }
 
     private static double[] Shifted(double d) => new[] { 20 + d, 21 + d, 20.5, 20.7 };
+
+    /// <summary>Three members of two peptides each over o1, o2, y1, y2: a set the model fits in a moment.</summary>
+    private static (SetContrastSetup Setup, ObservationTable Table, List<string> Groups) SmallSet()
+    {
+        var setup = SetContrastSetup.Build(Freeze(Row("G1"), Row("G2"), Row("G3")).Parts.Single().Contrasts.Single(), FourSamples, AgeSpec);
+        var (table, _) = Members(("G1", Shifted(1.0)), ("G2", Shifted(1.3)), ("G3", Shifted(0.8)));
+        return (setup, table, new List<string> { "G1", "G2", "G3" });
+    }
+
+    [TestCase(null, true)]
+    [TestCase(false, false)]
+    public void ASet_IsFittedWithTheRobustSettingItIsGiven(bool? robust, bool expected)
+    {
+        var (_, outcome) = RunPart("up", "set",
+            new[] { ("G1", Shifted(1.0), "fitted"), ("G2", Shifted(1.3), "fitted"), ("G3", Shifted(0.8), "fitted") }, robust: robust);
+        var estimate = outcome.Test!.Estimate;
+        Assert.That(estimate.Robust, Is.EqualTo(expected));
+        Assert.That(estimate.Weights.Any(v => v.Weight < 1), Is.EqualTo(expected));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ASingle_CarriesItsStat1RowsRobustSetting(bool robust)
+    {
+        var estimate = SetModel.FromStat1Row(Stat1("G1", "fitted", 0.4, 0.1, 12) with { Robust = robust });
+        Assert.That(estimate.Robust, Is.EqualTo(robust));
+        Assert.That(estimate.RobustFellBack, Is.Null, "a STAT1 row does not carry the flag until M5b");
+        Assert.That(estimate.Weights, Is.Empty);
+    }
 
     [Test]
     public void ASingle_TakesItsStat1Row()
@@ -596,16 +680,51 @@ public class SetTestModelTests
             Assert.That(outcome.Verdict(0.001), Is.EqualTo((SetVerdictName.NotInformative, "blocked_by:G4")));
     }
 
+    private static readonly (string, double[], string)[] IncompleteG3 =
+    {
+        ("G1", Shifted(0.05), "fitted"), ("G2", Shifted(-0.05), "fitted"), ("G3", new[] { 20, double.NaN, 20.5, 20.7 }, "fitted"),
+    };
+
     [Test]
     public void AnIncompleteMember_StaysInTheEstimate_AndBlocksSupported()
     {
-        var (_, outcome) = RunPart("unchanged", "set", new[]
-        {
-            ("G1", Shifted(0.05), "fitted"), ("G2", Shifted(-0.05), "fitted"), ("G3", new[] { 20, double.NaN, 20.5, 20.7 }, "fitted"),
-        });
+        var (_, outcome) = RunPart("unchanged", "set", IncompleteG3);
         Assert.That(outcome.Members.Single(m => m.Assignment.Member == "G3").State, Is.EqualTo(SetMemberStateFromRow.Incomplete));
         Assert.That(outcome.Test!.Estimate.Terms, Is.EqualTo(3));
         Assert.That(outcome.BlockedBy, Is.EqualTo(new[] { "G3" }));
+    }
+
+    [Test]
+    public void ARobustSetWhoseReweightingNeverSettles_FallsBackToOneRound_AsR()
+    {
+        // GR-22 amended 2026-11-03 (was: not_run, not_converged). Two peptides per member and nearly no noise between them:
+        // (1|sample:member) can take one peptide's values exactly, so reweighting drives the other peptide's weights toward
+        // 0 and never settles; R's loop on the same 22 values cycles for its 100 rounds. The set falls back to msqrob2's one
+        // round, is fitted and tested on it, and says so. R's one-round fit, with those weights in the lmer call
+        // (make_settest_model_fixtures.R, "incomplete"), matches.
+        var r = Tsv("settest_model_incomplete_robust_result.tsv").Single();
+        var expected = Tsv("settest_model_incomplete_robust_weights.tsv").ToDictionary(c => (c[0], c[1], c[2]), c => D(c[3]));
+        Assert.That(bool.Parse(r[8]), Is.False, "R never settles");
+
+        var (_, outcome) = RunPart("unchanged", "set", IncompleteG3);
+
+        Assert.That(outcome.Untested, Is.Null, "tested, not not_run");
+        var estimate = outcome.Test!.Estimate;
+        Assert.That(estimate.Robust, Is.True);
+        Assert.That(estimate.RobustFellBack, Is.True);
+        Assert.That(estimate.Weights.Select(v => (v.ProteinGroup, v.Peptide, v.Sample)), Is.EquivalentTo(expected.Keys));
+        foreach (var v in estimate.Weights)
+            Assert.That(v.Weight, Is.EqualTo(expected[(v.ProteinGroup, v.Peptide, v.Sample)]).Within(Fit),
+                $"one-round weight {v.Peptide} {v.Sample}");
+        Assert.That(estimate.Weights.Count(v => v.Weight < 1), Is.EqualTo(int.Parse(r[9])), "values down-weighted, as R");
+        Close(estimate.Log2Effect, r[0], Fit, "one-round estimate");
+        Close(estimate.StandardError, r[1], Fit, "one-round se");
+        Close(estimate.Df, r[2], Df, "one-round Satterthwaite df");
+        Close(estimate.ResidualVariance, r[3], Fit, "one-round sigma^2");
+        Close(estimate.SampleVariance, r[4], Fit, "one-round var (1|sample)");
+        Close(estimate.SampleMemberVariance, r[5], Fit, "one-round var (1|sample:member)");
+        Assert.That(estimate.Observations, Is.EqualTo(int.Parse(r[12])));
+        Assert.That(outcome.Verdict(null).Item1, Is.Not.EqualTo(SetVerdictName.NotRun), "a fallback set gets a verdict");
     }
 
     [Test]

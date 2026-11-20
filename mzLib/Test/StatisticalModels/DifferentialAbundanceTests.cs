@@ -243,6 +243,46 @@ public class DifferentialAbundanceTests
         Assert.That(q.All(v => v <= 1));
     }
 
+    /// <summary>
+    /// Two of three families selected, so the level is 0.05·2/3. A selected family is adjusted within itself, as
+    /// <see cref="MultipleTesting.BenjaminiHochberg"/> alone would; the one not selected gets NaN throughout.
+    /// </summary>
+    [Test]
+    public void BenjaminiBogomolov_AdjustsOnlySelectedFamilies_AtTheShrunkenLevel()
+    {
+        var r = MultipleTesting.BenjaminiBogomolov(
+            new[] { new[] { 0.01, 0.04 }, new[] { 0.2 }, new[] { 0.03, 0.002, 0.5 } },
+            new[] { true, false, true });
+        Assert.That(r.Families, Is.EqualTo(3));
+        Assert.That(r.Selected, Is.EqualTo(2));
+        Assert.That(r.Level, Is.EqualTo(0.05 * 2 / 3).Within(1e-17));
+        Assert.That(r.Adjusted[0], Is.EqualTo(new[] { 0.02, 0.04 }).Within(1e-15));
+        Assert.That(r.Adjusted[1].All(double.IsNaN));
+        Assert.That(r.Adjusted[2], Is.EqualTo(new[] { 0.045, 0.006, 0.5 }).Within(1e-15));
+    }
+
+    [Test]
+    public void BenjaminiBogomolov_WithNoFamilySelected_HasNoLevel()
+    {
+        var r = MultipleTesting.BenjaminiBogomolov(new[] { new[] { 0.01 }, new[] { 0.02 } }, new[] { false, false });
+        Assert.That(r.Selected, Is.EqualTo(0));
+        Assert.That(double.IsNaN(r.Level));
+        Assert.That(r.Adjusted.SelectMany(a => a).All(double.IsNaN));
+    }
+
+    [Test]
+    public void BenjaminiBogomolov_MismatchedFlagsOrALevelOutsideZeroAndOne_IsRefused()
+    {
+        Assert.That(() => MultipleTesting.BenjaminiBogomolov(new[] { new[] { 0.01 } }, new[] { true, false }),
+            Throws.ArgumentException.With.Message.Contains("2 selection flags for 1 families"));
+        Assert.That(() => MultipleTesting.BenjaminiBogomolov(new[] { new[] { 0.01 } }, new[] { true }, 1.0),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => MultipleTesting.BenjaminiBogomolov(new[] { new[] { 0.01 } }, new[] { true }, 0.0),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => MultipleTesting.BenjaminiBogomolov(new double[][] { null! }, new[] { true }),
+            Throws.ArgumentNullException.With.Message.Contains("Family 0 is null"));
+    }
+
     // ---- RandomEffectsMeta ----------------------------------------------------------------------
 
     [Test]
@@ -275,6 +315,44 @@ public class DifferentialAbundanceTests
         Assert.That(r.Estimate, Is.EqualTo(0.4).Within(1e-15));
         Assert.That(r.StandardError, Is.EqualTo(0.1).Within(1e-15));
         Assert.That(double.IsNaN(r.ISquared) && double.IsNaN(r.LeaveOneOutMaxDelta));
+    }
+
+    /// <summary>
+    /// Two studies, 1 and 2, each with standard error 1: Q = 0.5 &lt; k − 1, so τ² = 0 and the pooled estimate is 1.5.
+    /// DerSimonian–Laird's standard error is √(1/2); Hartung–Knapp's is √((0.25 + 0.25) / (1 · 2)) = 0.5, narrower, but
+    /// referred to t(1), the Cauchy: p = 1 − 2·atan(3)/π and the 95% half-width is 0.5·tan(0.475π).
+    /// </summary>
+    [Test]
+    public void RandomEffectsMeta_HartungKnappWorkedExample()
+    {
+        var r = RandomEffectsMeta.Pool(new[] { 1.0, 2.0 }, new[] { 1.0, 1.0 }, inference: RandomEffectsInference.HartungKnapp);
+        Assert.That(r.Inference, Is.EqualTo(RandomEffectsInference.HartungKnapp));
+        Assert.That(r.DegreesOfFreedom, Is.EqualTo(1));
+        Assert.That(r.Tau2, Is.EqualTo(0));
+        Assert.That(r.Estimate, Is.EqualTo(1.5).Within(1e-15));
+        Assert.That(r.StandardError, Is.EqualTo(0.5).Within(1e-15));
+        Assert.That(r.PValue, Is.EqualTo(1 - 2 * Math.Atan(3) / Math.PI).Within(1e-13));
+        Assert.That(r.ConfidenceHigh - r.Estimate, Is.EqualTo(0.5 * Math.Tan(0.475 * Math.PI)).Within(1e-11));
+        Assert.That(r.Estimate - r.ConfidenceLow, Is.EqualTo(0.5 * Math.Tan(0.475 * Math.PI)).Within(1e-11));
+    }
+
+    [Test]
+    public void RandomEffectsMeta_TheNormalReferenceIsTheDefault()
+    {
+        var byDefault = RandomEffectsMeta.Pool(new[] { 1.0, 2.0 }, new[] { 1.0, 1.0 });
+        Assert.That(byDefault.Inference, Is.EqualTo(RandomEffectsInference.Normal));
+        Assert.That(byDefault.DegreesOfFreedom, Is.EqualTo(double.PositiveInfinity));
+        Assert.That(byDefault.StandardError, Is.EqualTo(Math.Sqrt(0.5)).Within(1e-15));
+        Assert.That(byDefault.PValue, Is.EqualTo(2 * Normal.CDF(0, 1, -1.5 / Math.Sqrt(0.5))).Within(1e-15));
+    }
+
+    [Test]
+    public void RandomEffectsMeta_HartungKnappWithOneStudy_IsRefused()
+    {
+        Assert.That(() => RandomEffectsMeta.Pool(new[] { 0.4 }, new[] { 0.1 }, inference: RandomEffectsInference.HartungKnapp),
+            Throws.ArgumentException.With.Message.Contains("at least two studies"));
+        Assert.That(() => RandomEffectsMeta.Pool(new[] { 0.4 }, new[] { 0.1 }, inference: (RandomEffectsInference)7),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     // ---- EmpiricalBayes -------------------------------------------------------------------------

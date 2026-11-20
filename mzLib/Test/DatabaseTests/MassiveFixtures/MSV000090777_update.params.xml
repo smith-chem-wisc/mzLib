@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<parameters>
+<parameter name="desc">MassIVE MSV000090777 Supplementary Files</parameter>
+<parameter name="email">submitter@example.org</parameter>
+<parameter name="other_files">d.jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables;</parameter>
+<parameter name="task">42cc6275d08a4da8a501170832ee9fb9</parameter>
+<parameter name="update_comments">Upload Supplementary files that will be included in manuscript.</parameter>
+<parameter name="update_label">2023-01-30_jburton1_42cc6275</parameter>
+<parameter name="updated_dataset">MSV000090777</parameter>
+<parameter name="upload_file_mapping">other-00000.xlsx|jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables/Table_S6_20min_ID_candidates_v01.xlsx</parameter>
+<parameter name="upload_file_mapping">other-00001.docx|jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables/Table_S2_Top15_Down_v03.docx</parameter>
+<parameter name="upload_file_mapping">other-00002.xlsx|jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables/Table_S1_120min_DDA_Library_v02.xlsx</parameter>
+<parameter name="upload_file_mapping">other-00003.docx|jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables/Table_S3_Top15_Up_v03.docx</parameter>
+<parameter name="upload_file_mapping">other-00004.xlsx|jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables/Table_S5_45min_ID_candidates_v01.xlsx</parameter>
+<parameter name="upload_file_mapping">other-00005.xlsx|jburton1/SSL2_Kidney_Injury_Zeno/Supplementary_Tables/Table_S4_120min_ID_candidates_v01.xlsx</parameter>
+<parameter name="user">jburton1</parameter>
+<parameter name="uuid">1E5AE677-46A6-0001-307C-1F30B91F1CC8</parameter>
+<parameter name="workflow">UPDATE-MASSIVE-DATASET</parameter>
+<parameter name="workflow_version">1.3.2</parameter>
+</parameters>

@@ -1,0 +1,5 @@
+generated_utc 2026-11-14 19:59:43 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+packages none (base R: pchisq, p.adjust)
+seed 20261114
+script make_partial_conjunction_fixtures.R
