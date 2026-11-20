@@ -25,7 +25,7 @@ namespace StatisticalModels
         /// <summary>How the standard error, interval and p were formed. The estimate and τ² are DerSimonian–Laird's either way.</summary>
         public RandomEffectsInference Inference { get; internal set; }
         /// <summary>Degrees of freedom of the reference: +∞ for <see cref="RandomEffectsInference.Normal"/>, k − 1 for
-        /// <see cref="RandomEffectsInference.HartungKnapp"/>.</summary>
+        /// <see cref="RandomEffectsInference.HartungKnapp"/> and <see cref="RandomEffectsInference.HartungKnappAdHoc"/>.</summary>
         public double DegreesOfFreedom { get; internal set; }
         /// <summary>Between-study variance τ² (DerSimonian–Laird). Zero for a single study.</summary>
         public double Tau2 { get; internal set; }
@@ -53,6 +53,14 @@ namespace StatisticalModels
         /// estimate the standard error is 0 and the interval is that estimate.
         /// </summary>
         HartungKnapp,
+        /// <summary>
+        /// <see cref="HartungKnapp"/> with Knapp and Hartung's (2003) ad hoc variance correction: the standard error is the
+        /// larger of the Hartung–Knapp and the DerSimonian–Laird ones, with the same t reference on k − 1 degrees of
+        /// freedom (Röver, Knapp and Friede 2015; metafor's <c>test = "adhoc"</c>). Plain Hartung–Knapp's standard error
+        /// shrinks towards 0 as the studies agree, whatever their own standard errors; this one never falls below the
+        /// DerSimonian–Laird random-effects value, so it is never 0. Needs at least two studies.
+        /// </summary>
+        HartungKnappAdHoc,
     }
 
     /// <summary>
@@ -69,8 +77,9 @@ namespace StatisticalModels
         /// <param name="standardErrors">Its standard error; must be finite and positive.</param>
         /// <param name="confidenceLevel">Coverage of the reported interval, e.g. 0.95.</param>
         /// <param name="inference">How the standard error, interval and p are formed; the normal reference by default.</param>
-        /// <exception cref="ArgumentException"><see cref="RandomEffectsInference.HartungKnapp"/> with one study, which has
-        /// no degrees of freedom; and the input checks.</exception>
+        /// <exception cref="ArgumentException"><see cref="RandomEffectsInference.HartungKnapp"/> or
+        /// <see cref="RandomEffectsInference.HartungKnappAdHoc"/> with one study, which has no degrees of freedom; and the
+        /// input checks.</exception>
         public static MetaAnalysisResult Pool(IReadOnlyList<double> estimates, IReadOnlyList<double> standardErrors,
             double confidenceLevel = 0.95, RandomEffectsInference inference = RandomEffectsInference.Normal)
         {
@@ -87,13 +96,15 @@ namespace StatisticalModels
             }
             if (!(confidenceLevel > 0 && confidenceLevel < 1)) throw new ArgumentOutOfRangeException(nameof(confidenceLevel));
             if (!Enum.IsDefined(inference)) throw new ArgumentOutOfRangeException(nameof(inference));
-            if (inference == RandomEffectsInference.HartungKnapp && k < 2)
+            bool hartungKnapp = inference is RandomEffectsInference.HartungKnapp or RandomEffectsInference.HartungKnappAdHoc;
+            if (hartungKnapp && k < 2)
                 throw new ArgumentException("Hartung–Knapp needs at least two studies: one study has no degrees of freedom.", nameof(estimates));
 
             var (estimate, se, tau2, q) = DerSimonianLaird(estimates, standardErrors);
             double df = double.PositiveInfinity, quantile, p;
-            if (inference == RandomEffectsInference.HartungKnapp)
+            if (hartungKnapp)
             {
+                double seDerSimonianLaird = se;
                 df = k - 1;
                 double[] ws = standardErrors.Select(s => 1 / (s * s + tau2)).ToArray();
                 double sws = ws.Sum();
@@ -101,6 +112,7 @@ namespace StatisticalModels
                 double shift = ws.Zip(estimates, (wi, bi) => wi * (bi - estimates[0])).Sum() / sws;
                 double spread = ws.Zip(estimates, (wi, bi) => wi * Math.Pow(bi - estimates[0] - shift, 2)).Sum();
                 se = Math.Sqrt(spread / (df * sws));
+                if (inference == RandomEffectsInference.HartungKnappAdHoc) se = Math.Max(se, seDerSimonianLaird);
                 quantile = StudentT.InvCDF(0, 1, df, 0.5 + confidenceLevel / 2);
                 p = 2 * StudentT.CDF(0, 1, df, -Math.Abs(estimate / se));
             }

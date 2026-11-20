@@ -8,9 +8,10 @@
 # One scenario of seven hypothesis parts. Each dataset contrast is given as a set estimate (beta-bar, se, df), as S2's
 # set model or a single's STAT1 row would give it; S2's tests check those. Here R computes, independently of mzLib:
 #   * each dataset's p and 90% interval, by the rules of DEF-DIFF-SET-VERDICT (pt / qt);
-#   * each pooled row: metafor rma(yi, sei = se, method = "DL", test = "knha") for the estimate, tau2 and the
-#     Hartung-Knapp se, then the same rules on t(k - 1); an attenuated_down pool's m-bar is the average of the datasets'
-#     m-bar with the random-effects weights 1 / (se^2 + tau2);
+#   * each pooled row: metafor rma(yi, sei = se, method = "DL", test = "adhoc") for the estimate, tau2 and the
+#     Hartung-Knapp se under Knapp and Hartung's ad hoc correction, never below the DerSimonian-Laird se (ruled by
+#     QuantProject's user 2026-11-19), then the same rules on t(k - 1); an attenuated_down pool's m-bar is the average
+#     of the datasets' m-bar with the random-effects weights 1 / (se^2 + tau2);
 #   * the aging family's and the maturation family's Benjamini-Hochberg adjusted p (p.adjust);
 #   * R (aging primaries supported: adjusted p <= 0.05 and not contradicted; the scenario has no guard), the level
 #     0.05 R / m, and each supported pooled part's datasets adjusted by p.adjust within the part;
@@ -67,7 +68,7 @@ for (pt_ in parts) {
   rows <- d[d$part == pt_ & d$poolable, ]
   k <- nrow(rows)
   if (k >= 2) {
-    r <- rma(yi = rows$b, sei = rows$se, method = "DL", test = "knha")
+    r <- rma(yi = rows$b, sei = rows$se, method = "DL", test = "adhoc")
     est <- as.numeric(r$beta)
     mbar <- NA
     if (rows$prediction[1] == "attenuated_down") {
