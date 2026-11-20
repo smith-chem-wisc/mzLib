@@ -327,11 +327,13 @@ namespace Test.FileReadingTests.DeNovoMapping
                     unambiguousProteins.Add(protein.Accession);
             }
 
+            var decoyPeptides = new HashSet<string>();
             foreach (var protein in proteins.Where(p => p.IsDecoy))
             foreach (var peptide in Digest(protein))
             {
                 if (databasePeptides.Contains(peptide) || !bySequence.TryGetValue(peptide, out var indices))
                     continue;
+                decoyPeptides.Add(peptide);
                 foreach (int p in indices)
                     decoyHit[p] = true;
             }
@@ -346,7 +348,33 @@ namespace Test.FileReadingTests.DeNovoMapping
                 HostProteinCount = hasHost ? host!.Count(p => !p.IsDecoy) : -1,
                 UniqueUnambiguousPeptidesMapped = unambiguousPeptides.Count,
                 UniqueUnambiguousProteinsMapped = unambiguousProteins.Count,
+                UniqueDecoyPeptidesMapped = decoyPeptides.Count,
+                UniqueUnambiguousDecoyPeptidesMapped = hasHost ? decoyPeptides.Count(p => !hostShared.Contains(p)) : -1,
             };
+
+            static double MedianOf(IEnumerable<double> values)
+            {
+                var sorted = values.Order().ToList();
+                return sorted.Count % 2 == 1 ? sorted[sorted.Count / 2] : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2;
+            }
+
+            foreach (var peptide in mappedPeptides.OrderBy(p => bySequence[p].Min()))
+            {
+                var peptidePredictions = bySequence[peptide].Select(i => predictions[i]).ToList();
+                bool unambiguous = hasHost && !hostShared.Contains(peptide);
+                double score = MedianOf(peptidePredictions.Select(p => p.Score));
+                result.PeptidePredictionScores.Add(score);
+                if (unambiguous)
+                    result.UnambiguousPeptidePredictionScores.Add(score);
+
+                var errors = peptidePredictions.Where(p => p.ObservedRetentionTime.HasValue && p.CalibratedRetentionTime.HasValue)
+                    .Select(p => p.ObservedRetentionTime!.Value - p.CalibratedRetentionTime!.Value).ToList();
+                if (errors.Count == 0)
+                    continue;
+                result.PeptideRetentionTimeErrors.Add(MedianOf(errors));
+                if (unambiguous)
+                    result.UnambiguousPeptideRetentionTimeErrors.Add(MedianOf(errors));
+            }
 
             for (int i = 0; i < predictions.Count; i++)
             {

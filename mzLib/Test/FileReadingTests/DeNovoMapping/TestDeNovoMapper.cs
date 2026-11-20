@@ -305,15 +305,15 @@ namespace Test.FileReadingTests.DeNovoMapping
             DeNovoMapper.WriteSummary(results, summaryPath);
 
             var header = File.ReadLines(summaryPath).First().Split('\t');
-            Assert.That(header.Take(18), Is.EqualTo(new[]
+            Assert.That(header.Take(21), Is.EqualTo(new[]
             {
                 "DatabaseIdentifier", "DatabaseProteinCount", "DatabasePeptideCount", "TotalPredictions",
                 "TargetPredictions", "DecoyPredictions", "UniquePeptidesMapped", "UniqueProteinsMapped",
                 "MeanRtError", "MedianRtError", "StdDevRtError", "MeanPredictionScore", "MedianPredictionScore",
                 "StdDevPredictionScore", "RetentionTimeErrors", "PredictionScores", "TargetPredictionScores",
-                "DecoyPredictionScores",
+                "DecoyPredictionScores", "PeptideRetentionTimeErrors", "PeptidePredictionScores", "UniqueDecoyPeptidesMapped",
             }));
-            Assert.That(header.Skip(18), Is.EqualTo(new[] { "RunOne", "RunTwo" }));
+            Assert.That(header.Skip(21), Is.EqualTo(new[] { "RunOne", "RunTwo" }));
 
             var file = new DeNovoMappingResultFile(summaryPath);
             file.LoadResults();
@@ -375,7 +375,7 @@ namespace Test.FileReadingTests.DeNovoMapping
                 Assert.That(result.AmbiguousTargetPredictions, Is.Zero);
                 Assert.That(result.UnambiguousTargetPredictionScores, Is.Empty);
                 Assert.That(header.Intersect(HostColumnNames), Is.Empty);
-                Assert.That(header, Has.Length.EqualTo(19), "18 fixed columns and one per-file column, as before host ambiguity");
+                Assert.That(header, Has.Length.EqualTo(22), "21 fixed columns (18 + 3 peptide-level) and one per-file column");
             });
         }
 
@@ -537,8 +537,8 @@ namespace Test.FileReadingTests.DeNovoMapping
             DeNovoMapper.WriteSummary([original], summaryPath);
 
             var header = File.ReadLines(summaryPath).First().Split('\t');
-            Assert.That(header.Skip(18).Take(HostColumnNames.Length), Is.EqualTo(HostColumnNames), "host columns follow the existing ones");
-            Assert.That(header.Skip(18 + HostColumnNames.Length), Is.EqualTo(new[] { "RunHostRoundTrip" }));
+            Assert.That(header.Skip(21).Take(HostColumnNames.Length), Is.EqualTo(HostColumnNames), "host columns follow the existing ones");
+            Assert.That(header.Skip(21 + HostColumnNames.Length), Is.EqualTo(new[] { "RunHostRoundTrip" }));
 
             var loaded = FileReader.ReadFile<DeNovoMappingResultFile>(summaryPath).Single();
 
@@ -564,8 +564,83 @@ namespace Test.FileReadingTests.DeNovoMapping
         [
             "HostProteinCount", "UnambiguousTargetPredictions", "AmbiguousTargetPredictions", "UnambiguousDecoyPredictions",
             "UniqueUnambiguousPeptidesMapped", "UniqueUnambiguousProteinsMapped", "UnambiguousRetentionTimeErrors",
-            "UnambiguousTargetPredictionScores", "UnambiguousDecoyPredictionScores",
+            "UnambiguousTargetPredictionScores", "UnambiguousDecoyPredictionScores", "UniqueUnambiguousDecoyPeptidesMapped",
+            "UnambiguousPeptideRetentionTimeErrors", "UnambiguousPeptidePredictionScores",
         ];
+
+        #endregion
+
+        #region Peptide level
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void APeptidePredictedThreeTimesGivesOneValuePerField(bool withHost)
+        {
+            // Thirty anchors calibrate the run (peptide i elutes at 5 + 2i minutes). Peptide 3 is predicted twice more,
+            // 1 and 3 minutes late and below the anchor cutoff, so its three errors are 0, 1 and 3 and its scores 0.9,
+            // 0.6 and 0.7. The database holds peptides 3 and 4; the host, when given, produces peptide 4 only.
+            var peptides = Enumerable.Range(0, 30).Select(CalibrationPeptide).ToArray();
+            var predictor = new LookupPredictor(peptides.Select((p, i) => (p, (double)i)));
+            var psms = peptides.Select((p, i) => (p, 0.9, (double?)((5 + 2 * i) * 60.0)))
+                .Append((peptides[3], 0.6, (double?)((5 + 2 * 3 + 1) * 60.0)))
+                .Append((peptides[3], 0.7, (double?)((5 + 2 * 3 + 3) * 60.0)))
+                .ToArray();
+            string mzTab = WriteMzTab("RunPeptideLevel.mztab", "file:///Z:/RunPeptideLevel.mgf", psms);
+            var proteins = new List<IBioPolymer> { new Protein(peptides[3] + peptides[4], "PPEP") };
+
+            var mapper = new DeNovoMapper([mzTab], new DeNovoMappingParameters
+            {
+                RetentionTimePredictor = predictor,
+                MaxThreads = 1,
+                HostProteins = withHost ? [new Protein(peptides[4], "HOST4")] : null,
+            });
+            var result = mapper.MapDatabase("PeptideLevel", proteins);
+
+            string summaryPath = Path.Combine(_directory, $"PeptideLevel{withHost}MappingSummary.tsv");
+            DeNovoMapper.WriteSummary([result], summaryPath);
+            var loaded = new DeNovoMappingResultFile(summaryPath).Results.Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(mapper.RetentionTimeCalibrations["RunPeptideLevel"].AnchorCount, Is.EqualTo(30));
+                Assert.That(result.TargetPredictions, Is.EqualTo(4), "three of peptide 3, one of peptide 4");
+                Assert.That(result.RetentionTimeErrors, Has.Count.EqualTo(4));
+                Assert.That(result.UniquePeptidesMapped, Is.EqualTo(2));
+
+                // One value per peptide, peptide 3 first: the median of its three predictions.
+                Assert.That(result.PeptidePredictionScores, Is.EqualTo(new[] { 0.7, 0.9 }).Within(1e-9));
+                Assert.That(result.PeptideRetentionTimeErrors, Has.Count.EqualTo(2));
+                Assert.That(result.PeptideRetentionTimeErrors[0], Is.EqualTo(1).Within(0.1));
+                Assert.That(result.PeptideRetentionTimeErrors[1], Is.EqualTo(0).Within(0.1));
+                Assert.That(result.UniqueDecoyPeptidesMapped, Is.Zero);
+
+                if (withHost)
+                {
+                    // Peptide 4 is the host's, so only peptide 3 is left: still one value, not three.
+                    Assert.That(result.UnambiguousPeptidePredictionScores, Is.EqualTo(new[] { 0.7 }).Within(1e-9));
+                    Assert.That(result.UnambiguousPeptideRetentionTimeErrors, Has.Count.EqualTo(1));
+                    Assert.That(result.UnambiguousPeptideRetentionTimeErrors[0], Is.EqualTo(1).Within(0.1));
+                    Assert.That(result.UnambiguousRetentionTimeErrors, Has.Count.EqualTo(3), "per prediction, for contrast");
+                    Assert.That(result.UniqueUnambiguousDecoyPeptidesMapped, Is.Zero);
+                }
+                else
+                {
+                    Assert.That(result.UnambiguousPeptidePredictionScores, Is.Empty);
+                    Assert.That(result.UnambiguousPeptideRetentionTimeErrors, Is.Empty);
+                    Assert.That(result.UniqueUnambiguousDecoyPeptidesMapped, Is.EqualTo(-1));
+                }
+
+                // The summary keeps them.
+                Assert.That(loaded.PeptidePredictionScores, Is.EqualTo(result.PeptidePredictionScores).Within(1e-4));
+                Assert.That(loaded.PeptideRetentionTimeErrors, Is.EqualTo(result.PeptideRetentionTimeErrors).Within(1e-4));
+                Assert.That(loaded.UniqueDecoyPeptidesMapped, Is.EqualTo(result.UniqueDecoyPeptidesMapped));
+                Assert.That(loaded.UnambiguousPeptidePredictionScores, Is.EqualTo(result.UnambiguousPeptidePredictionScores).Within(1e-4));
+                Assert.That(loaded.UnambiguousPeptideRetentionTimeErrors, Is.EqualTo(result.UnambiguousPeptideRetentionTimeErrors).Within(1e-4));
+                Assert.That(loaded.UniqueUnambiguousDecoyPeptidesMapped, Is.EqualTo(result.UniqueUnambiguousDecoyPeptidesMapped));
+                Assert.That(loaded.PredictionCountsByFile, Is.EqualTo(new Dictionary<string, int> { ["RunPeptideLevel"] = 4 }),
+                    "peptide-level columns are not read as per-file counts");
+            });
+        }
 
         #endregion
 

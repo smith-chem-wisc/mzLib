@@ -8,8 +8,8 @@ namespace Readers.DeNovoMapping;
 
 /// <summary>
 /// The tab-separated mapping summary: one <see cref="DeNovoMappingResult"/> per database, followed by
-/// one prediction-count column per mzTab file. The host-ambiguity columns, the only optional ones, are written only when
-/// a result has a host (<see cref="DeNovoMappingResult.HasHost"/>).
+/// one prediction-count column per mzTab file. The host-ambiguity columns are written only when a result has a host
+/// (<see cref="DeNovoMappingResult.HasHost"/>).
 /// </summary>
 public class DeNovoMappingResultFile : ResultFile<DeNovoMappingResult>, IResultFile
 {
@@ -97,13 +97,12 @@ public class DeNovoMappingResultFile : ResultFile<DeNovoMappingResult>, IResultF
 
         using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), CsvConfiguration);
 
-        // Without a host the summary keeps exactly the columns it had before host ambiguity existed: the optional
-        // columns are the host ones.
+        // Without a host the host columns are left out.
         var classMap = new DefaultClassMap<DeNovoMappingResult>();
         classMap.AutoMap(CsvConfiguration);
         if (!Results.Any(r => r.HasHost))
         {
-            foreach (var memberMap in classMap.MemberMaps.Where(m => m.Data.IsOptional))
+            foreach (var memberMap in classMap.MemberMaps.Where(m => Attribute.IsDefined(m.Data.Member!, typeof(HostColumnAttribute))))
                 memberMap.Ignore();
         }
         csv.Context.RegisterClassMap(classMap);

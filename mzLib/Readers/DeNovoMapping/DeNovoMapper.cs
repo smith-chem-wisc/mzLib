@@ -176,7 +176,11 @@ public class DeNovoMapper
             HostProteinCount = HostProteinCount,
             UniqueUnambiguousPeptidesMapped = HasHost ? database.TargetHits.Count(hit => !IsHostShared(hit)) : 0,
             UniqueUnambiguousProteinsMapped = database.UnambiguouslyMatchedProteins.Count,
+            UniqueDecoyPeptidesMapped = database.DecoyHits.Count,
+            UniqueUnambiguousDecoyPeptidesMapped = HasHost ? database.DecoyHits.Count(hit => !IsHostShared(hit)) : -1,
         };
+
+        AddPeptideValues(result, database.TargetHits);
 
         // Hits in prediction order, so the score and retention-time lists come out as if every prediction were visited.
         var hits = new List<(int Prediction, bool IsTarget)>();
@@ -279,6 +283,42 @@ public class DeNovoMapper
     {
         accumulator.Clear();
         _accumulatorPool.Add(accumulator);
+    }
+
+    /// <summary>
+    /// One value per target peptide: the median retention-time error and the median score of its predictions, so a
+    /// peptide predicted many times counts once. Peptides come in the order of their first prediction.
+    /// </summary>
+    private void AddPeptideValues(DeNovoMappingResult result, HashSet<int[]> targetHits)
+    {
+        var errors = new List<double>();
+        var scores = new List<double>();
+        foreach (var predictionIndices in targetHits.OrderBy(hit => hit[0]))
+        {
+            errors.Clear();
+            scores.Clear();
+            foreach (int p in predictionIndices)
+            {
+                var prediction = Predictions[p];
+                scores.Add(prediction.Score);
+                if (prediction is { ObservedRetentionTime: { } observed, CalibratedRetentionTime: { } calibrated })
+                    errors.Add(observed - calibrated);
+            }
+
+            bool unambiguous = HasHost && !IsHostShared(predictionIndices);
+            double score = DeNovoMappingResult.Median(scores);
+            result.PeptidePredictionScores.Add(score);
+            if (unambiguous)
+                result.UnambiguousPeptidePredictionScores.Add(score);
+
+            // A peptide none of whose predictions has both retention times has no error to report.
+            if (errors.Count == 0)
+                continue;
+            double error = DeNovoMappingResult.Median(errors);
+            result.PeptideRetentionTimeErrors.Add(error);
+            if (unambiguous)
+                result.UnambiguousPeptideRetentionTimeErrors.Add(error);
+        }
     }
 
     /// <summary>

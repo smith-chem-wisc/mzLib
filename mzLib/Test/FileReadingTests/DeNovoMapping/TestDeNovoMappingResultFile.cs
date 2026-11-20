@@ -172,6 +172,12 @@ namespace Test.FileReadingTests.DeNovoMapping
                     Assert.That(result.UnambiguousRetentionTimeErrors, Is.Empty);
                     Assert.That(result.UnambiguousTargetPredictionScores, Is.Empty);
                     Assert.That(result.UnambiguousDecoyPredictionScores, Is.Empty);
+                    Assert.That(result.PeptideRetentionTimeErrors, Is.Empty);
+                    Assert.That(result.PeptidePredictionScores, Is.Empty);
+                    Assert.That(result.UniqueDecoyPeptidesMapped, Is.EqualTo(-1));
+                    Assert.That(result.UniqueUnambiguousDecoyPeptidesMapped, Is.EqualTo(-1));
+                    Assert.That(result.UnambiguousPeptideRetentionTimeErrors, Is.Empty);
+                    Assert.That(result.UnambiguousPeptidePredictionScores, Is.Empty);
                 });
             }
             Assert.That(file.First().PredictionCountsByFile.Keys, Is.EqualTo(new[] { "H1N1_Virus_Spike_in_C1_3_DefaultParams" }));
