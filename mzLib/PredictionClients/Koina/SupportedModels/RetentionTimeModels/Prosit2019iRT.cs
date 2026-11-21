@@ -23,7 +23,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </remarks>
     public class Prosit2019iRT : RetentionTimeModel
     {
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        // Koina: the subset mzLib allows of ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
             UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
 
@@ -59,6 +61,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </summary>
         public override bool IsIndexedRetentionTimeModel => true;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public Prosit2019iRT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
@@ -90,7 +93,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </remarks>
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)
             {

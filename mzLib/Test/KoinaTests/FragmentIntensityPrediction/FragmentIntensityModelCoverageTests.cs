@@ -8,6 +8,8 @@ using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
+using Proteomics.ProteolyticDigestion;
+using Readers.ProForma;
 
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
@@ -152,7 +154,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 "PEPTIDEK", "PEPTIDEK", 2,
                 FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
                 FragmentMZs: new List<double> { 227.0, 375.0 },
-                FragmentIntensities: new List<double> { 0.9, 0.4 }) { CleanedFullSequence = "PEPTIDEK" };
+                FragmentIntensities: new List<double> { 0.9, 0.4 });
             model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
 
             var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out var warning);
@@ -173,7 +175,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 "PEPTIDEK", "PEPTIDEK", 2,
                 FragmentAnnotations: new List<string> { "b2+1", "y3+1", "y4+1" },
                 FragmentMZs: new List<double> { 227.0, 375.0, 400.0 },
-                FragmentIntensities: new List<double> { 0.9, -1.0, 1e-9 }) { CleanedFullSequence = "PEPTIDEK" };
+                FragmentIntensities: new List<double> { 0.9, -1.0, 1e-9 });
             model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
 
             var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _, minIntensityFilter: 1e-4);
@@ -190,7 +192,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 "PEPTIDEK", "PEPTIDEK", 2,
                 FragmentAnnotations: new List<string> { "b2+1" },
                 FragmentMZs: new List<double> { 227.0 },
-                FragmentIntensities: new List<double> { 0.9 }) { CleanedFullSequence = "PEPTIDEK" };
+                FragmentIntensities: new List<double> { 0.9 });
             model.Seed(
                 new List<PeptideFragmentIntensityPrediction> { prediction, prediction },
                 new[] { true, true });
@@ -219,7 +221,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             var model = new CoverageModel();
             var prediction = new PeptideFragmentIntensityPrediction(
                 "PEPTIDEK", "PEPTIDEK", 2,
-                new List<string> { "b2+1" }, new List<double> { 227.0 }, new List<double> { 0.9 }) { CleanedFullSequence = "PEPTIDEK" };
+                new List<string> { "b2+1" }, new List<double> { 227.0 }, new List<double> { 0.9 });
             model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
 
             Assert.Throws<ArgumentException>(
@@ -237,11 +239,11 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             var model = new CoverageModel(FragmentIonMappingMode.MapToValidatedFullSequence);
             var prediction = new PeptideFragmentIntensityPrediction(
                 FullSequence: "PEPM[Common Variable:Oxidation on M]TIDEK", // requested (modified)
-                ValidatedFullSequence: "PEPMTIDEK",                        // sent to Koina: incompatible mod stripped
+                ValidatedFullSequence: "PEPMTIDEK",                        // cleaned: incompatible mod stripped
                 PrecursorCharge: 2,
                 FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
                 FragmentMZs: new List<double> { 227.0, 375.0 },
-                FragmentIntensities: new List<double> { 0.9, 0.4 }) { CleanedFullSequence = "PEPMTIDEK" };
+                FragmentIntensities: new List<double> { 0.9, 0.4 });
             model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
 
             var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);
@@ -249,6 +251,67 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             Assert.That(spectra.Count, Is.EqualTo(1));
             Assert.That(spectra[0].Sequence, Is.EqualTo("PEPMTIDEK"),
                 "Spectrum label must match the sequence the masses were built from (validated), not the requested FullSequence.");
+        }
+
+        [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToInputFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToInputFullSequence)]
+        public void GenerateLibrarySpectra_HandSeededPrediction_IsReadWithItsOwnParser(string sequence, bool proForma, string? expectedLabel, FragmentIonMappingMode mappingMode)
+        {
+            var model = new CoverageModel(mappingMode);
+            var prediction = new PeptideFragmentIntensityPrediction(
+                sequence, sequence, 2,
+                FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
+                FragmentMZs: new List<double> { 0.0, 0.0 },
+                FragmentIntensities: new List<double> { 0.9, 0.4 })
+            { SequenceParser = proForma ? ProFormaSequenceParser.Instance : null };
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);
+
+            Assert.That(spectra.Count, Is.EqualTo(1));
+            if (expectedLabel != null)
+                Assert.That(spectra[0].Sequence, Is.EqualTo(expectedLabel));
+            Assert.That(spectra[0].PrecursorMz,
+                Is.EqualTo(new PeptideWithSetModifications("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K").MonoisotopicMass.ToMz(2)).Within(1e-4));
+        }
+
+        private const string CustomModPeptide = "PEPK[Custom:Nameless on K]R";
+
+        [Test]
+        public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_IsSkippedAloneWithAWarning(
+            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode,
+            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
+        {
+            var model = new CoverageModel(mappingMode) { ModHandlingMode = mode };
+            var unreadable = new PeptideFragmentIntensityPrediction(
+                CustomModPeptide, CustomModPeptide, 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            var readable = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEK", "PEPTIDEK", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { unreadable, readable }, new[] { true, true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0, 31.0 }, out var warning);
+
+            Assert.That(spectra.Select(s => s.Sequence), Is.EqualTo(new[] { "PEPTIDEK" }));
+            Assert.That(spectra[0].RetentionTime, Is.EqualTo(31.0));
+            Assert.That(warning?.Message, Does.Contain(CustomModPeptide).And.Contain("No file path"));
+        }
+
+        [Test]
+        public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_ThrowsInThrowExceptionMode(
+            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode)
+        {
+            var model = new CoverageModel(mappingMode) { ModHandlingMode = SequenceConversionHandlingMode.ThrowException };
+            var unreadable = new PeptideFragmentIntensityPrediction(
+                CustomModPeptide, CustomModPeptide, 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { unreadable }, new[] { true });
+
+            Assert.That(() => model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _),
+                Throws.ArgumentException.With.Message.Contains(CustomModPeptide));
         }
 
         [Test]
@@ -263,7 +326,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 "PEPTIDEK", "PEPTIDEK", 2,
                 FragmentAnnotations: new List<string> { "y3+1", "y3-H2O+1" },
                 FragmentMZs: new List<double> { 0.0, 0.0 },   // recomputed from theoretical products
-                FragmentIntensities: new List<double> { 0.7, 0.5 }) { CleanedFullSequence = "PEPTIDEK" };
+                FragmentIntensities: new List<double> { 0.7, 0.5 });
             model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
 
             var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);

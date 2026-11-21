@@ -13,6 +13,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// for each detectability class from a detectability prediction model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     /// <param name="DetectabilityProbabilities">Probability scores for each detectability class (Not Detectable, Low, Intermediate, High)</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideDetectabilityPrediction(
@@ -23,7 +24,13 @@ namespace PredictionClients.Koina.AbstractClasses
          double IntermediateDetectability,
          double HighDetectability)? DetectabilityProbabilities,
         WarningException? Warning = null
-    );
+    )
+    {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
+    }
 
     /// <summary>
     /// Represents the input parameters for detectability prediction models from the Koina API.
@@ -38,8 +45,13 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
+        /// <summary>
+        /// The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.
+        /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
+        internal CanonicalSequence? CleanedSequence { get; init; }
+        internal string? KoinaSequence { get; init; }
     }
 
     /// <summary>
@@ -79,6 +91,12 @@ namespace PredictionClients.Koina.AbstractClasses
             : base(sequenceConverter)
         {
         }
+
+        /// <summary>
+        /// The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.
+        /// </summary>
+        protected static string GetKoinaSequence(DetectabilityPredictionInput input) =>
+            input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
         #region Model-Specific Properties
         /// <summary>
@@ -134,17 +152,15 @@ namespace PredictionClients.Koina.AbstractClasses
 
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
-            var validInputs = new List<DetectabilityPredictionInput>();
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
+                var validatedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var koinaSequence, out var modHandlingWarning);
 
-                if (cleanedSequence != null && apiSequence != null)
+                if (validatedSequence != null && koinaSequence != null)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = validatedSequence, CleanedSequence = koinaSequence, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = true;
-                    validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
@@ -153,6 +169,23 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
             #endregion
+
+            var validInputs = new List<DetectabilityPredictionInput>();
+            for (int i = 0; i < ModelInputs.Count; i++)
+            {
+                if (!ValidInputsMask[i])
+                    continue;
+
+                var koinaSequence = SerializeKoinaSequence(ModelInputs[i].CleanedSequence!.Value, out var serializationWarning);
+                if (koinaSequence == null)
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = serializationWarning };
+                    ValidInputsMask[i] = false;
+                    continue;
+                }
+                ModelInputs[i] = ModelInputs[i] with { KoinaSequence = koinaSequence };
+                validInputs.Add(ModelInputs[i]);
+            }
 
             var predictions = new List<PeptideDetectabilityPrediction>();
             IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
@@ -184,7 +217,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                         DetectabilityProbabilities: null,
                         Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
-                    ));
+                    ) { SequenceParser = ModelInputs[i].SequenceParser });
                 }
             }
 
@@ -276,7 +309,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         HighDetectability: peptideFlyabilityClassProbs[3]
                     ),
                     Warning: requestInputs[i].SequenceWarning
-                ));
+                ) { SequenceParser = requestInputs[i].SequenceParser });
             }
 
             return predictions;

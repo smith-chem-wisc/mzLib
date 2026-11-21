@@ -11,7 +11,7 @@ namespace PredictionClients.Koina.SupportedModels.CCSModels
     public class AlphaPeptDeepCCSGeneric : CollisionalCrossSectionModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "AlphaPeptDeep_ccs_generic";
         public override int MaxBatchSize => 1000;
@@ -41,7 +41,7 @@ namespace PredictionClients.Koina.SupportedModels.CCSModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<CCSPredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);

@@ -19,11 +19,11 @@ public class KoinaModelBaseTests
         private readonly Func<string, CanonicalSequence?> _parse;
         private readonly Func<CanonicalSequence, string?> _serialize;
 
-        public FakeSequenceConverter(Func<string, CanonicalSequence?> parse, Func<CanonicalSequence, string?> serialize)
+        public FakeSequenceConverter(Func<string, CanonicalSequence?> parse, Func<CanonicalSequence, string?> serialize, string? parserFormatName = null)
         {
             _parse = parse;
             _serialize = serialize;
-            Parser = new FakeSequenceParser(parse);
+            Parser = new FakeSequenceParser(parse, formatName: parserFormatName);
         }
 
         public string FormatName => "fake-fake";
@@ -54,13 +54,14 @@ public class KoinaModelBaseTests
     {
         private readonly Func<string, CanonicalSequence?> _parse;
 
-        public FakeSequenceParser(Func<string, CanonicalSequence?> parse, SequenceFormatSchema? schema = null)
+        public FakeSequenceParser(Func<string, CanonicalSequence?> parse, SequenceFormatSchema? schema = null, string? formatName = null)
         {
             _parse = parse;
             Schema = schema ?? MzLibSequenceFormatSchema.Instance;
+            FormatName = formatName ?? ProFormaSequenceParser.Instance.FormatName;
         }
 
-        public string FormatName => "fake";
+        public string FormatName { get; }
         public SequenceFormatSchema Schema { get; }
         public bool CanParse(string input) => true;
 
@@ -103,12 +104,20 @@ public class KoinaModelBaseTests
 
         public string? TryClean(string sequence, out string? apiSequence, out WarningException? warning)
         {
-            return TryCleanSequence(sequence, null, out apiSequence, out warning);
+            return TryCleanWithParser(sequence, null, out apiSequence, out warning);
         }
 
         public string? TryCleanWithParser(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
         {
-            return TryCleanSequence(sequence, sourceParser, out apiSequence, out warning);
+            var validated = TryCleanSequence(sequence, sourceParser, out var koinaSequence, out warning);
+            apiSequence = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+            return validated;
+        }
+
+        public string? SerializeForKoina(string sequence, out WarningException? warning)
+        {
+            TryCleanSequence(sequence, null, out var koinaSequence, out _);
+            return SerializeKoinaSequence(koinaSequence!.Value, out warning);
         }
 
         public static ISequenceConverter BuildConverter(IReadOnlySet<int> allowedUnimodIds)
@@ -360,6 +369,91 @@ public class KoinaModelBaseTests
         Assert.That(warning?.Message, Does.Contain("UNIMOD:35"));
     }
 
+    [TestCase("PEPM[Common Variable:Oxidation on M]TIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPMTIDEC[Common Fixed:Carbamidomethyl on C]K")]
+    [TestCase("PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K", true, "PEPMTIDEC[UNIMOD:4]K")]
+    public void TryCleanSequence_RemoveIncompatibleElements_DropsTheModificationFromTheValidatedSequenceAndThePayload(
+        string sequence, bool proForma, string expected)
+    {
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int> { 4 }),
+            SequenceConversionHandlingMode.RemoveIncompatibleElements, new HashSet<int> { 4 });
+
+        var result = model.TryCleanWithParser(sequence, proForma ? ProFormaSequenceParser.Instance : null, out var apiSequence, out _);
+
+        Assert.That(result, Is.EqualTo(expected));
+        Assert.That(apiSequence, Is.EqualTo("PEPMTIDEC[UNIMOD:4]K"));
+    }
+
+    [TestCase("PEPM[Common Variable:Oxidation on M]TIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K")]
+    [TestCase("PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K", true, "PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K")]
+    [TestCase("[Multiplex Label:TMT6-plex on X]PEPTIDEK-[Unimod:Amidated on X]", false, "[UNIMOD:737]PEPTIDEK-[UNIMOD:2]")]
+    [TestCase("[UNIMOD:737]-PEPTIDEK-[UNIMOD:2]", true, "[UNIMOD:737]PEPTIDEK-[UNIMOD:2]")]
+    public void TryCleanSequence_ValidatedSequence_StaysInTheSourceFormat(string sequence, bool proForma, string expectedApiSequence)
+    {
+        var allowed = new HashSet<int> { 4, 35, 737, 2 };
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(allowed), allowedUnimodIds: allowed);
+
+        var result = model.TryCleanWithParser(sequence, proForma ? ProFormaSequenceParser.Instance : null, out var apiSequence, out var warning);
+
+        Assert.That(result, Is.EqualTo(sequence), warning?.Message);
+        Assert.That(apiSequence, Is.EqualTo(expectedApiSequence));
+    }
+
+    [Test]
+    public void TryCleanSequence_ParserWithNoRegisteredSerializer_FailsWithAWarningNamingTheFormat(
+        [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
+    {
+        var parser = new FakeSequenceParser(_ => CanonicalSequence.Unmodified("PEPTIDEK", "unwritable"), formatName: "unwritable");
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int>()), mode);
+
+        var result = model.TryCleanWithParser("PEPTIDEK", parser, out var apiSequence, out var warning);
+
+        Assert.That(result, Is.Null);
+        Assert.That(apiSequence, Is.Null);
+        Assert.That(warning?.Message, Does.Contain("'unwritable'"));
+    }
+
+    [Test]
+    public void TryCleanSequence_NullSourceParser_WritesInTheConvertersOwnParsersFormat()
+    {
+        var converter = new FakeSequenceConverter(_ => CanonicalSequence.Unmodified("PEPTIDEK", "unwritable"), _ => "PEPTIDEK", "unwritable");
+        var model = new KoinaModelHarness(converter);
+
+        var result = model.TryClean("PEPTIDEK", out _, out var warning);
+
+        Assert.That(result, Is.Null);
+        Assert.That(warning?.Message, Does.Contain("'unwritable'"));
+    }
+
+    // No catalog name is normalized to an RNA modification today, so this pins the lookups themselves.
+    [Test]
+    public void SourceSerializer_ForMzLibAndProForma_ResolvesProteinModificationsOnly(
+        [Values("mzLib", "ProForma")] string format)
+    {
+        ISequenceParser parser = format == "mzLib" ? MzLibSequenceParser.Instance : ProFormaSequenceParser.Instance;
+        var getSourceSerializer = typeof(KoinaModelBase<string, string>).GetMethod("GetSourceSerializer", BindingFlags.NonPublic | BindingFlags.Static)!;
+        ProFormaSequenceConversion.RegisterWithDefault();
+        var registered = SequenceConversionService.Default.GetSerializer(parser.FormatName)!;
+        var used = (ISequenceSerializer)getSourceSerializer.Invoke(null, new object[] { parser })!;
+        var rna = Mods.MetaMorpheusRnaModifications.First(m => m.IdWithMotif == "N6,2'-O-dimethyladenosine on A");
+
+        var fromRegistered = registered.ModificationLookup!.TryResolve(rna.IdWithMotif, 'A');
+        var fromUsed = used.ModificationLookup!.TryResolve(rna.IdWithMotif, 'A');
+
+        Assert.That(used.GetType(), Is.EqualTo(registered.GetType()));
+        Assert.That(Mods.AllRnaModsList, Does.Contain(fromRegistered?.MzLibModification), "the registered lookup includes RNA modifications");
+        Assert.That(fromUsed?.MzLibModification is { } resolved && Mods.AllRnaModsList.Contains(resolved), Is.False);
+    }
+
+    [Test]
+    public void TryCleanSequence_ParserWithNoRegisteredSerializerThrowMode_Throws()
+    {
+        var parser = new FakeSequenceParser(_ => CanonicalSequence.Unmodified("PEPTIDEK", "unwritable"), formatName: "unwritable");
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int>()), SequenceConversionHandlingMode.ThrowException);
+
+        Assert.That(() => model.TryCleanWithParser("PEPTIDEK", parser, out _, out _),
+            Throws.ArgumentException.With.Message.Contains("'unwritable'"));
+    }
+
     [Test]
     public void TryCleanSequence_InvalidBaseSequenceThrowMode_Throws()
     {
@@ -462,17 +556,20 @@ public class KoinaModelBaseTests
     }
 
     [Test]
-    public void TryCleanSequence_WhenSerializeThrows_BuildsWarningAndReturnsNull()
+    public void SerializeKoinaSequence_WhenSerializeThrows_BuildsWarningAndReturnsNull()
     {
         var converter = new FakeSequenceConverter(
             parse: _ => CanonicalSequence.Unmodified("PEPTIDE", "fake"),
             serialize: _ => throw new SequenceConversionException("serialize failed", ConversionFailureReason.InvalidSequence));
         var model = new KoinaModelHarness(converter);
 
-        var result = model.TryClean("PEPTIDE", out var apiSequence, out var warning);
+        var result = model.TryClean("PEPTIDE", out var apiSequence, out var cleaningWarning);
+        var koinaSequence = model.SerializeForKoina("PEPTIDE", out var warning);
 
-        Assert.That(result, Is.Null);
+        Assert.That(result, Is.EqualTo("PEPTIDE"));
+        Assert.That(cleaningWarning, Is.Null);
         Assert.That(apiSequence, Is.Null);
+        Assert.That(koinaSequence, Is.Null);
         Assert.That(warning, Is.Not.Null);
         Assert.That(warning!.Message, Does.Contain("serialize failed"));
     }
@@ -490,7 +587,7 @@ public class KoinaModelBaseTests
 
         var result = model.TryClean(mzLibSequence, out var apiSequence, out var warning);
 
-        Assert.That(result, Is.EqualTo(mzLibSequence), "the cleaned sequence, in mzLib notation");
+        Assert.That(result, Is.EqualTo(mzLibSequence));
         Assert.That(apiSequence, Is.EqualTo(expectedApiSequence));
         Assert.That(warning, Is.Null);
     }

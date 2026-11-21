@@ -103,6 +103,7 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         var sb = new StringBuilder();
 
         // Handle N-terminal modification
+        string? nTermOnFirstResidue = null;
         var nTermMod = sequence.NTerminalModification;
         if (nTermMod.HasValue)
         {
@@ -110,7 +111,11 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
             if (modString == null && mode == SequenceConversionHandlingMode.ReturnNull)
                 return null;
             
-            if (modString != null)
+            if (modString != null && WritesNTerminalModificationOnFirstResidue)
+            {
+                nTermOnFirstResidue = $"{Schema.ModOpenBracket}{modString}{Schema.ModCloseBracket}";
+            }
+            else if (modString != null)
             {
                 sb.Append(Schema.ModOpenBracket);
                 sb.Append(modString);
@@ -147,6 +152,9 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
                     sb.Append(Schema.ModCloseBracket);
                 }
             }
+
+            if (i == 0 && nTermOnFirstResidue != null)
+                sb.Append(nTermOnFirstResidue);
         }
 
         // Handle C-terminal modification
@@ -173,6 +181,12 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// True for a format with no N-terminal position, which writes an N-terminal modification after the first residue and
+    /// that residue's own modification. False by default.
+    /// </summary>
+    protected virtual bool WritesNTerminalModificationOnFirstResidue => false;
 
     /// <summary>
     /// Gets the string representation of a modification for serialization.

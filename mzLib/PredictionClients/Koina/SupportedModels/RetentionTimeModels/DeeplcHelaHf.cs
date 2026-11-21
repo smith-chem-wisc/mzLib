@@ -10,7 +10,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     public class DeeplcHelaHf : RetentionTimeModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "Deeplc_hela_hf";
         public override int MaxBatchSize => 1000;
@@ -37,7 +37,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)
             {

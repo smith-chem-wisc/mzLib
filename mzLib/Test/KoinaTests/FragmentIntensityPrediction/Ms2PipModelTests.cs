@@ -142,8 +142,8 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
         {
             var modelInputs = new List<FragmentIntensityPredictionInput>
             {
-                new("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", 2, 35, null, null),
-                new("[Common Fixed:TMT6plex on N-terminus]ACDEFGHIKLMNPQRSTVWY", 3, 35, null, null)
+                new("[Multiplex Label:TMT6-plex on X]PEPTIDEK", 2, 35, null, null),
+                new("[Multiplex Label:TMT6-plex on X]ACDEFGHIKLMNPQRSTVWY", 3, 35, null, null)
             };
 
             var model = new Ms2PipCIDTMT();
@@ -164,7 +164,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
         {
             var modelInputs = new List<FragmentIntensityPredictionInput>
             {
-                new("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", 2, 35, null, null)
+                new("[Multiplex Label:TMT6-plex on X]PEPTIDEK", 2, 35, null, null)
             };
 
             var model = new Ms2PipCIDTMT();

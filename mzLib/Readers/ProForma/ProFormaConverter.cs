@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using MzLibUtil;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 using Tdp = TopDownProteomics.ProForma;
 
 namespace Readers.ProForma
@@ -51,6 +52,10 @@ namespace Readers.ProForma
         /// </summary>
         private static readonly ConditionalWeakTable<Dictionary<string, Modification>, Dictionary<string, List<Modification>>>
             AccessionIndexCache = new();
+
+        // Not AllKnownProteinModsDictionary: one entry per IdWithMotif drops UniProt's "Deoxyhypusine on K" (MOD:01880).
+        private static readonly Lazy<Dictionary<string, List<Modification>>> CatalogAccessionIndex =
+            new(() => BuildAccessionIndex(Mods.AllProteinModsList));
 
         /// <summary>
         /// Converts a term into the (one-is-N-terminus) modification dictionary mzLib uses.
@@ -138,6 +143,7 @@ namespace Readers.ProForma
         /// <summary>
         /// Emits an accession (Identifier) descriptor like <c>[UNIMOD:35]</c> when the modification
         /// carries a recognized ontology reference, otherwise a Name descriptor like <c>[Oxidation]</c>.
+        /// A UNIMOD reference whose record has a different mass is skipped (see <see cref="Mods.MatchesUnimodRecordMass"/>).
         /// </summary>
         internal static Tdp.ProFormaDescriptor BuildDescriptor(Modification mod)
         {
@@ -151,7 +157,8 @@ namespace Readers.ProForma
                     {
                         if (DbKeyToProFormaPrefix.TryGetValue(dbKey, out var p)
                             && string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase)
-                            && ids is { Count: > 0 })
+                            && ids is { Count: > 0 }
+                            && !(prefix == "UNIMOD" && int.TryParse(ids[0], out var unimodId) && !Mods.MatchesUnimodRecordMass(mod, unimodId)))
                             return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], ToAccession(prefix, ids[0]));
                     }
                 }
@@ -167,6 +174,20 @@ namespace Readers.ProForma
         /// </summary>
         private static string ToAccession(string prefix, string id) =>
             id.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ? id : $"{prefix}:{id}";
+
+        internal static Modification? FindCatalogModification(string accession, string sequence,
+            ModificationPositionType position, int? residueIndex)
+        {
+            if (!CatalogAccessionIndex.Value.TryGetValue(accession, out var candidates))
+                return null;
+
+            return position switch
+            {
+                ModificationPositionType.NTerminus => SelectCandidate(candidates, TerminalResidue(sequence, Terminus.N), Terminus.N),
+                ModificationPositionType.CTerminus => SelectCandidate(candidates, TerminalResidue(sequence, Terminus.C), Terminus.C),
+                _ => SelectCandidate(candidates, sequence[residueIndex!.Value], Terminus.None),
+            };
+        }
 
         /// <summary>
         /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).
