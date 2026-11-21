@@ -17,6 +17,18 @@ namespace Omics.SpectrumMatch
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
         public bool IsDecoy { get; set; }
 
+        public string? FragmentModelName
+        {
+            get;
+            set => field = SingleCommentToken(value, nameof(FragmentModelName));
+        }
+
+        public string? RetentionTimeModelName
+        {
+            get;
+            set => field = SingleCommentToken(value, nameof(RetentionTimeModelName));
+        }
+
         public virtual string Name => Sequence + "/" + ChargeState.ToString(CultureInfo.InvariantCulture);
 
         public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) 
@@ -69,6 +81,14 @@ namespace Omics.SpectrumMatch
             {
                 spectrum.Append(" RT=" + RetentionTime.Value.ToString(CultureInfo.InvariantCulture));
             }
+            if (!string.IsNullOrEmpty(FragmentModelName))
+            {
+                spectrum.Append(" FragmentModel=" + FragmentModelName);
+            }
+            if (!string.IsNullOrEmpty(RetentionTimeModelName))
+            {
+                spectrum.Append(" RTModel=" + RetentionTimeModelName);
+            }
             spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
 
             double maxIntensity = MatchedFragmentIons.Select(b => b.Intensity).Max();
@@ -90,6 +110,20 @@ namespace Omics.SpectrumMatch
             }
 
             return spectrum.ToString();
+        }
+
+        // The msp reader splits the comment line on spaces, ':' and '=', so a value holding one of them
+        // is read as other fields: "iRT:2019" as a retention time of 2019.
+        private static string? SingleCommentToken(string? value, string propertyName)
+        {
+            if (value != null && value.Any(c => char.IsWhiteSpace(c) || c == ':' || c == '='))
+            {
+                throw new ArgumentException(
+                    $"{propertyName} '{value}' cannot be written to an msp comment line: it contains whitespace, ':' or '='.",
+                    propertyName);
+            }
+
+            return value;
         }
 
         // For decoy library spectrum generation, we use the predicted m/z value of the decoy sequence and we use the decoy's corresponding target's library spectrum's intensity values as decoy's intensities
