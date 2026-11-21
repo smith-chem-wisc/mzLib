@@ -171,6 +171,17 @@ namespace Test.FileReadingTests.SpectralLibraryTests
         }
 
         [Test]
+        public static void LibrarySpectrum_Equals_DifferentModelNames_ReturnsTrue()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0) { FragmentModelName = "Prosit_2020_intensity_HCD", RetentionTimeModelName = "Chronologer" };
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            Assert.IsTrue(spectrum1.Equals(spectrum2));
+            Assert.AreEqual(spectrum1.GetHashCode(), spectrum2.GetHashCode());
+        }
+
+        [Test]
         public static void LibrarySpectrum_ObjectEquals_Null_ReturnsFalse()
         {
             var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 100, 1000, 1) };
