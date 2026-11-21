@@ -78,8 +78,9 @@ namespace PredictionClients.Koina.Client
 
         /// <summary>
         /// The exception for a non-success Koina response: a <see cref="KoinaServiceException"/> when
-        /// the body describes the server failing to run the model, otherwise a plain
-        /// <see cref="HttpRequestException"/>.
+        /// the body describes the server failing to run the model, a
+        /// <see cref="KoinaInputRejectedException"/> when the model refused one of the inputs, otherwise
+        /// a plain <see cref="HttpRequestException"/>. The message is the same for all three.
         /// </summary>
         /// <remarks>
         /// A factory rather than a branch inside the request method, so that the decision can be tested
@@ -89,9 +90,11 @@ namespace PredictionClients.Koina.Client
         public static HttpRequestException ForFailedResponse(int statusCode, string? reasonPhrase, string responseBody)
         {
             string message = $"Request failed with status {statusCode} {reasonPhrase}: {responseBody}";
-            return IsServiceFault(responseBody)
-                ? new KoinaServiceException(message, ExtractServerError(responseBody))
-                : new HttpRequestException(message);
+            if (IsServiceFault(responseBody))
+                return new KoinaServiceException(message, ExtractServerError(responseBody));
+            if (KoinaInputRejectedException.IsInputRejection(statusCode, responseBody))
+                return new KoinaInputRejectedException(message, ExtractServerError(responseBody));
+            return new HttpRequestException(message);
         }
 
         /// <summary>

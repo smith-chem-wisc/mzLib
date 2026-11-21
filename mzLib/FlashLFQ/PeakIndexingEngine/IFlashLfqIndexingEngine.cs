@@ -43,11 +43,12 @@ namespace FlashLFQ.Interfaces
         /// </summary>
         public void ClearIndex();
         /// <summary>
-        /// Write the indexed peaks to a file. File will be written to the same directory as the data file, as determined by the SpectraFileInfo property
+        /// Set the indexed peaks aside so ClearIndex can release them, to be restored by DeserializeIndex. An implementation may keep them
+        /// in memory when there is room; otherwise it writes them to a file in the same directory as the data file, as determined by the SpectraFileInfo property
         /// </summary>
         public void SerializeIndex();
         /// <summary>
-        /// Reads the indexed peaks from a file. File will be read from the same directory as the data file, as determined by the SpectraFileInfo property
+        /// Restore the indexed peaks set aside by SerializeIndex, from memory or from the file it wrote
         /// </summary>
         public void DeserializeIndex();
 

@@ -306,6 +306,10 @@ public static class SequenceConversionExtensions
         ArgumentNullException.ThrowIfNull(withSetMods);
         ArgumentNullException.ThrowIfNull(lookup);
 
+        // A digested peptide builds its full sequence when it is first read. Build it now, before its modifications are
+        // changed in place below, so it still describes the modifications the peptide was made with, as it always has.
+        _ = withSetMods.FullSequence;
+
         if (mode == SequenceConversionHandlingMode.UsePrimarySequence)
         {
             withSetMods.AllModsOneIsNterminus.Clear();

@@ -150,6 +150,57 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(modification.BlocksCleavage, Is.False);
         }
 
+        /// <summary>
+        /// Lysine acylations that the shipped unimod.xml carries, every one classified "Post-translational" on K
+        /// at "Anywhere", under titles no earlier stem reached. Most arrived with the 2026-02 Unimod refresh
+        /// (records 2072 and 2108-2121); Gluratylation, 3-phosphoglyceryl and Phosphogluconoylation shipped
+        /// before it. Each is an amide on the epsilon-amine, which removes the charge trypsin needs, exactly as
+        /// acetyl does. "Gluratylation" is Unimod's own misspelling of glutarylation (record 1848), which the
+        /// "glutaryl" stem therefore misses; "Isovaleryl" and "Pentanoyl" are isomeric C5 acyls.
+        /// </summary>
+        [Test]
+        [TestCase("Isovaleryl")]
+        [TestCase("Pentanoyl")]
+        [TestCase("Hexanoyl")]
+        [TestCase("Tiglyl")]
+        [TestCase("3-methylglutaconyl")]
+        [TestCase("Gluratylation")]
+        [TestCase("Pyruvoyl")]
+        [TestCase("Glyoxylyl")]
+        [TestCase("Itaconyl")]
+        [TestCase("Glyceroyl")]
+        [TestCase("3-phosphoglyceryl")]
+        [TestCase("Phosphogluconoylation")]
+        public static void AUnimodLysineAcylationNoEarlierStemReached_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// Two more ubiquitin-like isopeptide remnants that unimod.xml ships on K. UFM1 ends in Val-Gly, so its
+        /// tryptic remnant ("ValGly", record 2119, "UFMylation residue") ends in VG and the Gly-Gly token rule
+        /// misses it. Pup, the prokaryotic ubiquitin-like protein, leaves Gly-Gly-Glu ("pupylation", record
+        /// 1264, "addition of GGE"), named by the modifier the way the SUMO entries are.
+        /// </summary>
+        [Test]
+        [TestCase("ValGly")]
+        [TestCase("pupylation")]
+        public static void AUbiquitinLikeRemnantThatDoesNotEndInGlyGly_BlocksCleavage(string originalId)
+        {
+            Assert.That(MakeKModification(originalId).BlocksCleavage, Is.True);
+        }
+
+        /// <summary>
+        /// unimod.xml also ships "PyruvicAcidIminyl" on K, an imine on the epsilon-amine rather than an amide, and
+        /// it has never classified as blocking. Whether an imine blocks is a separate question; this pins only
+        /// that the pyruvoyl stem names the amide and is not shortened to "pyruv", which would decide it silently.
+        /// </summary>
+        [Test]
+        public static void PyruvicAcidIminyl_IsNotReachedByThePyruvoylStem()
+        {
+            Assert.That(MakeKModification("PyruvicAcidIminyl").BlocksCleavage, Is.False);
+        }
+
         [Test]
         public static void Digestion_PeptidoformEndingInBlockedLysine_IsDroppedWhenRespected()
         {
@@ -1035,6 +1086,44 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(Digested(respect: true).Any(p => p.OneBasedStartResidue == 6 && p.OneBasedEndResidue == 13
                     && p.AllModsOneIsNterminus.ContainsKey(9 - 6 + 2)), Is.EqualTo(maxMissedCleavages > 0),
                 "a blocked site is not a site, so the chain must be emitted as flag-off emits a chain spanning no site");
+        }
+
+        [Test]
+        [TestCase("Unimod", "Carbamyl on K")]
+        [TestCase("UniProt", "N6-carbamoyllysine on K")]
+        [TestCase("MetaMorpheus", "Carbamyl on K")]
+        public static void ShippedLysineCarbamylation_BlocksCleavageAndMayFormAfterDigestion(string source, string idWithMotif)
+        {
+            List<Modification> shipped = source switch
+            {
+                "Unimod" => Mods.UnimodModifications,
+                "UniProt" => Mods.UniprotModifications,
+                _ => Mods.MetaMorpheusProteinModifications,
+            };
+            Modification carbamylation = shipped.Single(m => m.IdWithMotif == idWithMotif);
+
+            Assert.That(carbamylation.BlocksCleavage, Is.True);
+            Assert.That(CleavageBlockingModifications.MayFormAfterDigestion(carbamylation), Is.True);
+        }
+
+        [Test]
+        public static void AModificationWithoutAnId_DoesNotFormAfterDigestion()
+        {
+            Assert.That(CleavageBlockingModifications.MayFormAfterDigestion(new Modification()), Is.False);
+        }
+
+        [Test]
+        public static void Digestion_PeptideEndingInCarbamylatedLysine_IsKeptWhileOtherBlockersAreDropped()
+        {
+            var carbamyl = MakeKModification("Carbamyl", mass: 43.005814);
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            List<string> modificationsEndingPeptidek = Digest(respectBlockingMods: true, maxMissedCleavages: 2, carbamyl, succinyl)
+                .Where(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p))
+                .Select(p => p.AllModsOneIsNterminus[p.BaseSequence.Length + 1].OriginalId)
+                .ToList();
+
+            Assert.That(modificationsEndingPeptidek, Is.EqualTo(new[] { "Carbamyl" }));
         }
     }
 }

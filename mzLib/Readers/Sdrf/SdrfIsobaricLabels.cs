@@ -7,9 +7,10 @@ namespace Readers
 {
     /// <summary>
     /// The one translation between an isobaric kit's channel as mzLib spells it
-    /// (<see cref="IsobaricMassTag.ChannelLabels"/>, which is also the spelling of <c>TmtDesign.txt</c>) and the SDRF
-    /// <c>comment[label]</c> that names it. A writer of SDRFs and <see cref="SdrfIsobaricDesign"/> both go through it, so
-    /// a design written as an SDRF reads back to the same channels (sdrf QP-S26).
+    /// (<see cref="IsobaricMassTag.ChannelLabels"/>, which is also the spelling of
+    /// <see cref="SdrfIsobaricDesign.TmtDesignFileName"/>) and the SDRF <c>comment[label]</c> that names it. A writer
+    /// of SDRFs and <see cref="SdrfIsobaricDesign"/> both go through it, so a design written as an SDRF reads back to
+    /// the same channels (sdrf QP-S26).
     /// <para>
     /// <b>The labels are PRIDE's, as sdrf-pipelines reads them:</b> <c>TMT</c> or <c>ITRAQ</c> and the channel, except
     /// that TMT10's last channel, 131N to mzLib, is <c>TMT131</c> (PRIDE:0000529; the <c>tmt10plex</c> table of

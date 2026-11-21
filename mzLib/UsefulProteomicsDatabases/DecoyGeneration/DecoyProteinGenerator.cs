@@ -204,15 +204,7 @@ namespace UsefulProteomicsDatabases
                 protein.FullName,
                 true,
                 protein.IsContaminant,
-                // Carry the taxonomy across, and ONLY the taxonomy. A decoy is a reversed
-                // sequence from this organism's database, so its organism is genuinely the
-                // same; it is not annotated in EMBL, GO or anywhere else, so copying every
-                // database reference would assert things about it that are false. Without this
-                // a FASTA target answered the taxonomy question and its decoy did not, which
-                // defeats the point of recording it.
-                protein.DatabaseReferences
-                    ?.Where(r => r.Type == Protein.NcbiTaxonomyDatabaseReferenceType)
-                    .ToList(),
+                TaxonomyReferencesOf(protein),
                 decoyVariations,
                 decoyAppliedVariations,
                 protein.SampleNameForVariants,
@@ -220,12 +212,44 @@ namespace UsefulProteomicsDatabases
                 spliceSites,
                 protein.DatabaseFilePath,
                 uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                 uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                 uniProtSequenceAttributes: DecoySequenceAttributes(protein.UniProtSequenceAttributes),
                  isEntrapment: protein.IsEntrapment,
                  nonVariantProtein: decoyConsensus,
                  oneBasedFixedModifications: decoyFixedModifications);
 
             return decoyProtein;
+        }
+
+        /// <summary>
+        /// The database references a sequence derived from <paramref name="protein"/> keeps: its NCBI taxonomy
+        /// reference and nothing else.
+        /// </summary>
+        /// <remarks>
+        /// A decoy or an entrapment partner is a rearranged sequence from this organism's database, so its
+        /// organism is genuinely the same. It is not annotated in EMBL, GO or anywhere else, so copying every
+        /// database reference would assert things about it that are false. Without the taxonomy a target answers
+        /// "which organism is this from?" and the sequence derived from it does not, so anything that groups a
+        /// search's proteins by taxon loses every decoy.
+        /// </remarks>
+        /// <returns>A new list, empty when the protein states no taxonomy. Never null.</returns>
+        internal static List<DatabaseReference> TaxonomyReferencesOf(Protein protein) =>
+            protein.DatabaseReferences
+                ?.Where(r => r.Type == Protein.NcbiTaxonomyDatabaseReferenceType)
+                .ToList()
+            ?? new List<DatabaseReference>();
+
+        /// <summary>
+        /// The target's sequence attributes without its displayed isoform: a decoy's sequence is no UniProt isoform, so
+        /// it must not claim the target's (and the writer would otherwise write it out for the decoy accession).
+        /// </summary>
+        private static UniProtSequenceAttributes DecoySequenceAttributes(UniProtSequenceAttributes target)
+        {
+            if (target.DisplayedIsoformId == null)
+            {
+                return target;
+            }
+            return new UniProtSequenceAttributes(target.Length, target.Mass, target.Checksum, target.EntryModified,
+                target.SequenceVersion, target.IsPrecursor, target.Fragment, null);
         }
 
         private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
@@ -451,7 +475,7 @@ namespace UsefulProteomicsDatabases
                     protein.FullName,
                     true,
                     protein.IsContaminant,
-                    null,
+                    TaxonomyReferencesOf(protein),
                     decoyVariationsSlide,
                     null,
                     protein.SampleNameForVariants,
@@ -459,7 +483,7 @@ namespace UsefulProteomicsDatabases
                     spliceSitesSlide,
                     protein.DatabaseFilePath,
                     uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                     uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                     uniProtSequenceAttributes: DecoySequenceAttributes(protein.UniProtSequenceAttributes),
                      isEntrapment: protein.IsEntrapment,
                      oneBasedFixedModifications: decoyFixedModifications);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }

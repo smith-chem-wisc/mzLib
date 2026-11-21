@@ -53,6 +53,32 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// Samples come back in the order each first appears (bridge SDRF-B2): neither alphabetical nor whatever a
+        /// dictionary happens to enumerate. "a1" is A1 spelled again, so it adds a row, not a sample. BySourceName
+        /// holds the same blocks and reports the same problems.
+        /// </summary>
+        [Test]
+        public void InDocumentOrderListsEachSampleWhereItFirstAppears()
+        {
+            var doc = Doc(Columns,
+                new[] { "Z9", "Homo sapiens", "liver", "1", "run 1", "a.raw", "TMT126", "normal" },
+                new[] { "A1", "Homo sapiens", "liver", "2", "run 1", "a.raw", "TMT127N", "normal" },
+                new[] { "", "Homo sapiens", "liver", "3", "run 1", "a.raw", "TMT127C", "normal" },
+                new[] { "M5", "Homo sapiens", "liver", "3", "run 2", "b.raw", "TMT126", "carcinoma" },
+                new[] { "a1", "Homo sapiens", "liver", "2", "run 2", "b.raw", "TMT127N", "normal" });
+
+            var list = SdrfSampleBlock.InDocumentOrder(doc, out var listProblems);
+            var byName = SdrfSampleBlock.BySourceName(doc, out var dictionaryProblems);
+
+            Assert.That(list.Select(b => b.SourceName), Is.EqualTo(new[] { "Z9", "A1", "M5" }));
+            Assert.That(list[1].RowCount, Is.EqualTo(2), "a1 is A1");
+            Assert.That(listProblems, Has.Count.EqualTo(1), "the blank source name");
+            Assert.That(dictionaryProblems, Is.EqualTo(listProblems));
+            Assert.That(byName.Values.Select(b => (b.SourceName, b.RowCount)),
+                Is.EquivalentTo(list.Select(b => (b.SourceName, b.RowCount))), "the same blocks, keyed");
+        }
+
+        /// <summary>
         /// Only the sample half travels. The assay columns are the search's own business -- it knows
         /// its enzyme and its instrument better than a deposited file does -- and copying them
         /// through would let someone else's assay overwrite the one actually run.

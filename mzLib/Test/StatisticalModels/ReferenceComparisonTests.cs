@@ -68,10 +68,13 @@ public class ReferenceComparisonTests
     }
 
     /// <param name="firstFeatures">Fit only the first this many features (all when null).</param>
-    private static LinearModelFit FitReferenceData(int? firstFeatures = null)
+    /// <param name="responsesFile">The responses fixture, one row per feature.</param>
+    /// <param name="designFile">The design fixture, one row per sample.</param>
+    private static LinearModelFit FitReferenceData(int? firstFeatures = null, string responsesFile = "limma_responses.tsv",
+        string designFile = "limma_design.tsv")
     {
-        var (_, responseRows) = ReadTsv("limma_responses.tsv");
-        var (designHeader, designRows) = ReadTsv("limma_design.tsv");
+        var (_, responseRows) = ReadTsv(responsesFile);
+        var (designHeader, designRows) = ReadTsv(designFile);
         int features = firstFeatures ?? responseRows.Count, samples = designRows.Count, p = designHeader.Length;
         var responses = new double[features, samples];
         for (int f = 0; f < features; f++)
@@ -150,6 +153,41 @@ public class ReferenceComparisonTests
         AssertClose(test.PValue, Expected("p_age"), "p.value");
     }
 
+    /// <summary>
+    /// When the feature variances spread no more than sampling explains, the prior's degrees of freedom are infinite
+    /// and every feature takes the prior variance. Without a trend, limma (since 3.32.0, 2017) sets that variance to
+    /// the mean of the features' variances; its earlier versions returned exp(mean(e)), the limit of the finite-df
+    /// formula, which is larger (here 0.0419 against 0.0392). make_infinite_prior_fixtures.R; R is not run here.
+    /// </summary>
+    [Test]
+    public void AnInfinitePriorDfTakesTheMeanVarianceAsLimmaDoes()
+    {
+        var fit = FitReferenceData(null, "limma_infinite_prior_responses.tsv", "limma_infinite_prior_design.tsv");
+        var test = EmpiricalBayes.Moderate(fit, "group", trend: false);
+        const string file = "limma_infinite_prior_ebayes.tsv";
+
+        Assert.That(test.Prior.Df, Is.EqualTo(double.PositiveInfinity));
+        AssertClose(test.Prior.Scale, Column(file, "s2_prior"), "s2.prior");
+        AssertClose(test.PosteriorVariance, Column(file, "s2_post"), "s2.post");
+        AssertClose(test.DfTotal, Column(file, "df_total"), "df.total");
+        AssertClose(test.T, Column(file, "t_group"), "t");
+        AssertClose(test.PValue, Column(file, "p_group"), "p.value");
+    }
+
+    /// <summary>
+    /// The same rule on the prior alone: three variances 0.10, 0.11 and 0.105 on 4 df spread less than sampling
+    /// explains, so limma 3.68.5's squeezeVar(legacy = TRUE) gives df.prior = Inf and var.prior = 0.105, their mean;
+    /// the pre-2017 limit exp(mean(e)) is 0.1375, 31% higher. With a trend the limit stays exp(fitted), as limma's.
+    /// </summary>
+    [Test]
+    public void AnInfinitePriorDfWithoutATrendIsTheMeanOfTheVariances()
+    {
+        var prior = EmpiricalBayes.FitPrior(new[] { 0.10, 0.11, 0.105 }, new[] { 4.0, 4.0, 4.0 });
+
+        Assert.That(prior.Df, Is.EqualTo(double.PositiveInfinity));
+        AssertClose(prior.Scale, new[] { 0.105, 0.105, 0.105 }, "s2.prior");
+    }
+
     [Test]
     public void DerSimonianLairdMatchesMetafor()
     {
@@ -169,6 +207,81 @@ public class ReferenceComparisonTests
             // tau² and I² are exactly 0 when Q <= k - 1, so compare them absolutely.
             Assert.That(r.Tau2, Is.EqualTo(Out(expected, "tau2")).Within(1e-12), $"{name} tau2");
             Assert.That(r.ISquared, Is.EqualTo(Out(expected, "i2")).Within(1e-12), $"{name} I2");
+        }
+    }
+
+    /// <summary>metafor <c>rma(method = "DL", test = "knha")</c> at 95% and 90% (make_hartung_knapp_fixtures.R).</summary>
+    [Test]
+    public void HartungKnappMatchesMetafor()
+    {
+        var (inHeader, inRows) = ReadTsv("hk_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("hk_results.tsv");
+        int c = Array.IndexOf(inHeader, "case"), yi = Array.IndexOf(inHeader, "yi"), sei = Array.IndexOf(inHeader, "sei");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        Assert.That(outRows, Has.Count.EqualTo(14));
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            double level = Out(expected, "level");
+            var studies = inRows.Where(r => r[c] == name).ToArray();
+            var r = RandomEffectsMeta.Pool(studies.Select(s => Parse(s[yi])).ToArray(),
+                studies.Select(s => Parse(s[sei])).ToArray(), level, RandomEffectsInference.HartungKnapp);
+            string what = $"{name} at {level}";
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "k")), what);
+            Assert.That(r.DegreesOfFreedom, Is.EqualTo(Out(expected, "df")), what);
+            AssertClose(new[] { r.Estimate, r.StandardError, r.ConfidenceLow, r.ConfidenceHigh, r.PValue },
+                new[] { Out(expected, "estimate"), Out(expected, "se"), Out(expected, "ci_lb"), Out(expected, "ci_ub"),
+                        Out(expected, "pval") }, what);
+            Assert.That(r.Tau2, Is.EqualTo(Out(expected, "tau2")).Within(1e-12), $"{what} tau2");
+        }
+    }
+
+    /// <summary>The partial conjunction closed form with base R's <c>pchisq</c> (make_partial_conjunction_fixtures.R).</summary>
+    [Test]
+    public void FisherPartialConjunctionMatchesPchisq()
+    {
+        var (inHeader, inRows) = ReadTsv("partial_conjunction_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("partial_conjunction_results.tsv");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            var p = inRows.Where(r => r[Array.IndexOf(inHeader, "case")] == name)
+                .Select(r => Parse(r[Array.IndexOf(inHeader, "p")])).ToArray();
+            int u = (int)Out(expected, "u");
+            var r = PValueCombination.FisherPartialConjunction(p, u);
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "n")), name);
+            AssertClose(new[] { r.Statistic, r.PValue }, new[] { Out(expected, "statistic"), Out(expected, "pval") }, $"{name} u={u}");
+        }
+    }
+
+    /// <summary>
+    /// Families selected by Benjamini–Hochberg on one p each, then each selected family adjusted within itself and compared
+    /// at q·R/m, against base R's <c>p.adjust</c> (make_partial_conjunction_fixtures.R).
+    /// </summary>
+    [Test]
+    public void BenjaminiBogomolovMatchesPAdjust()
+    {
+        var (inHeader, inRows) = ReadTsv("bogomolov_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("bogomolov_results.tsv");
+        int fc = Array.IndexOf(inHeader, "family");
+        var families = inRows.GroupBy(r => r[fc]).OrderBy(g => int.Parse(g.Key, CultureInfo.InvariantCulture)).ToList();
+        var familyP = families.Select(g => Parse(g.First()[Array.IndexOf(inHeader, "family_p")])).ToArray();
+        var within = families
+            .Select(g => (IReadOnlyList<double>)g.Select(r => Parse(r[Array.IndexOf(inHeader, "p")])).ToArray()).ToArray();
+        var selected = MultipleTesting.BenjaminiHochberg(familyP).Select(q => q <= 0.05).ToArray();
+
+        var adjustment = MultipleTesting.BenjaminiBogomolov(within, selected);
+
+        Assert.That(outRows, Has.Count.EqualTo(within.Sum(f => f.Count)));
+        foreach (var expected in outRows)
+        {
+            int f = int.Parse(expected[Array.IndexOf(outHeader, "family")], CultureInfo.InvariantCulture) - 1;
+            int i = int.Parse(expected[Array.IndexOf(outHeader, "index")], CultureInfo.InvariantCulture) - 1;
+            double Out(string col) => Parse(expected[Array.IndexOf(outHeader, col)]);
+            Assert.That(selected[f], Is.EqualTo(Out("selected") == 1), $"family {f + 1} selected");
+            AssertClose(new[] { adjustment.Adjusted[f][i], adjustment.Level }, new[] { Out("adjusted"), Out("level") },
+                $"family {f + 1} p {i + 1}");
         }
     }
 }

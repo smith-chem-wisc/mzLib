@@ -337,11 +337,11 @@ public sealed class TestMslFinalValidation
 		// Named neutral-loss masses (negative = mass lost from fragment)
 		var namedLosses = new[]
 		{
-			-18.010565,   // H2O
-            -17.026549,   // NH3
-            -97.976895,   // H3PO4
-            -79.966331,   // HPO3
-            -115.987460,  // H3PO4 + H2O (PlusH2O in enum)
+			18.010565,   // H2O
+            17.026549,   // NH3
+            97.976895,   // H3PO4
+            79.966331,   // HPO3
+            115.987460,  // H3PO4 + H2O (PlusH2O in enum)
         };
 
 		var entries = new List<MslLibraryEntry>();
@@ -815,7 +815,7 @@ public sealed class TestMslFinalValidation
 	/// Entries in order:
 	///   [0] PEPTIDE/2  — b2, y2; ProteinAccession="P12345"
 	///   [1] PEPTIDE/3  — b2, y2; same stripped seq as [0] → same ElutionGroupId
-	///   [2] ACDEFGHIK/2 — decoy; y3 with H2O neutral loss (−18.011 Da)
+	///   [2] ACDEFGHIK/2 — decoy; y3 with H2O neutral loss (18.011 Da)
 	///   [3] LGGNEQVTR/2 — b3, y4, bIb[3-6] internal ion
 	///   [4] LGGNEQVTR/3 — b3, y4, aIb[2-5]^2 internal ion
 	///   [5] ALGVGLATR/2 — Proteoform; b2, y5
@@ -866,7 +866,7 @@ public sealed class TestMslFinalValidation
 				ProteinAccession = string.Empty, QValue = float.NaN,
 				MatchedFragmentIons = new List<MslFragmentIon>
 				{
-					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 3, Charge = 1, Mz = 342.18f, Intensity = 1.00f, NeutralLoss = -18.010565, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
+					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 3, Charge = 1, Mz = 342.18f, Intensity = 1.00f, NeutralLoss = 18.010565, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 				}
 			},
             // [3] LGGNEQVTR/2 — b3, y4, bIb[3-6]

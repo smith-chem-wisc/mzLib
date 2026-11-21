@@ -278,4 +278,70 @@ public class TestFragmentCoElution
     }
 
     #endregion
+
+    #region allocation-free scoring matches the original
+
+    /// <summary>The co-elution score as first written, on MathNet's Pearson: the reference the allocation-free version must match.</summary>
+    private static double ReferenceScore(IReadOnlyList<double[]> traces, int from, int to)
+    {
+        int points = to - from + 1;
+        if (traces.Count < 2 || points < 3)
+            return 0;
+        var scaled = traces.Select(t => { double max = t.Skip(from).Take(points).Max(); return t.Skip(from).Take(points).Select(v => max > 0 ? v / max : 0).ToArray(); }).ToArray();
+        var total = Enumerable.Range(0, points).Select(s => scaled.Sum(f => f[s])).ToArray();
+        double sum = 0;
+        foreach (var f in scaled)
+        {
+            double r = MathNet.Numerics.Statistics.Correlation.Pearson(f, total.Select((t, s) => t - f[s]).ToArray());
+            if (double.IsFinite(r) && r > 0)
+                sum += r;
+        }
+        return sum / traces.Count;
+    }
+
+    /// <summary>
+    /// A fragment flat across the range makes the other fragments' sum for its partner (1 + f) - f: constant but for rounding.
+    /// MathNet's Pearson correlated that rounding with the partner (0.0125 in one case), so the pair scored above 0.
+    /// </summary>
+    [Test]
+    public void AFlatFragmentLendsItsPartnerNoCoElution()
+    {
+        var random = new Random(11);
+        var flat = Enumerable.Repeat(3.0, 7).ToArray();
+        for (int trial = 0; trial < 100; trial++)
+        {
+            var signal = Enumerable.Range(0, 7).Select(_ => random.NextDouble() < 0.3 ? 0 : random.NextDouble() * 1e6).ToArray();
+            Assert.That(FragmentCoElution.Score([signal, flat], 0, 6), Is.EqualTo(0), $"trial {trial}");
+        }
+    }
+
+    /// <summary>
+    /// Scoring every scan of every DIA candidate made the score the search's hot loop, so it now reuses one buffer and its own
+    /// Pearson. Random traces, including silent fragments, must score as before to rounding.
+    /// </summary>
+    [Test]
+    public void TheAllocationFreeScoreMatchesTheOriginal()
+    {
+        var random = new Random(7);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int fragments = random.Next(2, 9);
+            var traces = Enumerable.Range(0, fragments).Select(f => f == 0 && trial % 5 == 0 ? new double[Scans]
+                : Enumerable.Range(0, Scans).Select(_ => random.NextDouble() < 0.3 ? 0 : random.NextDouble() * 1e6).ToArray()).ToList();
+            int from = random.Next(0, Scans - 3), to = random.Next(from, Scans);
+            Assert.That(FragmentCoElution.Score(traces, from, to), Is.EqualTo(ReferenceScore(traces, from, to)).Within(1e-12), $"trial {trial}");
+
+            var library = Enumerable.Range(0, fragments).Select(_ => random.NextDouble()).ToArray();
+            var apex = FragmentCoElution.ApexScores(traces, library, 3);
+            for (int s = 0; s < Scans; s++)
+            {
+                double signal = traces.Sum(t => t[s]);
+                double expected = signal <= 0 ? 0 : MassSpectrometry.MzSpectra.SpectralSimilarity.CosineOfAlignedVectors(traces.Select(t => t[s]).ToArray(), library)
+                    * ReferenceScore(traces, Math.Max(0, s - 3), Math.Min(Scans - 1, s + 3)) * Math.Log(1 + signal);
+                Assert.That(apex[s], Is.EqualTo(expected).Within(1e-9 * Math.Max(1, Math.Abs(expected))), $"trial {trial}, scan {s}");
+            }
+        }
+    }
+
+    #endregion
 }

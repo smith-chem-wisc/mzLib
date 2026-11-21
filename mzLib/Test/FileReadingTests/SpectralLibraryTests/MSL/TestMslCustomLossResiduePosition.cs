@@ -168,9 +168,9 @@ public sealed class TestMslCustomLossResiduePosition
     /// For named neutral losses (H2O, NH3, H3PO4, and no-loss), ResiduePosition must
     /// round-trip correctly. The limitation is exclusive to custom-loss fragments.
     /// </summary>
-    [TestCase(-18.010565, TestName = "NamedLoss_H2O_ResiduePositionPreserved")]
-    [TestCase(-17.026549, TestName = "NamedLoss_NH3_ResiduePositionPreserved")]
-    [TestCase(-97.976895, TestName = "NamedLoss_H3PO4_ResiduePositionPreserved")]
+    [TestCase(18.010565, TestName = "NamedLoss_H2O_ResiduePositionPreserved")]
+    [TestCase(17.026549, TestName = "NamedLoss_NH3_ResiduePositionPreserved")]
+    [TestCase(97.976895, TestName = "NamedLoss_H3PO4_ResiduePositionPreserved")]
     [TestCase(0.0, TestName = "NoLoss_ResiduePositionPreserved")]
     public void NamedLoss_ResiduePosition_IsPreservedAfterRoundTrip(double namedLoss)
     {
@@ -276,7 +276,7 @@ public sealed class TestMslCustomLossResiduePosition
                 {
                     Mz = 300f, Intensity = 1.0f,
                     ProductType = ProductType.y, FragmentNumber = 3,
-                    ResiduePosition = 4, Charge = 1, NeutralLoss = -18.010565
+                    ResiduePosition = 4, Charge = 1, NeutralLoss = 18.010565
                 },
                 // Custom loss — ResiduePosition WILL be lost
                 new MslFragmentIon
@@ -297,7 +297,7 @@ public sealed class TestMslCustomLossResiduePosition
         MslFragmentIon? customIon = null;
         foreach (var ion in lib.Entries[0].MatchedFragmentIons)
         {
-            if (System.Math.Abs(ion.NeutralLoss - (-18.010565)) < 0.01) namedIon = ion;
+            if (System.Math.Abs(ion.NeutralLoss - (18.010565)) < 0.01) namedIon = ion;
             if (System.Math.Abs(ion.NeutralLoss - (-203.0794)) < 0.01) customIon = ion;
         }
 

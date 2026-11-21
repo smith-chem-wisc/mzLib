@@ -102,7 +102,7 @@ namespace Test.FileReadingTests.ProForma
 
             Assert.That(canonical, Is.Null);
             Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
-            Assert.That(warnings.Errors, Has.Some.Contains("Unexpected content at position 18 after the C-terminal modification."));
+            Assert.That(warnings.Errors, Has.Some.Contains("at index 18 follows the C-terminal '-'"));
         }
 
         [Test]

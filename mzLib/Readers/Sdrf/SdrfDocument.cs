@@ -143,7 +143,15 @@ namespace Readers
             Results = rows;
         }
 
-        public override void WriteResults(string outputPath)
+        public override void WriteResults(string outputPath) => WriteResults(outputPath, out _);
+
+        /// <summary>
+        /// Writes the document, as <see cref="WriteResults(string)"/> does, and says where. A path this reader would
+        /// not read back gets the extension appended, the rule of every mzLib result file, so <c>x.tsv</c> is
+        /// written as <c>x.tsv.sdrf.tsv</c>. <paramref name="writtenPath"/> is the full path of the file actually
+        /// written, so a caller reporting it need not restate that rule (bridge SDRF-B3).
+        /// </summary>
+        public void WriteResults(string outputPath, out string writtenPath)
         {
             if (!CanRead(outputPath))
                 outputPath += FileType.GetFileExtension();
@@ -201,6 +209,8 @@ namespace Readers
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }
+
+            writtenPath = fullPath;
         }
 
         /// <summary>

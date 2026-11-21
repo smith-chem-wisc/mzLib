@@ -143,7 +143,7 @@ namespace Test.KoinaTests
         {
             var result = new IrtTmtProbe().Clean("[Common Fixed:TMTpro on N-terminus]PEPTIDEK", out var api, out var warning);
 
-            Assert.That(result, Is.EqualTo(api));
+            Assert.That(result, Is.EqualTo("[Common Fixed:TMTpro on N-terminus]PEPTIDEK"), "the input's own label, not another mod with the same UNIMOD id");
             Assert.That(warning, Is.Null);
             Assert.That(api, Does.StartWith("[UNIMOD:2016]-"), "TMTpro on N-terminus should serialize to UNIMOD:2016.");
         }
@@ -315,9 +315,10 @@ namespace Test.KoinaTests
             var fromMzLib = model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Common Biological:Phosphorylation on S]IDEK", out var mzLibApi, out _);
             var fromProForma = model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
 
-            Assert.That(fromMzLib, Is.EqualTo(expected));
-            Assert.That(fromProForma, Is.EqualTo(expected));
+            Assert.That(mzLibApi, Is.EqualTo(expected));
             Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
+            Assert.That(fromMzLib is null, Is.EqualTo(expected is null));
+            Assert.That(fromProForma is null, Is.EqualTo(expected is null));
             Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:21"));
         }
 

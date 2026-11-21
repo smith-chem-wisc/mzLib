@@ -55,6 +55,21 @@ namespace Omics.Digestion
         /// The returned dictionary is then appended with fixed modifications and used to construct a peptide with set mods
         /// </remarks>
         protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, SortedSet<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
+            => GetVariableModificationPatterns(possibleVariableModifications, maxModsForPeptide, peptideLength, 0);
+
+        /// <inheritdoc cref="GetVariableModificationPatterns(Dictionary{int, SortedSet{Modification}}, int, int)"/>
+        /// <param name="additionalCapacity">How many more modifications the caller will add to each pattern - the fixed
+        /// modifications - so that each dictionary is made the size it ends up, once.</param>
+        /// <remarks>
+        /// Each dictionary used to be made with room for every modifiable position, though a pattern holds at most
+        /// <paramref name="maxModsForPeptide"/> of them (a top-down form has dozens of positions and two modifications),
+        /// and each modification was found by <c>SortedSet.ElementAt</c>, which enumerates the set from its start. The
+        /// patterns, their key order and their modification objects are the same: a dictionary that is never removed
+        /// from enumerates in the order its entries were added, whatever its capacity, and the set's elements are read
+        /// in the order the set enumerates them.
+        /// </remarks>
+        protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, SortedSet<Modification>> possibleVariableModifications,
+            int maxModsForPeptide, int peptideLength, int additionalCapacity)
         {
             if (possibleVariableModifications.Count <= 0) 
                 yield break;
@@ -64,20 +79,30 @@ namespace Omics.Digestion
             int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
             var variableModKvpList = possibleVariableModifications.ToList();
 
+            // each position, and its modifications in the order the set enumerates them
+            int[] positions = new int[variableModKvpList.Count];
+            Modification[][] modificationsAtPosition = new Modification[variableModKvpList.Count][];
+            for (int k = 0; k < variableModKvpList.Count; k++)
+            {
+                positions[k] = variableModKvpList[k].Key;
+                modificationsAtPosition[k] = variableModKvpList[k].Value?.ToArray();
+            }
+
             for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
             {
                 foreach (int[] variable_modification_pattern in GetVariableModificationPatternsRecursive(variableModKvpList,
                              possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                 {
-                    // use modification pattern to construct a dictionary of modifications for the peptide
-                    var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
+                    // use modification pattern to construct a dictionary of modifications for the peptide; the pattern
+                    // leaves exactly Count - variable_modifications positions unmodified
+                    var modificationPattern = new Dictionary<int, Modification>(variable_modifications + additionalCapacity);
 
-                    foreach (var variableModSet in possibleVariableModifications)
+                    for (int k = 0; k < positions.Length; k++)
                     {
-                        int modIndex = variable_modification_pattern[variableModSet.Key] - 1;
+                        int modIndex = variable_modification_pattern[positions[k]] - 1;
                         if (modIndex >= 0)
                         {
-                            modificationPattern.Add(variableModSet.Key, variableModSet.Value.ElementAt(modIndex));
+                            modificationPattern.Add(positions[k], modificationsAtPosition[k][modIndex]);
                         }
                     }
 

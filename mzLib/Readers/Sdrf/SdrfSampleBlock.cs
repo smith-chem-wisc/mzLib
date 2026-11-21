@@ -145,11 +145,31 @@ namespace Readers
         public static IReadOnlyDictionary<string, SdrfSampleBlock> BySourceName(
             SdrfDocument document, out IReadOnlyList<string> problems)
         {
+            var blocks = new Dictionary<string, SdrfSampleBlock>(StringComparer.OrdinalIgnoreCase);
+            foreach (var block in InDocumentOrder(document, out problems))
+                blocks[block.SourceName] = block;
+            return blocks;
+        }
+
+        /// <summary>
+        /// The blocks <see cref="BySourceName"/> gives, by the same rules and with the same problems, as a list in
+        /// the order each sample first appears in the document. A dictionary promises no enumeration order, so a
+        /// caller that lists samples the way the file does reads them here rather than walking the rows again
+        /// (bridge SDRF-B2).
+        /// </summary>
+        /// <param name="document">The document to read. Its results are loaded if they are not yet.</param>
+        /// <param name="problems">
+        /// Rows that could not be placed: a document with no <c>source name</c> column, or a row whose
+        /// source name is blank. Never null, and empty on a well-formed document.
+        /// </param>
+        public static IReadOnlyList<SdrfSampleBlock> InDocumentOrder(
+            SdrfDocument document, out IReadOnlyList<string> problems)
+        {
             if (document is null) throw new ArgumentNullException(nameof(document));
 
             var found = new List<string>();
             problems = found;
-            var blocks = new Dictionary<string, SdrfSampleBlock>(StringComparer.OrdinalIgnoreCase);
+            var blocks = new List<SdrfSampleBlock>();
 
             SdrfHeader header = document.Header;
             string? sourceColumn = header
@@ -170,6 +190,7 @@ namespace Readers
 
             var rowsBySample = new Dictionary<string, List<SdrfRow>>(StringComparer.OrdinalIgnoreCase);
             var firstSpelling = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var firstAppearance = new List<string>();
 
             for (int i = 0; i < document.Results.Count; i++)
             {
@@ -186,12 +207,14 @@ namespace Readers
                 {
                     rowsBySample[name] = rows = new List<SdrfRow>();
                     firstSpelling[name] = name;
+                    firstAppearance.Add(name);
                 }
                 rows.Add(row);
             }
 
-            foreach (var (name, rows) in rowsBySample)
+            foreach (string name in firstAppearance)
             {
+                var rows = rowsBySample[name];
                 var agreed = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
                 var order = new List<string>();
                 var conflicts = new List<string>();
@@ -209,7 +232,7 @@ namespace Readers
                     else conflicts.Add(column);
                 }
 
-                blocks[name] = new SdrfSampleBlock(firstSpelling[name], agreed, order, conflicts, rows.Count);
+                blocks.Add(new SdrfSampleBlock(firstSpelling[name], agreed, order, conflicts, rows.Count));
             }
 
             return blocks;

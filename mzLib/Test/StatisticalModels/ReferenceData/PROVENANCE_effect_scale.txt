@@ -1,0 +1,6 @@
+Generated (UTC): 2026-11-04 16:41:16 UTC
+R: R version 4.6.1 (2026-06-24 ucrt)
+mr.raps: 0.2 (CRAN archive mr.raps_0.2.tar.gz; mr.raps.overdispersed, initialization 'simple', niter 20, tol sqrt(eps))
+Seed: set.seed(20261104)
+Script: make_effect_scale_fixtures.R
+ivw_scale, bces_scale and i2_gx are the closed forms in the script, not from a package.

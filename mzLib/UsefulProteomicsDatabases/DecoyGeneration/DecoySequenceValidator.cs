@@ -232,19 +232,28 @@ public static class DecoySequenceValidator
     /// Nothing is enumerated, so this is cheap even when the answer is astronomically large.
     /// </summary>
     /// <remarks>
-    /// Returns <see cref="BigInteger.One"/> when no rearrangement exists -- a homopolymeric tract
-    /// such as "SSSSSSR" has exactly one arrangement once its cleavage sites are pinned. That is
-    /// arithmetic rather than a collision, so no amount of searching or reseeding can improve it.
+    /// Returns <see cref="BigInteger.One"/> when no rearrangement exists. That is arithmetic rather
+    /// than a collision, so no amount of searching or reseeding can improve it, and the only
+    /// available "rearrangement" is the identity -- an entrapment sequence equal to its target.
+    /// <para>Two shapes reach it, and only one of them is exotic. A homopolymeric tract such as
+    /// <c>SSSSSSR</c> is the obvious one. The common one is <b>dense cleavage sites</b>:
+    /// <c>AKAKA</c> also returns 1, pinned by sites at 1 and 3 down to a single arrangement of three
+    /// identical free residues, and short tryptic peptides with several K or R are ordinary rather
+    /// than pathological. A caller will meet size 1 regularly, not only on degenerate input.</para>
     /// Intended for peptide-length sequences; the free-position count drives the cost.
     /// </remarks>
-    public static BigInteger PermutationSpaceSize(string sequence, List<DigestionMotif> motifs)
+    /// <param name="alsoHeldInPlace">Extra zero-based positions to hold still on top of the
+    /// cleavage sites — used to anchor a protein's termini, so a modification restricted to one of
+    /// them stays valid. Null or empty pins nothing extra.</param>
+    public static BigInteger PermutationSpaceSize(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null)
     {
         if (string.IsNullOrEmpty(sequence))
         {
             return BigInteger.One;
         }
 
-        return Multinomial(FreeResidueCounts(sequence, motifs));
+        return Multinomial(FreeResidueCounts(sequence, motifs, alsoHeldInPlace));
     }
 
     /// <summary>
@@ -262,8 +271,11 @@ public static class DecoySequenceValidator
     /// the index from a seed and the sequence rather than from a random number generator.
     /// </remarks>
     /// <exception cref="MzLibException"><paramref name="index"/> lies outside the space.</exception>
+    /// <param name="alsoHeldInPlace">Extra zero-based positions to hold still on top of the
+    /// cleavage sites. Must match what was passed to <see cref="PermutationSpaceSize"/>, or the
+    /// index will not mean the same thing.</param>
     public static string UnrankPermutation(string sequence, List<DigestionMotif> motifs, BigInteger index,
-        out int[] swappedPositionArray)
+        out int[] swappedPositionArray, IReadOnlyCollection<int>? alsoHeldInPlace = null)
     {
         swappedPositionArray = Enumerable.Range(0, sequence?.Length ?? 0).ToArray();
         if (string.IsNullOrEmpty(sequence))
@@ -271,7 +283,7 @@ public static class DecoySequenceValidator
             return sequence;
         }
 
-        HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
+        HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
         List<int> freePositions = new();
         for (int i = 0; i < sequence.Length; i++)
         {
@@ -338,10 +350,107 @@ public static class DecoySequenceValidator
         return new string(rearranged);
     }
 
-    /// <summary>Residue counts over the positions no cleavage motif holds in place.</summary>
-    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs)
+    /// <summary>
+    /// The index at which <see cref="UnrankPermutation"/> returns <paramref name="sequence"/> itself:
+    /// where the identity sits in the lexicographic order of its own rearrangements.
+    /// </summary>
+    /// <remarks>
+    /// The inverse of <see cref="UnrankPermutation"/> at the one arrangement every caller has to
+    /// avoid. Knowing its rank lets a caller share out only the arrangements that differ from the
+    /// input, rather than walking into the identity and refusing it.
+    /// </remarks>
+    /// <param name="alsoHeldInPlace">Must match what was passed to <see cref="PermutationSpaceSize"/>
+    /// and <see cref="UnrankPermutation"/>, or the rank will not mean the same thing.</param>
+    public static BigInteger RankPermutation(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null) =>
+        RankPermutation(sequence, motifs, alsoHeldInPlace, out _);
+
+    /// <summary>
+    /// <see cref="RankPermutation(string, List{DigestionMotif}, IReadOnlyCollection{int})"/> and
+    /// <see cref="PermutationSpaceSize"/> together, from one pass over the held positions. The
+    /// entrapment generator needs both for every (piece, fold), and computing them separately found
+    /// the cleavage sites three times.
+    /// </summary>
+    internal static BigInteger RankPermutation(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace, out BigInteger size)
     {
-        HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
+        if (string.IsNullOrEmpty(sequence))
+        {
+            size = BigInteger.One;
+            return BigInteger.Zero;
+        }
+
+        HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
+        var counts = new SortedDictionary<char, int>();
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            if (!pinned.Contains(i))
+            {
+                counts.TryGetValue(sequence[i], out int seen);
+                counts[sequence[i]] = seen + 1;
+            }
+        }
+        List<char> residues = counts.Keys.ToList();
+        BigInteger remainingPermutations = Multinomial(counts);
+        size = remainingPermutations;
+        int remainingPositions = counts.Values.Sum();
+        BigInteger rank = BigInteger.Zero;
+
+        for (int slot = 0; slot < sequence.Length; slot++)
+        {
+            if (pinned.Contains(slot))
+            {
+                continue;
+            }
+
+            // Every arrangement that puts a smaller residue in this slot comes first.
+            char actual = sequence[slot];
+            foreach (char residue in residues)
+            {
+                if (residue == actual)
+                {
+                    break;
+                }
+                if (counts[residue] > 0)
+                {
+                    rank += remainingPermutations * counts[residue] / remainingPositions;
+                }
+            }
+
+            remainingPermutations = remainingPermutations * counts[actual] / remainingPositions;
+            counts[actual]--;
+            remainingPositions--;
+        }
+
+        return rank;
+    }
+
+    /// <summary>Every position held still: the cleavage sites, plus anything the caller anchored.</summary>
+    private static HashSet<int> HeldPositions(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace)
+    {
+        HashSet<int> held = CleavageSitePositions(sequence, motifs);
+        if (alsoHeldInPlace is null)
+        {
+            return held;
+        }
+
+        foreach (int position in alsoHeldInPlace)
+        {
+            if (position >= 0 && position < sequence.Length)
+            {
+                held.Add(position);
+            }
+        }
+
+        return held;
+    }
+
+    /// <summary>Residue counts over the positions nothing holds in place.</summary>
+    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null)
+    {
+        HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
         SortedDictionary<char, int> counts = new();
 
         for (int i = 0; i < sequence.Length; i++)

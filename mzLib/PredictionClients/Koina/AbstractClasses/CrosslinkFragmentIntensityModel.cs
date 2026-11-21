@@ -147,27 +147,11 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             var predictions = new List<CrosslinkFragmentIntensityPrediction>();
+            IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
             if (validInputs.Count > 0)
             {
-                var batchedRequests = ToBatchedRequests(validInputs);
-                var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-
-                var responses = new List<string>();
-                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count));
-
-                for (int i = 0; i < batchChunks.Count; i++)
-                {
-                    var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
-                    responses.AddRange(responseChunk);
-
-                    if (i < batchChunks.Count - 1)
-                    {
-                        await Task.Delay(ThrottlingDelayInMilliseconds);
-                    }
-                }
-
-                predictions = ResponseToPredictions(responses, validInputs);
+                // An input the model refuses is set false in ValidInputsMask, and the rest keep their predictions.
+                (predictions, refusedInputs) = await RequestPredictionsAsync(validInputs, ValidInputsMask, ResponseToPredictions);
             }
 
             var realignedPredictions = new List<CrosslinkFragmentIntensityPrediction>();
@@ -194,6 +178,10 @@ namespace PredictionClients.Koina.AbstractClasses
                     ));
                 }
             }
+
+            // An input the model refused carries Koina's reason rather than a validation warning.
+            foreach (var (index, warning) in refusedInputs)
+                realignedPredictions[index] = realignedPredictions[index] with { Warning = warning };
 
             Predictions = realignedPredictions;
             return Predictions;

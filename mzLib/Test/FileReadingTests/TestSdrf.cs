@@ -218,6 +218,35 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// The written path is reported, so a caller need not restate the extension rule to say where the file went
+        /// (bridge SDRF-B3: `sdrf pool --out x.tsv` reported x.tsv while the file was x.tsv.sdrf.tsv).
+        /// </summary>
+        [Test]
+        [TestCase("x.tsv", "x.tsv.sdrf.tsv")]
+        [TestCase("x", "x.sdrf.tsv")]
+        [TestCase("x.sdrf.tsv", "x.sdrf.tsv")]
+        public void Write_SaysWhichFileItWrote(string asked, string written)
+        {
+            var header = new SdrfHeader(new[] { "source name" });
+            var document = new SdrfDocument(header, new[] { new SdrfRow(header, new[] { "Sample 1" }) });
+
+            string folder = Path.Combine(TestContext.CurrentContext.TestDirectory, $"written_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(folder);
+            try
+            {
+                document.WriteResults(Path.Combine(folder, asked), out string writtenPath);
+
+                Assert.That(writtenPath, Is.EqualTo(Path.GetFullPath(Path.Combine(folder, written))));
+                Assert.That(File.Exists(writtenPath), Is.True);
+                Assert.That(Directory.GetFiles(folder), Has.Length.EqualTo(1), "nothing else was written");
+            }
+            finally
+            {
+                Directory.Delete(folder, true);
+            }
+        }
+
+        /// <summary>
         /// The line ending must come from the FILE, not from the platform or from a survey.
         ///
         /// Regression for a real defect: the writer pinned CRLF because a corpus survey reported

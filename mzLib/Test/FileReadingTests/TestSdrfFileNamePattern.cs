@@ -27,6 +27,41 @@ namespace Test.FileReadingTests
         private static SdrfFileNameSlot Slot(SdrfFileNameStructure s, SdrfFileNameRole role) =>
             s.Slots.Single(x => x.Role == role);
 
+        /// <summary>
+        /// One rule for "the file name of a path", the same on every platform (bridge SDRF-B5). A MetaMorpheus search
+        /// on Windows records <c>D:\search\X-calib.mzML</c>; Path.GetFileName on Linux returned that whole string, so
+        /// a reader on Linux keyed on a name no row has. On Windows these held before too; they pin the rule.
+        /// </summary>
+        [TestCase(@"D:\search\X-calib.mzML", "X-calib.mzML")]
+        [TestCase("/data/run/X.raw", "X.raw")]
+        [TestCase(@"D:/mixed\folders/X.raw", "X.raw")]
+        [TestCase(@"run.d\", "run.d")]
+        [TestCase("  X.raw  ", "X.raw")]
+        [TestCase("X.raw", "X.raw")]
+        public void AFileNameIsCutAtEitherSeparatorOnEveryPlatform(string path, string expected)
+        {
+            Assert.That(SdrfFileNamePattern.FileName(path), Is.EqualTo(expected));
+        }
+
+        [TestCase(@"D:\search\X.raw", "X")]
+        [TestCase("/data/run/X.mzML.gz", "X")]
+        public void AStemIsCutAtEitherSeparatorOnEveryPlatform(string path, string expected)
+        {
+            Assert.That(SdrfFileNamePattern.Stem(path), Is.EqualTo(expected));
+        }
+
+        /// <summary>The stem of the acquired file: MetaMorpheus's derivative suffixes go, in any order, any case.</summary>
+        [TestCase(@"D:\search\X-calib.mzML", "X")]
+        [TestCase("X-calib-averaged.mzML", "X")]
+        [TestCase("X-averaged-calib.mzML", "X")]
+        [TestCase("X-CALIB.mzML", "X")]
+        [TestCase("X.raw", "X")]
+        [TestCase("X-calibrated.raw", "X-calibrated")]
+        public void AnAcquiredStemDropsMetaMorpheusDerivativeSuffixes(string path, string expected)
+        {
+            Assert.That(SdrfFileNamePattern.AcquiredStem(path), Is.EqualTo(expected));
+        }
+
         [Test]
         public void GelBandsAreFractionsOfTheirLysateNotSamples()
         {

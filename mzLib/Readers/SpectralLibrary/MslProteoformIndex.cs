@@ -104,9 +104,10 @@ public sealed class MslProteoformIndex
 
 	/// <summary>
 	/// Proton mass in daltons used for neutral mass computation.
-	/// Value: 1.007276 Da.
+	/// Value: <see cref="Chemistry.Constants.ProtonMass"/> (1.007276466879 Da), mzLib's one
+	/// proton constant. It was a separate, rounded 1.007276 before.
 	/// </summary>
-	public const double ProtonMass = 1.007276;
+	public const double ProtonMass = Chemistry.Constants.ProtonMass;
 
 	// ── Private state ─────────────────────────────────────────────────────────
 

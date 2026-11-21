@@ -1,0 +1,10 @@
+generated_utc 2026-11-10 20:52:14 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+lme4 2.0.6
+lmerTest 3.2.1
+script make_estimable_terms_lmm_fixtures.R
+data: MSstatsTMT controlled mixtures SPS-MS3 (MassIVE MSV000084264), prepared as QuantProject's model A
+chosen: individual=A3KMH1, none=A6NED2
+A3KMH1 (individual), full model: number of levels of each grouping factor must be < number of observations (problems: sample:individual)
+A6NED2 (none), full model: number of levels of each grouping factor must be < number of observations (problems: sample:individual, individual)
+individual: lmer REML (1 | individual), bobyqa rhoend 1e-12, lmerTest Satterthwaite df; none: lm, residual df

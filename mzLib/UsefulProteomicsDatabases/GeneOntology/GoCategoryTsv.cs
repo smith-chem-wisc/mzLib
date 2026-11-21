@@ -3,9 +3,15 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases.Annotation;
 
 namespace UsefulProteomicsDatabases.GeneOntology
 {
+    /// <summary>One row of a category table: a term and one category (and subcategory) of a map it falls under.</summary>
+    /// <param name="Subcategory">"category:subcategory", or null when the term reaches the category only through a
+    /// category-level anchor.</param>
+    public sealed record GoCategoryRow(string GoId, string Category, string Subcategory);
+
     /// <summary>
     /// Writes one consumer map's term-to-category table for a set of GO annotation rows:
     /// <code>
@@ -51,6 +57,57 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 }
             }
 
+            WriteTable(output, resolver, terms);
+        }
+
+        /// <summary>
+        /// Writes the map's table for every term of the resolver's ontology release, not only the terms one
+        /// search's rows hold. The table then depends on the release and the map alone, so a store keeps one per
+        /// (go.obo, map) and joins it to any database's annotation.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        public static void Write(TextWriter output, GoCategoryResolver resolver)
+        {
+            ArgumentNullException.ThrowIfNull(output);
+            ArgumentNullException.ThrowIfNull(resolver);
+            WriteTable(output, resolver, resolver.Ontology.TermIds);
+        }
+
+        /// <summary>The column names, in order.</summary>
+        public static readonly IReadOnlyList<string> Columns = new[] { "go_id", "category", "subcategory" };
+
+        /// <summary>Reads a category table.</summary>
+        /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+        /// <exception cref="InvalidDataException">The header or columns are not this format's; go_id or category
+        /// is empty; a subcategory is not qualified by its row's category; or a row repeats.</exception>
+        public static AnnotationTable<GoCategoryRow> Read(string path)
+        {
+            var seen = new HashSet<GoCategoryRow>();
+            return AnnotationTableReader.Read(path, "go_category_format", FormatVersion,
+                new[] { "go_obo_sha256", "category_map" }, new[] { "go_release" }, Columns,
+                (cells, fileName, lineNumber) =>
+                {
+                    string where = $"{fileName} line {lineNumber}";
+                    if (cells[0].Length == 0 || cells[1].Length == 0)
+                    {
+                        throw new InvalidDataException($"{where}: go_id or category is empty.");
+                    }
+                    var row = new GoCategoryRow(cells[0], cells[1], AnnotationTableReader.Cell(cells[2]));
+                    if (row.Subcategory != null && !row.Subcategory.StartsWith(row.Category + ":", StringComparison.Ordinal))
+                    {
+                        throw new InvalidDataException($"{where}: subcategory '{row.Subcategory}' is not qualified by category '{row.Category}'.");
+                    }
+                    if (!seen.Add(row))
+                    {
+                        throw new InvalidDataException($"{where}: repeats an earlier row.");
+                    }
+                    return row;
+                });
+        }
+
+        private static void WriteTable(TextWriter output, GoCategoryResolver resolver, IEnumerable<string> terms)
+        {
+            var ontology = resolver.Ontology;
             var map = resolver.Map;
             TsvHeader.Write(output, "go_category_format", FormatVersion.ToString(CultureInfo.InvariantCulture));
             TsvHeader.WriteProducer(output);

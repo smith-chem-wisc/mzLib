@@ -26,7 +26,8 @@ namespace Readers
     /// <param name="Label">The isobaric channel (<c>TMT127N</c>, bare), or empty.</param>
     /// <param name="Column">The SDRF column exactly as an SDRF writes it, e.g. <c>characteristics[age]</c>.</param>
     /// <param name="Value">The value as it will be written, units and codes already resolved (<c>77Y</c>, <c>female</c>).</param>
-    /// <param name="Source">Where it was read: <c>supplement</c>, <c>paper</c> or <c>pride record</c>.</param>
+    /// <param name="Source">Where it was read: <c>supplement</c>, <c>paper</c>, <c>pride record</c>, <c>deposit</c> or
+    /// <c>community sdrf</c>.</param>
     /// <param name="Locator">Where exactly, so a reviewer can check it: <c>mmc2.xlsx!Sheet1!R14C3</c>, a section, a quote.</param>
     /// <param name="Method">How it was read: <c>isa-tab</c>, <c>sdrf</c>, <c>file-key</c>, <c>channel-map</c>, <c>text</c>, <c>model</c>.</param>
     /// <param name="Confidence">See <see cref="SdrfEvidenceConfidence"/>.</param>
@@ -46,6 +47,9 @@ namespace Readers
         SdrfEvidenceConfidence Confidence,
         string DataFilePattern = "")
     {
+        /// <summary>The <see cref="Source"/> of a claim read from bigbio's SDRF as PRIDE lists it.</summary>
+        internal const string CommunitySdrfSource = "community sdrf";
+
         /// <summary>Whether a raw file name matches a <see cref="DataFilePattern"/> glob (the whole name, ignoring case).
         /// Non-backtracking: a pattern comes from an evidence file or a model, and a backtracking match of many
         /// wildcards that fails takes time exponential in their count.</summary>

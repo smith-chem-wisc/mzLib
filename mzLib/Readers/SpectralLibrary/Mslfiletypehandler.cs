@@ -85,9 +85,12 @@ public static class MslFileTypeHandler
 	/// <exception cref="FileNotFoundException">
 	///   Thrown when <paramref name="filePath"/> does not exist on the file system.
 	/// </exception>
+	/// <exception cref="FormatException">
+	///   Thrown when the file does not begin with the MZLB magic bytes, has an unsupported
+	///   format version, or is truncated or structurally inconsistent.
+	/// </exception>
 	/// <exception cref="InvalidDataException">
-	///   Thrown when the file does not begin with the MZLB magic bytes or has an unsupported
-	///   format version.
+	///   Thrown when the file's CRC-32 does not match its contents.
 	/// </exception>
 	public static MslLibrary Open(string filePath,
 		long indexOnlyThresholdBytes = DefaultIndexOnlyThresholdBytes)

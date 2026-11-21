@@ -54,6 +54,12 @@ namespace UsefulProteomicsDatabases
         public const string NcbiTaxonomyDatabaseReferenceType = Protein.NcbiTaxonomyDatabaseReferenceType;
 
         /// <summary>
+        /// Marks a protein as entrapment. A protein is treated as entrapment when its accession
+        /// contains this anywhere, and it is prepended when a caller flags entrapment without it.
+        /// </summary>
+        public const string DefaultEntrapmentIdentifier = "Random";
+
+        /// <summary>
         /// The dbReference type UniProt uses for Gene Ontology annotations. Re-exported here for the
         /// same reason as the taxonomy type: a caller that already references the loader should not
         /// have to reach into Proteomics for the string. Read the terms themselves from
@@ -68,6 +74,18 @@ namespace UsefulProteomicsDatabases
         public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
 
         /// <summary>
+        /// The dbReference type UniProt uses for Reactome pathways. Re-exported for the same reason as the taxonomy, GO
+        /// and Ensembl types. Read the pathways from <see cref="Protein.ReactomePathways"/>.
+        /// </summary>
+        public const string ReactomeDatabaseReferenceType = Protein.ReactomeDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for KEGG GENES ids. Re-exported for the same reason. Read the ids from
+        /// <see cref="Protein.KeggGeneIds"/>.
+        /// </summary>
+        public const string KeggDatabaseReferenceType = Protein.KeggDatabaseReferenceType;
+
+        /// <summary>
         /// Whether an accession is entrapment by the rule the loaders apply when no whole-database flag is
         /// given: it contains <paramref name="entrapmentIdentifier"/> anywhere, ignoring case. A caller holding
         /// only accessions -- a stored results file, which MetaMorpheus writes T/D/C without an entrapment
@@ -77,7 +95,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <returns>False for a null or empty accession.</returns>
         /// <exception cref="ArgumentException">The identifier is null or empty, which would make every accession entrapment.</exception>
-        public static bool IsEntrapmentAccession(string accession, string entrapmentIdentifier = "Random")
+        public static bool IsEntrapmentAccession(string accession, string entrapmentIdentifier = DefaultEntrapmentIdentifier)
         {
             if (string.IsNullOrEmpty(entrapmentIdentifier))
             {
@@ -120,7 +138,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "Random", bool isEntrapment = false)
+            string entrapmentIdentifier = DefaultEntrapmentIdentifier, bool isEntrapment = false)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -265,7 +283,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
             FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "Random", bool isEntrapment = false, FastaHeaderFieldRegex organismIdRegex = null)
+            string entrapmentIdentifier = DefaultEntrapmentIdentifier, bool isEntrapment = false, FastaHeaderFieldRegex organismIdRegex = null)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -522,9 +540,28 @@ namespace UsefulProteomicsDatabases
                         createds.FirstOrDefault(),
                         modifieds.FirstOrDefault(),
                         versions.FirstOrDefault(),
-                        xmlnses.FirstOrDefault())
+                        xmlnses.FirstOrDefault()),
+                    // the merged entries share accession and sequence; keep their sequence attributes (incl. the displayed isoform)
+                    uniProtSequenceAttributes: MergedSequenceAttributes(proteins.Value)
                     );
             }
+        }
+
+        /// <summary>
+        /// The first entry's sequence attributes, with the displayed isoform the entries agree on: a known isoform wins
+        /// over an unknown one, and two known isoforms that differ leave it unknown, whatever the input order.
+        /// </summary>
+        private static UniProtSequenceAttributes MergedSequenceAttributes(List<Protein> proteins)
+        {
+            var first = proteins[0].UniProtSequenceAttributes;
+            var known = proteins.Select(p => p.UniProtSequenceAttributes.DisplayedIsoformId).Where(id => id != null).Distinct().ToList();
+            string displayedIsoformId = known.Count == 1 ? known[0] : null;
+            if (first.DisplayedIsoformId == displayedIsoformId)
+            {
+                return first;
+            }
+            return new UniProtSequenceAttributes(first.Length, first.Mass, first.Checksum, first.EntryModified,
+                first.SequenceVersion, first.IsPrecursor, first.Fragment, displayedIsoformId);
         }
 
         internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)

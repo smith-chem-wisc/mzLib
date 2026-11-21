@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using MathNet.Numerics.Optimization;
+using MathNet.Numerics.Statistics;
 
 namespace StatisticalModels
 {
@@ -16,7 +17,9 @@ namespace StatisticalModels
         Sample,
         /// <summary>
         /// One random intercept per individual: <c>(1 | individual)</c>. Individuals were given but each has a single
-        /// sample among the feature's values, so a sample-within-individual intercept would be the same grouping.
+        /// sample among the feature's values, so a sample-within-individual intercept would be the same grouping; or, when
+        /// only estimable terms are fitted, the sample-within-individual term could not be estimated (e.g. one value per
+        /// sample) and was left out.
         /// </summary>
         Individual,
         /// <summary>
@@ -24,6 +27,12 @@ namespace StatisticalModels
         /// GR-6), so comparisons within and between individuals are both estimable.
         /// </summary>
         IndividualAndSample,
+        /// <summary>
+        /// No random intercept: only estimable terms were to be fitted (<see cref="NestedMixedModel.Fit"/>) and none of the
+        /// feature's is, so its fixed part is fitted alone by (weighted) least squares. σ² is the REML estimate, the residual
+        /// sum of squares over n − p, and every Satterthwaite df is the residual df n − p, as R's <c>lm</c>.
+        /// </summary>
+        None,
     }
 
     /// <summary>
@@ -70,6 +79,69 @@ namespace StatisticalModels
             Individual = individual;
         }
 
+        /// <summary>
+        /// One feature's problem from a nuisance label per observation (e.g. its peptide), coded as the reference fits
+        /// code it, so no caller has to build the nuisance columns. Observations whose response is not finite are dropped
+        /// first: a label seen only in missing values gets no column, where it would be an all-zero column that leaves the
+        /// feature rank deficient. The labels that remain are treatment-coded against the first in ordinal order
+        /// (<see cref="NuisanceLevels"/>[0]), one 0/1 column per other label; a single label gives no nuisance column.
+        /// When no remaining observation has an individual, none is known.
+        /// </summary>
+        /// <param name="response">One value per observation. A non-finite value is missing and dropped.</param>
+        /// <param name="common">[observation, column] in the order of the fit's common names; finite.</param>
+        /// <param name="nuisanceLabel">The nuisance level of each observation (e.g. its peptide); non-empty.</param>
+        /// <param name="sample">The sample of each observation; non-empty.</param>
+        /// <param name="individual">The individual of each observation, or null when none is known.</param>
+        public static NestedMixedModelProblem FromNuisanceLabels(IReadOnlyList<double> response, double[,] common,
+            IReadOnlyList<string> nuisanceLabel, IReadOnlyList<string> sample, IReadOnlyList<string?>? individual)
+        {
+            ArgumentNullException.ThrowIfNull(response);
+            ArgumentNullException.ThrowIfNull(common);
+            ArgumentNullException.ThrowIfNull(nuisanceLabel);
+            ArgumentNullException.ThrowIfNull(sample);
+            int n = response.Count;
+            if (nuisanceLabel.Count != n)
+                throw new ArgumentException($"There are {nuisanceLabel.Count} nuisance labels for {n} responses.", nameof(nuisanceLabel));
+            if (common.GetLength(0) != n)
+                throw new ArgumentException($"The common design has {common.GetLength(0)} rows but there are {n} responses.", nameof(common));
+            if (sample.Count != n)
+                throw new ArgumentException($"There are {sample.Count} sample labels for {n} responses.", nameof(sample));
+            if (individual is not null && individual.Count != n)
+                throw new ArgumentException($"There are {individual.Count} individual labels for {n} responses.", nameof(individual));
+            for (int i = 0; i < n; i++)
+                if (string.IsNullOrEmpty(nuisanceLabel[i]))
+                    throw new ArgumentException($"Observation {i} has no nuisance label.", nameof(nuisanceLabel));
+
+            var kept = Enumerable.Range(0, n).Where(i => double.IsFinite(response[i])).ToArray();
+            var levels = kept.Select(i => nuisanceLabel[i]).Distinct(StringComparer.Ordinal)
+                .OrderBy(l => l, StringComparer.Ordinal).ToArray();
+            var column = levels.Select((l, k) => (l, k)).ToDictionary(t => t.l, t => t.k - 1, StringComparer.Ordinal);
+            int m = kept.Length, p = common.GetLength(1);
+            var y = new double[m];
+            var x = new double[m, p];
+            var nuisance = levels.Length > 1 ? new double[m, levels.Length - 1] : null;
+            var s = new string[m];
+            var ind = individual is null ? null : new string?[m];
+            for (int r = 0; r < m; r++)
+            {
+                int i = kept[r];
+                y[r] = response[i];
+                for (int j = 0; j < p; j++) x[r, j] = common[i, j];
+                int c = column[nuisanceLabel[i]];
+                if (c >= 0) nuisance![r, c] = 1;
+                s[r] = sample[i];
+                if (ind is not null) ind[r] = individual![i];
+            }
+            if (ind is not null && ind.All(string.IsNullOrEmpty)) ind = null;
+            return new NestedMixedModelProblem(y, x, nuisance, s, ind) { NuisanceLevels = levels };
+        }
+
+        /// <summary>
+        /// The nuisance labels <see cref="FromNuisanceLabels"/> coded, the first being the reference, which has no
+        /// column; the k-th nuisance column is label k. Null for a problem built from nuisance columns directly.
+        /// </summary>
+        public IReadOnlyList<string>? NuisanceLevels { get; private init; }
+
         internal IReadOnlyList<double> Response { get; }
         internal double[,] Common { get; }
         internal double[,]? Nuisance { get; }
@@ -107,7 +179,48 @@ namespace StatisticalModels
             StructureValues = new RandomStructure?[features];
             Jacobians = new double[features][];
             VarParCovariances = new double[features][];
+            WeightValues = new double[features][];
+            RobustIterationsValues = new int[features];
+            RobustConvergedValues = new bool?[features];
+            RobustFellBackValues = new bool?[features];
+            NuisanceValues = new double[features][];
         }
+
+        internal double[]?[] NuisanceValues { get; }
+        internal double[]?[] WeightValues { get; }
+        internal int[] RobustIterationsValues { get; }
+        internal bool?[] RobustConvergedValues { get; }
+        internal bool?[] RobustFellBackValues { get; }
+
+        /// <summary>
+        /// The weight each observation of <paramref name="feature"/> carried in the final fit, in the problem's order: 1 when
+        /// the fit was not robust, the Huber weight when it was, NaN for a missing response. For a robust fit that fell back
+        /// to one round (<see cref="RobustFellBack"/>), the first round's weights; for one whose first round could not be
+        /// formed (<see cref="FeatureFitStatus.NotConverged"/>), the weights that round left. Null when the feature was not
+        /// fitted far enough to have weights.
+        /// </summary>
+        public IReadOnlyList<double>? Weights(int feature) => WeightValues[feature];
+        /// <summary>
+        /// Reweighting rounds run per feature, counting a round that could not be formed; 0 when the fit was not robust. A
+        /// feature that fell back (<see cref="RobustFellBack"/>) shows the rounds run before it did, although its fit is
+        /// the first round's.
+        /// </summary>
+        public IReadOnlyList<int> RobustIterations => RobustIterationsValues;
+        /// <summary>
+        /// Whether reweighting converged within its round limit; null when the fit was not robust. False for a feature that
+        /// fell back to one round (<see cref="RobustFellBack"/>), whose reweighting did not converge.
+        /// </summary>
+        public IReadOnlyList<bool?> RobustConverged => RobustConvergedValues;
+        /// <summary>
+        /// Whether reweighting fell back to msqrob2's default of one round (QuantProject GR-22, amended 2026-11-03); null
+        /// when the fit was not robust. True when reweighting did not settle, because it reached its round limit or a later
+        /// round's weights or refit could not be formed: the feature is then fitted on its first round's weights, as msqrob2
+        /// with <c>maxitRob = 1</c>, and is an ordinary fit that enters moderation (<see cref="Status"/> is
+        /// <see cref="FeatureFitStatus.Fitted"/> unless its df cannot be computed). <see cref="RobustConverged"/> stays
+        /// false for it, so this flag is how a report counts such features. False when reweighting converged, or when even
+        /// its first round could not be formed (then <see cref="FeatureFitStatus.NotConverged"/>).
+        /// </summary>
+        public IReadOnlyList<bool?> RobustFellBack => RobustFellBackValues;
 
         internal double[] CoefficientValues { get; }
         internal double[] UnscaledValues { get; }
@@ -131,6 +244,17 @@ namespace StatisticalModels
 
         /// <summary>REML estimate of common coefficient <paramref name="coefficient"/> of <paramref name="feature"/>.</summary>
         public double Coefficient(int feature, int coefficient) => CoefficientValues[feature * CommonNames.Count + coefficient];
+
+        /// <summary>
+        /// REML estimates of <paramref name="feature"/>'s nuisance coefficients (e.g. each peptide's offset from the
+        /// reference peptide), in the order of its problem's nuisance columns: for a problem from
+        /// <see cref="NestedMixedModelProblem.FromNuisanceLabels"/>, the labels <see cref="NestedMixedModelProblem.NuisanceLevels"/>
+        /// [1..], the first being the reference with no column. With <see cref="Coefficient"/> they give the feature's
+        /// fitted fixed part, so an average over its peptides (an estimated marginal mean) can be formed. Empty for a
+        /// fitted problem with no nuisance column; null for a feature that was not fitted
+        /// (<see cref="Status"/> is not <see cref="FeatureFitStatus.Fitted"/>).
+        /// </summary>
+        public IReadOnlyList<double>? NuisanceCoefficients(int feature) => NuisanceValues[feature];
 
         /// <summary>
         /// Element (i, j) of (XᵀV⁻¹X)⁻¹ for the common columns, with V the observations' covariance divided by the residual
@@ -246,6 +370,18 @@ namespace StatisticalModels
     }
 
     /// <summary>
+    /// One mixed-model fit, the contrasts tested on it and the condition terms that give its features' variance df, as a
+    /// part of a pooled moderation
+    /// (<see cref="NestedMixedModel.ModerateContrasts(IReadOnlyList{MixedModelModerationPart}, double)"/>).
+    /// </summary>
+    /// <param name="Fit">Output of <see cref="NestedMixedModel.Fit"/>.</param>
+    /// <param name="Contrasts">Weights on this fit's common columns; names unique within the part; may be empty.</param>
+    /// <param name="VarianceDfRows">The condition terms, as weights on this fit's common columns, whose joint
+    /// Satterthwaite F df is each feature's variance df; at least one.</param>
+    public sealed record MixedModelModerationPart(NestedMixedModelFit Fit, IReadOnlyList<ContrastWeights> Contrasts,
+        IReadOnlyList<IReadOnlyList<double>> VarianceDfRows);
+
+    /// <summary>
     /// A linear mixed model fitted separately for each feature, each with its own design: the response (e.g. every
     /// peptide's log2 intensity in every sample) on common fixed effects (the experimental design) plus the feature's own
     /// nuisance fixed effects (e.g. its peptides), with random intercepts for the sample, or the individual, or both
@@ -273,19 +409,81 @@ namespace StatisticalModels
     /// <b>Not fittable.</b> Too few observations for the fixed effects (<see cref="FeatureFitStatus.TooFewObservations"/>);
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
-    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
-    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Output does not depend on the
-    /// thread count.
+    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same), unless only estimable terms are fitted, when
+    /// such a term is left out instead (see <see cref="Fit"/>); a criterion that cannot be evaluated, or a
+    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Robust reweighting that does
+    /// not settle, because it reaches its round limit or a later round's refit fails or its residuals' MAD is zero, falls
+    /// back to msqrob2's default of one round and is fitted on the first round's weights
+    /// (<see cref="NestedMixedModelFit.RobustFellBack"/>). A robust fit is <see cref="FeatureFitStatus.NotConverged"/>
+    /// only when its first round cannot be formed: the first reweighted refit fails, or the unweighted fit's residuals
+    /// have a MAD of zero (more than half of them exactly 0), so that no Huber weight exists; such a feature keeps its
+    /// robust diagnostics and is left out of moderation. Output does not depend on the thread count.
     /// </para>
     /// </remarks>
     public static class NestedMixedModel
     {
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+            FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups,
+        });
+
         /// <summary>Fits every problem.</summary>
         /// <param name="problems">One per feature.</param>
         /// <param name="commonNames">One name per common design column; every problem has these columns.</param>
         /// <param name="maxThreads">As <see cref="LinearModel.Fit"/>: -1 uses all cores but one. Results are identical for every value.</param>
+        /// <param name="robust">
+        /// Down-weight outlying observations (QuantProject GR-22): msqrob2 1.20.0's reweighting — Huber weights
+        /// min(1, 1.345 / |r / MAD₀(r)|) on the response residuals r, MAD about zero — refitted until the penalised residual
+        /// sum of squares changes by at most 1e-6 relative (msqrob2 stops after one round by default), then REML,
+        /// Satterthwaite and moderation on the weighted model. Off by default here; QuantProject's differential framework
+        /// turns it on (GR-8). A feature whose reweighting does not settle within the round limit falls back to msqrob2's
+        /// default, one round, and is flagged (<see cref="NestedMixedModelFit.RobustFellBack"/>; GR-22 amended 2026-11-03);
+        /// one whose first round cannot be formed is <see cref="FeatureFitStatus.NotConverged"/>.
+        /// </param>
+        /// <param name="estimableRandomTermsOnly">
+        /// Fit each feature with only the random terms its data can estimate (QuantProject STAT1 ruling 16), instead of
+        /// refusing it as <see cref="FeatureFitStatus.TooFewGroups"/>. A term is estimable by lme4's own two checks, which
+        /// refuse the model otherwise: at least 2 levels, and fewer levels than observations. The sample-within-individual
+        /// term is left out first (<see cref="RandomStructure.Individual"/>), then the individual
+        /// (<see cref="RandomStructure.Sample"/>, the sample within it), and with none left the fixed part is fitted alone
+        /// (<see cref="RandomStructure.None"/>). E.g. a TMT protein with one ion in each plex run has one value per channel
+        /// sample in each run, so only its individual (animal) term is estimable. Off by default: every feature then gets
+        /// its full structure or is refused, as lme4.
+        /// </param>
         public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
-            int maxThreads = -1)
+            int maxThreads = -1, bool robust = false, bool estimableRandomTermsOnly = false) =>
+            Fit(problems, commonNames, maxThreads, robust, FeatureModel.MaxRobustIterations, estimableRandomTermsOnly);
+
+        /// <summary>
+        /// The random structure <see cref="Fit"/> gives <paramref name="problem"/>'s observations with a finite response,
+        /// with or without <paramref name="estimableRandomTermsOnly"/>, before anything is fitted; null when it has no
+        /// observation, or when a term it needs cannot be estimated (fewer than 2 levels or as many levels as observations),
+        /// so that <see cref="Fit"/> reports <see cref="FeatureFitStatus.TooFewGroups"/>. A caller compares the two to tell
+        /// a feature fitted with fewer random terms than its labels call for (QuantProject STAT1 ruling 17 moderates
+        /// such features in a family of their own).
+        /// </summary>
+        public static RandomStructure? StructureOf(NestedMixedModelProblem problem, bool estimableRandomTermsOnly = false)
+        {
+            ArgumentNullException.ThrowIfNull(problem);
+            var rows = Enumerable.Range(0, problem.Response.Count).Where(i => double.IsFinite(problem.Response[i])).ToArray();
+            if (rows.Length == 0) return null;
+            var (structure, terms) = FeatureModel.ChooseStructure(problem, rows, estimableRandomTermsOnly);
+            foreach (var t in terms)
+            {
+                int levels = t.Distinct(StringComparer.Ordinal).Count();
+                if (levels < 2 || levels >= rows.Length) return null;
+            }
+            return structure;
+        }
+
+        /// <summary>As the public overload, with the reweighting round limit set (tests reach the limit with it).</summary>
+        internal static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
+            int maxThreads, bool robust, int maxRobustIterations, bool estimableRandomTermsOnly = false)
         {
             ArgumentNullException.ThrowIfNull(problems);
             ArgumentNullException.ThrowIfNull(commonNames);
@@ -303,7 +501,7 @@ namespace StatisticalModels
             Parallel.ForEach(Partitioner.Create(0, Math.Max(problems.Count, 1)), options, range =>
             {
                 for (int f = range.Item1; f < Math.Min(range.Item2, problems.Count); f++)
-                    new FeatureModel(problems[f], commonNames.Count).Fit(f, fit);
+                    new FeatureModel(problems[f], commonNames.Count, robust, maxRobustIterations, estimableRandomTermsOnly).Fit(f, fit);
             });
             return fit;
         }
@@ -370,21 +568,143 @@ namespace StatisticalModels
             });
         }
 
+        /// <summary>
+        /// Moderated contrasts over several mixed-model fits that share one variance prior: exactly
+        /// <see cref="ModerateContrasts(NestedMixedModelFit, IReadOnlyList{ContrastWeights}, IReadOnlyList{IReadOnlyList{double}}, double)"/>,
+        /// with the prior, the df cap and Benjamini–Hochberg taken over every part together. Use it when features are fitted
+        /// on different common columns (each on the columns its own observed samples can estimate, so a feature missing
+        /// a group or batch is not refused as a whole), so they cannot share one fit, but their variances still share one
+        /// prior, as limma's do across genes with different missing values.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Pooled.</b> Each part's fitted features with a finite, positive joint Satterthwaite df of its
+        /// <see cref="MixedModelModerationPart.VarianceDfRows"/> enter the prior, in part order. The df cap is the sum of
+        /// those df. Benjamini–Hochberg runs per contrast name over the features of every part that tests it. A part's
+        /// contrasts and variance-df rows are weights on its own common columns; parts may test different contrasts, and a
+        /// part with none still informs the prior.
+        /// </para>
+        /// <para>
+        /// <b>Few features.</b> The prior counts those usable features only: with fewer than 3, no prior is fitted
+        /// (d0 = 0), so each keeps its own variance and its contrasts their own Satterthwaite df; with none, every value is
+        /// NaN. Nothing is thrown for too few features (QuantProject STAT1 ruling 5, 2026-11-10). The single-fit overload
+        /// is unchanged: it counts every feature of its fit and throws below 2 usable ones.
+        /// </para>
+        /// <para>
+        /// <b>Same numbers as one fit.</b> With one part and at least 3 usable features this gives exactly what the
+        /// single-fit overload gives; features split over several parts in their original order give the same numbers as
+        /// one fit of them all.
+        /// </para>
+        /// </remarks>
+        /// <param name="parts">At least one: each a fit, its contrasts and the condition terms of its variance df.</param>
+        /// <param name="confidenceLevel">Two-sided interval level, strictly between 0 and 1.</param>
+        /// <returns>Per part, in order, one result per contrast of that part, in its order.</returns>
+        public static IReadOnlyList<IReadOnlyList<ModeratedContrast>> ModerateContrasts(
+            IReadOnlyList<MixedModelModerationPart> parts, double confidenceLevel = 0.95)
+        {
+            ArgumentNullException.ThrowIfNull(parts);
+            EmpiricalBayes.CheckLevel(confidenceLevel);
+            if (parts.Count == 0) throw new ArgumentException("No part was given.", nameof(parts));
+            var pooled = new List<EmpiricalBayes.PooledPart>(parts.Count);
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i] ?? throw new ArgumentException($"Part {i} is null.", nameof(parts));
+                var fit = part.Fit ?? throw new ArgumentException($"Part {i} has no fit.", nameof(parts));
+                var contrasts = part.Contrasts ?? throw new ArgumentException($"Part {i} has no contrast list.", nameof(parts));
+                var rows = part.VarianceDfRows ?? throw new ArgumentException($"Part {i} has no variance-df rows.", nameof(parts));
+                int p = fit.CommonNames.Count;
+                if (contrasts.Count > 0)
+                    EmpiricalBayes.CheckContrasts(contrasts, confidenceLevel, c =>
+                    {
+                        if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
+                            throw new ArgumentException($"Contrast '{c.Name}' of part {i} needs {p} finite weights.", nameof(parts));
+                    });
+                if (rows.Count == 0) throw new ArgumentException($"Part {i} has no variance-df rows.", nameof(parts));
+                foreach (var r in rows)
+                    if (r is null || r.Count != p || r.Any(w => !double.IsFinite(w)))
+                        throw new ArgumentException($"Each variance-df row of part {i} needs {p} finite weights.", nameof(parts));
+
+                int n = fit.FeatureCount;
+                var s2 = new double[n];
+                var df = new double[n];
+                var usable = new List<int>();
+                for (int f = 0; f < n; f++)
+                {
+                    s2[f] = double.NaN;
+                    if (fit.Status[f] != FeatureFitStatus.Fitted) continue;
+                    double d = fit.JointSatterthwaiteDf(f, rows);
+                    if (!(double.IsFinite(d) && d > 0)) continue;
+                    s2[f] = fit.ResidualVariance[f];
+                    df[f] = d;
+                    usable.Add(f);
+                }
+                pooled.Add(new EmpiricalBayes.PooledPart(contrasts, s2, df, usable, fit.Status, (f, w) =>
+                {
+                    double unscaled = 0, estimate = 0;
+                    for (int a = 0; a < p; a++)
+                    {
+                        estimate += w[a] * fit.Coefficient(f, a);
+                        for (int b = 0; b < p; b++) unscaled += w[a] * w[b] * fit.UnscaledCovariance(f, a, b);
+                    }
+                    return new FeatureContrast(estimate, Math.Sqrt(unscaled), fit.Satterthwaite(f, w, out _));
+                }));
+            }
+            return EmpiricalBayes.ModeratePooled(pooled, confidenceLevel);
+        }
+
+        /// <summary>
+        /// Huber weights min(1, k / |r / MAD₀(r)|) into <paramref name="weights"/>, MAD₀ = 1.4826 · median |r| (R's
+        /// <c>mad(r, 0)</c>). False, leaving the weights as they were, when MAD₀ is zero or not finite: with more than
+        /// half the residuals exactly 0 no observation can be scaled (msqrob2 would divide by zero).
+        /// </summary>
+        internal static bool HuberWeights(IReadOnlyList<double> residual, double[] weights)
+        {
+            double mad = 1.4826 * residual.Select(Math.Abs).Median();
+            if (!(mad > 0 && double.IsFinite(mad))) return false;
+            for (int i = 0; i < residual.Count; i++)
+            {
+                double scaled = Math.Abs(residual[i] / mad);
+                weights[i] = scaled > FeatureModel.HuberK ? FeatureModel.HuberK / scaled : 1;
+            }
+            return true;
+        }
+
         /// <summary>One feature's fit: data reduced to cross-products, the REML criterion, its optimum and derivatives.</summary>
         private sealed class FeatureModel
         {
+            /// <summary>Huber's tuning constant, as <c>MASS::psi.huber</c> (msqrob2's weight function).</summary>
+            internal const double HuberK = 1.345;
+            /// <summary>msqrob2's default <c>tol</c>: the relative change in the penalised residual sum of squares that stops reweighting.</summary>
+            private const double RobustTolerance = 1e-6;
+            /// <summary>
+            /// The most reweighting rounds. msqrob2 defaults to 1; GR-22 iterates to convergence, which took 7-47 rounds on
+            /// the reference data (47 for one sample_only protein), so the limit is about twice the most seen. Reweighting
+            /// that has not settled by then falls back to msqrob2's one round (GR-22 amended 2026-11-03): some features with
+            /// few peptides and samples cycle and never settle.
+            /// </summary>
+            internal const int MaxRobustIterations = 100;
+
             private readonly NestedMixedModelProblem _problem;
             private readonly int _common;
+            private readonly bool _robust;
+            private readonly int _maxRobustIterations;
+            private readonly bool _estimableOnly;
             private int _m, _p, _q;
             private int[] _termOfColumn = Array.Empty<int>();
             private Matrix<double> _ztz = null!, _ztx = null!, _xtx = null!, _x = null!;
             private Vector<double> _zty = null!, _xty = null!, _y = null!;
             private List<int[]> _columns = new();
+            private double[] _w = Array.Empty<double>();
+            private double _sumLogW;
 
-            public FeatureModel(NestedMixedModelProblem problem, int common)
+            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust, int maxRobustIterations,
+                bool estimableOnly = false)
             {
                 _problem = problem;
                 _common = common;
+                _robust = robust;
+                _maxRobustIterations = maxRobustIterations;
+                _estimableOnly = estimableOnly;
             }
 
             public void Fit(int f, NestedMixedModelFit fit)
@@ -401,28 +721,7 @@ namespace StatisticalModels
                 if (!LinearModel.IsFullRank(x)) { fit.StatusValues[f] = FeatureFitStatus.RankDeficient; return; }
                 var y = Vector<double>.Build.Dense(_m, i => _problem.Response[rows[i]]);
 
-                // Random terms: individual and/or sample (within individual), levels in ordinal order.
-                var sample = rows.Select(i => _problem.Sample[i]).ToArray();
-                var terms = new List<string[]>();
-                RandomStructure structure;
-                if (_problem.Individual is null)
-                {
-                    terms.Add(sample);
-                    structure = RandomStructure.Sample;
-                }
-                else
-                {
-                    var individual = rows.Select(i => _problem.Individual[i]!).ToArray();
-                    bool oneSampleEach = individual.Zip(sample).GroupBy(t => t.First, StringComparer.Ordinal)
-                        .All(g => g.Select(t => t.Second).Distinct(StringComparer.Ordinal).Count() == 1);
-                    terms.Add(individual);
-                    structure = RandomStructure.Individual;
-                    if (!oneSampleEach)
-                    {
-                        terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
-                        structure = RandomStructure.IndividualAndSample;
-                    }
-                }
+                var (structure, terms) = ChooseStructure(_problem, rows, _estimableOnly);
                 var columns = new List<int[]>(); // per term: column index (within Z) of each observation
                 var termOfColumn = new List<int>();
                 int q = 0;
@@ -437,27 +736,63 @@ namespace StatisticalModels
                 }
                 _q = q;
                 _termOfColumn = termOfColumn.ToArray();
-                _ztz = Matrix<double>.Build.Dense(q, q);
-                _ztx = Matrix<double>.Build.Dense(q, _p);
-                _zty = Vector<double>.Build.Dense(q);
-                for (int i = 0; i < _m; i++)
-                    foreach (var a in columns)
-                    {
-                        int ca = a[i];
-                        _zty[ca] += y[i];
-                        for (int j = 0; j < _p; j++) _ztx[ca, j] += x[i, j];
-                        foreach (var b in columns) _ztz[ca, b[i]] += 1;
-                    }
-                _xtx = x.TransposeThisAndMultiply(x);
-                _xty = x.TransposeThisAndMultiply(y);
                 _x = x;
                 _y = y;
                 _columns = columns;
+                _w = Enumerable.Repeat(1.0, _m).ToArray();
+                BuildCrossProducts();
 
                 var theta = Minimise(terms.Count);
                 if (theta is null) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                 var best = Evaluate(theta);
                 if (!best.Ok) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
+
+                if (_robust)
+                {
+                    // msqrob2 1.20.0's .robust_fitting, iterated to convergence (QuantProject GR-22): Huber weights from the
+                    // response residuals scaled by their MAD about zero, refit, until the penalised residual sum of squares
+                    // changes by at most RobustTolerance relative.
+                    // Reweighting that does not settle (round limit; a later round's zero MAD or failed refit) falls back to
+                    // msqrob2's default of one round, the first round's weights and fit (GR-22 amended 2026-11-03), and is
+                    // flagged. Only a first round that cannot be formed leaves the feature NotConverged, out of moderation,
+                    // with its rounds and weights kept so it can be told from a plain fit.
+                    double sseOld = best.R2;
+                    int iteration = 0;
+                    bool converged = false;
+                    (double[] Theta, Result Best, double[] Weights)? firstRound = null;
+                    while (iteration < _maxRobustIterations)
+                    {
+                        iteration++;
+                        if (!HuberWeights(Residuals(best), _w)) break;
+                        BuildCrossProducts();
+                        var next = Minimise(terms.Count);
+                        if (next is null) break;
+                        var result = Evaluate(next);
+                        if (!result.Ok) break;
+                        theta = next;
+                        best = result;
+                        if (iteration == 1) firstRound = (next, result, (double[])_w.Clone());
+                        if (Math.Abs(sseOld - best.R2) / sseOld <= RobustTolerance) { converged = true; break; }
+                        sseOld = best.R2;
+                    }
+                    bool fellBack = !converged && firstRound is not null;
+                    if (fellBack)
+                    {
+                        (theta, best, _w) = firstRound!.Value;
+                        BuildCrossProducts();
+                    }
+                    fit.RobustIterationsValues[f] = iteration;
+                    fit.RobustConvergedValues[f] = converged;
+                    fit.RobustFellBackValues[f] = fellBack;
+                }
+                var weights = Enumerable.Repeat(double.NaN, _problem.Response.Count).ToArray();
+                for (int i = 0; i < _m; i++) weights[rows[i]] = _w[i];
+                fit.WeightValues[f] = weights;
+                if (_robust && fit.RobustConvergedValues[f] != true && fit.RobustFellBackValues[f] != true)
+                {
+                    fit.StatusValues[f] = FeatureFitStatus.NotConverged;
+                    return;
+                }
                 double sigma2 = best.R2 / (_m - _p);
                 int p = _common;
                 for (int i = 0; i < p; i++)
@@ -468,31 +803,46 @@ namespace StatisticalModels
                 fit.ResidualVarianceValues[f] = sigma2;
                 fit.RemlValues[f] = best.Criterion;
                 if (structure == RandomStructure.Sample) fit.SampleVarianceValues[f] = theta[0] * theta[0] * sigma2;
-                else
+                else if (structure != RandomStructure.None)
                 {
                     fit.IndividualVarianceValues[f] = theta[0] * theta[0] * sigma2;
                     if (structure == RandomStructure.IndividualAndSample) fit.SampleVarianceValues[f] = theta[1] * theta[1] * sigma2;
                 }
 
-                // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
-                int k = theta.Length + 1;
-                var phi = theta.Append(Math.Sqrt(sigma2)).ToArray();
-                var h = Richardson.Hessian(DevianceInPhi, phi);
-                var evd = Matrix<double>.Build.DenseOfArray(h).Evd(Symmetricity.Symmetric);
-                var a2 = new double[k * k];
-                for (int e = 0; e < k; e++)
+                double[] jac, a2;
+                if (structure == RandomStructure.None)
                 {
-                    double lambda = evd.EigenValues[e].Real;
-                    if (!(lambda > 1e-8)) continue;
-                    var v = evd.EigenVectors.Column(e);
-                    for (int i = 0; i < k; i++)
-                        for (int j = 0; j < k; j++) a2[i * k + j] += 2 * v[i] * v[j] / lambda;
+                    // Least squares, φ = (σ): Cov(β) = σ²(X′WX)⁻¹, so ∂Cov/∂σ = 2σ(X′WX)⁻¹; the REML deviance
+                    // r²/σ² + (n − p)·log(2πσ²) + … has second derivative 4(n − p)/σ² at its optimum, so 2·H⁻¹ is
+                    // σ²/(2(n − p)), and every Satterthwaite df comes out as the residual df n − p, as lm's.
+                    double sigma = Math.Sqrt(sigma2);
+                    jac = new double[p * p];
+                    for (int i = 0; i < p; i++)
+                        for (int j = 0; j < p; j++) jac[i * p + j] = 2 * sigma * best.AInverse![i, j];
+                    a2 = new[] { sigma2 / (2.0 * (_m - _p)) };
                 }
-                var jac = new double[k * p * p];
-                for (int t = 0; t < k; t++)
+                else
                 {
-                    var d = Richardson.Derivative(CovarianceInPhi, phi, t);
-                    Array.Copy(d, 0, jac, t * p * p, p * p);
+                    // Satterthwaite pieces in φ = (θ…, σ), as lmerTest.
+                    int k = theta.Length + 1;
+                    var phi = theta.Append(Math.Sqrt(sigma2)).ToArray();
+                    var h = Richardson.Hessian(DevianceInPhi, phi);
+                    var evd = Matrix<double>.Build.DenseOfArray(h).Evd(Symmetricity.Symmetric);
+                    a2 = new double[k * k];
+                    for (int e = 0; e < k; e++)
+                    {
+                        double lambda = evd.EigenValues[e].Real;
+                        if (!(lambda > 1e-8)) continue;
+                        var v = evd.EigenVectors.Column(e);
+                        for (int i = 0; i < k; i++)
+                            for (int j = 0; j < k; j++) a2[i * k + j] += 2 * v[i] * v[j] / lambda;
+                    }
+                    jac = new double[k * p * p];
+                    for (int t = 0; t < k; t++)
+                    {
+                        var d = Richardson.Derivative(CovarianceInPhi, phi, t);
+                        Array.Copy(d, 0, jac, t * p * p, p * p);
+                    }
                 }
                 if (jac.Any(z => !double.IsFinite(z)) || a2.Any(z => !double.IsFinite(z)))
                 {
@@ -502,14 +852,110 @@ namespace StatisticalModels
                 fit.Jacobians[f] = jac;
                 fit.VarParCovariances[f] = a2;
                 fit.StructureValues[f] = structure;
+                var nuisanceCoefficients = new double[_p - _common];
+                for (int i = 0; i < nuisanceCoefficients.Length; i++) nuisanceCoefficients[i] = best.Beta![_common + i];
+                fit.NuisanceValues[f] = nuisanceCoefficients;
                 fit.StatusValues[f] = FeatureFitStatus.Fitted;
             }
 
+            /// <summary>
+            /// The random terms of a problem's observations <paramref name="rows"/>, as labels per observation, and their
+            /// structure: individual and/or sample (within individual). With <paramref name="estimableOnly"/>, a term that
+            /// fails lme4's two checks (at least 2 levels, fewer levels than observations) is left out, the inner term
+            /// first, then the individual; with none left, <see cref="RandomStructure.None"/> (STAT1 ruling 16).
+            /// </summary>
+            internal static (RandomStructure Structure, List<string[]> Terms) ChooseStructure(NestedMixedModelProblem problem,
+                int[] rows, bool estimableOnly)
+            {
+                var sample = rows.Select(i => problem.Sample[i]).ToArray();
+                var terms = new List<string[]>();
+                RandomStructure structure;
+                if (problem.Individual is null)
+                {
+                    terms.Add(sample);
+                    structure = RandomStructure.Sample;
+                }
+                else
+                {
+                    var individual = rows.Select(i => problem.Individual[i]!).ToArray();
+                    bool oneSampleEach = individual.Zip(sample).GroupBy(t => t.First, StringComparer.Ordinal)
+                        .All(g => g.Select(t => t.Second).Distinct(StringComparer.Ordinal).Count() == 1);
+                    terms.Add(individual);
+                    structure = RandomStructure.Individual;
+                    if (!oneSampleEach)
+                    {
+                        terms.Add(individual.Zip(sample, (a, b) => a + "\u001f" + b).ToArray());
+                        structure = RandomStructure.IndividualAndSample;
+                    }
+                }
+                if (!estimableOnly) return (structure, terms);
+                int m = rows.Length;
+                bool Estimable(string[] labels)
+                {
+                    int levels = labels.Distinct(StringComparer.Ordinal).Count();
+                    return levels >= 2 && levels < m;
+                }
+                if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[1]))
+                {
+                    terms.RemoveAt(1);
+                    structure = RandomStructure.Individual;
+                }
+                else if (structure == RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                {
+                    terms.RemoveAt(0);
+                    structure = RandomStructure.Sample;
+                }
+                if (structure != RandomStructure.IndividualAndSample && !Estimable(terms[0]))
+                {
+                    terms.Clear();
+                    structure = RandomStructure.None;
+                }
+                return (structure, terms);
+            }
+
             private readonly record struct Result(bool Ok, double Criterion, double LogDetL, double LogDetRx, double R2,
-                Vector<double>? Beta, Matrix<double>? AInverse);
+                Vector<double>? Beta, Matrix<double>? AInverse, Vector<double>? LambdaU);
+
+            /// <summary>Weighted cross-products: Z′WZ, Z′WX, Z′Wy, X′WX, X′Wy, with W = diag(<see cref="_w"/>).</summary>
+            private void BuildCrossProducts()
+            {
+                if (_q > 0)
+                {
+                    _ztz = Matrix<double>.Build.Dense(_q, _q);
+                    _ztx = Matrix<double>.Build.Dense(_q, _p);
+                    _zty = Vector<double>.Build.Dense(_q);
+                    for (int i = 0; i < _m; i++)
+                        foreach (var a in _columns)
+                        {
+                            int ca = a[i];
+                            _zty[ca] += _w[i] * _y[i];
+                            for (int j = 0; j < _p; j++) _ztx[ca, j] += _w[i] * _x[i, j];
+                            foreach (var b in _columns) _ztz[ca, b[i]] += _w[i];
+                        }
+                }
+                var wx = Matrix<double>.Build.Dense(_m, _p, (i, j) => _w[i] * _x[i, j]);
+                _xtx = wx.TransposeThisAndMultiply(_x);
+                _xty = wx.TransposeThisAndMultiply(_y);
+                _sumLogW = _w.Sum(Math.Log);
+            }
+
+            /// <summary>Response residuals y − Xβ − ZΛu, unweighted (lme4's <c>resid</c>, which msqrob2 reweights on).</summary>
+            private double[] Residuals(Result r)
+            {
+                var e = _y - _x * r.Beta!;
+                var residual = new double[_m];
+                for (int i = 0; i < _m; i++)
+                {
+                    double ri = e[i];
+                    foreach (var c in _columns) ri -= r.LambdaU![c[i]];
+                    residual[i] = ri;
+                }
+                return residual;
+            }
 
             private Result Evaluate(double[] theta)
             {
+                if (_q == 0) return EvaluateLeastSquares();
                 try
                 {
                     var lambda = Vector<double>.Build.Dense(_q, j => theta[_termOfColumn[j]]);
@@ -524,11 +970,11 @@ namespace StatisticalModels
                     var cholA = a.Cholesky();
                     var beta = cholA.Solve(b);
                     // The penalised residual sum of squares from the residuals themselves, as lme4 computes it:
-                    // r² = |y − Xβ − ZΛu|² + |u|², u = (ΛZ′ZΛ + I)⁻¹ΛZ′(y − Xβ). Subtracting cross-products instead loses
-                    // ~1e-10 of the criterion to cancellation (log2 intensities near 22), enough to move the optimum.
+                    // r² = Σ wᵢ(y − Xβ − ZΛu)ᵢ² + |u|², u = (ΛZ′WZΛ + I)⁻¹ΛZ′W(y − Xβ). Subtracting cross-products instead
+                    // loses ~1e-10 of the criterion to cancellation (log2 intensities near 22), enough to move the optimum.
                     var e = _y - _x * beta;
                     var lzte = Vector<double>.Build.Dense(_q);
-                    for (int i = 0; i < _m; i++) foreach (var c in _columns) lzte[c[i]] += e[i];
+                    for (int i = 0; i < _m; i++) foreach (var c in _columns) lzte[c[i]] += _w[i] * e[i];
                     lzte = lzte.PointwiseMultiply(lambda);
                     var u = chol.Solve(lzte);
                     var lu = u.PointwiseMultiply(lambda);
@@ -537,18 +983,46 @@ namespace StatisticalModels
                     {
                         double ri = e[i];
                         foreach (var c in _columns) ri -= lu[c[i]];
-                        r2 += ri * ri;
+                        r2 += _w[i] * ri * ri;
                     }
                     if (!(r2 > 0)) return default;
                     int dfr = _m - _p;
-                    double criterion = chol.DeterminantLn + cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr));
+                    // lme4's REMLcrit subtracts Σ log wᵢ (0 without weights); it moves no optimum and no derivative.
+                    double criterion = chol.DeterminantLn + cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr))
+                        - _sumLogW;
                     if (!double.IsFinite(criterion)) return default;
                     return new Result(true, criterion, chol.DeterminantLn, cholA.DeterminantLn, r2, beta,
-                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)));
+                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)), lu);
                 }
                 catch (Exception e) when (e is ArgumentException or InvalidOperationException)
                 {
                     return default; // not positive definite: never an exception out of the parallel fit
+                }
+            }
+
+            /// <summary>
+            /// <see cref="Evaluate"/> with no random term (<see cref="RandomStructure.None"/>): weighted least squares, and the
+            /// REML criterion of that model, so the same σ², deviance and derivative code applies.
+            /// </summary>
+            private Result EvaluateLeastSquares()
+            {
+                try
+                {
+                    var cholA = _xtx.Cholesky();
+                    var beta = cholA.Solve(_xty);
+                    var e = _y - _x * beta;
+                    double r2 = 0;
+                    for (int i = 0; i < _m; i++) r2 += _w[i] * e[i] * e[i];
+                    if (!(r2 > 0)) return default;
+                    int dfr = _m - _p;
+                    double criterion = cholA.DeterminantLn + dfr * (1 + Math.Log(2 * Math.PI * r2 / dfr)) - _sumLogW;
+                    if (!double.IsFinite(criterion)) return default;
+                    return new Result(true, criterion, 0, cholA.DeterminantLn, r2, beta,
+                        cholA.Solve(Matrix<double>.Build.DenseIdentity(_p)), null);
+                }
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+                {
+                    return default;
                 }
             }
 
@@ -587,6 +1061,7 @@ namespace StatisticalModels
             /// <summary>θ minimising the REML criterion; null when the simplex search did not converge.</summary>
             private double[]? Minimise(int k)
             {
+                if (k == 0) return Array.Empty<double>();
                 if (k == 1)
                 {
                     int bestI = 0;
@@ -642,15 +1117,19 @@ namespace StatisticalModels
             private const int SimplexEvaluations = 4000;
 
             /// <summary>
-            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ); θ is clamped at 0 inside the
-            /// criterion and a θ the criterion cannot be evaluated at counts as the worst value. Null when the search has not
-            /// converged within <see cref="SimplexEvaluations"/>.
+            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ). The criterion is taken at |θ|:
+            /// it depends on each θ only through θ², so a component and its negative are the same model. Reflecting keeps the
+            /// surface smooth across θ = 0, where clamping at 0 made every negative θ equal to the boundary: a flat region in
+            /// which the simplex could see equal values at all its vertices and stop on the boundary with a worse criterion
+            /// than an interior optimum beside it (two real proteins, ReferenceComparisonNestedLmmTests). A θ the criterion
+            /// cannot be evaluated at counts as the worst value. Null when the search has not converged within
+            /// <see cref="SimplexEvaluations"/>.
             /// </summary>
             private double[]? NelderMead(double[] start)
             {
                 double F(Vector<double> v)
                 {
-                    double c = Criterion(v.Select(z => Math.Max(0, z)).ToArray());
+                    double c = Criterion(v.Select(Math.Abs).ToArray());
                     return double.IsFinite(c) ? c : double.MaxValue;
                 }
                 var step = Vector<double>.Build.Dense(start.Length, i => Math.Max(0.1, 0.2 * start[i]));
@@ -658,7 +1137,7 @@ namespace StatisticalModels
                 {
                     var result = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(F), Vector<double>.Build.DenseOfArray(start),
                         step, SimplexTolerance, SimplexEvaluations);
-                    return result.MinimizingPoint.Select(z => Math.Max(0, z)).ToArray();
+                    return result.MinimizingPoint.Select(Math.Abs).ToArray();
                 }
                 catch (MaximumIterationsException)
                 {

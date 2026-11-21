@@ -26,7 +26,7 @@ namespace Readers.SpectralLibrary;
 /// </para>
 ///
 /// <para>
-/// <b>Thread safety:</b> both public methods are stateless and safe to call from multiple
+/// <b>Thread safety:</b> all public methods are stateless and safe to call from multiple
 /// threads. The returned <see cref="MslLibrary"/> inherits the thread-safety guarantees
 /// of that class (concurrent reads are safe; disposal must not race with queries).
 /// </para>
@@ -68,9 +68,51 @@ public static class MslConverter
 	/// </exception>
 	/// <exception cref="InvalidDataException">
 	///   The file could not be parsed as a valid spectral library (e.g. empty file,
-	///   malformed entries, or no spectra found).
+	///   malformed entries, or no spectra found), or a spectrum in it cannot be converted to
+	///   a .msl entry (an empty name, or a charge or precursor m/z that is not positive).
+	///   The message names that spectrum and the reasons. To convert the rest of the file
+	///   and learn what was left out, use <see cref="FromMspFile(string, out List{string})"/>.
 	/// </exception>
 	public static MslLibrary FromMspFile(string textLibraryPath)
+		=> ConvertTextLibrary(textLibraryPath, warnings: null);
+
+	/// <summary>
+	/// As <see cref="FromMspFile(string)"/>, but a spectrum that cannot be converted to a
+	/// .msl entry (an empty name, or a charge or precursor m/z that is not positive) is left
+	/// out of the library and reported in <paramref name="warnings"/>, instead of refusing
+	/// the whole file. MetaMorpheus can write an entry with an empty name (<c>Name: /3</c>);
+	/// a library of a million entries is still usable without its few unnamed ones.
+	/// </summary>
+	/// <param name="textLibraryPath">
+	///   Path to the text spectral library file, as for <see cref="FromMspFile(string)"/>.
+	/// </param>
+	/// <param name="warnings">
+	///   One line per spectrum left out, naming it and the reasons; empty when none was.
+	///   Its <c>Count</c> is the number of spectra left out.
+	/// </param>
+	/// <returns>A library of every spectrum in the file that could be converted.</returns>
+	/// <exception cref="ArgumentNullException">
+	///   <paramref name="textLibraryPath"/> is null or empty.
+	/// </exception>
+	/// <exception cref="FileNotFoundException">
+	///   No file exists at <paramref name="textLibraryPath"/>.
+	/// </exception>
+	/// <exception cref="InvalidDataException">
+	///   The file could not be parsed as a valid spectral library, no spectra were found,
+	///   or none of its spectra can be converted.
+	/// </exception>
+	public static MslLibrary FromMspFile(string textLibraryPath, out List<string> warnings)
+	{
+		warnings = new List<string>();
+		return ConvertTextLibrary(textLibraryPath, warnings);
+	}
+
+	/// <summary>
+	/// Parses the text library and converts each spectrum once. A spectrum that cannot be
+	/// converted refuses the file when <paramref name="warnings"/> is null; otherwise it is
+	/// left out and reported there.
+	/// </summary>
+	private static MslLibrary ConvertTextLibrary(string textLibraryPath, List<string>? warnings)
 	{
 		if (string.IsNullOrEmpty(textLibraryPath))
 			throw new ArgumentNullException(nameof(textLibraryPath),
@@ -99,7 +141,32 @@ public static class MslConverter
 				$"No spectra could be parsed from '{textLibraryPath}'. " +
 				$"Verify the file is a valid MSP, pDeep, or ms2pip spectral library.");
 
-		return FromMspLibrarySpectra(spectra);
+		// FromLibrarySpectrum returns null for a spectrum it refuses, which used to reach
+		// MslIndex.Build and fail there with a NullReferenceException.
+		var entries = new List<MslLibraryEntry>(spectra.Count);
+		foreach (LibrarySpectrum spectrum in spectra)
+		{
+			ConversionResult result = MslLibraryEntry.TryFromLibrarySpectrum(spectrum);
+			if (result.Success)
+			{
+				entries.Add(result.Entry!);
+				continue;
+			}
+
+			string problem = $"Spectrum '{spectrum.Name}' in '{textLibraryPath}' cannot be " +
+				$"converted to a .msl entry: {string.Join("; ", result.Errors)}";
+			if (warnings is null)
+				throw new InvalidDataException(problem +
+					". FromMspFile(path, out warnings) leaves such spectra out and reports each one.");
+			warnings.Add(problem + "; left out.");
+		}
+
+		if (entries.Count == 0)
+			throw new InvalidDataException(
+				$"None of the {spectra.Count} spectra in '{textLibraryPath}' can be converted " +
+				$"to a .msl entry. The first: {warnings![0]}");
+
+		return BuildInMemoryLibrary(entries);
 	}
 
 	/// <summary>
@@ -122,10 +189,9 @@ public static class MslConverter
 	/// </para>
 	///
 	/// <para>
-	/// Duplicate sequence/charge keys within <paramref name="spectra"/> are handled by the
-	/// <see cref="MslIndex"/> LRU cache: the last entry with a given key wins in the
-	/// sequence/charge dictionary, consistent with how the binary reader handles duplicates
-	/// in a file.
+	/// Duplicate sequence/charge keys within <paramref name="spectra"/> are all kept as
+	/// entries. <see cref="MslLibrary.TryGetEntry"/> returns one of them, the copy that comes
+	/// first in ascending precursor m/z order, as it does for duplicates in a file.
 	/// </para>
 	/// </summary>
 	/// <param name="spectra">
@@ -140,6 +206,9 @@ public static class MslConverter
 	/// <exception cref="ArgumentNullException">
 	///   <paramref name="spectra"/> is null.
 	/// </exception>
+	/// <exception cref="ArgumentException">
+	///   A spectrum cannot be converted (null, empty sequence, charge or m/z not positive).
+	/// </exception>
 	public static MslLibrary FromMspLibrarySpectra(IReadOnlyList<LibrarySpectrum> spectra)
 	{
 		ArgumentNullException.ThrowIfNull(spectra);
@@ -148,9 +217,17 @@ public static class MslConverter
 		// FromLibrarySpectrum handles modification notation, fragment ion conversion,
 		// and neutral-loss classification.
 		var entries = new List<MslLibraryEntry>(spectra.Count);
-		foreach (LibrarySpectrum spectrum in spectra)
-			entries.Add(MslLibraryEntry.FromLibrarySpectrum(spectrum));
+		for (int i = 0; i < spectra.Count; i++)
+			entries.Add(MslWriter.ConvertForWrite(spectra[i], i, nameof(spectra)));
 
+		return BuildInMemoryLibrary(entries);
+	}
+
+	/// <summary>
+	/// Builds a file-less, full-load <see cref="MslLibrary"/> over already-converted entries.
+	/// </summary>
+	private static MslLibrary BuildInMemoryLibrary(List<MslLibraryEntry> entries)
+	{
 		// Build a synthetic header that correctly describes the in-memory content.
 		// Byte-offset fields are meaningless for a file-less library; they are zeroed.
 		// The magic and version are set correctly so that any code path that inspects

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using Proteomics;
+using UsefulProteomicsDatabases.Annotation;
 using UsefulProteomicsDatabases.GeneOntology;
 
 namespace Test.FileReadingTests

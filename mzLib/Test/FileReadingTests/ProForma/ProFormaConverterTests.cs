@@ -108,6 +108,27 @@ namespace Test.FileReadingTests.ProForma
                 Throws.TypeOf<MzLibException>().With.Message.Contains("Multiple modifications target residue index 1"));
         }
 
+        /// <summary>
+        /// A term holds several modifications per terminus (ProForma 2.1, section 6.3; TopDownProteomics 0.0.301), but
+        /// mzLib stores one per position. Every modification here resolves, so only the terminus rule stops the second
+        /// from being dropped.
+        /// </summary>
+        [TestCase("[Acetyl][Carbamyl]-QPEPTIDE", "2 N-terminal modifications")]
+        [TestCase("[Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "2 N-terminal modifications")]
+        [TestCase("QPEPTIDE-[Amidated][Methyl]", "2 C-terminal modifications")]
+        public void Layer2_TwoModificationsOnOneTerminus_Throws(string proForma, string expected)
+        {
+            var mods = new[]
+            {
+                MakeTerminalMod("Acetyl", "N-terminal.", 42.01057), MakeTerminalMod("Carbamyl", "N-terminal.", 43.00581),
+                MakeTerminalMod("Amidated", "C-terminal.", -0.98402), MakeTerminalMod("Methyl", "C-terminal.", 14.01565),
+            };
+            var allModsKnown = mods.ToDictionary(m => m.IdWithMotif);
+
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(ProFormaReader.Read(proForma), allModsKnown),
+                Throws.TypeOf<MzLibException>().With.Message.Contains(expected));
+        }
+
         [Test]
         public void Layer2_ResolvesNameAgainstAContextBearingMotif()
         {

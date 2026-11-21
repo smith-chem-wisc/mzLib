@@ -151,6 +151,101 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void EachKeptRowKnowsItsLineAndTheRestAreCounted()
+        {
+            var s = SdrfSearchScope.Restrict(Deposit(), new[] { "WT_1.raw", "WT_3-calib.mzML" });
+
+            Assert.That(s.Document.Results.Select(r => r["comment[data file]"]), Is.EqualTo(new[] { "WT_1.raw", "WT_3.raw" }));
+            Assert.That(s.SourceLines, Is.EqualTo(new[] { 2, 4 }), "the header is line 1, in Document.Results order");
+            Assert.That(s.RowsSetAside, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ARowNamingNoFileIsSetAsideAndALineWithNothingOnItIsNot()
+        {
+            var dep = Doc(
+                new[] { "S1", "1", "run 1", "label free sample", "WT_1.raw", "1" },
+                new[] { "S2", "2", "run 2", "label free sample", "", "1" },
+                new[] { "", "", "", "", "", "" },
+                new[] { "S3", "3", "run 3", "label free sample", "WT_3.raw", "1" });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "WT_1.raw", "WT_3.raw" });
+
+            Assert.That(s.SourceLines, Is.EqualTo(new[] { 2, 5 }), "a blank line still takes up a line in the file");
+            Assert.That(s.RowsSetAside, Is.EqualTo(1));
+            Assert.That(s.DroppedDataFiles, Is.Empty, "a row naming no file has nothing to list");
+        }
+
+        [Test]
+        public void EveryRowKeptOrNoneIsCounted()
+        {
+            var all = SdrfSearchScope.Restrict(Deposit(), new[] { "WT_1.raw", "WT_2.raw", "WT_3.raw" });
+            Assert.That((all.SourceLines, all.RowsSetAside), Is.EqualTo((new[] { 2, 3, 4 }, 0)));
+
+            var none = SdrfSearchScope.Restrict(Deposit(), new[] { "Other.raw" });
+            Assert.That((none.SourceLines, none.RowsSetAside), Is.EqualTo((System.Array.Empty<int>(), 3)));
+        }
+
+        [Test]
+        public void TheChannelRowsOfAFileEachKeepTheirOwnLine()
+        {
+            var dep = Doc(
+                new[] { "S0", "1", "run 0", "TMT126", "plex0.raw", "1" },
+                new[] { "S1", "1", "run 1", "TMT126", "plex1.raw", "1" },
+                new[] { "S2", "2", "run 1", "TMT127", "plex1.raw", "1" });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "plex1-calib.mzML" });
+
+            Assert.That(s.SourceLines, Is.EqualTo(new[] { 3, 4 }));
+            Assert.That(s.RowsSetAside, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ARowJoinedByAnEarlierSearchsColumnKeepsItsLine()
+        {
+            string[] columns = { "source name", "comment[data file]", "comment[searched data file]" };
+            var header = new SdrfHeader(columns);
+            var dep = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "S1", "acquired_1.raw", "renamed_1-calib.mzML" }),
+                new SdrfRow(header, new[] { "S2", "acquired_2.raw", "renamed_2-calib.mzML" }),
+            });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "renamed_2.mzML" });
+
+            Assert.That(s.SourceLines, Is.EqualTo(new[] { 3 }));
+            Assert.That(s.RowsSetAside, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TheLinesAreTheLinesOfTheFileItself()
+        {
+            string path = System.IO.Path.Combine(TestContext.CurrentContext.WorkDirectory, $"scope_lines_{System.Guid.NewGuid():N}.sdrf.tsv");
+            string[] lines =
+            {
+                "source name\tcomment[data file]",
+                "S1\tWT_1.raw",
+                "",
+                "S2\tWT_2.raw",
+                "S3\tWT_3.raw",
+            };
+            System.IO.File.WriteAllText(path, string.Join("\n", lines) + "\n");
+            try
+            {
+                var s = SdrfSearchScope.Restrict(new SdrfDocument(path), new[] { "WT_3.raw", "WT_1.raw" });
+
+                Assert.That(s.SourceLines, Is.EqualTo(new[] { 2, 5 }));
+                foreach (var (line, row) in s.SourceLines.Zip(s.Document.Results))
+                    Assert.That(lines[line - 1], Does.StartWith(row["source name"]));
+                Assert.That(s.RowsSetAside, Is.EqualTo(1));
+            }
+            finally
+            {
+                System.IO.File.Delete(path);
+            }
+        }
+
+        [Test]
         public void ChannelRowsOfOneMultiplexedFileAreNotACollision()
         {
             var dep = Doc(

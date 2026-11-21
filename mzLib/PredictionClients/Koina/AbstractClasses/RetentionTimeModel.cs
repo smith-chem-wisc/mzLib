@@ -143,30 +143,12 @@ namespace PredictionClients.Koina.AbstractClasses
             #endregion
 
             var predictions = new List<PeptideRTPrediction>();
+            IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
             if (validInputs.Count > 0)
             {
-                #region Request Batching, Throttling Setup
-                var batchedRequests = ToBatchedRequests(validInputs);
-                var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                #endregion
-
                 #region Throttled API Requests and Response Processing
-                var responses = new List<string>();
-                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count));
-
-                for (int i = 0; i < batchChunks.Count; i++)
-                {
-                    var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
-                    responses.AddRange(responseChunk);
-
-                    if (i < batchChunks.Count - 1) // No need to throttle after the last batch
-                    {
-                        await Task.Delay(ThrottlingDelayInMilliseconds);
-                    }
-                }
-
-                predictions = ResponseToPredictions(responses, validInputs);
+                // An input the model refuses is set false in ValidInputsMask, and the rest keep their predictions.
+                (predictions, refusedInputs) = await RequestPredictionsAsync(validInputs, ValidInputsMask, ResponseToPredictions);
                 #endregion
             }
 
@@ -194,6 +176,10 @@ namespace PredictionClients.Koina.AbstractClasses
                     ));
                 }
             }
+
+            // An input the model refused carries Koina's reason rather than a validation warning.
+            foreach (var (index, warning) in refusedInputs)
+                realignedPredictions[index] = realignedPredictions[index] with { Warning = warning };
             #endregion
 
             Predictions = realignedPredictions;
@@ -425,6 +411,10 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
                 catch (Exception)
                 {
+                    // A failure of the whole call, such as an outage, a timeout, or any refusal in ThrowException mode.
+                    // A peptide the model refuses does not land here otherwise: Predict leaves just that one unpredicted,
+                    // with Koina's reason as its Warning, so below it gets IncompatibleModifications and the others keep
+                    // their values.
                     foreach (var peptide in validPeptides)
                         batchResults[peptide.FullSequence] = null;
                 }

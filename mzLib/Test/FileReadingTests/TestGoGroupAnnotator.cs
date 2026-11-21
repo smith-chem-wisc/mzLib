@@ -481,6 +481,19 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void VariantOfAnIsoformInTheDatabaseWithNoGo_TakesWhatTheIsoformTakes()
+        {
+            // The variant takes the accession it was applied to (P04406-2), and that isoform, in the database with
+            // no GO of its own, takes its entry's terms (D37). Before the per-database split the variant stopped at
+            // the isoform's empty set and read no_go_terms, while the isoform itself read annotated.
+            var rows = Annotator(P("P04406", Go(Nucleus, "ECO:0000314")), P("P04406-2")).Annotate(Group("P04406-2_A20T"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.True);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { "P04406-2_A20T" }));
+        }
+
+        [Test]
         public void SequenceVariant_PresentInTheDatabase_UsesItsOwnEntry()
         {
             var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406_A20T", Go(Gapdh))).Annotate(Group("P04406_A20T"));
@@ -585,6 +598,44 @@ namespace Test.FileReadingTests
             var rows = Annotator(flagged, P("P2")).Annotate(Group("X1|P2"));
 
             Assert.That(rows.All(r => r.EntrapmentMembers.SequenceEqual(new[] { "X1" })));
+        }
+
+        // go D39: a shuffled entrapment partner carries no GO, even when its database entry kept its target's
+        // references (#1271 before c3400f00). A foreign-proteome entry keeps its own (above).
+
+        [TestCase("Random_P04406_f1")]
+        [TestCase("random_foreign_P04406")]
+        [TestCase("Random_P04406")]
+        public void Entrapment_NotForeign_TermsInTheDatabase_AreIgnored(string accession)
+        {
+            var row = Annotator(P(accession, Go(Nucleus))).Annotate(Group(accession)).Single();
+
+            Assert.That(row.Status, Is.EqualTo(GoAnnotationStatus.NoGoTerms), "present in the database, so not no_entry");
+            Assert.That(row.GoId, Is.Null);
+            Assert.That(row.EntrapmentMembers, Is.EqualTo(new[] { accession }));
+        }
+
+        [Test]
+        public void Entrapment_ShuffledPartnerWithItsTargetsTerms_NeverCountsTowardTheTerm()
+        {
+            var rows = Annotator(P("Q96L96", Go(Mitochondrion)), P("Random_Q96L96_f0", Go(Mitochondrion)))
+                .Annotate(Group("Q96L96|Random_Q96L96_f0"));
+
+            var mito = Row(rows, Mitochondrion);
+            Assert.That(mito.AccessionUsed, Is.EqualTo(new[] { "Q96L96" }));
+            Assert.That(mito.NWith, Is.EqualTo(1));
+            Assert.That(mito.NMembers, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Entrapment_MarkedByTheAnnotationDatabase_WithoutAForeignAccession_CarriesNoTerms()
+        {
+            // The accession says nothing about where the sequence came from, so it cannot be shown to own its GO.
+            var flagged = new Protein("PEPTIDEK", "X1", isEntrapment: true, databaseReferences: new List<DatabaseReference> { Go(Nucleus) });
+
+            var row = Annotator(flagged).Annotate(Group("X1")).Single();
+
+            Assert.That(row.Status, Is.EqualTo(GoAnnotationStatus.NoGoTerms));
         }
     }
 }

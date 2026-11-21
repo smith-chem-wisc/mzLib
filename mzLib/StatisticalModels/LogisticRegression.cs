@@ -112,6 +112,16 @@ namespace StatisticalModels
         /// <summary>Fitted probabilities closer than this to 0 or 1 mark a separated fit.</summary>
         public const double SeparationThreshold = 1e-10;
 
+        /// <summary>
+        /// Every <see cref="FeatureFitStatus"/> that <see cref="Fit"/> can report, in enum order. A caller that summarises
+        /// outcomes, e.g. one count per status, reads this instead of the whole enum.
+        /// </summary>
+        public static IReadOnlyList<FeatureFitStatus> ReportedStatuses { get; } = Array.AsReadOnly(new[]
+        {
+            FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
+            FeatureFitStatus.Separated, FeatureFitStatus.NotConverged,
+        });
+
         // A converged fit with a linear predictor this extreme (μ ≈ 3e-7) is probed for separation.
         private const double ProbeEta = 15;
         private const int ProbeIterations = 20;

@@ -85,6 +85,50 @@ public class ReferenceComparisonNestedLmmTests
         }
     }
 
+    /// <summary>
+    /// Two real proteins (the MSstatsTMT controlled mixtures, make_boundary_lmm_fixtures.R) whose REML optimum is interior
+    /// but lies near the boundary where the sample variance is zero. The simplex once clamped a negative θ to 0, which
+    /// made that side flat, and it stopped there: on master it reached a criterion 0.018 (O75569) and 0.017 (Q9H479) above
+    /// lme4's, with the sample variance at 0, moving the condition coefficients by up to 0.002. lme4's default, bobyqa and
+    /// Nelder–Mead optimizers all agree on the interior optimum. Each protein is fitted as R wrote it and as the STAT1 runner
+    /// builds it (other labels and order, y shifted by one constant): the same model, but the stall depended on the
+    /// path, and on master it showed in the runner's form.
+    /// </summary>
+    [TestCase("O75569", "lmm_boundary_values.tsv")]
+    [TestCase("Q9H479", "lmm_boundary_values.tsv")]
+    [TestCase("O75569", "lmm_boundary_runner_values.tsv")]
+    [TestCase("Q9H479", "lmm_boundary_runner_values.tsv")]
+    public void TwoVarianceComponentsReachLme4sInteriorOptimumNearTheBoundary(string protein, string file)
+    {
+        var values = LmmData.Rows(file).Where(r => r["protein"] == protein).ToList();
+        var expected = LmmData.Rows("lmm_boundary_results.tsv").Single(r => r["protein"] == protein);
+        string[] levels = { "0.5", "0.667", "1" };
+        var common = new double[values.Count, levels.Length + 1];
+        for (int i = 0; i < values.Count; i++)
+        {
+            common[i, 0] = 1;
+            for (int k = 0; k < levels.Length; k++) common[i, k + 1] = values[i]["condition"] == levels[k] ? 1 : 0;
+        }
+        var problem = NestedMixedModelProblem.FromNuisanceLabels(values.Select(v => LmmData.Parse(v["y"])).ToArray(), common,
+            values.Select(v => v["ion"]).ToArray(), values.Select(v => v["sample"]).ToArray(),
+            values.Select(v => (string?)v["individual"]).ToArray());
+
+        var fit = NestedMixedModel.Fit(new[] { problem }, new[] { "intercept", "condition0.5", "condition0.667", "condition1" });
+
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.Structure[0], Is.EqualTo(RandomStructure.IndividualAndSample));
+        Close(fit.RemlCriterion[0], expected["reml"], Reml, $"{protein} REML");
+        Close(fit.ResidualVariance[0], expected["sigma2"], Fit, $"{protein} sigma2");
+        Variance(fit.SampleVariance[0], expected["var_sample"], fit.ResidualVariance[0], $"{protein} var(sample)");
+        Variance(fit.IndividualVariance[0], expected["var_individual"], fit.ResidualVariance[0], $"{protein} var(individual)");
+        for (int k = 0; k < levels.Length; k++)
+        {
+            Close(fit.Coefficient(0, k + 1), expected[$"coef_{levels[k]}"], Fit, $"{protein} condition {levels[k]}");
+            Close(Math.Sqrt(fit.UnscaledCovariance(0, k + 1, k + 1) * fit.ResidualVariance[0]), expected[$"se_{levels[k]}"], Fit,
+                $"{protein} se {levels[k]}");
+        }
+    }
+
     private static void Close(double actual, string expectedText, double tolerance, string where)
     {
         double expected = LmmData.Parse(expectedText);
@@ -110,20 +154,22 @@ internal sealed class LmmData
     public List<string> CommonNames { get; } = new();
     public List<ContrastWeights> Contrasts { get; } = new();
     public List<IReadOnlyList<double>> ConditionRows { get; } = new();
+    /// <summary>Per problem, the (peptide, sample) of each observation, in the problem's order.</summary>
+    public List<List<(string Peptide, string Sample)>> Keys { get; } = new();
 
-    public static LmmData Read(string scenario)
+    public static LmmData Read(string scenario, string prefix = "lmm")
     {
         var d = new LmmData();
-        var samples = Rows($"lmm_{scenario}_samples.tsv");
-        var header = Lines($"lmm_{scenario}_samples.tsv")[0];
+        var samples = Rows($"{prefix}_{scenario}_samples.tsv");
+        var header = Lines($"{prefix}_{scenario}_samples.tsv")[0];
         d.CommonNames.AddRange(header.SkipWhile(h => h != "intercept"));
         int p = d.CommonNames.Count;
         var sampleIds = samples.Select(s => s["sample"]).ToList();
-        foreach (var c in Rows($"lmm_{scenario}_contrasts.tsv"))
+        foreach (var c in Rows($"{prefix}_{scenario}_contrasts.tsv"))
             d.Contrasts.Add(new ContrastWeights(c["contrast"], d.CommonNames.Select(n => Parse(c[n])).ToArray()));
         for (int r = 1; r < p; r++) d.ConditionRows.Add(Enumerable.Range(0, p).Select(j => j == r ? 1.0 : 0.0).ToArray());
 
-        foreach (var protein in Rows($"lmm_{scenario}_values.tsv").GroupBy(v => v["protein"]))
+        foreach (var protein in Rows($"{prefix}_{scenario}_values.tsv").GroupBy(v => v["protein"]))
         {
             var observed = protein.Where(v => !double.IsNaN(Parse(v["y"]))).ToList();
             var peptides = observed.Select(v => v["peptide"]).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
@@ -145,6 +191,7 @@ internal sealed class LmmData
                 individual[i] = s["individual"] is "NA" or "" ? null : s["individual"];
             }
             d.Proteins.Add(protein.Key);
+            d.Keys.Add(observed.Select(v => (v["peptide"], v["sample"])).ToList());
             d.Problems.Add(new NestedMixedModelProblem(y, common, peptides.Count > 1 ? nuisance : null, sample,
                 individual.All(x => x is null) ? null : individual));
         }

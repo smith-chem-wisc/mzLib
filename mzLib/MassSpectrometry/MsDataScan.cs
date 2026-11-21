@@ -169,6 +169,97 @@ namespace MassSpectrometry
             return MzSpectrum.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
         }
 
+        /// <summary>
+        /// Builds a <see cref="NoiseData"/> table from parallel arrays: row 0 the m/z of each sampled point, row 1 the
+        /// noise level there and row 2 the baseline there, as the instrument reports them, ordered by m/z. Thermo reports
+        /// such a table, a few dozen points per Orbitrap scan, and its per-peak noise is this table interpolated
+        /// linearly at the peak (<see cref="TryGetNoiseAndBaseline"/>). Null when there are no points.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">An array is null.</exception>
+        /// <exception cref="ArgumentException">The arrays differ in length.</exception>
+        public static double[,] CreateNoiseData(double[] mzs, double[] noise, double[] baseline)
+        {
+            ArgumentNullException.ThrowIfNull(mzs);
+            ArgumentNullException.ThrowIfNull(noise);
+            ArgumentNullException.ThrowIfNull(baseline);
+            if (noise.Length != mzs.Length || baseline.Length != mzs.Length)
+            {
+                throw new ArgumentException($"The noise table needs one noise and one baseline value per m/z; got {mzs.Length} m/z, " +
+                    $"{noise.Length} noise and {baseline.Length} baseline values.");
+            }
+            if (mzs.Length == 0)
+            {
+                return null;
+            }
+
+            int[] order = Enumerable.Range(0, mzs.Length).OrderBy(i => mzs[i]).ToArray();
+            var table = new double[3, mzs.Length];
+            for (int i = 0; i < order.Length; i++)
+            {
+                table[0, i] = mzs[order[i]];
+                table[1, i] = noise[order[i]];
+                table[2, i] = baseline[order[i]];
+            }
+            return table;
+        }
+
+        /// <summary>
+        /// The noise level and baseline at <paramref name="mz"/>, interpolated linearly between the two points of
+        /// <see cref="NoiseData"/> around it; beyond the first or last point, that point's values. False, with both
+        /// outputs NaN, when this scan has no noise table: <see cref="NoiseData"/> is null or not three rows of at least
+        /// one point (ion-trap scans, and files whose reader does not give noise).
+        /// </summary>
+        public bool TryGetNoiseAndBaseline(double mz, out double noise, out double baseline)
+        {
+            noise = double.NaN;
+            baseline = double.NaN;
+            if (NoiseData == null || NoiseData.GetLength(0) != 3 || NoiseData.GetLength(1) < 1)
+            {
+                return false;
+            }
+
+            int count = NoiseData.GetLength(1);
+            if (mz <= NoiseData[0, 0])
+            {
+                noise = NoiseData[1, 0];
+                baseline = NoiseData[2, 0];
+                return true;
+            }
+            if (mz >= NoiseData[0, count - 1])
+            {
+                noise = NoiseData[1, count - 1];
+                baseline = NoiseData[2, count - 1];
+                return true;
+            }
+
+            // The last point at or below mz; the table is ordered by m/z, so the next point is above it.
+            int low = 0;
+            int high = count - 1;
+            while (high - low > 1)
+            {
+                int middle = (low + high) / 2;
+                if (NoiseData[0, middle] <= mz) low = middle; else high = middle;
+            }
+            double fraction = (mz - NoiseData[0, low]) / (NoiseData[0, high] - NoiseData[0, low]);
+            noise = NoiseData[1, low] + fraction * (NoiseData[1, high] - NoiseData[1, low]);
+            baseline = NoiseData[2, low] + fraction * (NoiseData[2, high] - NoiseData[2, low]);
+            return true;
+        }
+
+        /// <summary>
+        /// The signal-to-noise of a peak of <paramref name="intensity"/> at <paramref name="mz"/>, as Thermo reports it:
+        /// (intensity - baseline) / (noise - baseline), with noise and baseline from <see cref="TryGetNoiseAndBaseline"/>.
+        /// NaN when this scan has no noise table, or when noise does not exceed baseline there.
+        /// </summary>
+        public double GetSignalToNoise(double mz, double intensity)
+        {
+            if (!TryGetNoiseAndBaseline(mz, out double noise, out double baseline) || noise <= baseline)
+            {
+                return double.NaN;
+            }
+            return (intensity - baseline) / (noise - baseline);
+        }
+
 
         /// <summary>
         /// Get deconvoluted isotopic envelopes with peaks within the isolation range

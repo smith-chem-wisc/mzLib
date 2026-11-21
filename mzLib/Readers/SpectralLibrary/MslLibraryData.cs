@@ -319,6 +319,103 @@ public sealed class MslLibraryData : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Records read per chunk by <see cref="ReadFragments"/>: 64 x 20 bytes on the stack.
+	/// </summary>
+	private const int FragmentReadChunk = 64;
+
+	/// <summary>
+	/// Number of fragment ions stored for the precursor at <paramref name="precursorIndex"/>,
+	/// taken from its precursor record without reading the file. Index-only mode only.
+	/// </summary>
+	/// <exception cref="InvalidOperationException">Called on a full-load instance.</exception>
+	/// <exception cref="ArgumentOutOfRangeException">
+	/// <paramref name="precursorIndex"/> is outside [0, Count).
+	/// </exception>
+	internal int GetFragmentCount(int precursorIndex)
+	{
+		CheckIndexOnlyRead(precursorIndex);
+		return _precursorRecords![precursorIndex].FragmentCount;
+	}
+
+	/// <summary>
+	/// Copies the fragment ions of the precursor at <paramref name="precursorIndex"/> into
+	/// <paramref name="destination"/>, in file order, without allocating. Index-only mode only;
+	/// <c>MslLibrary.ReadFragments</c> serves full-load libraries from memory.
+	///
+	/// <para>Thread-safe, like <see cref="LoadFragmentsOnDemand"/>: records come from the memory map
+	/// (local drives) or from positional reads (other drives), through a small stack buffer, and no
+	/// lock is taken.</para>
+	/// </summary>
+	/// <returns>The number of fragments written, which is the precursor's fragment count.</returns>
+	/// <exception cref="InvalidOperationException">Called on a full-load instance.</exception>
+	/// <exception cref="ArgumentOutOfRangeException">
+	/// <paramref name="precursorIndex"/> is outside [0, Count).
+	/// </exception>
+	/// <exception cref="ArgumentException">
+	/// <paramref name="destination"/> is shorter than the precursor's fragment count.
+	/// </exception>
+	/// <exception cref="ObjectDisposedException"><see cref="Dispose"/> has already been called.</exception>
+	internal int ReadFragments(int precursorIndex, Span<MslFragmentValue> destination)
+	{
+		CheckIndexOnlyRead(precursorIndex);
+
+		MslPrecursorRecord record = _precursorRecords![precursorIndex];
+		int count = record.FragmentCount;
+		if (destination.Length < count)
+			throw new ArgumentException(
+				$"The destination holds {destination.Length} fragments; precursor {precursorIndex} has {count}.",
+				nameof(destination));
+
+		Span<MslFragmentRecord> chunk = stackalloc MslFragmentRecord[FragmentReadChunk];
+
+		try
+		{
+			int done = 0;
+			while (done < count)
+			{
+				Span<MslFragmentRecord> part = chunk[..Math.Min(chunk.Length, count - done)];
+				long offset = record.FragmentBlockOffset + (long)done * MslFormat.FragmentRecordSize;
+
+				if (_memoryMapped)
+				{
+					MemoryMappedViewAccessor? view = Volatile.Read(ref _fragmentView);
+					if (view is null)
+						throw DisposedException();
+					MslReader.ReadFragmentRecordsAt(view, _fileLength, offset, part);
+				}
+				else
+				{
+					if (Volatile.Read(ref _onDemandStream) is null)
+						throw DisposedException();
+					MslReader.ReadFragmentRecordsAt(_onDemandHandle!, offset, part);
+				}
+
+				for (int k = 0; k < part.Length; k++)
+					destination[done + k] = MslReader.ToFragmentValue(in part[k], _customLossMasses);
+				done += part.Length;
+			}
+		}
+		catch (ObjectDisposedException)
+		{
+			// Dispose ran on another thread between the check above and the read
+			throw DisposedException();
+		}
+
+		return count;
+	}
+
+	private void CheckIndexOnlyRead(int precursorIndex)
+	{
+		if (!_isIndexOnly)
+			throw new InvalidOperationException(
+				"Reading fragments from the file is only available in index-only mode.");
+
+		if (precursorIndex < 0 || precursorIndex >= Count)
+			throw new ArgumentOutOfRangeException(nameof(precursorIndex),
+				$"Index {precursorIndex} is out of range [0, {Count}).");
+	}
+
 	// ── IDisposable ───────────────────────────────────────────────────────────
 
 	/// <summary>

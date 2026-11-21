@@ -165,6 +165,54 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// Why a cell was refused (bridge SDRF-B1). The bindings show the reason to a curator; before this, the
+        /// bridge re-classified the cell itself, guessing at this parser's grammar from outside.
+        /// </summary>
+        [TestCase(null, SdrfAgeRefusal.Empty)]
+        [TestCase("", SdrfAgeRefusal.Empty)]
+        [TestCase("   ", SdrfAgeRefusal.Empty)]
+        [TestCase("not available", SdrfAgeRefusal.ReservedWord)]
+        [TestCase("Not Applicable", SdrfAgeRefusal.ReservedWord)]
+        [TestCase("63", SdrfAgeRefusal.NoUnit)]
+        [TestCase("2.5", SdrfAgeRefusal.NoUnit)]
+        [TestCase("40-85", SdrfAgeRefusal.NoUnit)]
+        [TestCase(">=90", SdrfAgeRefusal.NoUnit)]
+        [TestCase("6M30Y", SdrfAgeRefusal.UnitsOutOfOrder)]
+        [TestCase("30Y30Y", SdrfAgeRefusal.UnitsOutOfOrder)]
+        [TestCase("40Y-6M30Y", SdrfAgeRefusal.UnitsOutOfOrder)]
+        [TestCase("85Y-40Y", SdrfAgeRefusal.ReversedRange)]
+        [TestCase("adult", SdrfAgeRefusal.Unreadable)]
+        [TestCase("not availableY", SdrfAgeRefusal.Unreadable)]
+        [TestCase("less than 1 day", SdrfAgeRefusal.Unreadable)]
+        [TestCase("-5Y", SdrfAgeRefusal.Unreadable)]
+        [TestCase("40Y-85", SdrfAgeRefusal.Unreadable)]
+        [TestCase(">=adult", SdrfAgeRefusal.Unreadable)]
+        public void ARefusalSaysWhy(string cell, SdrfAgeRefusal expected)
+        {
+            Assert.That(SdrfAge.TryParse(cell, out var age, out var reason), Is.False);
+            Assert.That(age, Is.Null);
+            Assert.That(reason, Is.EqualTo(expected));
+        }
+
+        private static readonly string[] CellsOfEveryShape =
+        {
+            "58Y", "30Y6M", " 54y ", "16W", "3 year", "4 hour", "6-8 weeks", ">=90Y", "<1Y", "40Y-85Y", "40Y-40Y",
+            "63", "40-85", "not available", "6M30Y", "85Y-40Y", "adult", "-5Y", "", null
+        };
+
+        /// <summary>The overload with a reason reads exactly what the plain one reads, and None means read.</summary>
+        [TestCaseSource(nameof(CellsOfEveryShape))]
+        public void BothOverloadsReadTheSameCells(string cell)
+        {
+            bool plain = SdrfAge.TryParse(cell, out var a);
+            bool withReason = SdrfAge.TryParse(cell, out var b, out var reason);
+
+            Assert.That(withReason, Is.EqualTo(plain));
+            Assert.That(b, Is.EqualTo(a));
+            Assert.That(reason == SdrfAgeRefusal.None, Is.EqualTo(plain));
+        }
+
+        /// <summary>
         /// How the curated corpus's age cells fall, for reference. [Explicit]; needs MZLIB_SDRF_CORPUS.
         /// </summary>
         [Test]
@@ -192,7 +240,13 @@ namespace Test.FileReadingTests
                          .GroupBy(a => (a!.Precision, a.FollowsSpecification)).OrderBy(g => g.Key))
                 TestContext.Progress.WriteLine($"{group.Key.Precision,-11} spec={group.Key.FollowsSpecification,-5} {group.Count()}");
 
+            var reasons = cells.Select(c => SdrfAge.TryParse(c, out _, out var reason) ? SdrfAgeRefusal.None : reason).ToList();
+            foreach (var group in reasons.Where(r => r != SdrfAgeRefusal.None).GroupBy(r => r).OrderBy(g => g.Key))
+                TestContext.Progress.WriteLine($"refused, {group.Key,-15} {group.Count()}");
+
             Assert.That(cells, Is.Not.Empty);
+            Assert.That(reasons.Count(r => r == SdrfAgeRefusal.None), Is.EqualTo(read.Count(a => a is not null)),
+                "the overload with a reason reads exactly the cells the plain one reads");
         }
     }
 }

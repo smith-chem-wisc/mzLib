@@ -271,5 +271,128 @@ namespace Omics.Modifications
 
             return reporterIonIntensities;
         }
+
+        /// <summary>
+        /// Each reporter ion's signal-to-noise in <paramref name="scan"/>, in the order of <see cref="ReporterIonMzs"/>:
+        /// the intensity <see cref="GetReporterIonIntensities"/> finds for it, as Thermo computes signal-to-noise,
+        /// (intensity - baseline) / (noise - baseline), with the scan's noise and baseline at the reporter ion's m/z
+        /// (<see cref="MsDataScan.GetSignalToNoise"/>). The noise table changes little within the ±<see cref="AbsoluteToleranceValue"/> Da
+        /// a peak may sit from its reporter ion. A reporter ion with no peak gets zero, as its intensity does.
+        /// Null when <see cref="GetReporterIonIntensities"/> gives null, or when the scan has no noise table (an
+        /// ion-trap scan, or a file whose reader gives no noise); NaN for a reporter ion where noise does not exceed baseline.
+        /// </summary>
+        public double[]? GetReporterIonSignalToNoise(MsDataScan? scan)
+        {
+            if (scan == null || !scan.TryGetNoiseAndBaseline(ReporterIonMzs[0], out _, out _)) return null;
+            double[]? intensities = GetReporterIonIntensities(scan.MassSpectrum);
+            if (intensities == null) return null;
+
+            var signalToNoise = new double[intensities.Length];
+            for (int i = 0; i < intensities.Length; i++)
+            {
+                signalToNoise[i] = intensities[i] > 0 ? scan.GetSignalToNoise(ReporterIonMzs[i], intensities[i]) : 0;
+            }
+            return signalToNoise;
+        }
+
+        /// <summary>
+        /// Each reporter ion as <paramref name="scan"/> recorded it, in the order of <see cref="ReporterIonMzs"/>. Unlike
+        /// <see cref="GetReporterIonIntensities"/>, which gives 0 for every reporter ion without a peak, this tells apart
+        /// the two kinds of "no value":
+        /// <list type="bullet">
+        /// <item><see cref="ReporterIonReadingKind.Value"/>: a peak within tolerance, its intensity as
+        /// <see cref="GetReporterIonIntensities"/> finds it. A peak outside the scan's stated window still counts: the data
+        /// say the m/z was recorded.</item>
+        /// <item><see cref="ReporterIonReadingKind.BelowFloor"/>: no peak, but the scan recorded the reporter ion's m/z, so
+        /// the intensity was below the scan's detection floor there.</item>
+        /// <item><see cref="ReporterIonReadingKind.NotRecorded"/>: no peak, and the scan could not have recorded one. Either
+        /// the m/z lies outside what the scan recorded (its <see cref="MsDataScan.ScanWindowRange"/>, or, when the scan has
+        /// none, the m/z span of its peaks), or the scan is from an ion trap, which cannot place a peak within this tag's
+        /// ±<see cref="AbsoluteToleranceValue"/> Da, so it cannot say a reporter ion was absent. Every reporter ion of an
+        /// empty spectrum is not recorded.</item>
+        /// </list>
+        /// Every recorded reporter ion carries the scan's detection floor at its m/z: the noise table's noise level when
+        /// the scan has one, else the weakest peak between the lowest and highest reporter ions, else the weakest peak in
+        /// the scan (<see cref="DetectionFloorSource"/>). Null when <paramref name="scan"/> is null.
+        /// </summary>
+        public ReporterIonReading[]? GetReporterIonReadings(MsDataScan? scan)
+        {
+            if (scan == null) return null;
+
+            var readings = new ReporterIonReading[ReporterIonMzs.Length];
+            MzSpectrum spectrum = scan.MassSpectrum;
+            if (spectrum.Size < 1)
+            {
+                for (int i = 0; i < readings.Length; i++)
+                {
+                    readings[i] = new ReporterIonReading(double.NaN, ReporterIonReadingKind.NotRecorded, null, DetectionFloorSource.None);
+                }
+                return readings;
+            }
+
+            double[] intensities = GetReporterIonIntensities(spectrum)!;
+            double recordedFrom = scan.ScanWindowRange?.Minimum ?? spectrum.XArray[0];
+            double recordedTo = scan.ScanWindowRange?.Maximum ?? spectrum.XArray[^1];
+            bool ionTrap = scan.MzAnalyzer is MZAnalyzerType.IonTrap2D or MZAnalyzerType.IonTrap3D;
+            (double? regionMinimum, double? scanMinimum) = WeakestPeaks(spectrum);
+
+            for (int i = 0; i < readings.Length; i++)
+            {
+                double mz = ReporterIonMzs[i];
+                bool hasPeak = intensities[i] > 0;
+                if (!hasPeak && (ionTrap || mz < recordedFrom || mz > recordedTo))
+                {
+                    readings[i] = new ReporterIonReading(double.NaN, ReporterIonReadingKind.NotRecorded, null, DetectionFloorSource.None);
+                    continue;
+                }
+
+                (double? floor, DetectionFloorSource source) = DetectionFloor(scan, mz, regionMinimum, scanMinimum);
+                readings[i] = hasPeak
+                    ? new ReporterIonReading(intensities[i], ReporterIonReadingKind.Value, floor, source)
+                    : new ReporterIonReading(double.NaN, ReporterIonReadingKind.BelowFloor, floor, source);
+            }
+
+            return readings;
+        }
+
+        /// <summary>
+        /// The weakest positive peak between the lowest and highest reporter ions (their tolerance ranges included), and the
+        /// weakest positive peak in the whole spectrum; null where there is none.
+        /// </summary>
+        private (double? RegionMinimum, double? ScanMinimum) WeakestPeaks(MzSpectrum spectrum)
+        {
+            double regionFrom = ReporterIonMzRanges[0].Minimum;
+            double regionTo = ReporterIonMzRanges[^1].Maximum;
+            double? regionMinimum = null;
+            double? scanMinimum = null;
+            for (int p = 0; p < spectrum.Size; p++)
+            {
+                double intensity = spectrum.YArray[p];
+                if (!(intensity > 0)) continue;
+
+                if (scanMinimum == null || intensity < scanMinimum) scanMinimum = intensity;
+
+                double mz = spectrum.XArray[p];
+                if (mz >= regionFrom && mz <= regionTo && (regionMinimum == null || intensity < regionMinimum))
+                {
+                    regionMinimum = intensity;
+                }
+            }
+            return (regionMinimum, scanMinimum);
+        }
+
+        private static (double? Floor, DetectionFloorSource Source) DetectionFloor(MsDataScan scan, double mz,
+            double? regionMinimum, double? scanMinimum)
+        {
+            if (scan.TryGetNoiseAndBaseline(mz, out double noise, out _) && double.IsFinite(noise) && noise > 0)
+            {
+                return (noise, DetectionFloorSource.NoiseTable);
+            }
+            if (regionMinimum != null)
+            {
+                return (regionMinimum, DetectionFloorSource.ReporterRegionMinimum);
+            }
+            return scanMinimum != null ? (scanMinimum, DetectionFloorSource.ScanMinimum) : (null, DetectionFloorSource.None);
+        }
     }
 }

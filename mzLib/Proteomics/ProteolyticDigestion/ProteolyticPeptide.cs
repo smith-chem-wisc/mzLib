@@ -64,12 +64,17 @@ namespace Proteomics.ProteolyticDigestion
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
+            // Every form of this product has its base sequence and residue masses: take them once, at the first form.
+            string baseSequence = null;
+            double residueMassSum = 0;
+
             try
             {
                 PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
                 PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, in fixedModDictionary);
 
-                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
+                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength,
+                             fixedModDictionary.Count))
                 {
                     // Modifications are placed AFTER cleavage, so nothing so far has checked whether a
                     // modification abolishes the very site this peptide was cut at. Skip the peptidoforms
@@ -95,7 +100,7 @@ namespace Proteomics.ProteolyticDigestion
                     int reportedMissedCleavages = MissedCleavages;
                     if (cleavageBlockingPolicy.IsActive
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
-                        && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, cleavageBlockingPolicy,
+                        && IsUnreachableThroughBlockedCleavage(variableModPattern, fixedModDictionary, peptideLength, cleavageBlockingPolicy,
                             out reportedMissedCleavages))
                     {
                         continue;
@@ -103,8 +108,15 @@ namespace Proteomics.ProteolyticDigestion
 
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
 
+                    if (baseSequence is null)
+                    {
+                        baseSequence = BaseSequence;
+                        residueMassSum = PeptideWithSetModifications.ResidueMassSum(baseSequence);
+                    }
+
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
-                        CleavageSpecificityForFdrCategory, PeptideDescription, reportedMissedCleavages, variableModPattern, numFixedMods);
+                        CleavageSpecificityForFdrCategory, PeptideDescription, reportedMissedCleavages, variableModPattern, numFixedMods,
+                        baseSequence, residueMassSum);
 
                     variable_modification_isoforms++;
                     if (variable_modification_isoforms == maximumVariableModificationIsoforms)
@@ -169,7 +181,8 @@ namespace Proteomics.ProteolyticDigestion
         /// the real, unblocked sites the peptidoform spans.
         /// </remarks>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
-            int peptideLength, CleavageBlockingPolicy policy, out int openMissedCleavages)
+            Dictionary<int, Modification> fixedModifications, int peptideLength, CleavageBlockingPolicy policy,
+            out int openMissedCleavages)
         {
             bool cTerminalResidueBlocked = false;
             int blockedInternalSites = 0;
@@ -189,7 +202,7 @@ namespace Proteomics.ProteolyticDigestion
 
                 if (positionAndMod.Key == peptideLength + 1)
                 {
-                    cTerminalResidueBlocked = true;
+                    cTerminalResidueBlocked = !CleavageBlockingModifications.MayFormAfterDigestion(positionAndMod.Value);
                 }
                 else if (positionAndMod.Key >= 2 && positionAndMod.Key <= peptideLength)
                 {
@@ -199,12 +212,21 @@ namespace Proteomics.ProteolyticDigestion
 
             // Assigned before any early return: the caller reads this on the surviving path, and a
             // dropped peptidoform's count is simply never used.
-            openMissedCleavages = MissedCleavages - Math.Min(blockedInternalSites, MissedCleavages);
+            // A site lacking its required modification (StcE's P2 O-glycan) is not a site either. Unlike blocking, this
+            // reads the fixed modifications too: a fixed glycan meets a requirement.
+            int unoccupiedInternalSites = policy.UnoccupiedSites(OneBasedStartResidue, OneBasedEndResidue, variableModPattern,
+                fixedModifications);
+            openMissedCleavages = MissedCleavages - Math.Min(blockedInternalSites + unoccupiedInternalSites, MissedCleavages);
 
             // A peptide ending at the protein's own C-terminus was not produced by a cleavage, so no
             // modification there can invalidate it.
             bool cTerminusIsAnInternalCut = OneBasedEndResidue < Protein.Length;
             if (cTerminalResidueBlocked && cTerminusIsAnInternalCut)
+            {
+                return true;
+            }
+
+            if (!policy.CutsHaveRequiredModifications(OneBasedStartResidue, OneBasedEndResidue, variableModPattern, fixedModifications))
             {
                 return true;
             }

@@ -327,9 +327,12 @@ namespace Test.FileReadingTests
 
             var d = SdrfDrafter.Draft(Project(), runs, SampleEvidenceExtractor.ExtractDeposited(new[] { t }, runs));
 
-            Assert.That(d.FactorColumns, Has.Count.EqualTo(2), "the names' second column is still the others'");
-            Assert.That(Row(d, "WT_ctrl_1.raw").Factors.Select(f => f.Value), Is.EqualTo(new[] { "baseline", SdrfReserved.NotAvailable }));
-            Assert.That(Row(d, "WT_drug_1.raw").Factors.Select(f => f.Value), Is.EqualTo(Row(plain, "WT_drug_1.raw").Factors.Select(f => f.Value)));
+            // A table run and a named run would each be `not available` in the other's columns, so the condition is one
+            // column of each run's own levels (sdrf D65): the table's for a run it names, the names' for the rest.
+            Assert.That(d.FactorColumns, Is.EqualTo(new[] { "factor value[condition]" }));
+            Assert.That(Row(d, "WT_ctrl_1.raw").Factors.Select(f => f.Value), Is.EqualTo(new[] { "baseline" }));
+            Assert.That(Row(d, "WT_drug_1.raw").Factors.Select(f => f.Value),
+                Is.EqualTo(new[] { string.Join(" ", Row(plain, "WT_drug_1.raw").Factors.Select(f => f.Value)) }));
         }
 
         [Test]

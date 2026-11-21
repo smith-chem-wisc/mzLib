@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Omics.BioPolymerGroup;
 using Proteomics;
+using UsefulProteomicsDatabases.Annotation;
 
 namespace UsefulProteomicsDatabases.GeneOntology
 {
@@ -136,7 +136,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
         };
 
         /// <summary>GO's own namespace names; "unknown" when the ontology did not say; null for no term.</summary>
-        private static string AspectName(GoAspect? aspect) => aspect switch
+        internal static string AspectName(GoAspect? aspect) => aspect switch
         {
             null => null,
             GoAspect.BiologicalProcess => "biological_process",
@@ -144,6 +144,18 @@ namespace UsefulProteomicsDatabases.GeneOntology
             GoAspect.MolecularFunction => "molecular_function",
             GoAspect.Unknown => "unknown",
             _ => throw new ArgumentOutOfRangeException(nameof(aspect), aspect, null)
+        };
+
+        /// <summary>The inverse of <see cref="AspectName"/>: null for an empty cell.</summary>
+        /// <exception cref="InvalidDataException">The value is not one of the four names.</exception>
+        internal static GoAspect? ParseAspect(string value, string where) => value switch
+        {
+            "" => null,
+            "biological_process" => GoAspect.BiologicalProcess,
+            "cellular_component" => GoAspect.CellularComponent,
+            "molecular_function" => GoAspect.MolecularFunction,
+            "unknown" => GoAspect.Unknown,
+            _ => throw new InvalidDataException($"{where}: aspect '{value}' is not a GO namespace.")
         };
 
         private static string Bool(bool? value) => value switch
@@ -193,52 +205,6 @@ namespace UsefulProteomicsDatabases.GeneOntology
             if (members != null && members.Any(m => m != null && m.Contains(';')))
             {
                 throw new ArgumentException($"A {field} member of group '{row.ProteinGroup}' contains ';', the set separator.");
-            }
-        }
-    }
-
-    /// <summary>The "#!key value" header lines the GO tables share.</summary>
-    internal static class TsvHeader
-    {
-        /// <summary>Writes "#!key value"; a null value omits the line.</summary>
-        public static void Write(TextWriter output, string key, string value)
-        {
-            if (value == null)
-            {
-                return;
-            }
-            RejectSeparators(value, key);
-            output.Write($"#!{key} {value}" + "\n");
-        }
-
-        /// <summary>
-        /// Writes "#!mzlib_version" (this assembly's informational version, commit included) and
-        /// "#!mzlib_release" (the released version, or "none" for a local build), so an ingester can refuse
-        /// a file no release produced without parsing the version itself.
-        /// </summary>
-        public static void WriteProducer(TextWriter output)
-        {
-            string version = typeof(TsvHeader).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            Write(output, "mzlib_version", version);
-            Write(output, "mzlib_release", ReleaseOf(version));
-        }
-
-        /// <summary>
-        /// The release an informational version names, or "none". release.yml builds with
-        /// /p:Version=(git tag); a build without it gets the SDK default 1.0.0, which no release carries.
-        /// </summary>
-        public static string ReleaseOf(string informationalVersion)
-        {
-            string version = informationalVersion?.Split('+')[0];
-            return string.IsNullOrEmpty(version) || version == "1.0.0" ? "none" : version;
-        }
-
-        public static void RejectSeparators(string value, string field)
-        {
-            if (value != null && value.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
-            {
-                throw new ArgumentException($"The value of '{field}' contains a tab or line break, which would shift the row.");
             }
         }
     }

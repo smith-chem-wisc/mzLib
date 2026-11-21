@@ -44,6 +44,33 @@ namespace UsefulProteomicsDatabases.Ensembl
     }
 
     /// <summary>
+    /// How Ensembl's own cross-reference relates to one (accession, gene) row. It separates the two things
+    /// EnsemblXrefAgrees == false can mean: Ensembl links the accession to other genes, or Ensembl has never
+    /// heard of the accession (often a UniProt accession newer than the Ensembl release). Like EnsemblXrefAgrees,
+    /// a row has none (null) when it has no gene, and no row has one when no cross-reference was given.
+    /// </summary>
+    public enum EnsemblXrefAgreement
+    {
+        /// <summary>
+        /// The cross-reference links this accession to this gene: exactly the rows where EnsemblXrefAgrees is true.
+        /// </summary>
+        Agrees,
+
+        /// <summary>
+        /// The cross-reference has no row for the accession, nor for its entry. Ensembl has not heard of it, so it
+        /// neither confirms nor contradicts the search database's link.
+        /// </summary>
+        Silent,
+
+        /// <summary>
+        /// The cross-reference knows the accession but links it to other genes, not this one. Those genes may be in
+        /// the gene set (then each has a row of its own, Source <see cref="EnsemblGeneResolver.EnsemblXrefSource"/>)
+        /// or outside it (then no row shows them).
+        /// </summary>
+        Disagrees
+    }
+
+    /// <summary>
     /// One row of a resolution: one (accession, gene) pair, or one outcome row for an accession with
     /// no gene. Restrictions are columns, never modes -- a consumer filters on Outcome and can see what
     /// it dropped.
@@ -51,6 +78,8 @@ namespace UsefulProteomicsDatabases.Ensembl
     /// Source says which source linked the gene. Outcome and GeneCount always describe the search
     /// database's own links, so filtering to <see cref="EnsemblGeneResolver.SearchDatabaseSource"/> gives
     /// the search database's view unchanged; filtering to EnsemblXrefAgrees == true gives Ensembl's.
+    /// EnsemblXrefAgreement splits the rows where it is false into Silent and Disagrees, so "Ensembl agrees, or
+    /// has not heard of the accession" is a filter too.
     /// </summary>
     public sealed record GeneResolution(
         string Accession,
@@ -71,7 +100,8 @@ namespace UsefulProteomicsDatabases.Ensembl
         string GeneSetSha256,
         bool? EnsemblXrefAgrees,
         string EnsemblXrefInfoType,
-        string EnsemblXrefSha256);
+        string EnsemblXrefSha256,
+        EnsemblXrefAgreement? EnsemblXrefAgreement);
 
     /// <summary>
     /// Resolves proteins to stable Ensembl gene ids, counted against one release's gene set.
@@ -132,16 +162,20 @@ namespace UsefulProteomicsDatabases.Ensembl
                 EnsemblGene gene = null;
                 if (geneId != null) GeneSet.TryGetGene(geneId, out gene);
                 bool? agrees = null;
+                EnsemblXrefAgreement? agreement = null;
                 string xrefInfo = null;
                 if (geneId != null && Xrefs != null)
                 {
                     agrees = XrefLink(accession, geneId, out xrefInfo);
+                    agreement = agrees.Value ? EnsemblXrefAgreement.Agrees
+                        : XrefKnows(accession) ? EnsemblXrefAgreement.Disagrees
+                        : EnsemblXrefAgreement.Silent;
                 }
 
                 return new GeneResolution(accession.Verbatim, accession.EntryAccession, accession.Isoform,
                     accession.Namespace, outcome, geneCount, geneId, versionedGeneId, gene?.Symbol, gene?.Biotype,
                     offPrimary, uniProtGeneName, source, searchDatabaseSha256, GeneSet.Release,
-                    GeneSet.SourceSha256, agrees, xrefInfo, Xrefs?.SourceSha256);
+                    GeneSet.SourceSha256, agrees, xrefInfo, Xrefs?.SourceSha256, agreement);
             }
 
             if (protein.IsContaminant)
@@ -240,6 +274,13 @@ namespace UsefulProteomicsDatabases.Ensembl
         }
 
         /// <summary>
+        /// Whether Ensembl's xref has any row for the accession or for its entry, the two keys
+        /// <see cref="XrefLink"/> looks in. False means Ensembl has not heard of the accession at all.
+        /// </summary>
+        private bool XrefKnows(ProteinAccession accession) =>
+            Xrefs.ContainsAccession(accession.Verbatim) || Xrefs.ContainsAccession(accession.EntryAccession);
+
+        /// <summary>
         /// The entry's primary gene name, as the search database wrote it. A label only -- read once from
         /// bytes pinned by the database hash, so it cannot come out ragged across datasets.
         /// </summary>
@@ -275,6 +316,7 @@ namespace UsefulProteomicsDatabases.Ensembl
             new("ensembl_xref_agrees", r => r.EnsemblXrefAgrees switch { true => "true", false => "false", null => null }),
             new("ensembl_xref_info_type", r => r.EnsemblXrefInfoType),
             new("ensembl_xref_sha256", r => r.EnsemblXrefSha256),
+            new("ensembl_xref_agreement", r => AgreementName(r.EnsemblXrefAgreement)),
         };
 
         /// <summary>
@@ -311,6 +353,16 @@ namespace UsefulProteomicsDatabases.Ensembl
             GeneResolutionOutcome.UnrecognizedAccession => "unrecognized_accession",
             GeneResolutionOutcome.ContaminantNotMapped => "contaminant_not_mapped",
             _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null)
+        };
+
+        /// <summary>The agreement as written in the table, e.g. "silent"; null (an empty cell) when a row has none.</summary>
+        public static string AgreementName(EnsemblXrefAgreement? agreement) => agreement switch
+        {
+            null => null,
+            EnsemblXrefAgreement.Agrees => "agrees",
+            EnsemblXrefAgreement.Silent => "silent",
+            EnsemblXrefAgreement.Disagrees => "disagrees",
+            _ => throw new ArgumentOutOfRangeException(nameof(agreement), agreement, null)
         };
     }
 }

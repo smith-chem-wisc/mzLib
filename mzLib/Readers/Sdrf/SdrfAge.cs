@@ -33,6 +33,37 @@ namespace Readers
     }
 
     /// <summary>
+    /// Why <see cref="SdrfAge.TryParse(string?, out SdrfAge, out SdrfAgeRefusal)"/> read no age from a cell. Each value
+    /// is set where the parser itself gives up, so the reasons cannot drift from what it refuses.
+    /// </summary>
+    public enum SdrfAgeRefusal
+    {
+        /// <summary>Nothing was refused: the cell was read.</summary>
+        None,
+
+        /// <summary>The cell is blank or whitespace.</summary>
+        Empty,
+
+        /// <summary>The cell is one of <see cref="SdrfValidator.ReservedWords"/>, such as <c>not available</c>.</summary>
+        ReservedWord,
+
+        /// <summary>
+        /// A number with no unit: a bare number (<c>63</c>), a range of two (<c>40-85</c>), or a bound on one
+        /// (<c>&gt;=90</c>). 63 years and 63 days are both plausible in one study, so no unit is assumed.
+        /// </summary>
+        NoUnit,
+
+        /// <summary>The specification's parts out of Y, M, W, D order, or one repeated: <c>6M30Y</c>, <c>30Y30Y</c>.</summary>
+        UnitsOutOfOrder,
+
+        /// <summary>A range whose low end is above its high end: <c>85Y-40Y</c>.</summary>
+        ReversedRange,
+
+        /// <summary>Anything else: free text (<c>adult</c>), a unit this reader does not know, a malformed range.</summary>
+        Unreadable
+    }
+
+    /// <summary>
     /// A <c>characteristics[age]</c> cell read into years.
     ///
     /// The confidence is two facts rather than one score, because they fail independently.
@@ -94,28 +125,48 @@ namespace Readers
         /// Reads one cell. Never throws: false means the cell does not state an age this can read
         /// without guessing, and the caller should treat the sample as having no age.
         /// </summary>
-        public static bool TryParse(string? cell, [MaybeNullWhen(false)] out SdrfAge age)
+        public static bool TryParse(string? cell, [MaybeNullWhen(false)] out SdrfAge age) =>
+            TryParse(cell, out age, out _);
+
+        /// <summary>
+        /// Reads one cell, as <see cref="TryParse(string?, out SdrfAge)"/> does, and says why when it cannot.
+        /// <paramref name="reason"/> is <see cref="SdrfAgeRefusal.None"/> exactly when this returns true. A curator
+        /// shown "no unit" can fix <c>63</c>; one shown "not an age" cannot tell what is wrong with it.
+        /// </summary>
+        public static bool TryParse(string? cell, [MaybeNullWhen(false)] out SdrfAge age, out SdrfAgeRefusal reason)
         {
             // Attached in one place rather than at each of the four constructions below, so a new
             // shape of cell cannot be added without it.
-            if (!TryRead(cell, out age)) return false;
+            if (!TryRead(cell, out age, out reason)) return false;
             age = age with { Cell = cell!.Trim() };
             return true;
         }
 
-        private static bool TryRead(string? cell, [MaybeNullWhen(false)] out SdrfAge age)
+        private static bool TryRead(string? cell, [MaybeNullWhen(false)] out SdrfAge age, out SdrfAgeRefusal reason)
         {
             age = null;
-            if (string.IsNullOrWhiteSpace(cell)) return false;
+            reason = SdrfAgeRefusal.None;
+            if (string.IsNullOrWhiteSpace(cell))
+            {
+                reason = SdrfAgeRefusal.Empty;
+                return false;
+            }
             string text = cell.Trim();
 
             if (SdrfValidator.ReservedWords.Any(w => string.Equals(text, w, StringComparison.OrdinalIgnoreCase)))
+            {
+                reason = SdrfAgeRefusal.ReservedWord;
                 return false;
+            }
 
             var bound = Bound.Match(text);
             if (bound.Success)
             {
-                if (!TryParseValue(bound.Groups["v"].Value, out double years, out bool spec)) return false;
+                if (!TryParseValue(bound.Groups["v"].Value, out double years, out bool spec))
+                {
+                    reason = ValueRefusal(bound.Groups["v"].Value);
+                    return false;
+                }
                 bool lower = bound.Groups["op"].Value is ">=" or ">" or "≥";
                 age = lower
                     ? new SdrfAge(years, years, double.PositiveInfinity, SdrfAgePrecision.LowerBound, spec)
@@ -129,7 +180,7 @@ namespace Readers
                 return true;
             }
 
-            return TryParseRange(text, out age);
+            return TryParseRange(text, out age, out reason);
         }
 
         /// <summary>
@@ -137,15 +188,27 @@ namespace Readers
         /// left end has no unit borrows the right end's only when the right end is in words; "40-85Y"
         /// is not spec grammar, so it is read as words-with-a-shared-unit, not as spec.
         /// </summary>
-        private static bool TryParseRange(string text, [MaybeNullWhen(false)] out SdrfAge age)
+        private static bool TryParseRange(string text, [MaybeNullWhen(false)] out SdrfAge age, out SdrfAgeRefusal reason)
         {
             age = null;
+            reason = SdrfAgeRefusal.None;
             int dash = text.IndexOf('-', 1);
-            if (dash < 0) return false;
+            if (dash < 0)
+            {
+                // Not a range either, so the cell as a whole is the value that failed.
+                reason = ValueRefusal(text);
+                return false;
+            }
 
             string left = text[..dash].Trim();
             string right = text[(dash + 1)..].Trim();
-            if (!TryParseValue(right, out double max, out bool rightSpec)) return false;
+            if (!TryParseValue(right, out double max, out bool rightSpec))
+            {
+                reason = IsBareNumber(left) && IsBareNumber(right) ? SdrfAgeRefusal.NoUnit
+                    : ValueRefusal(right) == SdrfAgeRefusal.UnitsOutOfOrder ? SdrfAgeRefusal.UnitsOutOfOrder
+                    : SdrfAgeRefusal.Unreadable;
+                return false;
+            }
 
             double min;
             bool spec;
@@ -159,15 +222,24 @@ namespace Readers
                 string unit = Regex.Match(right, @"[A-Za-z]+(?:\s+old)?$").Value;
                 if (!TryParseValue(bare.ToString(CultureInfo.InvariantCulture) + " " + unit, out min, out _)
                     && !TryParseValue(bare.ToString(CultureInfo.InvariantCulture) + unit, out min, out _))
+                {
+                    reason = SdrfAgeRefusal.Unreadable;
                     return false;
+                }
                 spec = false;
             }
             else
             {
+                // A bare left end was handled above, so this is never NoUnit.
+                reason = ValueRefusal(left);
                 return false;
             }
 
-            if (min > max) return false;
+            if (min > max)
+            {
+                reason = SdrfAgeRefusal.ReversedRange;
+                return false;
+            }
 
             // A degenerate range pins one age. "40Y-40Y" says exactly 40 by any reading, and the
             // filter this library tells every consumer to use for a point age is
@@ -179,6 +251,23 @@ namespace Readers
                 : new SdrfAge((min + max) / 2d, min, max, SdrfAgePrecision.Range, spec);
             return true;
         }
+
+        /// <summary>
+        /// Why <see cref="TryParseValue"/> refused <paramref name="text"/>: a bare number has no unit; text the
+        /// specification's parts cover entirely can only have failed on their order; anything else is unreadable.
+        /// </summary>
+        private static SdrfAgeRefusal ValueRefusal(string text)
+        {
+            text = text.Trim();
+            if (IsBareNumber(text)) return SdrfAgeRefusal.NoUnit;
+            var parts = SpecPart.Matches(text);
+            return parts.Count > 0 && parts.Sum(p => p.Length) == text.Length
+                ? SdrfAgeRefusal.UnitsOutOfOrder
+                : SdrfAgeRefusal.Unreadable;
+        }
+
+        private static bool IsBareNumber(string text) =>
+            double.TryParse(text.Trim(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out _);
 
         /// <summary>One age, in the spec's grammar or in unambiguous words.</summary>
         private static bool TryParseValue(string text, out double years, out bool followsSpecification)
