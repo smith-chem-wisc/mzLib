@@ -11,7 +11,7 @@ namespace PredictionClients.Koina.SupportedModels.CCSModels
     public class IM2Deep : CollisionalCrossSectionModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "IM2Deep";
         public override int MaxBatchSize => 1000;

@@ -10,7 +10,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Ms2PipTimsTOF2024 : FragmentIntensityModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "ms2pip_timsTOF2024";
         public override int MaxBatchSize => 1000;
