@@ -474,6 +474,9 @@
     <None Update="DatabaseTests\MassiveFixtures\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\PrideZipFixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\TmtChannelLevel.sdrf.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
