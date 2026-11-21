@@ -12,7 +12,9 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 45
+    # Completed builds take 24-38 min (the last 40 runs, 2026-11-21), and two were cancelled at 45 min with tests still
+    # passing, master among them. 75 leaves room for a slow runner and a growing suite.
+    timeout-minutes: 75
     steps:
     - uses: actions/checkout@v7
     - name: Set up .NET
