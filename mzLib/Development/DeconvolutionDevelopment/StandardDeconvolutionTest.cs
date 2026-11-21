@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
 using NUnit.Framework;
+using Readers;
 using UsefulProteomicsDatabases;
 
 namespace Development.Deconvolution
@@ -43,18 +44,34 @@ namespace Development.Deconvolution
             var cytoPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DeconvolutionDevelopment", "TestData",
                 "Averaged_221110_CytoOnly.mzML");
 
+            // Resolve the FLASHDeconv executable once. The wrapper algorithm needs
+            // an explicit path on its parameters; if FLASHDeconv isn't installed
+            // on the dev machine, skip its test cases instead of crashing every
+            // test in the fixture with "FLASHDeconvExePath is not set".
+            string flashDeconvExePath = null;
+            try { flashDeconvExePath = FlashDeconvExePathRegistry.Resolve(); }
+            catch { /* FLASHDeconv not installed -- skip those cases below */ }
+
             // set up deconvoluters to be utilized by test cases
             List<DeconvolutionParameters> topDownDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 60, 4, 3),
-                new IsoDecDeconvolutionParameters()
+                new IsoDecDeconvolutionParameters(),
             ];
 
             List<DeconvolutionParameters> bottomUpDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 12, 4, 3),
-                new IsoDecDeconvolutionParameters()
+                new IsoDecDeconvolutionParameters(),
             ];
+
+            if (flashDeconvExePath != null)
+            {
+                topDownDeconvolutionParametersToTest.Add(
+                    new RealFLASHDeconvolutionParameters(1, 60, tolerancePpm: 4, flashDeconvExePath: flashDeconvExePath));
+                bottomUpDeconvolutionParametersToTest.Add(
+                    new RealFLASHDeconvolutionParameters(1, 12, tolerancePpm: 4, flashDeconvExePath: flashDeconvExePath));
+            }
 
 
 
@@ -289,6 +306,368 @@ namespace Development.Deconvolution
                     Has.Some.EqualTo(testCase.SelectedIonMzs[i])
                         .Within(acceptableDistanceFromTheoreticalWithinTestCaseTolerance));
             }
+        }
+
+        /// <summary>
+        /// Diagnostic test. Runs each available deconvolution algorithm against a
+        /// multi-scan top-down yeast LC-MS snippet (lvsYeastTopDownSnip.mzML) and
+        /// reports the total number of MS1 envelopes each produces, written to the
+        /// test log.
+        ///
+        /// FLASHDeconv is exercised in two modes:
+        ///   - Per-scan (what Deconvoluter.Deconvolute uses): one in-memory MzSpectrum
+        ///     at a time. Documented to be sparse because no multi-scan feature
+        ///     tracing happens.
+        ///   - Whole-file (RealFLASHDeconvolutionAlgorithm.DeconvoluteFile): FLASHDeconv's
+        ///     intended best mode. The numbers from this row are the meaningful ones
+        ///     for comparing FLASHDeconv against Classic/IsoDec on the same input.
+        ///
+        /// FLASHDeconv rows are skipped silently if the exe isn't installed on the
+        /// dev machine. Each printed row gets a > 0 sanity check; the headline output
+        /// is the count itself.
+        /// </summary>
+        [Test]
+        public static void TopDownSnip_ReportEnvelopeCounts()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "DeconvolutionDevelopment", "TestData", "lvsYeastTopDownSnip.mzML");
+            Assume.That(File.Exists(path), $"Top-down snippet not found at {path}");
+
+            var dataFile = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            var ms1Scans = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).ToList();
+            TestContext.Out.WriteLine($"Input: {Path.GetFileName(path)} -- {ms1Scans.Count} MS1 scan(s)");
+
+            string flashExe = null;
+            try { flashExe = FlashDeconvExePathRegistry.Resolve(); }
+            catch { /* not installed -- skip those rows */ }
+
+            // Algorithms invoked per-scan via the Deconvoluter factory.
+            var perScan = new List<(string Name, DeconvolutionParameters Params)>
+            {
+                ("Classic top-down (1-60, 4ppm)", new ClassicDeconvolutionParameters(1, 60, 4, 3)),
+                ("IsoDec (defaults)",             new IsoDecDeconvolutionParameters()),
+            };
+            if (flashExe != null)
+                perScan.Add(("FLASHDeconv per-scan (1-60, 4ppm)",
+                             new RealFLASHDeconvolutionParameters(1, 60, tolerancePpm: 4, flashDeconvExePath: flashExe)));
+
+            foreach (var (name, prms) in perScan)
+            {
+                int total = ms1Scans.Sum(scan =>
+                    Deconvoluter.Deconvolute(scan.MassSpectrum, prms).Count());
+                TestContext.Out.WriteLine($"  {name,-40} : {total} envelope(s) across {ms1Scans.Count} MS1 scan(s)");
+                Assert.That(total, Is.GreaterThan(0), $"{name} produced zero envelopes; check params.");
+            }
+
+            // FLASHDeconv's intended whole-file mode: bypasses the per-scan factory
+            // and the WriteSingleScanMzml round-trip, lets FLASHDeconv do multi-scan
+            // feature tracing on the original mzML. This is the apples-to-apples
+            // row for "how does FLASHDeconv really do on this data."
+            if (flashExe != null)
+            {
+                var p = new RealFLASHDeconvolutionParameters(1, 60, tolerancePpm: 4, flashDeconvExePath: flashExe);
+                var byScan = RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(path, p);
+                int total = byScan.Values.Sum(list => list.Count);
+                TestContext.Out.WriteLine($"  {"FLASHDeconv whole-file (1-60, 4ppm)",-40} : {total} envelope(s) across {byScan.Count} scan(s)");
+                Assert.That(total, Is.GreaterThan(0), "FLASHDeconv whole-file mode produced zero envelopes; check params.");
+            }
+        }
+
+        /// <summary>
+        /// Diagnostic test. Asks "do the three algorithms agree on which monoisotopic
+        /// masses are present in the top-down snippet?" by:
+        ///   1. Running each algorithm on every MS1 scan.
+        ///   2. Collecting the union of envelope monoisotopic masses, tagged by algorithm.
+        ///   3. Clustering them within 10 ppm so that "same mass" (within mass-accuracy
+        ///      tolerance) maps to one bucket regardless of which algorithm reported it.
+        ///   4. Tallying: how many clusters were found by all 3 algorithms, by 2, by 1.
+        ///
+        /// Pure reporting -- the only assertion is that there is at least one cluster
+        /// (sanity that something deconvolved). Output goes to the test log.
+        ///
+        /// Skipped quietly if FLASHDeconv isn't installed; otherwise the same-scan
+        /// envelopes from per-scan and whole-file FLASHDeconv modes are merged into
+        /// one set since they target the same algorithm's idea of "what's there."
+        /// </summary>
+        [Test]
+        public static void TopDownSnip_ConsensusAcrossAlgorithms()
+        {
+            const double ClusterPpm = 10.0;
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "DeconvolutionDevelopment", "TestData", "lvsYeastTopDownSnip.mzML");
+            Assume.That(File.Exists(path), $"Top-down snippet not found at {path}");
+
+            var dataFile = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            var ms1Scans = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).ToList();
+
+            string flashExe = null;
+            try { flashExe = FlashDeconvExePathRegistry.Resolve(); } catch { }
+
+            // (algorithm-label, masses-observed-anywhere-in-the-file)
+            var observed = new List<(string Algo, List<double> Masses)>();
+
+            var classic = new ClassicDeconvolutionParameters(1, 60, 4, 3);
+            observed.Add(("Classic", ms1Scans
+                .SelectMany(s => Deconvoluter.Deconvolute(s.MassSpectrum, classic))
+                .Select(e => e.MonoisotopicMass).ToList()));
+
+            var isoDec = new IsoDecDeconvolutionParameters();
+            observed.Add(("IsoDec", ms1Scans
+                .SelectMany(s => Deconvoluter.Deconvolute(s.MassSpectrum, isoDec))
+                .Select(e => e.MonoisotopicMass).ToList()));
+
+            if (flashExe != null)
+            {
+                var fd = new RealFLASHDeconvolutionParameters(1, 60, tolerancePpm: 4, flashDeconvExePath: flashExe);
+                var byScan = RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(path, fd);
+                observed.Add(("FLASHDeconv", byScan.Values
+                    .SelectMany(list => list)
+                    .Select(e => e.MonoisotopicMass).ToList()));
+            }
+
+            // Flatten to one big sorted list tagged with algorithm.
+            var tagged = observed
+                .SelectMany(o => o.Masses.Select(m => (Mass: m, Algo: o.Algo)))
+                .OrderBy(x => x.Mass)
+                .ToList();
+
+            // Greedy single-pass clustering: a point joins the current cluster if it
+            // is within ClusterPpm of the cluster's running max mass.
+            var clusters = new List<List<(double Mass, string Algo)>>();
+            foreach (var p in tagged)
+            {
+                if (clusters.Count == 0)
+                {
+                    clusters.Add(new List<(double, string)> { p });
+                    continue;
+                }
+                var last = clusters[^1];
+                double anchor = last[^1].Mass;
+                double delta = anchor * ClusterPpm * 1e-6;
+                if (p.Mass - anchor <= delta)
+                    last.Add(p);
+                else
+                    clusters.Add(new List<(double, string)> { p });
+            }
+
+            // Tally consensus: how many distinct algorithms contributed to each cluster.
+            int totalAlgos = observed.Count;
+            var perLevel = Enumerable.Range(1, totalAlgos).ToDictionary(k => k, _ => 0);
+            var privateTo = observed.ToDictionary(o => o.Algo, _ => 0);
+            foreach (var c in clusters)
+            {
+                var algos = c.Select(x => x.Algo).Distinct().ToList();
+                perLevel[algos.Count] += 1;
+                if (algos.Count == 1)
+                    privateTo[algos[0]] += 1;
+            }
+
+            TestContext.Out.WriteLine($"Input: {Path.GetFileName(path)} -- {ms1Scans.Count} MS1 scan(s), {totalAlgos} algorithm(s), {ClusterPpm}ppm clustering");
+            TestContext.Out.WriteLine($"Total distinct mass clusters union: {clusters.Count}");
+            for (int k = totalAlgos; k >= 1; k--)
+                TestContext.Out.WriteLine($"  Found by {k} algorithm(s) : {perLevel[k],6}");
+            TestContext.Out.WriteLine($"Private (found by only one algorithm):");
+            foreach (var (algo, count) in privateTo.OrderByDescending(kv => kv.Value))
+                TestContext.Out.WriteLine($"  {algo,-12} : {count,6}");
+
+            // Per-algorithm reach: how many of the all-clusters did this algorithm hit?
+            TestContext.Out.WriteLine($"Per-algorithm cluster reach:");
+            foreach (var (algo, _) in observed)
+            {
+                int hit = clusters.Count(c => c.Any(x => x.Algo == algo));
+                double pct = 100.0 * hit / clusters.Count;
+                TestContext.Out.WriteLine($"  {algo,-12} : {hit,6} / {clusters.Count} ({pct:F1}%)");
+            }
+
+            Assert.That(clusters.Count, Is.GreaterThan(0), "No clusters formed -- nothing deconvolved.");
+        }
+
+        // ── Consensus-recall infrastructure ──────────────────────────────────
+        //
+        // The idea: define a fixed reference set of established deconvolution
+        // algorithms whose intersection (within a ppm tolerance) defines the
+        // "true" mass list for lvsYeastTopDownSnip.mzML. Then run every algorithm
+        // -- reference and new -- and measure how many of those consensus masses
+        // it recovers. Reference algorithms must recover 100% (they're the ones
+        // that defined the consensus). New algorithms are measured against the
+        // fixed bar.
+        //
+        // To add a new algorithm to the comparison: add one entry to
+        // _algorithmsToTest below, with IsReference = false and a sensible
+        // MinRecallPct threshold. No other code changes required.
+
+        private const double ConsensusClusterPpm = 10.0;
+
+        private sealed record AlgorithmRecallEntry(
+            string Label,
+            Func<string, DeconvolutionParameters> ParamFactory,
+            double MinRecallPct,
+            bool IsReference);
+
+        private static readonly List<AlgorithmRecallEntry> _algorithmsToTest =
+        [
+            new(Label: "Classic top-down (1-60, 4ppm)",
+                ParamFactory: _ => new ClassicDeconvolutionParameters(1, 60, 4, 3),
+                MinRecallPct: 100.0,
+                IsReference: true),
+            new(Label: "IsoDec (defaults)",
+                ParamFactory: _ => new IsoDecDeconvolutionParameters(),
+                MinRecallPct: 100.0,
+                IsReference: true),
+            new(Label: "FLASHDeconv whole-file (1-60, 4ppm)",
+                ParamFactory: exe => new RealFLASHDeconvolutionParameters(1, 60, tolerancePpm: 4, flashDeconvExePath: exe),
+                MinRecallPct: 100.0,
+                IsReference: true),
+            // Add new algorithms here. Example shape:
+            // new(Label: "MyNewAlgo top-down",
+            //     ParamFactory: _ => new MyNewAlgoParameters(...),
+            //     MinRecallPct: 80.0,
+            //     IsReference: false),
+        ];
+
+        /// <summary>
+        /// Establishes a consensus mass list on lvsYeastTopDownSnip.mzML from the
+        /// reference algorithms and asserts each registered algorithm recovers at
+        /// least its declared MinRecallPct of that consensus. Skipped quietly if
+        /// FLASHDeconv isn't installed (the consensus requires all references).
+        /// </summary>
+        [Test]
+        public static void TopDownSnip_ConsensusRecall()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "DeconvolutionDevelopment", "TestData", "lvsYeastTopDownSnip.mzML");
+            Assume.That(File.Exists(path), $"Top-down snippet not found at {path}");
+
+            string flashExe = null;
+            try { flashExe = FlashDeconvExePathRegistry.Resolve(); } catch { }
+            Assume.That(flashExe, Is.Not.Null,
+                "FLASHDeconv not installed on this machine; consensus requires all reference algorithms.");
+
+            var dataFile = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            var ms1Scans = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).ToList();
+            Assume.That(ms1Scans, Is.Not.Empty, "No MS1 scans in input file.");
+
+            // Pre-run every registered algorithm once, collect the masses they
+            // produce anywhere in the file. Cached so we don't repeat the work
+            // when computing both the consensus AND each algorithm's recall.
+            var massesByAlgo = new Dictionary<string, List<double>>();
+            foreach (var entry in _algorithmsToTest)
+            {
+                var prms = entry.ParamFactory(flashExe);
+                List<double> masses = prms is RealFLASHDeconvolutionParameters fdParams
+                    ? RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(path, fdParams)
+                        .Values.SelectMany(list => list).Select(e => e.MonoisotopicMass).ToList()
+                    : ms1Scans.SelectMany(s => Deconvoluter.Deconvolute(s.MassSpectrum, prms))
+                        .Select(e => e.MonoisotopicMass).ToList();
+                massesByAlgo[entry.Label] = masses;
+            }
+
+            // Build consensus from reference algorithms only.
+            var referenceLabels = _algorithmsToTest.Where(a => a.IsReference).Select(a => a.Label).ToList();
+            var consensus = BuildConsensusMasses(massesByAlgo, referenceLabels, ConsensusClusterPpm);
+
+            TestContext.Out.WriteLine($"Input: {Path.GetFileName(path)} -- {ms1Scans.Count} MS1 scan(s)");
+            TestContext.Out.WriteLine($"Reference algorithms ({referenceLabels.Count}): {string.Join(", ", referenceLabels)}");
+            TestContext.Out.WriteLine($"Consensus masses (all references agree within {ConsensusClusterPpm}ppm): {consensus.Count}");
+            TestContext.Out.WriteLine($"Recall per algorithm:");
+
+            Assert.That(consensus, Is.Not.Empty,
+                "Empty consensus -- reference algorithms found no common masses; cannot evaluate.");
+
+            Assert.Multiple(() =>
+            {
+                foreach (var entry in _algorithmsToTest)
+                {
+                    int matched = CountMassesWithinPpm(consensus, massesByAlgo[entry.Label], ConsensusClusterPpm);
+                    double recallPct = 100.0 * matched / consensus.Count;
+                    string flag = entry.IsReference ? "[ref]" : "[new]";
+                    TestContext.Out.WriteLine(
+                        $"  {flag} {entry.Label,-40} : {matched,5} / {consensus.Count} = {recallPct,6:F2}%   (min {entry.MinRecallPct:F1}%)");
+                    Assert.That(recallPct, Is.GreaterThanOrEqualTo(entry.MinRecallPct),
+                        $"{entry.Label} recall {recallPct:F2}% is below its declared minimum {entry.MinRecallPct:F1}%.");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Returns the set of monoisotopic masses where every algorithm in
+        /// <paramref name="referenceLabels"/> contributed at least one mass within
+        /// <paramref name="ppmTolerance"/> of the cluster. Cluster representative
+        /// is the mean of the contributing masses.
+        /// </summary>
+        private static List<double> BuildConsensusMasses(
+            Dictionary<string, List<double>> massesByAlgo,
+            List<string> referenceLabels,
+            double ppmTolerance)
+        {
+            var tagged = referenceLabels
+                .SelectMany(label => massesByAlgo[label].Select(m => (Mass: m, Algo: label)))
+                .OrderBy(x => x.Mass)
+                .ToList();
+            if (tagged.Count == 0) return new List<double>();
+
+            var clusters = new List<List<(double Mass, string Algo)>>();
+            foreach (var p in tagged)
+            {
+                if (clusters.Count == 0)
+                {
+                    clusters.Add(new List<(double, string)> { p });
+                    continue;
+                }
+                var last = clusters[^1];
+                double anchor = last[^1].Mass;
+                double delta = anchor * ppmTolerance * 1e-6;
+                if (p.Mass - anchor <= delta)
+                    last.Add(p);
+                else
+                    clusters.Add(new List<(double, string)> { p });
+            }
+
+            var consensus = new List<double>();
+            int refCount = referenceLabels.Count;
+            foreach (var c in clusters)
+            {
+                if (c.Select(x => x.Algo).Distinct().Count() == refCount)
+                    consensus.Add(c.Average(x => x.Mass));
+            }
+            return consensus;
+        }
+
+        /// <summary>
+        /// For each consensus mass, returns the count of consensus entries that
+        /// have at least one match in <paramref name="candidates"/> within
+        /// <paramref name="ppmTolerance"/>. Uses two-pointer scan after sorting
+        /// candidates so the lookup is O((n+m) log m).
+        /// </summary>
+        private static int CountMassesWithinPpm(
+            IReadOnlyList<double> consensus,
+            IReadOnlyList<double> candidates,
+            double ppmTolerance)
+        {
+            if (consensus.Count == 0 || candidates.Count == 0) return 0;
+            var sorted = candidates.OrderBy(m => m).ToList();
+            int matched = 0;
+            foreach (double target in consensus)
+            {
+                double delta = target * ppmTolerance * 1e-6;
+                int lo = LowerBound(sorted, target - delta);
+                if (lo < sorted.Count && sorted[lo] <= target + delta)
+                    matched++;
+            }
+            return matched;
+        }
+
+        private static int LowerBound(List<double> sorted, double key)
+        {
+            int lo = 0, hi = sorted.Count;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (sorted[mid] < key) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
         }
     }
 }

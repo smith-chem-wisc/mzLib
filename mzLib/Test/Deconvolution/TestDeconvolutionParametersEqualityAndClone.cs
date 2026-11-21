@@ -423,5 +423,41 @@ namespace Test
             var clone = original.Clone();
             Assert.That(clone.UseGenericScore, Is.True);
         }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // RealFLASHDeconvolutionParameters
+        // ══════════════════════════════════════════════════════════════════════
+
+        [Test]
+        public void RealFLASH_Clone_EqualsOriginalButIsNewReference()
+        {
+            var original = new RealFLASHDeconvolutionParameters(
+                minCharge: 2, maxCharge: 40, tolerancePpm: 7.5, minMass: 500, maxMass: 60_000,
+                minIsotopeCosine: 0.9, polarity: Polarity.Negative,
+                flashDeconvExePath: @"C:\x\FLASHDeconv.exe", workingDirectory: @"C:\tmp",
+                processTimeoutSeconds: 42)
+            {
+                UseGenericScore = true,
+                ExpectedIsotopeSpacing = 1.002
+            };
+            var clone = original.Clone();
+            Assert.That(clone, Is.Not.SameAs(original));
+            Assert.That(clone, Is.EqualTo(original));
+            Assert.That(clone.GetHashCode(), Is.EqualTo(original.GetHashCode()));
+        }
+
+        [Test]
+        public void RealFLASH_Equals_DetectsEachSubclassProperty()
+        {
+            var a = new RealFLASHDeconvolutionParameters();
+            Assert.That(new RealFLASHDeconvolutionParameters(), Is.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { TolerancePpm = 5 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { MinMass = 1 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { MaxMass = 1 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { MinIsotopeCosine = 0.1 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { FLASHDeconvExePath = "FLASHDeconv" }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { WorkingDirectory = "elsewhere" }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { ProcessTimeoutSeconds = 1 }, Is.Not.EqualTo(a));
+        }
     }
 }
