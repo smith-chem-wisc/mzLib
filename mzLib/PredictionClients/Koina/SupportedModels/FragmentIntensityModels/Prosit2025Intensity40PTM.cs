@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
@@ -77,9 +76,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         }
 
         /// <summary>
-        /// Base cleaning, then the (residue, UNIMOD) pairs Koina refuses for this model; see <see cref="Prosit2025ModificationRules"/>.
+        /// Refuses the pairs Koina cannot place; see <see cref="PrositAtomCountModificationRules"/>.
         /// </summary>
-        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
-            => Prosit2025ModificationRules.TryCleanSequence(ModelName, ModHandlingMode, sequence, sourceParser, base.TryCleanSequence, out apiSequence, out warning);
+        protected override string? DecideModification(CanonicalSequence sequence, CanonicalModification modification)
+            => PrositAtomCountModificationRules.Decide(sequence, modification);
     }
 }
