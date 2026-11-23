@@ -26,6 +26,22 @@ here because NuGet consumers receive the compiled assemblies rather than this re
 - **Embedded in:** `UsefulProteomicsDatabases.dll`
   (`UsefulProteomicsDatabases/Resources/pride_cv.obo`)
 
+## UniProt reference-proteome taxonomy — `taxonomy_nodes.tsv.gz`, `proteome_taxa.tsv.gz`
+
+- **Publisher:** The UniProt Consortium (EMBL-EBI, SIB Swiss Institute of Bioinformatics, Protein
+  Information Resource). The taxonomy it serves is the NCBI Taxonomy.
+- **Source:** https://rest.uniprot.org/proteomes/search?query=reference:true and
+  https://rest.uniprot.org/taxonomy
+- **Pinned version:** UniProt release `2026_04`
+- **Licence:** Creative Commons Attribution 4.0 International (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/ — see https://www.uniprot.org/help/license
+- **Changes:** reduced to each reference proteome's identifier, taxon, organism name, protein count and
+  type, and to the identifier, parent, rank, names and hidden flag of each taxon in those proteomes'
+  lineages; rewritten as tab-separated text.
+- **Embedded in:** `UsefulProteomicsDatabases.dll`
+  (`UsefulProteomicsDatabases/Resources/taxonomy_nodes.tsv.gz`,
+  `UsefulProteomicsDatabases/Resources/proteome_taxa.tsv.gz`)
+
 ---
 
 # Redistributed native libraries
@@ -169,3 +185,18 @@ whether their content derives from Unimod or PSI-MOD closely enough to warrant a
 
 Fetch procedures for the two vocabularies added alongside this file are in
 `mzLib/UsefulProteomicsDatabases/Resources/PROVENANCE.md`.
+
+---
+
+# Redistributed keys
+
+## EMBL-EBI public Aspera key — `aspera_tokenauth_id_rsa`
+
+- **Publisher:** EMBL-EBI (the key for anonymous Aspera downloads from its public archives, KB0011565)
+- **Source:** pridepy, https://github.com/PRIDE-Archive/pridepy (`pridepy/aspera/key/aspera_tokenauth_id_rsa`)
+- **Pinned version:** pridepy commit `fbd30d43366c69a93a11600f09bb46fe33f96a93` (2025-12-22);
+  SHA-256 `4f90eaab1230f9793d357ea7669ff9205edd30864a0bcf5ef3eb42a2720de1f1`
+- **Licence:** pridepy is licensed under the Apache License 2.0, https://www.apache.org/licenses/LICENSE-2.0
+- **Embedded in:** `UsefulProteomicsDatabases.dll`
+  (`UsefulProteomicsDatabases/Resources/aspera_tokenauth_id_rsa`)
+- **Note:** a public key in all but name; EBI gives it to everyone, and it grants nothing beyond public downloads.

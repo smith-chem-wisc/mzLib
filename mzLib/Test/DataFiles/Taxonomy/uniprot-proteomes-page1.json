@@ -1,0 +1,280 @@
+{
+ "results": [
+  {
+   "id": "UP000000625",
+   "taxonomy": {
+    "scientificName": "Escherichia coli (strain K12)",
+    "taxonId": 83333,
+    "mnemonic": "ECOLI"
+   },
+   "proteomeType": "Reference proteome",
+   "proteinCount": 4403,
+   "taxonLineage": [
+    {
+     "scientificName": "cellular organisms",
+     "taxonId": 131567,
+     "rank": "no rank",
+     "hidden": true
+    },
+    {
+     "scientificName": "Bacteria",
+     "commonName": "bacteria",
+     "taxonId": 2,
+     "rank": "domain",
+     "hidden": false
+    },
+    {
+     "scientificName": "Pseudomonadati",
+     "taxonId": 3379134,
+     "rank": "kingdom",
+     "hidden": false
+    },
+    {
+     "scientificName": "Pseudomonadota",
+     "commonName": "proteobacteria",
+     "taxonId": 1224,
+     "rank": "phylum",
+     "hidden": false
+    },
+    {
+     "scientificName": "Gammaproteobacteria",
+     "commonName": "g-proteobacteria",
+     "taxonId": 1236,
+     "rank": "class",
+     "hidden": false
+    },
+    {
+     "scientificName": "Enterobacterales",
+     "taxonId": 91347,
+     "rank": "order",
+     "hidden": false
+    },
+    {
+     "scientificName": "Enterobacteriaceae",
+     "commonName": "enterobacteria",
+     "taxonId": 543,
+     "rank": "family",
+     "hidden": false
+    },
+    {
+     "scientificName": "Escherichia",
+     "taxonId": 561,
+     "rank": "genus",
+     "hidden": false
+    },
+    {
+     "scientificName": "Escherichia coli",
+     "taxonId": 562,
+     "rank": "species",
+     "hidden": true
+    }
+   ]
+  },
+  {
+   "id": "UP000005640",
+   "taxonomy": {
+    "scientificName": "Homo sapiens",
+    "commonName": "Human",
+    "taxonId": 9606,
+    "mnemonic": "HUMAN"
+   },
+   "proteomeType": "Reference proteome",
+   "proteinCount": 263886,
+   "taxonLineage": [
+    {
+     "scientificName": "cellular organisms",
+     "taxonId": 131567,
+     "rank": "no rank",
+     "hidden": true
+    },
+    {
+     "scientificName": "Eukaryota",
+     "commonName": "eukaryotes",
+     "taxonId": 2759,
+     "rank": "domain",
+     "hidden": false
+    },
+    {
+     "scientificName": "Opisthokonta",
+     "taxonId": 33154,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Metazoa",
+     "commonName": "animals",
+     "taxonId": 33208,
+     "rank": "kingdom",
+     "hidden": false
+    },
+    {
+     "scientificName": "Eumetazoa",
+     "taxonId": 6072,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Bilateria",
+     "taxonId": 33213,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Deuterostomia",
+     "taxonId": 33511,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Chordata",
+     "commonName": "chordates",
+     "taxonId": 7711,
+     "rank": "phylum",
+     "hidden": false
+    },
+    {
+     "scientificName": "Craniata",
+     "taxonId": 89593,
+     "rank": "subphylum",
+     "hidden": false
+    },
+    {
+     "scientificName": "Vertebrata",
+     "commonName": "vertebrates",
+     "taxonId": 7742,
+     "rank": "clade",
+     "hidden": false
+    },
+    {
+     "scientificName": "Gnathostomata",
+     "commonName": "jawed vertebrates",
+     "taxonId": 7776,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Teleostomi",
+     "taxonId": 117570,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Euteleostomi",
+     "commonName": "bony vertebrates",
+     "taxonId": 117571,
+     "rank": "clade",
+     "hidden": false
+    },
+    {
+     "scientificName": "Sarcopterygii",
+     "taxonId": 8287,
+     "rank": "superclass",
+     "hidden": true
+    },
+    {
+     "scientificName": "Dipnotetrapodomorpha",
+     "taxonId": 1338369,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Tetrapoda",
+     "commonName": "tetrapods",
+     "taxonId": 32523,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Amniota",
+     "commonName": "amniotes",
+     "taxonId": 32524,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Mammalia",
+     "commonName": "mammals",
+     "taxonId": 40674,
+     "rank": "class",
+     "hidden": false
+    },
+    {
+     "scientificName": "Theria",
+     "taxonId": 32525,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Eutheria",
+     "commonName": "placentals",
+     "taxonId": 9347,
+     "rank": "clade",
+     "hidden": false
+    },
+    {
+     "scientificName": "Boreoeutheria",
+     "taxonId": 1437010,
+     "rank": "clade",
+     "hidden": true
+    },
+    {
+     "scientificName": "Euarchontoglires",
+     "taxonId": 314146,
+     "rank": "superorder",
+     "hidden": false
+    },
+    {
+     "scientificName": "Primates",
+     "commonName": "primates",
+     "taxonId": 9443,
+     "rank": "order",
+     "hidden": false
+    },
+    {
+     "scientificName": "Haplorrhini",
+     "taxonId": 376913,
+     "rank": "suborder",
+     "hidden": false
+    },
+    {
+     "scientificName": "Simiiformes",
+     "taxonId": 314293,
+     "rank": "infraorder",
+     "hidden": true
+    },
+    {
+     "scientificName": "Catarrhini",
+     "taxonId": 9526,
+     "rank": "parvorder",
+     "hidden": false
+    },
+    {
+     "scientificName": "Hominoidea",
+     "commonName": "apes",
+     "taxonId": 314295,
+     "rank": "superfamily",
+     "hidden": true
+    },
+    {
+     "scientificName": "Hominidae",
+     "commonName": "great apes",
+     "taxonId": 9604,
+     "rank": "family",
+     "hidden": false
+    },
+    {
+     "scientificName": "Homininae",
+     "taxonId": 207598,
+     "rank": "subfamily",
+     "hidden": true
+    },
+    {
+     "scientificName": "Homo",
+     "taxonId": 9605,
+     "rank": "genus",
+     "hidden": false
+    }
+   ]
+  }
+ ]
+}

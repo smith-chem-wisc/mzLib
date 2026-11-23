@@ -29,10 +29,18 @@ public class DeNovoMappingParameters
     public bool ReplaceIWithL { get; init; } = true;
 
     /// <summary>
-    /// Fill in observed retention times from the spectra files (when the mzTab lacks them) and predict
-    /// retention times with Chronologer, so each database gets a retention-time error distribution.
+    /// Fill in observed retention times from the spectra files (when the mzTab lacks them), predict retention
+    /// times with Chronologer and calibrate them to each file's minutes, so each database gets a retention-time
+    /// error distribution in minutes.
     /// </summary>
     public bool MapRetentionTimes { get; init; } = true;
+
+    /// <summary>
+    /// Predictions scoring at least this (after shifting into [0, 1]) anchor each file's calibration from predicted
+    /// retention time to minutes. The anchors do not depend on any database. The fit is robust, so a few wrong
+    /// sequences among them do not bend it.
+    /// </summary>
+    public double CalibrationScoreThreshold { get; init; } = 0.8;
 
     /// <summary>
     /// Spectra files that Casanovo was run on. They are matched to each mzTab ms_run by file name without
@@ -42,8 +50,9 @@ public class DeNovoMappingParameters
     public IReadOnlyList<string> SpectraFilePaths { get; init; } = [];
 
     /// <summary>
-    /// Predictor for the expected retention time. Defaults to Chronologer, which is what MetaMorpheus uses for
-    /// its own retention-time metrics. Earlier versions of this mapper (MetaCurator) used SSRCalc3.
+    /// Predictor for the expected retention time; one passed in stays the caller's to dispose. When null, the mapper
+    /// creates and disposes a Chronologer predictor, as MetaMorpheus uses for its own retention-time metrics.
+    /// Earlier versions of this mapper (MetaCurator) used SSRCalc3.
     /// </summary>
     public RetentionTimePredictor? RetentionTimePredictor { get; init; }
 

@@ -71,7 +71,8 @@ namespace UsefulProteomicsDatabases
     {
         private readonly AsyncFtpClient _client;
 
-        private FluentFtpConnection(AsyncFtpClient client) => _client = client;
+        /// <summary>Wraps a connected client. Internal so a test can wrap a plain-FTP client to a loopback server.</summary>
+        internal FluentFtpConnection(AsyncFtpClient client) => _client = client;
 
         /// <summary>
         /// Connects to <paramref name="host"/> with explicit TLS (<c>AUTH TLS</c>) and logs in anonymously.
@@ -155,16 +156,35 @@ namespace UsefulProteomicsDatabases
             _ => null,
         };
 
+        /// <remarks>
+        /// <b>Only the transfer's closing reply says a listing is whole, so it is required.</b> FluentFTP's
+        /// <c>ExecuteDownloadText</c> returns the lines it has read, with no exception, when the data connection
+        /// breaks and no closing reply follows (a server going down), and it absorbs a 550 refusal of the LIST
+        /// (FluentFTP 55.1.0, reproduced on 2026-11-16 against a loopback server). MassIVE's server closes every
+        /// LIST with "226 Closing transfer connection", an empty folder's included (42 folders, 2026-11-16). So a 2xx
+        /// returns the lines, a 4xx or 5xx is a <see cref="MassiveFtpReplyException"/>, and no closing reply is a
+        /// <see cref="MassiveFtpTransportException"/>, retried like any dropped connection.
+        /// </remarks>
         public async Task<IReadOnlyList<string>> ListAsync(string directory, CancellationToken cancellationToken)
         {
+            List<string> lines;
             try
             {
-                return await _client.ExecuteDownloadText("LIST " + directory, cancellationToken).ConfigureAwait(false);
+                lines = await _client.ExecuteDownloadText("LIST " + directory, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception e) when (Translate(e) is Exception translated)
             {
                 throw translated;
             }
+
+            FtpReply closing = _client.LastReply;
+            int.TryParse(closing.Code, NumberStyles.None, CultureInfo.InvariantCulture, out int code);
+            if (code is >= 200 and < 300)
+                return lines;
+            if (code is >= 400 and < 600)
+                throw new MassiveFtpReplyException(code, closing.Message ?? string.Empty);
+            throw new MassiveFtpTransportException(
+                $"The FTP server sent no closing reply to the listing of '{directory}', so the listing may be cut short.", null);
         }
 
         public async Task<MassiveFtpReply> ExecuteAsync(string command, CancellationToken cancellationToken)

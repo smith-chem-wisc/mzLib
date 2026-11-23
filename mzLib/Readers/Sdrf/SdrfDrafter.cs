@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using MzLibUtil;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 
 namespace Readers
@@ -63,7 +64,10 @@ namespace Readers
         internal static SdrfDraftCell NotAvailable(string why) => new(SdrfReserved.NotAvailable, SdrfDraftSource.NotAvailable, why);
     }
 
-    /// <summary>One drafted row: one raw file of the deposit.</summary>
+    /// <summary>
+    /// One drafted row: one raw file of the deposit, or for an isobaric deposit one raw file and channel.
+    /// <see cref="Label"/> and <see cref="Plex"/> are null on a label-free row, which is written as before.
+    /// </summary>
     internal sealed record SdrfDraftRow(
         string DataFile,
         SdrfDraftCell SourceName,
@@ -75,7 +79,9 @@ namespace Readers
         SdrfDraftCell TechnicalReplicate,
         SdrfDraftCell Fraction,
         IReadOnlyList<SdrfDraftCell> Factors,
-        IReadOnlyDictionary<string, SdrfDraftCell>? Characteristics = null)
+        IReadOnlyDictionary<string, SdrfDraftCell>? Characteristics = null,
+        SdrfDraftCell? Label = null,
+        SdrfDraftCell? Plex = null)
     {
         /// <summary>Characteristics beyond the fixed cells, keyed by column (<c>characteristics[age]</c>); never null.</summary>
         public IReadOnlyDictionary<string, SdrfDraftCell> Characteristics { get; init; } =
@@ -153,7 +159,174 @@ namespace Readers
         public static SdrfDraft Draft(SdrfDepositRecord record, IEnumerable<string> rawFileNames, IEnumerable<SdrfEvidence>? evidence = null)
         {
             var draft = DraftFromRecord(record, rawFileNames);
-            return OneConditionColumnWhereColumnsLeaveBlanks(evidence == null ? draft : ApplyEvidence(draft, evidence.ToList()));
+            var claims = evidence?.ToList();
+            draft = IsobaricChannels(draft, record, claims);
+            return OneConditionColumnWhereColumnsLeaveBlanks(claims == null ? draft : ApplyEvidence(draft, claims));
+        }
+
+        private const string RunNotChannel = "read from the file name, which names a multiplexed run, not one channel's sample";
+
+        /// <summary>A claim about a file's <c>comment[label]</c> that names no channel: the kit the file was labelled with
+        /// (<c>TMT11plex</c>, read from its spectra or its paper).</summary>
+        private static bool IsKitClaim(SdrfEvidence e) =>
+            e.Label.Length == 0 && e.Column.Trim().Equals("comment[label]", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Drafts an isobaric (TMT, iTRAQ) deposit as what it is (sdrf PXR-F15 P1). Without this every deposit was drafted
+        /// label free, one row per file, so every TMT draft was wrong in kind: PXReprise searched all 47 of theirs with each
+        /// file its own plex.
+        ///
+        /// <para><b>The kit</b> comes from evidence, else from the record's own words, never from a guess. A claim about a
+        /// file's <c>comment[label]</c> (a kit read from its spectra, or from its paper) beats a deposit-wide claim, which
+        /// beats the record; two claims that name different kits state none. A kit read from the spectra is only the smallest
+        /// kit holding the channels seen, so a record kit that holds it stands. The record states a kit only when it names one
+        /// with its size (<see cref="SdrfIsobaricKit"/>): <c>TMT6plex</c> is also Unimod's name for the 6-, 10- and 11-plex
+        /// reagent, so it says only that the runs are labelled. A file whose kit is known gets one row per channel, its
+        /// label written as mzLib names it (<see cref="SdrfIsobaricLabels.GetSdrfLabel"/>). A labelled file with no kit known
+        /// keeps one row, and its label is <c>not available</c>, not <c>label free</c>.</para>
+        ///
+        /// <para><b>Nothing a design needs is guessed</b> (PXReprise's rule: identity from evidence, never from numbering).
+        /// The plex, the fraction and the technical replicate are <c>not available</c>: <c>F01</c> in a name is a number,
+        /// not a statement that the file is a fraction of the plex another file belongs to. A cell the drafter read from a
+        /// file name is <c>not available</c> on its channels, because the name describes the run, not one channel's sample.
+        /// A channel nothing names is <c>&lt;file stem&gt; &lt;label&gt;</c>, numbered as MetaMorpheus numbers a name another
+        /// row already uses (<c>S1 TMT126 (2)</c>), and its biological replicate is 1 marked <c>default</c>, which
+        /// QuantProject's reader refuses (their QP-S48). Exactly <c>not available</c> in <c>comment[plex]</c> is refused too.</para>
+        ///
+        /// <para>A deposit that names no isobaric labelling, and gets no kit claim it can use, keeps its rows. A kit claim set
+        /// aside is still reported in <see cref="SdrfDraft.EvidenceNotes"/>, even for a deposit with no raw files.</para>
+        /// </summary>
+        private static SdrfDraft IsobaricChannels(SdrfDraft draft, SdrfDepositRecord record, IReadOnlyList<SdrfEvidence>? evidence)
+        {
+            var notes = new List<SdrfEvidenceNote>();
+            var text = string.Join("\n", new[] { record.Title, record.Description, record.SampleProcessingProtocol, record.DataProcessingProtocol }
+                .Concat(record.Keywords).Concat(record.ProjectTags));
+            var fromRecord = SdrfIsobaricKit.Read(text);
+
+            var claims = new List<SdrfEvidence>();
+            foreach (var e in evidence ?? (IReadOnlyList<SdrfEvidence>)Array.Empty<SdrfEvidence>())
+            {
+                if (e == null || !IsKitClaim(e)) continue;
+                string about = e.DataFilePattern.Length > 0 ? e.DataFilePattern : e.DataFile;
+                if (e.Confidence == SdrfEvidenceConfidence.Guess)
+                    notes.Add(new(about, e.Column, "", e.Value, "a guess is kept for review, never applied"));
+                else if (MethodWord(e.Method) == null)
+                    notes.Add(new(about, e.Column, "", e.Value, $"the method '{e.Method}' is not one the drafter knows, so its source method cannot be written"));
+                else if (!SdrfIsobaricKit.ReadClaim(e.Value).Labelled)
+                    notes.Add(new(about, e.Column, "", e.Value, "only a TMT or iTRAQ kit is read from a claim about a file's label"));
+                else claims.Add(e);
+            }
+            bool About(SdrfEvidence e, string file) => e.DataFilePattern.Length > 0
+                ? SdrfEvidence.GlobMatches(e.DataFilePattern, file)
+                : SdrfFileNamePattern.Stem(e.DataFile).Equals(SdrfFileNamePattern.Stem(file), StringComparison.OrdinalIgnoreCase);
+            // ApplyEvidence leaves kit claims to this step, so a claim set aside above is reported here or nowhere (sdrf G92).
+            if (claims.Count == 0 && !fromRecord.Labelled)
+                return notes.Count == 0 ? draft : draft with { EvidenceNotes = draft.EvidenceNotes.Concat(notes).ToList() };
+            SdrfDraftCell RecordKitCell() => new(fromRecord.Quote, record.Source, $"{record.TextName} names '{fromRecord.Quote}'");
+
+            // ---- each file's kit: (kit or null, the label cell that cites it), or no entry when it is not labelled ----
+            var kitOf = new Dictionary<string, (IsobaricMassTagType? Kit, SdrfDraftCell Cell)>(StringComparer.Ordinal);
+            var wide = claims.Where(e => e.DataFile.Length == 0 && e.DataFilePattern.Length == 0).ToList();
+            foreach (var file in draft.Rows.Select(r => r.DataFile).Distinct(StringComparer.Ordinal))
+            {
+                var own = claims.Where(e => (e.DataFile.Length > 0 || e.DataFilePattern.Length > 0) && About(e, file)).ToList();
+                var use = own.Count > 0 ? own : wide;
+                if (use.Count > 0)
+                {
+                    if (own.Count > 0)
+                        foreach (var w in wide.Where(w => !own.Any(o => o.Value.Trim().Equals(w.Value.Trim(), StringComparison.OrdinalIgnoreCase))))
+                            notes.Add(new(file, w.Column, "", w.Value, "a claim about this file overrides the deposit-wide claim"));
+                    var readings = use.Select(e => (Claim: e, Reading: SdrfIsobaricKit.ReadClaim(e.Value))).ToList();
+                    // A claim that names only the family (TMT) agrees with one that names the kit (TMT10plex).
+                    var kits = readings.Where(x => x.Reading.Kit != null).Select(x => x.Reading.Kit).Distinct().ToList();
+                    if (kits.Count > 1)
+                    {
+                        notes.Add(new(file, "comment[label]", "", string.Join(" | ", use.Select(e => e.Value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)),
+                            "the claims disagree about the kit, so none is applied"));
+                        kitOf[file] = (null, SdrfDraftCell.NotAvailable("the claims about this file's kit disagree"));
+                        continue;
+                    }
+                    var naming = kits.Count == 1 ? readings.Where(x => x.Reading.Kit == kits[0]).Select(x => x.Claim).ToList() : use;
+                    var first = naming.FirstOrDefault(c => c.Confidence == SdrfEvidenceConfidence.Certain) ?? naming[0];
+                    if (kits.Count == 1 && kits[0] is { } claimed)
+                    {
+                        // A kit read from the spectra is the smallest holding every channel seen: it says which channels were
+                        // used, not which kit was bought (PXReprise 044). PXD028531's record says TMT11 and its spectra show 9
+                        // of TMT10's channels. So a record kit that holds every channel of it stands.
+                        if (fromRecord.Kit is { } said && said != claimed
+                            && naming.All(c => c.Method.Trim().Equals("spectra", StringComparison.OrdinalIgnoreCase))
+                            && SdrfIsobaricKit.Holds(said, claimed))
+                        {
+                            notes.Add(new(file, "comment[label]", fromRecord.Quote, first.Value.Trim(),
+                                $"a kit read from the spectra shows only the channels used, and {record.TextName} names '{fromRecord.Quote}', which holds every one of them"));
+                            kitOf[file] = (said, RecordKitCell());
+                            continue;
+                        }
+                        if (fromRecord.Kit is { } other && other != claimed)
+                            notes.Add(new(file, "comment[label]", fromRecord.Quote, first.Value.Trim(),
+                                $"a kit read from the {first.Source} outranks the words of {record.TextName}"));
+                        kitOf[file] = (claimed, EvidenceCell(first, first.Value.Trim()));
+                    }
+                    else kitOf[file] = (null, SdrfDraftCell.NotAvailable($"the {first.Source} says '{first.Value.Trim()}', which names no kit with its size"));
+                }
+                else if (fromRecord.Labelled)
+                    kitOf[file] = fromRecord.Kit is { } kit
+                        ? (kit, RecordKitCell())
+                        : (null, SdrfDraftCell.NotAvailable($"{record.TextName} names '{fromRecord.Quote}', which states no one kit, with its size, for every run, so no channel is drafted"));
+            }
+            if (kitOf.Count == 0) return notes.Count == 0 ? draft : draft with { EvidenceNotes = draft.EvidenceNotes.Concat(notes).ToList() };
+
+            // ---- rows ----
+            SdrfDraftCell Run(SdrfDraftCell c) => c.Source == SdrfDraftSource.Inferred ? SdrfDraftCell.NotAvailable(RunNotChannel) : c;
+            var rows = new List<SdrfDraftRow>();
+            var madeUp = new List<int>();
+            foreach (var row in draft.Rows)
+            {
+                if (!kitOf.TryGetValue(row.DataFile, out var labelled)) { rows.Add(row); continue; }
+                var run = row with
+                {
+                    Organism = Run(row.Organism),
+                    OrganismPart = Run(row.OrganismPart),
+                    Disease = Run(row.Disease),
+                    BiologicalReplicate = new SdrfDraftCell("1", SdrfDraftSource.Default, "nothing names this channel's sample, so no replicate is claimed"),
+                    TechnicalReplicate = SdrfDraftCell.NotAvailable("nothing states which runs repeat one injection of a plex"),
+                    Fraction = SdrfDraftCell.NotAvailable("nothing states which runs are fractions of one plex; a number in a file name is not a statement"),
+                    Factors = row.Factors.Select(Run).ToList(),
+                    Characteristics = row.Characteristics.ToDictionary(kv => kv.Key, kv => Run(kv.Value), StringComparer.Ordinal),
+                    Plex = SdrfDraftCell.NotAvailable("nothing states which runs carry one set of labelled samples")
+                };
+                string stem = SdrfFileNamePattern.Stem(row.DataFile);
+                if (labelled.Kit is not { } kit)
+                {
+                    madeUp.Add(rows.Count);
+                    rows.Add(run with { Label = labelled.Cell, SourceName = new SdrfDraftCell(stem, SdrfDraftSource.Default, "nothing names the samples in this run") });
+                    continue;
+                }
+                foreach (var channel in IsobaricMassTag.GetReporterIonLabels(kit))
+                {
+                    string label = SdrfIsobaricLabels.GetSdrfLabel(kit, channel);
+                    madeUp.Add(rows.Count);
+                    rows.Add(run with
+                    {
+                        Label = labelled.Cell with { Value = label },
+                        SourceName = new SdrfDraftCell($"{stem} {label}", SdrfDraftSource.Default, $"nothing names the sample on channel {label}")
+                    });
+                }
+            }
+
+            // A made-up name another row already uses is numbered, as MetaMorpheus's IsobaricSourceNames numbers it: two rows
+            // sharing a name are one sample to every reader.
+            var made = new HashSet<int>(madeUp);
+            var taken = new HashSet<string>(rows.Where((_, i) => !made.Contains(i)).Select(r => r.SourceName.Value), StringComparer.OrdinalIgnoreCase);
+            foreach (int i in madeUp)
+            {
+                string name = rows[i].SourceName.Value;
+                if (taken.Add(name)) continue;
+                int n = 2;
+                while (!taken.Add($"{name} ({n})")) n++;
+                rows[i] = rows[i] with { SourceName = rows[i].SourceName with { Value = $"{name} ({n})" } };
+            }
+            return draft with { Rows = rows, EvidenceNotes = draft.EvidenceNotes.Concat(notes).ToList() };
         }
 
         /// <summary>
@@ -381,6 +554,20 @@ namespace Readers
             // "Unique per file": one run listed twice (A.raw and A.mzXML) is one sample, so a shared stem would
             // give both rows one row key. The later file falls back to its full name, as SdrfImprover does.
             var usedAssays = new HashSet<string>(StringComparer.Ordinal);
+            // One assay name per run: the channels of a multiplexed run share it (the specification's row key is source
+            // name + assay name + label).
+            var assayOf = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var file in draft.Rows.Select(r => r.DataFile))
+                if (!assayOf.ContainsKey(file))
+                    assayOf[file] = usedAssays.Add("run " + SdrfFileNamePattern.Stem(file)) ? "run " + SdrfFileNamePattern.Stem(file) : "run " + file;
+            // A draft that holds channels writes every label bare (D25), as MetaMorpheus writes TMT labels; one that does
+            // not is written as before.
+            bool channels = draft.Rows.Any(r => r.Label != null);
+            CvParam? LabelOf(SdrfDraftRow r) => r.Label == null ? labelFree
+                : r.Label.Source == SdrfDraftSource.NotAvailable ? null
+                : ControlledVocabulary.Pride.TryGetByName(r.Label.Value, out var term) ? term : new CvParam("PRIDE", "", r.Label.Value, "");
+            static int? Count(SdrfDraftCell c) => c.Source == SdrfDraftSource.NotAvailable ? null
+                : int.Parse(c.Value, System.Globalization.CultureInfo.InvariantCulture);
 
             // A column that is a term on one row and free text on another makes the builder throw. Publication
             // evidence is free text, so a column any row states as free text is written as text on EVERY row,
@@ -426,8 +613,16 @@ namespace Readers
                     }
                 // Fraction and technical replicate decide which runs pool into one sample, and no row default covers a
                 // comment[] column, so every row says where they came from (dataRepo SDRF-DR10).
-                comments["comment[fraction identifier source]"] = SourceWord(r.Fraction.Source);
-                comments["comment[technical replicate source]"] = SourceWord(r.TechnicalReplicate.Source);
+                // A value nothing states has no source.
+                if (r.Fraction.Source != SdrfDraftSource.NotAvailable) comments["comment[fraction identifier source]"] = SourceWord(r.Fraction.Source);
+                if (r.TechnicalReplicate.Source != SdrfDraftSource.NotAvailable) comments["comment[technical replicate source]"] = SourceWord(r.TechnicalReplicate.Source);
+                // QuantProject's plex column (their 114); exactly `not available` where nothing states it, which their reader refuses.
+                if (r.Plex != null)
+                {
+                    comments["comment[plex]"] = r.Plex.Source == SdrfDraftSource.NotAvailable ? SdrfReserved.NotAvailable : r.Plex.Value;
+                    WriteProvenance(comments, "plex", r.Plex);
+                }
+                if (r.Label != null) WriteProvenance(comments, "label", r.Label);
                 foreach (var (name, cell) in new[] { ("fraction identifier", r.Fraction), ("technical replicate", r.TechnicalReplicate) })
                     if (FromEvidence(cell.Source))
                     {
@@ -467,21 +662,19 @@ namespace Readers
                         Organism = r.Organism.Term,
                         Characteristics = characteristics,
                         RawCharacteristics = raw,
-                        BiologicalReplicate = pooled ? null : int.Parse(r.BiologicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture),
+                        BiologicalReplicate = pooled ? null : Count(r.BiologicalReplicate),
                         Pooled = pooled,
-                        Label = labelFree,
+                        Label = LabelOf(r),
                         FactorValues = factors,
                         Comments = comments
                     },
                     new SdrfAssay
                     {
                         DataFileName = r.DataFile,
-                        AssayName = usedAssays.Add("run " + SdrfFileNamePattern.Stem(r.DataFile))
-                            ? "run " + SdrfFileNamePattern.Stem(r.DataFile)
-                            : "run " + r.DataFile,
+                        AssayName = assayOf[r.DataFile],
                         Instrument = r.Instrument.Term,
-                        Fraction = int.Parse(r.Fraction.Value, System.Globalization.CultureInfo.InvariantCulture),
-                        TechnicalReplicate = int.Parse(r.TechnicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture)
+                        Fraction = Count(r.Fraction),
+                        TechnicalReplicate = Count(r.TechnicalReplicate)
                     });
             }).ToList();
 
@@ -490,7 +683,8 @@ namespace Readers
             return SdrfBuilder.Build(rows, new SdrfBuilderOptions
             {
                 RequireSampleMetadata = false,
-                ProteomeXchangeAccession = proteomeXchangeAccession
+                ProteomeXchangeAccession = proteomeXchangeAccession,
+                LabelForm = channels ? SdrfLabelForm.Bare : SdrfLabelForm.Accessioned
             });
         }
 
@@ -503,6 +697,8 @@ namespace Readers
             foreach (var e in evidence)
             {
                 if (e == null) continue;
+                // A kit is read, and its claims reported, by IsobaricChannels.
+                if (IsKitClaim(e)) continue;
                 string about = e.DataFilePattern.Length > 0 ? e.DataFilePattern : e.DataFile;
                 if (e.Confidence == SdrfEvidenceConfidence.Guess)
                 {
@@ -550,6 +746,7 @@ namespace Readers
                 .ToDictionary(g => g.Key, g => g.ToList());
             var columns = usable.Select(e => e.Column).Distinct(StringComparer.Ordinal).ToList();
             var stems = new HashSet<string>(draft.Rows.Select(r => SdrfFileNamePattern.Stem(r.DataFile).ToLowerInvariant()), StringComparer.Ordinal);
+            var guarded = new HashSet<(string File, string Column)>();
             foreach (var e in usable.Concat(conditions).Where(e => e.DataFile.Length > 0 && !stems.Contains(SdrfFileNamePattern.Stem(e.DataFile).ToLowerInvariant())))
                 notes.Add(new(e.DataFile, e.Column, "", e.Value, "the claim names a raw file the deposit does not have"));
 
@@ -569,6 +766,15 @@ namespace Readers
                                 notes.Add(new(row.DataFile, column, "", value, "a claim about this file overrides the deposit-wide claim"));
                     }
                     else if (!claimsOf.TryGetValue(("", column), out claims)) continue;
+                    // A claim about a whole multiplexed run, or the whole deposit, cannot name one channel's sample: written
+                    // on every channel, it would make them one sample, or one replicate.
+                    if (row.Label != null && column is "source name" or "characteristics[biological replicate]")
+                    {
+                        if (guarded.Add((row.DataFile, column)))
+                            notes.Add(new(row.DataFile, column, "", string.Join(" | ", claims.Select(c => c.Value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)),
+                                "a claim about a whole multiplexed run names no one channel's sample"));
+                        continue;
+                    }
                     var values = claims.Select(c => c.Value.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                     if (values.Count != 1)
                     {
@@ -641,7 +847,7 @@ namespace Readers
                 }
                 return r with { Characteristics = extra };
             }).ToList();
-            return ApplyConditions(draft with { Rows = rows }, conditions, stems, notes) with { EvidenceNotes = notes };
+            return ApplyConditions(draft with { Rows = rows }, conditions, stems, notes) with { EvidenceNotes = draft.EvidenceNotes.Concat(notes).ToList() };
         }
 
         /// <summary>The columns evidence may fill.</summary>
@@ -709,9 +915,19 @@ namespace Readers
             if (byRun.Count == 0) return draft;
 
             var columns = order.Concat(draft.FactorColumns.Where(c => !order.Contains(c))).ToList();
+            var noted = new HashSet<string>(StringComparer.Ordinal);
             var rows = draft.Rows.Select(row =>
             {
-                if (!byRun.TryGetValue(SdrfFileNamePattern.Stem(row.DataFile).ToLowerInvariant(), out var mine))
+                bool named = byRun.TryGetValue(SdrfFileNamePattern.Stem(row.DataFile).ToLowerInvariant(), out var mine);
+                // A multiplexed run holds several conditions: a table that gives the run one names no channel's.
+                if (named && row.Label != null)
+                {
+                    if (noted.Add(row.DataFile))
+                        notes.Add(new(row.DataFile, "factor value", "", string.Join(" | ", mine!.Values.Select(e => e.Value.Trim())),
+                            "a condition given to a whole multiplexed run names no one channel's condition"));
+                    named = false;
+                }
+                if (!named)
                     return row with
                     {
                         Factors = columns.Select(c => draft.FactorColumns.ToList().IndexOf(c) is int i and >= 0
@@ -719,10 +935,10 @@ namespace Readers
                     };
                 if (row.Factors.Any(f => f.Source != SdrfDraftSource.NotAvailable))
                     notes.Add(new(row.DataFile, "factor value", string.Join(" | ", row.Factors.Select(f => f.Value)),
-                        string.Join(" | ", mine.Values.Select(e => e.Value.Trim())), "a design table that names this run replaces the conditions read from its name"));
+                        string.Join(" | ", mine!.Values.Select(e => e.Value.Trim())), "a design table that names this run replaces the conditions read from its name"));
                 return row with
                 {
-                    Factors = columns.Select(c => mine.TryGetValue(c, out var e)
+                    Factors = columns.Select(c => mine!.TryGetValue(c, out var e)
                         ? EvidenceCell(e, e.Value.Trim())
                         : SdrfDraftCell.NotAvailable("a design table names this run, and no value for this condition")).ToList()
                 };
@@ -736,7 +952,7 @@ namespace Readers
         {
             "model" => "model",
             "curator" => "curator",
-            "isa-tab" or "sdrf" or "design-table" or "file-key" or "channel-map" or "text" => "rules",
+            "isa-tab" or "sdrf" or "design-table" or "file-key" or "channel-map" or "text" or "spectra" => "rules",
             _ => null
         };
 
