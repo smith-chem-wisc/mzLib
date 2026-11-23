@@ -472,7 +472,7 @@ public sealed record DifferentialSettings
     public string Normalization { get; init; } = "shared_peptide_median";
     /// <summary>
     /// The protein groups of a <c>background_set:&lt;name&gt;</c> normalization, by name as the table names them; null for
-    /// every other setting. Their count and the sha256 of their sorted names enter the analysis id.
+    /// every other setting. The sha256 of their sorted distinct names enters the analysis id.
     /// </summary>
     public IReadOnlyCollection<string>? BackgroundSetGroups { get; init; }
     /// <summary>A curator's per-dataset override, if any.</summary>
@@ -782,12 +782,7 @@ public static class DifferentialMetadataWriter
                 w.WriteNumber("reference_set_size", n.ReferenceSetSize);
                 w.WriteNumber("minimum_reference_set_size", n.MinimumReferenceSetSize);
                 if (n.DeclaredGroups is { } declared) w.WriteNumber("declared_groups", declared);
-                if (n.DeclaredGroupsAbsent is { } absent)
-                {
-                    w.WriteStartArray("declared_groups_absent");
-                    foreach (var group in absent) w.WriteStringValue(group);
-                    w.WriteEndArray();
-                }
+                if (n.DeclaredGroupsAbsent is { } absent) Strings(w, "declared_groups_absent", absent);
                 Map(w, "per_sample_shift", n.PerSampleShift, (k, v) => Number(w, k, v));
                 w.WriteStartArray("warnings");
                 foreach (var warning in n.Warnings) w.WriteStringValue(warning);
@@ -930,11 +925,8 @@ public static class DifferentialMetadataWriter
         w.WriteBoolean("robust", s.Robust);
         w.WriteString("normalization", s.Normalization);
         if (s.BackgroundSetGroups is { } groups)
-        {
-            var sorted = groups.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
-            w.WriteNumber("background_set_groups", sorted.Count);
-            w.WriteString("background_set_sha256", CanonicalText.Sha256(string.Join("\n", sorted.Select(CanonicalText.Escape))));
-        }
+            w.WriteString("background_set_sha256", CanonicalText.Sha256(string.Join("\n",
+                groups.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(CanonicalText.Escape))));
         Optional(w, "normalization_override", s.NormalizationOverride);
         if (s.Seed is { } seed) w.WriteNumber("seed", seed);
         w.WriteNumber("minimum_samples_per_side", s.MinimumSamplesPerSide);

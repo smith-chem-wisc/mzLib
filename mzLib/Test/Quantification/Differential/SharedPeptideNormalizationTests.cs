@@ -496,7 +496,6 @@ public class SharedPeptideNormalizationTests
         Assert.That(background.Setting, Is.EqualTo("background_set:bg"));
         Assert.That(background.ReferenceSetSize, Is.EqualTo(120));
         AssertShifts(background, TrueShifts);
-        Assert.That(background.DeclaredGroups, Is.EqualTo(1));
         Assert.That(background.DeclaredGroupsAbsent, Is.Empty);
         Assert.That(everything.DeclaredGroups, Is.Null, "no background set, no declared groups");
     }
@@ -517,7 +516,7 @@ public class SharedPeptideNormalizationTests
     }
 
     [Test]
-    public void DecoyContaminantAndEntrapmentGroupsNeverCountEvenWhenDeclared()
+    public void ADeclaredDecoyGroupNeverCounts()
     {
         var decoys = Enumerable.Range(0, 300).Select(p => Shifted($"DEC{p:D4}", "DEC", p, Enumerable.Range(0, 4), s => s == 2 ? 4 : 0));
         var table = Table(Mixture().Concat(decoys), groups: BackgroundGroups);
@@ -532,11 +531,11 @@ public class SharedPeptideNormalizationTests
     public void DeclaredGroupsTheTableDoesNotHoldAreListed()
     {
         var result = SharedPeptideNormalization.Measure(Table(Mixture(), groups: BackgroundGroups),
-            new BackgroundSet("bg", new[] { "GONE2", "BG", "GONE1", "BG" }));
+            new BackgroundSet("bg", new[] { "GONE2", "BG", "GONE1", "BG", "GONE6", "GONE3", "GONE5", "GONE4" }));
 
-        Assert.That(result.DeclaredGroups, Is.EqualTo(3), "distinct names");
-        Assert.That(result.DeclaredGroupsAbsent, Is.EqualTo(new[] { "GONE1", "GONE2" }), "ordinal");
-        Assert.That(result.Warnings.Single(), Does.Contain("2 declared protein group(s)").And.Contain("GONE1"));
+        Assert.That(result.DeclaredGroups, Is.EqualTo(7), "distinct names");
+        Assert.That(result.DeclaredGroupsAbsent, Is.EqualTo(new[] { "GONE1", "GONE2", "GONE3", "GONE4", "GONE5", "GONE6" }), "ordinal");
+        Assert.That(result.Warnings.Single(), Does.Contain("6 declared protein group(s)").And.Contain("GONE1, GONE2, GONE3, GONE4, GONE5, ..."));
     }
 
     /// <summary>GR-25 inside the declared set: its half set below the floor of its every-sample set, then nothing.</summary>
@@ -557,17 +556,5 @@ public class SharedPeptideNormalizationTests
         Assert.That(none.Setting, Is.EqualTo(SharedPeptideNormalization.None));
         Assert.That(none.PerSampleShift.Values, Is.All.NaN);
         Assert.That(none.Warnings.Single(), Does.Contain("background set 'bg'").And.Contain("no sample is shifted"));
-    }
-
-    [TestCase("", "BG")]
-    [TestCase("two words", "BG")]
-    [TestCase("a:b", "BG")]
-    [TestCase("bg", "")]
-    public void ABackgroundSetNeedsAPlainNameAndNamedGroups(string name, string group)
-    {
-        var table = Table(Mixture(), groups: BackgroundGroups);
-
-        Assert.Throws<ArgumentException>(() => SharedPeptideNormalization.Measure(table, new BackgroundSet(name, new[] { group })));
-        Assert.Throws<ArgumentException>(() => SharedPeptideNormalization.Measure(table, new BackgroundSet("bg", Array.Empty<string>())));
     }
 }

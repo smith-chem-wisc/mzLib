@@ -248,7 +248,9 @@ public static class StatisticalReportWriter
             "each channel's median log2 intensity in each plex run was moved to the median of those medians over every plex " +
             "run (decoy, contaminant and entrapment rows left out; MSstatsTMT's global normalization).",
         _ when n.Setting.StartsWith("background_set:", StringComparison.Ordinal) =>
-            $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides).",
+            $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides" +
+            (n is { DeclaredGroups: { } d, DeclaredGroupsAbsent: { } a }
+                ? $"; {Int(d)} protein groups declared, {Int(a.Count)} of them not in the table, listed in the metadata file" : "") + ").",
         _ => $"normalization `{n.Setting}` over {Int(n.ReferenceSetSize)} reference peptides.",
     };
 

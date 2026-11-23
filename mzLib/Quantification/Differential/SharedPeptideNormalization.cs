@@ -7,8 +7,9 @@ namespace Quantification.Differential;
 
 /// <summary>A measured per-sample normalization (<c>DEF-DIFF-NORM</c>).</summary>
 /// <param name="Setting">
-/// <see cref="SharedPeptideNormalization.SharedPeptideMedian"/> or
-/// <see cref="SharedPeptideNormalization.SharedPeptideMedianHalf"/>: which reference set the shifts were measured on.
+/// <see cref="SharedPeptideNormalization.SharedPeptideMedian"/>, <see cref="SharedPeptideNormalization.SharedPeptideMedianHalf"/>
+/// or <c>background_set:&lt;name&gt;</c>: which reference set the shifts were measured on; <see cref="SharedPeptideNormalization.None"/>
+/// when none was trusted.
 /// </param>
 /// <param name="ReferenceSetSize">How many peptides were in the reference set.</param>
 /// <param name="MinimumReferenceSetSize">Below this many peptides in every sample, the half-samples set was used (GR-25).</param>
@@ -29,7 +30,7 @@ public sealed record NormalizationResult(string Setting, int ReferenceSetSize, i
 /// </summary>
 /// <param name="Name">The set's name, written after <c>background_set:</c>: not empty, no whitespace, no <c>:</c>.</param>
 /// <param name="ProteinGroups">The groups, by name as the table names them; at least one, none blank.</param>
-public sealed record BackgroundSet(string Name, IReadOnlyCollection<string> ProteinGroups)
+internal sealed record BackgroundSet(string Name, IReadOnlyCollection<string> ProteinGroups)
 {
     /// <summary>The <c>DEF-DIFF-NORM</c> setting this set is measured under: <c>background_set:&lt;name&gt;</c>.</summary>
     public string Setting => SharedPeptideNormalization.BackgroundSetPrefix + Name;
@@ -109,36 +110,9 @@ public static class SharedPeptideNormalization
     public static NormalizationResult Measure(ObservationTable table, int minimumPeptides = DefaultMinimumPeptides)
         => Measure(table, minimumPeptides, MaximumPasses);
 
-    /// <summary>Measures each sample's shift over every sample of <paramref name="table"/>, on a declared background set.</summary>
-    /// <param name="table">One stratum's table.</param>
-    /// <param name="backgroundSet">The declared set.</param>
-    /// <param name="minimumPeptides">The floor on either reference set within the declared set (GR-25); at least 1.</param>
-    /// <exception cref="ArgumentException">A set with no name, a name that is not plain, no groups, or a blank group name.</exception>
-    public static NormalizationResult Measure(ObservationTable table, BackgroundSet backgroundSet,
-        int minimumPeptides = DefaultMinimumPeptides)
-    {
-        ValidateBackgroundSet(backgroundSet);
-        return Measure(table, minimumPeptides, MaximumPasses, background: backgroundSet);
-    }
-
-    /// <summary>Whether <paramref name="name"/> can follow <c>background_set:</c>: not empty, no whitespace, no <c>:</c>.</summary>
-    public static bool IsBackgroundSetName(string? name) =>
-        !string.IsNullOrEmpty(name) && !name.Any(c => char.IsWhiteSpace(c) || c == ':');
-
-    /// <summary>Refuses a set whose name is not plain, that declares no group, or that names a blank one.</summary>
-    internal static void ValidateBackgroundSet(BackgroundSet backgroundSet)
-    {
-        ArgumentNullException.ThrowIfNull(backgroundSet);
-        ArgumentNullException.ThrowIfNull(backgroundSet.ProteinGroups, nameof(backgroundSet));
-        if (!IsBackgroundSetName(backgroundSet.Name))
-            throw new ArgumentException($"The background set's name '{backgroundSet.Name}' must be non-empty, with no whitespace " +
-                "or ':'.", nameof(backgroundSet));
-        if (backgroundSet.ProteinGroups.Count == 0)
-            throw new ArgumentException($"The background set '{backgroundSet.Name}' declares no protein group.", nameof(backgroundSet));
-        if (backgroundSet.ProteinGroups.Any(string.IsNullOrWhiteSpace))
-            throw new ArgumentException($"The background set '{backgroundSet.Name}' declares a blank protein-group name.",
-                nameof(backgroundSet));
-    }
+    /// <summary>The same, on a declared background set the runner has already validated.</summary>
+    internal static NormalizationResult Measure(ObservationTable table, BackgroundSet backgroundSet,
+        int minimumPeptides = DefaultMinimumPeptides) => Measure(table, minimumPeptides, MaximumPasses, background: backgroundSet);
 
     /// <param name="maximumPasses">The half set's limit on passes, lowered by a test to reach its warning.</param>
     /// <param name="minimumHalfSetPeptides">

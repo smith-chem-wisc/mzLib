@@ -11,10 +11,7 @@ namespace Quantification.Differential;
 /// sample counted by the support rules); and its random-effect labels.
 /// </summary>
 /// <param name="Log2">The normalized log2 value; finite.</param>
-/// <param name="Nuisance">
-/// The nuisance level: the peptide's full sequence (label-free peptide row), <c>{full sequence}/{charge}</c> (label-free
-/// precursor row), or ion and plex run (isobaric).
-/// </param>
+/// <param name="Nuisance">The nuisance level: the peptide's full sequence (label-free), <c>{full sequence}/{charge}</c> (precursor row), or ion and plex run (isobaric).</param>
 /// <param name="Peptide">The full sequence of the level's peptide, which <c>n_peptides</c> counts (M5b ruling 13).</param>
 /// <param name="SampleId">The <see cref="AnalysisSample.SampleId"/> whose design row the value is fitted on.</param>
 /// <param name="RandomSample">The inner random intercept's level.</param>
@@ -49,10 +46,7 @@ internal sealed class FeatureObservations
     /// <summary>The usable nuisance levels, ordinal; the first is the reference of the treatment coding.</summary>
     public IReadOnlyList<string> NuisanceLevels { get; }
 
-    /// <summary>
-    /// The distinct peptides (full sequences) behind the usable levels: <c>n_peptides</c> (M5b ruling 13). A precursor or a
-    /// TMT ion in a plex run is a level of its own, but its peptide counts once.
-    /// </summary>
+    /// <summary>The distinct peptides (full sequences) behind the usable levels: <c>n_peptides</c> (M5b ruling 13).</summary>
     public int PeptideCount { get; }
 
     /// <summary>Nuisance levels unique to the group, usable or not.</summary>

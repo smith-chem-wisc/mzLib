@@ -15,7 +15,7 @@ public sealed record DifferentialResult
     public required string DefinitionId { get; init; }
     /// <summary>The analysis this row belongs to (<see cref="DifferentialMetadata.AnalysisId"/>).</summary>
     public required string AnalysisId { get; init; }
-    /// <summary><c>lfq</c>, <c>tmt</c>, <c>itraq</c>, <c>dileu</c>, <c>silac</c>, <c>pulse_silac</c>, <c>dia</c> (<see cref="DifferentialConstants.QuantStyles"/>).</summary>
+    /// <summary><c>lfq</c>, <c>tmt</c>, <c>itraq</c>, <c>dileu</c>, <c>silac</c>, <c>pulse_silac</c>, <c>dia</c>.</summary>
     public string? QuantStyle { get; init; }
     /// <summary><c>ms2</c> or <c>ms3_sps</c> for isobaric styles; null otherwise.</summary>
     public string? ReporterAcquisition { get; init; }

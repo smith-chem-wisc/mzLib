@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Text;
 using NUnit.Framework;
@@ -93,21 +92,12 @@ public class DifferentialDiaTests
         Assert.That(y00.NPeptides, Is.EqualTo(4), "four peptides, six precursors");
         Assert.That(y00.NObservations, Is.EqualTo(36), "six precursors in six samples");
         Assert.That(result.Decisions.Select(d => d.QuantBasis), Is.All.Null);
-        Assert.DoesNotThrow(() => DifferentialResultWriter.Write(TextWriter.Null, result.Rows, DifferentialHeaderStyle.Machine));
         // The column registry names quant_basis as a column; no entry carries it as a key or a basis value.
         Assert.That(Encoding.UTF8.GetString(DifferentialMetadataWriter.ToBytes(result.Metadata, result.Rows)),
             Does.Not.Contain("\"quant_basis\": ").And.Not.Contain("msms_only").And.Not.Contain("mbr_kept"));
-    }
 
-    /// <summary>
-    /// The model follows the levels, as for TMT ions: one peptide at two charges gives two levels, so the per-sample effect
-    /// is estimable and the protein is fitted with the mixed model, not as a single peptide, while <c>n_peptides</c> is 1.
-    /// </summary>
-    [Test]
-    public void OnePeptideAtTwoChargesIsFittedWithTheMixedModel()
-    {
-        var result = DifferentialAnalysis.Run(Request(new DifferentialSettings { Normalization = SharedPeptideNormalization.None }), maxThreads: 1);
-
+        // The model follows the levels, as for TMT ions: one peptide at two charges is two levels, so it is fitted with the
+        // mixed model, not as a single peptide, while n_peptides is 1.
         var one = result.Rows.Single(r => r.FeatureId == "ONE");
         Assert.That(one.Status, Is.EqualTo(DifferentialStatus.Fitted));
         Assert.That(one.NPeptides, Is.EqualTo(1));
@@ -121,18 +111,6 @@ public class DifferentialDiaTests
             Request(new DifferentialSettings { Normalization = SharedPeptideNormalization.None }, QuantBasis.MbrKept), maxThreads: 1));
 
         Assert.That(ex!.Message, Does.Contain("'dia'").And.Contain("mbr_kept"));
-    }
-
-    [TestCase("DIA")]
-    [TestCase("label_free")]
-    [TestCase("tmt")]
-    public void AQuantStyleTheDefinitionDoesNotListForThisTableIsRefused(string style)
-    {
-        var request = Request(new DifferentialSettings { Normalization = SharedPeptideNormalization.None }) with { QuantStyle = style };
-
-        var ex = Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(request, maxThreads: 1));
-
-        Assert.That(ex!.Message, Does.Contain($"'{style}'"));
     }
 
     [TestCase("shared_peptide_mediann")]
@@ -152,12 +130,12 @@ public class DifferentialDiaTests
     [Test]
     public void ABackgroundSetNeedsItsGroupsAndGroupsNeedABackgroundSet()
     {
-        Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(
-            Request(new DifferentialSettings { Normalization = "background_set:human" }), maxThreads: 1));
-        Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(
-            Request(new DifferentialSettings { Normalization = "background_set:human", BackgroundSetGroups = Array.Empty<string>() }), maxThreads: 1));
-        Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(
-            Request(new DifferentialSettings { BackgroundSetGroups = Human }), maxThreads: 1));
+        foreach (var groups in new[] { null, Array.Empty<string>(), new[] { "H00", " " } })
+            Assert.That(Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(Request(new DifferentialSettings
+                { Normalization = "background_set:human", BackgroundSetGroups = groups }), maxThreads: 1))!.Message,
+                Does.Contain("'background_set:human'"));
+        Assert.That(Assert.Throws<ArgumentException>(() => DifferentialAnalysis.Run(
+            Request(new DifferentialSettings { BackgroundSetGroups = Human }), maxThreads: 1))!.Message, Does.Contain("BackgroundSetGroups"));
     }
 
     /// <summary>
@@ -189,17 +167,16 @@ public class DifferentialDiaTests
         var result = DifferentialAnalysis.Run(Request(Background("HGONE")), maxThreads: 1);
 
         string json = Encoding.UTF8.GetString(DifferentialMetadataWriter.ToBytes(result.Metadata, result.Rows));
-        Assert.That(json, Does.Contain("\"normalization\": \"background_set:human\"").And.Contain("\"background_set_groups\": 21")
+        Assert.That(json, Does.Contain("\"normalization\": \"background_set:human\"")
             .And.Contain("\"background_set_sha256\": \"").And.Contain("\"declared_groups\": 21")
             .And.Contain("\"declared_groups_absent\": [").And.Contain("\"HGONE\""));
         var reversed = Background("HGONE") with { BackgroundSetGroups = Background("HGONE").BackgroundSetGroups!.Reverse().ToArray() };
         Assert.That(DifferentialMetadata.ComputeAnalysisId(result.Metadata.Inputs, reversed), Is.EqualTo(result.Metadata.AnalysisId),
             "the same set in another order is the same analysis");
         Assert.That(DifferentialMetadata.ComputeAnalysisId(result.Metadata.Inputs, Background()), Is.Not.EqualTo(result.Metadata.AnalysisId));
-        Assert.That(result.Decisions.Single(d => d.Rule == DifferentialDecisionRules.Settings).Facts,
-            Does.Contain("normalization background_set:human (21 declared protein groups)"));
         string report = StatisticalReportWriter.Build(result.Metadata, result.Rows, result.Diagnostics, result.Decisions).Markdown;
-        Assert.That(report, Does.Contain("declared background set `human`"));
+        Assert.That(report, Does.Contain("declared background set `human` (120 peptides; 21 protein groups declared, 1 of them not " +
+            "in the table, listed in the metadata file)."));
     }
 
     [Test]

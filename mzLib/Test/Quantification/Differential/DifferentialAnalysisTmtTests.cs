@@ -57,7 +57,7 @@ public class DifferentialAnalysisTmtTests
     private static double Gaussian(Random rng) =>
         Math.Sqrt(-2 * Math.Log(1 - rng.NextDouble())) * Math.Cos(2 * Math.PI * rng.NextDouble());
 
-    private static DifferentialAnalysisResult Run(int threads = 1, DifferentialSettings? settings = null, string? style = null)
+    private static DifferentialAnalysisResult Run(int threads = 1, DifferentialSettings? settings = null)
     {
         var (table, samples) = Data(20261110);
         return DifferentialAnalysis.Run(new DifferentialRequest
@@ -67,7 +67,6 @@ public class DifferentialAnalysisTmtTests
             Spec = new DesignSpec { Factors = new[] { new FactorSpec(AnalysisSample.ConditionFactor, "A") } },
             Contrasts = new[] { DifferentialContrastRequest.Between(AnalysisSample.ConditionFactor, "B", "A") },
             ReporterAcquisition = "ms3_sps",
-            QuantStyle = style,
             Settings = settings ?? new DifferentialSettings(),
         }, threads);
     }
@@ -173,7 +172,7 @@ public class DifferentialAnalysisTmtTests
 
     /// <summary>
     /// The settings an isobaric table accepts: its channel median (asked for by name or by the label-free default) or
-    /// none. A background set, a label-free-only setting and a label-free style are refused, naming what was asked.
+    /// none. A background set and a label-free-only setting are refused, naming what was asked.
     /// </summary>
     [Test]
     public void AnIsobaricTableAcceptsItsOwnNormalizationAndRefusesTheLabelFreeOnes()
@@ -192,9 +191,6 @@ public class DifferentialAnalysisTmtTests
             var ex = Assert.Throws<ArgumentException>(() => Run(settings: new DifferentialSettings { Normalization = setting, BackgroundSetGroups = groups }));
             Assert.That(ex!.Message, Does.Contain($"'{setting}'"), setting);
         }
-        foreach (string style in new[] { "dia", "lfq" })
-            Assert.That(Assert.Throws<ArgumentException>(() => Run(style: style))!.Message, Does.Contain($"'{style}'"), style);
-        Assert.That(Run(style: "itraq").Rows.Select(r => r.QuantStyle), Is.All.EqualTo("itraq"));
     }
 
     /// <summary>

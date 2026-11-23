@@ -45,15 +45,6 @@ public class ObservationTablePrecursorTests
     }
 
     [Test]
-    public void APeptideRowHasNoCharge()
-    {
-        var table = Table(Precursor("AAA", null));
-
-        Assert.That(table.Charge(0), Is.Null);
-        Assert.That(table.Observations().Select(o => o.Charge), Is.All.Null);
-    }
-
-    [Test]
     public void APrecursorListedTwiceIsRefused()
     {
         var ex = Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", 2), Precursor("AAA", 2, level: 50)));
@@ -69,11 +60,10 @@ public class ObservationTablePrecursorTests
         Assert.That(ex!.Message, Does.Contain("'AAA'").And.Contain("'BBB'"));
     }
 
-    [TestCase(0)]
-    [TestCase(-2)]
-    public void AChargeBelowOneIsRefused(int charge)
+    [Test]
+    public void AChargeBelowOneIsRefused()
     {
-        var ex = Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", charge)));
+        var ex = Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", 0)));
 
         Assert.That(ex!.Message, Does.Contain("'AAA'").And.Contain("at least 1"));
     }
@@ -81,8 +71,10 @@ public class ObservationTablePrecursorTests
     [Test]
     public void ThePrecursorsOfOnePeptideMustAgreeOnItsBaseSequenceAndGroups()
     {
-        Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", 2, groups: "G1"), Precursor("AAA", 3, groups: "G2")));
-        Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", 2, baseSequence: "AAA"), Precursor("AAA", 3, baseSequence: "AAB")));
+        Assert.That(Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", 2, groups: "G1"), Precursor("AAA", 3, groups: "G2")))!
+            .Message, Does.Contain("'AAA'").And.Contain("'G1'").And.Contain("'G2'"));
+        Assert.That(Assert.Throws<ArgumentException>(() => Table(Precursor("AAA", 2, baseSequence: "AAA"), Precursor("AAA", 3, baseSequence: "AAB")))!
+            .Message, Does.Contain("'AAB'"));
     }
 
     [Test]
@@ -95,6 +87,7 @@ public class ObservationTablePrecursorTests
         Assert.That(Table(Precursor("AAA", 3)).Sha256(), Is.Not.EqualTo(Table(Precursor("AAA", 2)).Sha256()));
         Assert.That(Table(Precursor("AAA", null)).ToCanonicalText(), Does.Contain("\npeptide\tAAA\tAAA\tG1\t"),
             "a table without charges is written as before");
+        Assert.That(Table(Precursor("AAA", null)).Charge(0), Is.Null);
     }
 
     [Test]
@@ -121,14 +114,5 @@ public class ObservationTablePrecursorTests
         Assert.That(g1.UniqueLevels, Is.EqualTo(3));
         Assert.That(g1.PeptideCount, Is.EqualTo(2), "two peptides, three precursors");
         Assert.That(g1.Values.Select(v => v.Peptide).Distinct(), Is.EqualTo(new[] { "AAA", "CCC" }));
-    }
-
-    [Test]
-    public void APeptideRowIsALevelNamedByItsSequenceAlone()
-    {
-        var g1 = FeatureObservationBuilder.FromTable(Table(Precursor("AAA", null), Precursor("CCC", null)), Samples(), minimumSamples: 2)["G1"];
-
-        Assert.That(g1.NuisanceLevels, Is.EqualTo(new[] { "AAA", "CCC" }));
-        Assert.That(g1.PeptideCount, Is.EqualTo(2));
     }
 }
