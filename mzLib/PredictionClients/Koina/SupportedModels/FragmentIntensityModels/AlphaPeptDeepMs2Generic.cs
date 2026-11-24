@@ -20,7 +20,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class AlphaPeptDeepMs2Generic : FragmentIntensityModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "AlphaPeptDeep_ms2_generic";
         public override int MaxBatchSize => 1000;
@@ -55,7 +55,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
             var batchedEnergies = validInputs.Select(p => (float)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
             var batchedInstTypes = validInputs.Select(p => p.InstrumentType ?? "QE").Chunk(MaxBatchSize).ToArray();

@@ -65,7 +65,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkProsit2020iRTTMT()
         {
             var peptides = GenerateUniquePeptides(500000, 30);
-            var modelInputs = peptides.Select(p => new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]" + p)).ToList();
+            var modelInputs = peptides.Select(p => new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]" + p)).ToList();
             var model = new Prosit2020iRTTMT();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             Assert.DoesNotThrow(() => model.Predict(modelInputs));

@@ -14,6 +14,9 @@ public class UnimodSequenceSerializer : SequenceSerializerBase
 
     public override SequenceFormatSchema Schema { get; }
 
+    protected override bool WritesNTerminalModificationOnFirstResidue =>
+        ((UnimodSequenceFormatSchema)Schema).NTerminalModificationsOnFirstResidue;
+
     public override bool CanSerialize(CanonicalSequence sequence)
     {
         return !string.IsNullOrEmpty(sequence.BaseSequence);

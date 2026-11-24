@@ -1,4 +1,5 @@
 using MzLibUtil;
+using Omics.Modifications;
 using Omics.SequenceConversion;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
@@ -45,7 +46,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">Validated and cleaned peptide sequence that was actually sent for prediction, in the Koina API (UNIMOD) notation. This may also differ from the original FullSequence if modifications were removed or if the sequence was deemed invalid for the model. mzLib cannot parse this notation; use <see cref="CleanedFullSequence"/> to rebuild the peptide.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
@@ -61,10 +62,9 @@ namespace PredictionClients.Koina.AbstractClasses
     )
     {
         /// <summary>
-        /// The sequence that was predicted, in mzLib notation: the input's own modification labels, minus any modification
-        /// that mod handling removed. Null for an input that was not predicted.
+        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
         /// </summary>
-        public string? CleanedFullSequence { get; init; }
+        public ISequenceParser? SequenceParser { get; init; }
     }
 
     /// <summary>
@@ -91,12 +91,14 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
+        /// <summary>
+        /// The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.
+        /// </summary>
         public string? ValidatedFullSequence { get; set; }
-
-        /// <summary>The cleaned sequence in mzLib notation; see <see cref="PeptideFragmentIntensityPrediction.CleanedFullSequence"/>.</summary>
-        public string? CleanedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
+        internal CanonicalSequence? CleanedSequence { get; init; }
+        internal string? KoinaSequence { get; init; }
     }
 
     /// <summary>
@@ -125,6 +127,12 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
+
+        /// <summary>
+        /// The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.
+        /// </summary>
+        protected static string GetKoinaSequence(FragmentIntensityPredictionInput input) =>
+            input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
         #region Additional Model-Type Constraints
         /// <summary>
@@ -198,7 +206,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// This is used for realigning predictions back to the original input list and for filtering out invalid inputs from the prediction results.
         /// The mask is populated during the PredictAsync workflow after validating each input against the model's constraints (e.g., allowed precursor charges, collision energies, etc.). 
         /// A value of 'true' at index i indicates that the input at index i in ModelInputs was valid and included in the prediction process, 
-        /// while 'false' indicates that it was filtered out due to incompatibility with the model. 
+        /// while 'false' indicates that it was filtered out due to incompatibility with the model, or that its peptide couldn't be built to map fragments onto.
         /// This allows for better handling of mixed input lists where some entries may not meet the model's requirements, without losing track of their original positions in the input list.
         /// </summary>
         public bool[] ValidInputsMask { get; protected set; } = Array.Empty<bool>();
@@ -311,24 +319,39 @@ namespace PredictionClients.Koina.AbstractClasses
 
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
-            var validInputs = new List<FragmentIntensityPredictionInput>();
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning); // mod handling happens here
+                var validatedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var koinaSequence, out var modHandlingWarning); // mod handling happens here
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
-                if (cleanedSequence != null && apiSequence != null && validModelParams)
+                if (validatedSequence != null && koinaSequence != null && validModelParams)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, CleanedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = validatedSequence, CleanedSequence = koinaSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = true;
-                    validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, CleanedFullSequence = null, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = false;
                 }
             }
             #endregion
+
+            var validInputs = new List<FragmentIntensityPredictionInput>();
+            for (int i = 0; i < ModelInputs.Count; i++)
+            {
+                if (!ValidInputsMask[i])
+                    continue;
+
+                var koinaSequence = SerializeKoinaSequence(ModelInputs[i].CleanedSequence!.Value, out var serializationWarning);
+                if (koinaSequence == null)
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = serializationWarning };
+                    ValidInputsMask[i] = false;
+                    continue;
+                }
+                ModelInputs[i] = ModelInputs[i] with { KoinaSequence = koinaSequence };
+                validInputs.Add(ModelInputs[i]);
+            }
 
             var predictions = new List<PeptideFragmentIntensityPrediction>();
             IReadOnlyDictionary<int, WarningException> refusedInputs = new Dictionary<int, WarningException>();
@@ -348,7 +371,10 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 if (ValidInputsMask[i])
                 {
-                    realignedPredictions.Add(predictions[predictionIndex]);
+                    var prediction = predictions[predictionIndex];
+                    // ResponseToPredictions returns no fragments for a prediction it could not map onto its peptide.
+                    ValidInputsMask[i] = prediction.FragmentAnnotations != null;
+                    realignedPredictions.Add(prediction);
                     predictionIndex++;
                 }
                 else
@@ -362,7 +388,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         FragmentMZs: null,
                         FragmentIntensities: null,
                         Warning: ModelInputs[i].ParameterWarning ?? ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
-                    ));
+                    ) { SequenceParser = ModelInputs[i].SequenceParser });
                 }
             }
 
@@ -473,7 +499,7 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = peptide.SequenceWarning, CleanedFullSequence = peptide.CleanedFullSequence });
+                        { Warning = peptide.SequenceWarning, SequenceParser = peptide.SequenceParser });
                     }
                 }
                 else // FragmentIonMappingMode == FragmentIonMappingMode.MapToInputFullSequence
@@ -481,7 +507,20 @@ namespace PredictionClients.Koina.AbstractClasses
                     for (int i = 0; i < batchPeptides.Count; i++)
                     {
                         var peptide = batchPeptides[i];
-                        var pwsm = new PeptideWithSetModifications(peptide.FullSequence);
+                        var pwsm = TryBuildPeptide(peptide.FullSequence, peptide.SequenceParser, out var buildWarning);
+                        if (pwsm == null)
+                        {
+                            predictions.Add(new PeptideFragmentIntensityPrediction(
+                                peptide.FullSequence,
+                                peptide.ValidatedFullSequence!,
+                                peptide.PrecursorCharge,
+                                null,
+                                null,
+                                null,
+                                buildWarning
+                            ) { SequenceParser = peptide.SequenceParser });
+                            continue;
+                        }
                         List<Product> theoreticalProducts = new();
                         pwsm.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts, fragmentationParams: _noMIonParams);
                         Dictionary<string, Product> tpLookup = theoreticalProducts.DistinctBy(tp => tp.Annotation).ToDictionary(tp => tp.Annotation);
@@ -528,12 +567,38 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = peptide.SequenceWarning, CleanedFullSequence = peptide.CleanedFullSequence });
+                        { Warning = peptide.SequenceWarning, SequenceParser = peptide.SequenceParser });
                     }
                 }
             }
             return predictions;
         }
+
+        // The wider lookups find modifications the model doesn't allow but an input mapped under MapToInputFullSequence still carries.
+        private PeptideWithSetModifications? TryBuildPeptide(string sequence, ISequenceParser? sequenceParser, out WarningException? warning)
+        {
+            warning = null;
+            string reason;
+            try
+            {
+                var canonical = (sequenceParser ?? SequenceConverter.Parser).Parse(sequence, null, SequenceConversionHandlingMode.ThrowException)!.Value;
+                return PeptideWithSetModifications.FromCanonicalSequence(canonical, ModificationLookups);
+            }
+            catch (SequenceConversionException ex)
+            {
+                reason = ex.Message;
+            }
+
+            var message = $"Could not build the peptide '{sequence}' to map its predicted fragments onto: {reason}";
+            HandleFailure(ModHandlingMode, message);
+            warning = new WarningException(message);
+            return null;
+        }
+
+        private IModificationLookup[] ModificationLookups =>
+            SequenceConverter.Serializer.ModificationLookup is { } own
+                ? [own, UnimodModificationLookup.Instance, GlobalModificationLookup.ProteinOnly]
+                : [UnimodModificationLookup.Instance, GlobalModificationLookup.ProteinOnly];
         #endregion
 
         /// <summary>
@@ -672,13 +737,13 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <remarks>
         /// The conversion process:
-        /// 1. Builds the peptide from the cleaned mzLib-notation sequence (or the input sequence, per FragmentIonMappingMode)
+        /// 1. Builds the peptide from ValidatedFullSequence (or FullSequence, per FragmentIonMappingMode); one that can't be built is skipped with a warning
         /// 2. Parses each fragment annotation to determine ion properties
         /// 3. Creates MatchedFragmentIon objects with experimental m/z and predicted intensities
         /// 4. Builds LibrarySpectrum with precursor information and fragment data
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
-        /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
+        /// <exception cref="WarningException">Recorded in the out parameter when predictions are skipped or duplicate spectra are detected</exception>
         public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double?[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)
         {
             warning = null;
@@ -704,14 +769,19 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             var predictedSpectra = new List<LibrarySpectrum>();
+            var messages = new List<string>();
             for (int predictionIndex = 0; predictionIndex < predictions.Count; predictionIndex++)
             {
                 var prediction = predictions[predictionIndex];
 
-                PeptideWithSetModifications peptide = FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence 
-                    ? new PeptideWithSetModifications(prediction.CleanedFullSequence
-                        ?? throw new InvalidOperationException($"Prediction for {prediction.FullSequence} has no cleaned sequence to map fragments onto."))
-                    : new PeptideWithSetModifications(prediction.FullSequence);
+                var peptide = TryBuildPeptide(
+                    FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence ? prediction.ValidatedFullSequence : prediction.FullSequence,
+                    prediction.SequenceParser, out var buildWarning);
+                if (peptide == null)
+                {
+                    messages.Add(buildWarning!.Message);
+                    continue;
+                }
                 List<MatchedFragmentIon> fragmentIons = new();
 
                 List<Product> theoreticalProducts = new();
@@ -797,16 +867,13 @@ namespace PredictionClients.Koina.AbstractClasses
             var unique = predictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != predictedSpectra.Count)
             {
-                warning = new WarningException($"Duplicate spectra found in predictions. Reduced from {predictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
+                messages.Add($"Duplicate spectra found in predictions. Reduced from {predictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
                 predictedSpectra = unique;
             }
 
 			if (filepath == null)
 			{
-				var noFilePathMessage = "No file path provided for spectral library output. Generated spectra will not be saved to disk.";
-				warning = warning == null
-					? new WarningException(noFilePathMessage)
-					: new WarningException($"{warning.Message} {noFilePathMessage}");
+				messages.Add("No file path provided for spectral library output. Generated spectra will not be saved to disk.");
 			}
 			else if (MslFileTypeHandler.IsMslFile(filepath))
 			{
@@ -819,6 +886,7 @@ namespace PredictionClients.Koina.AbstractClasses
 				spectralLibrary.WriteResults(filepath);
 			}
 
+			warning = messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
 			return predictedSpectra;
         }
         #endregion
