@@ -142,18 +142,20 @@ namespace Test.MassSpectrometryTests
         {
             //Test case using FakeScans
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            var xics = indexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var xics = indexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3, out var matchedPeaks);
             NUnit.Framework.Assert.That(xics.Count, Is.EqualTo(20));
             foreach(var xic in xics)
             {
                 NUnit.Framework.Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             }
+            NUnit.Framework.Assert.That(matchedPeaks.Count, Is.EqualTo(xics.Sum(xic => xic.Peaks.Count)));
+            NUnit.Framework.Assert.That(xics.All(xic => xic.Peaks.All(peak => matchedPeaks[peak] == xic)));
 
             //Test with massIndexingEngine
             var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
             var allMasses = Deconvoluter.Deconvolute(testScans[0].MassSpectrum, deconParameters);
             var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(testScans, deconParameters);
-            var massXics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var massXics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             NUnit.Framework.Assert.That(massXics.Count, Is.EqualTo(2));
             foreach (var mass in allMasses)
             {
@@ -174,12 +176,12 @@ namespace Test.MassSpectrometryTests
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
             var indexingEngine2 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans2);
-            var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             NUnit.Framework.Assert.That(xics2.Count, Is.EqualTo(40)); //the first three scans and the last four scans will each contain two XICs
             NUnit.Framework.Assert.That(xics2.SequenceEqual(xics2.OrderByDescending(x => x.ApexPeak.Intensity)));//make sure the XICs are ordered by descending apex intensity
             //Test with massIndexingEngine
             var massIndexingEngine2 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans2, deconParameters);
-            var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             NUnit.Framework.Assert.That(massXics2.Count, Is.EqualTo(4));
 
             var fakeScans3 = (MsDataScan[])testScans.Clone();
@@ -190,7 +192,7 @@ namespace Test.MassSpectrometryTests
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
             var indexingEngine3 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans3);
-            var xics3 = indexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var xics3 = indexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             NUnit.Framework.Assert.That(xics3.Count, Is.EqualTo(20)); // Because the minumum number of peaks required is set to 3, the first two scans do not contain any XICs with only two consecutive peaks.
             foreach (var xic in xics3)
             {
@@ -198,7 +200,7 @@ namespace Test.MassSpectrometryTests
             }
             //Test with massIndexingEngine
             var massIndexingEngine3 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans3, deconParameters);
-            var massXics3 = massIndexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var massXics3 = massIndexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             NUnit.Framework.Assert.That(massXics3.Count, Is.EqualTo(2));
             foreach (var xic in massXics3)
             {
