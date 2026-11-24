@@ -249,6 +249,23 @@ public class StatisticalReportTests
         Assert.That(methods, Does.Contain("over the 790 peptides with a value in every sample that has values"));
     }
 
+    /// <summary>A declared background set gives its name, its peptides, how many groups were declared and how many the table lacks.</summary>
+    [Test]
+    public void TheMethodsDescribeTheDeclaredBackgroundSet()
+    {
+        var m = Metadata();
+        var declared = m.Normalization[0] with
+        {
+            Setting = "background_set:human", ReferenceSetSize = 120, DeclaredGroups = 21, DeclaredGroupsAbsent = new[] { "HGONE" },
+        };
+
+        Assert.That(Section(Build(m with { Normalization = new[] { declared, m.Normalization[1] } }).Markdown, "## 1. Methods"),
+            Does.Contain("on the declared background set `human` (120 peptides; 21 protein groups declared, 1 of them not in the " +
+                "table, listed in the metadata file)."));
+        Assert.That(Section(Build(m with { Normalization = new[] { declared with { DeclaredGroups = null }, m.Normalization[1] } }).Markdown,
+            "## 1. Methods"), Does.Contain("on the declared background set `human` (120 peptides)."));
+    }
+
     [Test]
     public void TheDesignGivesNPerGroupReplicatesAndEveryComparison()
     {

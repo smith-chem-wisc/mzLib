@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using MzLibUtil;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
@@ -14,8 +12,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// - Supports peptides with length 1-30 amino acids
     /// - Handles precursor charges 1-6
     /// - Predicts up to 58 fragment ions per peptide
-    /// - Requires N-terminal TMT/iTRAQ labeling
     /// - Supports TMT6plex, TMTpro, iTRAQ4/8plex
+    /// - The server does not require an N-terminal label. A sequence sent without one is predicted at
+    ///   unlabeled fragment m/z, so for TMT/iTRAQ-labeled data the caller must supply the label.
     /// </remarks>
     public class Ms2PipCIDTMT : FragmentIntensityModel
     {
@@ -66,42 +65,6 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
                     new InputField("precursor_charges", "INT32", batchedCharges[i])));
             }
             return batchedRequests;
-        }
-
-        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
-        {
-            var sanitized = base.TryCleanSequence(sequence, sourceParser, out apiSequence, out warning);
-            if (sanitized == null || apiSequence == null)
-            {
-                return sanitized;
-            }
-
-            if (!HasAllowedNTerminalLabel(apiSequence))
-            {
-                var message = "Sequence must contain a supported N-terminal TMT/iTRAQ label.";
-                switch (ModHandlingMode)
-                {
-                    case SequenceConversionHandlingMode.ThrowException:
-                        throw new ArgumentException(message);
-                    case SequenceConversionHandlingMode.ReturnNull:
-                        warning = new WarningException(message);
-                        return null;
-                    case SequenceConversionHandlingMode.RemoveIncompatibleElements:
-                    case SequenceConversionHandlingMode.UsePrimarySequence:
-                        warning = new WarningException(message);
-                        return null;
-                }
-            }
-
-            return sanitized;
-        }
-
-        private static bool HasAllowedNTerminalLabel(string apiSequence)
-        {
-            return apiSequence.StartsWith("[UNIMOD:737]-")
-                   || apiSequence.StartsWith("[UNIMOD:2016]-")
-                   || apiSequence.StartsWith("[UNIMOD:214]-")
-                   || apiSequence.StartsWith("[UNIMOD:730]-");
         }
     }
 }

@@ -94,3 +94,10 @@ mzLib/Test/DataFiles/Ontologies/*.xml -text
 ###############################################################################
 mzLib/Test/DataFiles/PXD*.mzid -text
 mzLib/Test/DataFiles/PXD*.mzid.gz binary
+
+###############################################################################
+# EBI's public Aspera key for anonymous PRIDE downloads, embedded in
+# UsefulProteomicsDatabases.dll (see that folder's PROVENANCE.md). Kept as the
+# published bytes so the SHA-256 recorded there is the SHA-256 that ships.
+###############################################################################
+mzLib/UsefulProteomicsDatabases/Resources/aspera_tokenauth_id_rsa -text

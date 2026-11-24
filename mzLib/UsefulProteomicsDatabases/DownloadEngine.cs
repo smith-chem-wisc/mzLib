@@ -31,8 +31,9 @@ namespace UsefulProteomicsDatabases
         /// gives up after about 85 s of backoff. See <see cref="WithRetryAsync{T}"/> for what counts as transient.
         /// </summary>
         /// <remarks>
-        /// Deliberately internal. mzLib has no public retry policy anywhere, and nobody has asked for one;
-        /// a knob can be published later, but a published one cannot be taken back.
+        /// Deliberately internal: these waits stay fixed. A caller that wants its own tries, waits and routes opts in
+        /// to <see cref="PrideDownloadPolicy"/>, whose tries replace these instead of multiplying them. A knob here can
+        /// be published later, but a published one cannot be taken back.
         /// </remarks>
         internal static readonly TimeSpan[] RetryBackoff =
             { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60) };
@@ -166,15 +167,21 @@ namespace UsefulProteomicsDatabases
         /// <param name="attempt">One complete attempt, from sending the request to checking the status.</param>
         /// <param name="host">The host the request goes to; decides whether a 403 is transient.</param>
         /// <param name="cancellationToken">Cancels the attempt and any backoff.</param>
-        internal async Task<T> WithRetryAsync<T>(Func<Task<T>> attempt, string host, CancellationToken cancellationToken)
+        /// <param name="maxRetries">
+        /// This call's retry limit in place of <see cref="MaxRetries"/>; null (the default) uses it. A caller that runs
+        /// its own retries passes 0, so the two budgets do not multiply.
+        /// </param>
+        internal async Task<T> WithRetryAsync<T>(Func<Task<T>> attempt, string host, CancellationToken cancellationToken,
+            int? maxRetries = null)
         {
+            int limit = maxRetries ?? MaxRetries;
             for (int retry = 0; ; retry++)
             {
                 try
                 {
                     return await attempt().ConfigureAwait(false);
                 }
-                catch (HttpRequestException e) when (retry < MaxRetries && IsTransient(e, host))
+                catch (HttpRequestException e) when (retry < limit && IsTransient(e, host))
                 {
                     await RetryDelay(BackoffFor(retry, e), cancellationToken).ConfigureAwait(false);
                 }
@@ -298,11 +305,21 @@ namespace UsefulProteomicsDatabases
 
                 using (var fileStream = new FileStream(partialPath, resumed ? FileMode.Append : FileMode.Create,
                            FileAccess.Write, FileShare.None))
-                using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
-                    // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
-                    await CopyUntilStalledAsync(httpStream, fileStream, described, transfer.Inspector, cancellationToken).ConfigureAwait(false);
+                    long writtenFrom = fileStream.Position; // the end of the partial when resumed, else 0
+                    try
+                    {
+                        using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
+                            // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
+                            await CopyUntilStalledAsync(httpStream, fileStream, described, transfer.Inspector, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                    finally
+                    {
+                        transfer.BytesReceived += fileStream.Position - writtenFrom;
+                    }
                 }
 
                 long actualLength = new FileInfo(partialPath).Length;
@@ -637,6 +654,9 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>The check run over the bytes as they arrive, or null when there is nothing to check them against.</summary>
         public IDownloadInspector Inspector { get; init; }
+
+        /// <summary>The bytes the attempts so far have written to the partial, counted as they arrive, kept or not.</summary>
+        public long BytesReceived { get; set; }
     }
 
     /// <summary>
