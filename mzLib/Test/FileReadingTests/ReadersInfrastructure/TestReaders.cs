@@ -21,7 +21,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
         [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
         [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
         [TestCase("DataFiles/tester.mzML", 7, null)]
-        [TestCase("DataFiles/tester.mgf", 5, "no nativeID format")]
+        [TestCase("DataFiles/tester.mgf", 5, "multiple peak list nativeID format")]
         public static void TestLoadingRawFilesAndSourceFiles(string filePath, int expectedScanCount, string sourceFormat)
         {
             string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
@@ -38,7 +38,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
         [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
         [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
         [TestCase("DataFiles/tester.mzML", 7, null)]
-        [TestCase("DataFiles/tester.mgf", 5, "no nativeID format")]
+        [TestCase("DataFiles/tester.mgf", 5, "multiple peak list nativeID format")]
         public static void EnsureBackwardsCompatibility(string filePath, int expectedScanCount, string sourceFormat)
         {
             List<MsDataScan> scans;
@@ -74,7 +74,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
         [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
         [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
         [TestCase("DataFiles/tester.mzML", 7, null)]
-        [TestCase("DataFiles/tester.mgf", 5, "no nativeID format")]
+        [TestCase("DataFiles/tester.mgf", 5, "multiple peak list nativeID format")]
         public static void EnsureBackwardsCompatibilityConstrucor(string filePath, int expectedScanCount, string sourceFormat)
         {
             List<MsDataScan> scans;

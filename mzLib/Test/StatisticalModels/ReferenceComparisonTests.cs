@@ -209,4 +209,79 @@ public class ReferenceComparisonTests
             Assert.That(r.ISquared, Is.EqualTo(Out(expected, "i2")).Within(1e-12), $"{name} I2");
         }
     }
+
+    /// <summary>metafor <c>rma(method = "DL", test = "knha")</c> at 95% and 90% (make_hartung_knapp_fixtures.R).</summary>
+    [Test]
+    public void HartungKnappMatchesMetafor()
+    {
+        var (inHeader, inRows) = ReadTsv("hk_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("hk_results.tsv");
+        int c = Array.IndexOf(inHeader, "case"), yi = Array.IndexOf(inHeader, "yi"), sei = Array.IndexOf(inHeader, "sei");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        Assert.That(outRows, Has.Count.EqualTo(14));
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            double level = Out(expected, "level");
+            var studies = inRows.Where(r => r[c] == name).ToArray();
+            var r = RandomEffectsMeta.Pool(studies.Select(s => Parse(s[yi])).ToArray(),
+                studies.Select(s => Parse(s[sei])).ToArray(), level, RandomEffectsInference.HartungKnapp);
+            string what = $"{name} at {level}";
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "k")), what);
+            Assert.That(r.DegreesOfFreedom, Is.EqualTo(Out(expected, "df")), what);
+            AssertClose(new[] { r.Estimate, r.StandardError, r.ConfidenceLow, r.ConfidenceHigh, r.PValue },
+                new[] { Out(expected, "estimate"), Out(expected, "se"), Out(expected, "ci_lb"), Out(expected, "ci_ub"),
+                        Out(expected, "pval") }, what);
+            Assert.That(r.Tau2, Is.EqualTo(Out(expected, "tau2")).Within(1e-12), $"{what} tau2");
+        }
+    }
+
+    /// <summary>The partial conjunction closed form with base R's <c>pchisq</c> (make_partial_conjunction_fixtures.R).</summary>
+    [Test]
+    public void FisherPartialConjunctionMatchesPchisq()
+    {
+        var (inHeader, inRows) = ReadTsv("partial_conjunction_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("partial_conjunction_results.tsv");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            var p = inRows.Where(r => r[Array.IndexOf(inHeader, "case")] == name)
+                .Select(r => Parse(r[Array.IndexOf(inHeader, "p")])).ToArray();
+            int u = (int)Out(expected, "u");
+            var r = PValueCombination.FisherPartialConjunction(p, u);
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "n")), name);
+            AssertClose(new[] { r.Statistic, r.PValue }, new[] { Out(expected, "statistic"), Out(expected, "pval") }, $"{name} u={u}");
+        }
+    }
+
+    /// <summary>
+    /// Families selected by Benjamini–Hochberg on one p each, then each selected family adjusted within itself and compared
+    /// at q·R/m, against base R's <c>p.adjust</c> (make_partial_conjunction_fixtures.R).
+    /// </summary>
+    [Test]
+    public void BenjaminiBogomolovMatchesPAdjust()
+    {
+        var (inHeader, inRows) = ReadTsv("bogomolov_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("bogomolov_results.tsv");
+        int fc = Array.IndexOf(inHeader, "family");
+        var families = inRows.GroupBy(r => r[fc]).OrderBy(g => int.Parse(g.Key, CultureInfo.InvariantCulture)).ToList();
+        var familyP = families.Select(g => Parse(g.First()[Array.IndexOf(inHeader, "family_p")])).ToArray();
+        var within = families
+            .Select(g => (IReadOnlyList<double>)g.Select(r => Parse(r[Array.IndexOf(inHeader, "p")])).ToArray()).ToArray();
+        var selected = MultipleTesting.BenjaminiHochberg(familyP).Select(q => q <= 0.05).ToArray();
+
+        var adjustment = MultipleTesting.BenjaminiBogomolov(within, selected);
+
+        Assert.That(outRows, Has.Count.EqualTo(within.Sum(f => f.Count)));
+        foreach (var expected in outRows)
+        {
+            int f = int.Parse(expected[Array.IndexOf(outHeader, "family")], CultureInfo.InvariantCulture) - 1;
+            int i = int.Parse(expected[Array.IndexOf(outHeader, "index")], CultureInfo.InvariantCulture) - 1;
+            double Out(string col) => Parse(expected[Array.IndexOf(outHeader, col)]);
+            Assert.That(selected[f], Is.EqualTo(Out("selected") == 1), $"family {f + 1} selected");
+            AssertClose(new[] { adjustment.Adjusted[f][i], adjustment.Level }, new[] { Out("adjusted"), Out("level") },
+                $"family {f + 1} p {i + 1}");
+        }
+    }
 }
