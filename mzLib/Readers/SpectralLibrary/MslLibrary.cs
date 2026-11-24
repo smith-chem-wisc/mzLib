@@ -1561,7 +1561,9 @@ public sealed class MslLibrary : IDisposable
 	///   first confirmation stores the mean of the two times; a confirmed time is kept.</item>
 	///   <item>Strongly disagrees (beyond <see cref="MslRetentionTimeUpdateOptions.StrongDisagreement"/>): an
 	///   observed-once or confirmed time is kept and challenged; a challenged time is replaced (the second
-	///   strike). A stored time more than 15 iRT from the prediction gives way at once to a new one within 5.</item>
+	///   strike). A stored time far from the prediction (more than
+	///   <see cref="MslRetentionTimeUpdateOptions.TiebreakFarFromPrediction"/>, 15 iRT by default) gives way at once
+	///   to a new one close to it (within <see cref="MslRetentionTimeUpdateOptions.TiebreakNearPrediction"/>, 5).</item>
 	///   <item>In between: inconclusive, no change.</item>
 	/// </list>
 	/// A single-run time that disagrees with the stored time must agree with the prediction to count. A dataset
@@ -1595,7 +1597,10 @@ public sealed class MslLibrary : IDisposable
 	///   Predicted iRT (for example Prosit 2025 through Koina) for each full sequence given, in the same
 	///   order; NaN where there is none. Called at most twice. An exception it throws propagates, and nothing
 	///   is written; to carry on through an outage, return NaN (runs without enough anchors then contribute
-	///   nothing).
+	///   nothing). Three options are fitted to Prosit 2025 iRT by default: the length corrections
+	///   (<see cref="MslRetentionTimeUpdateOptions.PredictionOffsetByLength"/>) and the tiebreak thresholds
+	///   (<see cref="MslRetentionTimeUpdateOptions.TiebreakFarFromPrediction"/>,
+	///   <see cref="MslRetentionTimeUpdateOptions.TiebreakNearPrediction"/>). With another predictor, set them for it.
 	/// </param>
 	/// <param name="outputPath">Destination of the updated library. Created or overwritten.</param>
 	/// <param name="predictLongPeptideIrt">
@@ -1671,6 +1676,14 @@ public sealed class MslLibrary : IDisposable
 		if (!(o.VoidFraction >= 0 && o.VoidFraction < 1))
 			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.VoidFraction,
 				"VoidFraction must be in [0, 1).");
+		if (o.PredictionOffsetByLength is null || o.PredictionOffsetByLength.Count != 5 || !o.PredictionOffsetByLength.All(double.IsFinite))
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.PredictionOffsetByLength?.Count,
+				"PredictionOffsetByLength must hold five finite values, one per length bin (7-10, 11-15, 16-20, 21-25, 26-30 residues).");
+		Positive(o.TiebreakFarFromPrediction, nameof(o.TiebreakFarFromPrediction));
+		Positive(o.TiebreakNearPrediction, nameof(o.TiebreakNearPrediction));
+		if (o.TiebreakNearPrediction >= o.TiebreakFarFromPrediction)
+			throw new ArgumentOutOfRangeException(nameof(MslRetentionTimeUpdateOptions), o.TiebreakNearPrediction,
+				"TiebreakNearPrediction must be less than TiebreakFarFromPrediction.");
 	}
 
 	// ── Private helpers for UpdateAndSave ────────────────────────────────────
