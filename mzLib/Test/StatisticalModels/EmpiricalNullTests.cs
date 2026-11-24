@@ -13,7 +13,8 @@ namespace Test.StatisticalModels;
 /// <summary>
 /// <see cref="EmpiricalNull"/>: Efron's maximum-likelihood empirical null, against R's locfdr 1.1.8
 /// (<c>locfdr(z, nulltype = 1)</c>, frozen in ReferenceData, PROVENANCE_empirical_null.txt; R is never run here), and its
-/// refusals and failure statuses.
+/// refusals and failure statuses. No z-value is stored: each scenario's are built from its recipe, as the R script built
+/// them.
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
@@ -41,8 +42,29 @@ public class EmpiricalNullTests
     private static IEnumerable<TestCaseData> Scenarios() =>
         ReadTsv("empirical_null_results.tsv").Select(r => new TestCaseData(r["scenario"]).SetName("MatchesLocfdr_" + r["scenario"]));
 
-    private static double[] Scores(string scenario) =>
-        ReadTsv("empirical_null_inputs.tsv").Where(r => r["scenario"] == scenario).Select(r => D(r["z"])).ToArray();
+    /// <summary>
+    /// A scenario's z-values, built from its recipe exactly as make_empirical_null_fixtures.R builds them: parts separated
+    /// by ';', each "n,mean,sd" giving mean + sd * Φ⁻¹((i − 0.5) / n) for i = 1..n, or n copies of mean when sd is 0; an
+    /// optional "|k" repeats every value k times.
+    /// </summary>
+    private static double[] Scores(string scenario)
+    {
+        string recipe = ReadTsv("empirical_null_results.tsv").Single(r => r["scenario"] == scenario)["recipe"];
+        string[] halves = recipe.Split('|');
+        int each = halves.Length > 1 ? int.Parse(halves[1], CultureInfo.InvariantCulture) : 1;
+        var z = new List<double>();
+        foreach (string part in halves[0].Split(';'))
+        {
+            double[] v = part.Split(',').Select(D).ToArray();
+            int n = (int)v[0];
+            for (int i = 1; i <= n; i++)
+            {
+                double value = v[2] == 0 ? v[1] : v[1] + v[2] * Normal.InvCDF(0, 1, (i - 0.5) / n);
+                for (int k = 0; k < each; k++) z.Add(value);
+            }
+        }
+        return z.ToArray();
+    }
 
     [TestCaseSource(nameof(Scenarios))]
     public void MatchesLocfdr(string scenario)
