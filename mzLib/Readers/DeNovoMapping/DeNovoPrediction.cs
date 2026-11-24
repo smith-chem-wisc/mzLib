@@ -64,6 +64,12 @@ public class DeNovoPrediction : IRetentionPredictable
     /// </summary>
     public double? CalibratedRetentionTime { get; set; }
 
+    /// <summary>
+    /// True when a protein of <see cref="DeNovoMappingParameters.HostProteins"/> produces <see cref="MappingSequence"/>,
+    /// so any database this prediction maps to shares it with the host. Always false when no host was given.
+    /// </summary>
+    public bool IsHostShared { get; internal set; }
+
     public string BaseSequence { get; }
     public string FullSequence => Record.FullSequence;
     public double MonoisotopicMass => Record.CalculatedMassToCharge.ToMass(Record.Charge);
