@@ -493,6 +493,126 @@ namespace UsefulProteomicsDatabases
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             }
         }
+
+        /// <summary>
+        /// Sends a GET for one byte range of a file and returns the response, its body not yet read, once it is a
+        /// <c>206</c> for exactly that range: bytes <paramref name="from"/> to <paramref name="to"/>, or, with
+        /// <paramref name="from"/> null, the last <paramref name="to"/> bytes (the whole file when it is shorter).
+        /// One attempt, no retry: the caller's attempt, inside <see cref="WithRetryAsync{T}"/>, is the unit retried.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A non-success status throws <see cref="StatusFailure"/>, worded as a download's ("failed with status NNN").
+        /// </para>
+        /// <para>
+        /// A <c>200</c> is never read: it is the whole file, which for a large one is the very transfer a range read
+        /// exists to avoid. Under <paramref name="validator"/> (sent as <c>If-Range</c>) a <c>200</c> means the file
+        /// changed since the validator was taken (PRIDE's FTP host, measured 2026-11-18: a wrong <c>If-Range</c>
+        /// answers <c>200</c> with all 25 MB of the file); without one, that the server ignores ranges. Neither is an
+        /// outage, so it is an <see cref="MzLibException"/>, and so is a <c>Content-Range</c> total other than
+        /// <paramref name="expectedTotal"/>: the file changed under a reader with no validator.
+        /// </para>
+        /// <para>
+        /// A <c>206</c> for some other range is a <see cref="ContentMismatchException"/>, retried as damaged bytes are.
+        /// </para>
+        /// </remarks>
+        /// <param name="url">The file's URL. It never enters a message.</param>
+        /// <param name="described">How messages name the file (<see cref="DescribeDownload"/>).</param>
+        /// <param name="from">The first byte wanted, or null for the last <paramref name="to"/> bytes.</param>
+        /// <param name="to">The last byte wanted (inclusive), or with <paramref name="from"/> null the suffix's length.</param>
+        /// <param name="validator">Sent as <c>If-Range</c> when not null.</param>
+        /// <param name="expectedTotal">The file's length as an earlier read reported it, or null on the first read.</param>
+        /// <param name="cancellationToken">The caller's token.</param>
+        internal async Task<HttpResponseMessage> GetRangeAsync(string url, string described, long? from, long to,
+            RangeConditionHeaderValue validator, long? expectedTotal, CancellationToken cancellationToken)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Range = new RangeHeaderValue(from, to);
+            if (validator != null)
+                request.Headers.IfRange = validator;
+
+            HttpResponseMessage response = await SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken, described).ConfigureAwait(false);
+            try
+            {
+                if (!response.IsSuccessStatusCode)
+                    throw StatusFailure(response,
+                        $"{_serviceName} download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for {described}.");
+
+                if (response.StatusCode != HttpStatusCode.PartialContent)
+                    throw new MzLibUtil.MzLibException(validator != null
+                        ? $"{_serviceName} answered a request for part of {described} with the whole file: the file has changed since its first part was read, or the server ignores byte ranges."
+                        : $"{_serviceName} answered a request for part of {described} with the whole file: the server ignores byte ranges.");
+
+                ContentRangeHeaderValue served = response.Content.Headers.ContentRange;
+                if (served is not { HasRange: true, HasLength: true } || served.Unit != "bytes")
+                    throw new ContentMismatchException($"The {_serviceName} answer for part of {described} did not say which bytes it holds.");
+
+                if (expectedTotal.HasValue && served.Length != expectedTotal.Value)
+                    throw new MzLibUtil.MzLibException(
+                        $"{described} changed on the server while it was being read: it is now {served.Length} bytes, not {expectedTotal.Value}.");
+
+                long wantedFrom = from ?? Math.Max(0, served.Length.Value - to);
+                long wantedTo = from.HasValue ? to : served.Length.Value - 1;
+                if (served.From != wantedFrom || served.To != wantedTo)
+                    throw new ContentMismatchException(
+                        $"The {_serviceName} answer for bytes {wantedFrom}-{wantedTo} of {described} held bytes {served.From}-{served.To} instead.");
+
+                return response;
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="GetRangeAsync"/>, with the body read into memory under <see cref="BodyStallTimeout"/>, and checked to be
+        /// as long as its <c>Content-Range</c> says. One attempt, no retry.
+        /// </summary>
+        internal async Task<RangeBytes> ReadRangeOnceAsync(string url, string described, long? from, long to,
+            RangeConditionHeaderValue validator, long? expectedTotal, CancellationToken cancellationToken)
+        {
+            using HttpResponseMessage response = await GetRangeAsync(url, described, from, to, validator, expectedTotal, cancellationToken).ConfigureAwait(false);
+            ContentRangeHeaderValue served = response.Content.Headers.ContentRange;
+            long length = served.To.Value - served.From.Value + 1;
+            if (length > int.MaxValue)
+                throw new NotSupportedException($"A {length}-byte part of {described} is too large to read into memory.");
+
+            using var bytes = new MemoryStream((int)length);
+            using (Stream body = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+                await CopyUntilStalledAsync(body, bytes, described, new LengthLimit(length), cancellationToken).ConfigureAwait(false);
+
+            if (bytes.Length != length)
+                throw new HttpRequestException(
+                    $"The {_serviceName} answer for part of {described} came to {bytes.Length} bytes where the server announced {length}.");
+
+            return new RangeBytes(bytes.ToArray(), served.From.Value, served.Length.Value, ValidatorOf(response));
+        }
+
+        /// <summary>One byte range of a file, read whole.</summary>
+        /// <param name="Bytes">The bytes.</param>
+        /// <param name="From">The offset of the first of them in the file.</param>
+        /// <param name="Total">The file's length, from <c>Content-Range</c>.</param>
+        /// <param name="Validator">
+        /// The validator later reads of the same file are sent under (strong <c>ETag</c>, else <c>Last-Modified</c>), or
+        /// null when the server sent neither.
+        /// </param>
+        internal sealed record RangeBytes(byte[] Bytes, long From, long Total, RangeConditionHeaderValue Validator);
+
+        /// <summary>Stops a read that brings more bytes than its range holds, instead of buffering them all.</summary>
+        private sealed class LengthLimit(long limit) : IDownloadInspector
+        {
+            private long _seen;
+
+            public void Reset() => _seen = 0;
+
+            public void ContinueAt(long offset) => _seen = offset;
+
+            public void Append(ReadOnlySpan<byte> data) => _seen += data.Length;
+
+            public string StopReason => _seen > limit ? $"brought more than the {limit} bytes asked for" : null;
+        }
     }
 
     /// <summary>
