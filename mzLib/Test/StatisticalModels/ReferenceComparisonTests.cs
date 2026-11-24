@@ -209,4 +209,132 @@ public class ReferenceComparisonTests
             Assert.That(r.ISquared, Is.EqualTo(Out(expected, "i2")).Within(1e-12), $"{name} I2");
         }
     }
+
+    /// <summary>metafor <c>rma(method = "DL", test = "knha")</c> at 95% and 90% (make_hartung_knapp_fixtures.R).</summary>
+    [Test]
+    public void HartungKnappMatchesMetafor()
+    {
+        var (inHeader, inRows) = ReadTsv("hk_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("hk_results.tsv");
+        int c = Array.IndexOf(inHeader, "case"), yi = Array.IndexOf(inHeader, "yi"), sei = Array.IndexOf(inHeader, "sei");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        Assert.That(outRows, Has.Count.EqualTo(14));
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            double level = Out(expected, "level");
+            var studies = inRows.Where(r => r[c] == name).ToArray();
+            var r = RandomEffectsMeta.Pool(studies.Select(s => Parse(s[yi])).ToArray(),
+                studies.Select(s => Parse(s[sei])).ToArray(), level, RandomEffectsInference.HartungKnapp);
+            string what = $"{name} at {level}";
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "k")), what);
+            Assert.That(r.DegreesOfFreedom, Is.EqualTo(Out(expected, "df")), what);
+            AssertClose(new[] { r.Estimate, r.StandardError, r.ConfidenceLow, r.ConfidenceHigh, r.PValue },
+                new[] { Out(expected, "estimate"), Out(expected, "se"), Out(expected, "ci_lb"), Out(expected, "ci_ub"),
+                        Out(expected, "pval") }, what);
+            Assert.That(r.Tau2, Is.EqualTo(Out(expected, "tau2")).Within(1e-12), $"{what} tau2");
+        }
+    }
+
+    /// <summary>
+    /// metafor <c>rma(method = "DL", test = "adhoc")</c> at 95% and 90% (make_hartung_knapp_adhoc_fixtures.R): the
+    /// Hartung–Knapp standard error never below the DerSimonian–Laird one. The fixture also carries metafor's plain
+    /// <c>knha</c> and <c>z</c> standard errors, so each case is checked to be the larger of the two, and the cases where
+    /// the correction binds (<c>agreeing_three</c>, <c>equal_estimates</c>, <c>near_identical_two</c>,
+    /// <c>heterogeneous_binding</c>) are checked to differ from plain Hartung–Knapp. In the first three τ² = 0, where the
+    /// DerSimonian–Laird standard error equals the fixed-effect one; <c>heterogeneous_binding</c> binds with τ² > 0, so it
+    /// is checked to sit above the fixed-effect standard error: a floor taken from the fixed-effect weights would fail it.
+    /// </summary>
+    [Test]
+    public void HartungKnappAdHocMatchesMetafor()
+    {
+        var (inHeader, inRows) = ReadTsv("hk_adhoc_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("hk_adhoc_results.tsv");
+        int c = Array.IndexOf(inHeader, "case"), yi = Array.IndexOf(inHeader, "yi"), sei = Array.IndexOf(inHeader, "sei");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        Assert.That(outRows, Has.Count.EqualTo(20));
+        int bound = 0, boundWithHeterogeneity = 0;
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            double level = Out(expected, "level");
+            var studies = inRows.Where(r => r[c] == name).ToArray();
+            double[] b = studies.Select(s => Parse(s[yi])).ToArray(), se = studies.Select(s => Parse(s[sei])).ToArray();
+            var r = RandomEffectsMeta.Pool(b, se, level, RandomEffectsInference.HartungKnappAdHoc);
+            var plain = RandomEffectsMeta.Pool(b, se, level, RandomEffectsInference.HartungKnapp);
+            string what = $"{name} at {level}";
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "k")), what);
+            Assert.That(r.DegreesOfFreedom, Is.EqualTo(Out(expected, "df")), what);
+            AssertClose(new[] { r.Estimate, r.StandardError, r.ConfidenceLow, r.ConfidenceHigh, r.PValue },
+                new[] { Out(expected, "estimate"), Out(expected, "se"), Out(expected, "ci_lb"), Out(expected, "ci_ub"),
+                        Out(expected, "pval") }, what);
+            Assert.That(r.Tau2, Is.EqualTo(Out(expected, "tau2")).Within(1e-12), $"{what} tau2");
+            Assert.That(Out(expected, "se"), Is.EqualTo(Math.Max(Out(expected, "se_knha"), Out(expected, "se_dl"))).Within(1e-15),
+                $"{what}: metafor's adhoc se is the larger of knha and DL");
+            if (Out(expected, "se_dl") > Out(expected, "se_knha") * (1 + 1e-9))
+            {
+                bound++;
+                Assert.That(r.StandardError, Is.GreaterThan(plain.StandardError), $"{what}: the correction binds");
+                if (Out(expected, "tau2") > 0)
+                {
+                    boundWithHeterogeneity++;
+                    double fixedEffect = Math.Sqrt(1 / se.Sum(s => 1 / (s * s)));
+                    Assert.That(r.StandardError, Is.GreaterThan(fixedEffect * 1.5),
+                        $"{what}: the floor is the DerSimonian–Laird standard error, not the fixed-effect one");
+                }
+            }
+        }
+        Assert.That(bound, Is.EqualTo(8),
+            "agreeing_three, equal_estimates, near_identical_two and heterogeneous_binding, at two levels");
+        Assert.That(boundWithHeterogeneity, Is.EqualTo(2), "heterogeneous_binding, at two levels");
+    }
+
+    /// <summary>The partial conjunction closed form with base R's <c>pchisq</c> (make_partial_conjunction_fixtures.R).</summary>
+    [Test]
+    public void FisherPartialConjunctionMatchesPchisq()
+    {
+        var (inHeader, inRows) = ReadTsv("partial_conjunction_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("partial_conjunction_results.tsv");
+        double Out(string[] row, string col) => Parse(row[Array.IndexOf(outHeader, col)]);
+        foreach (var expected in outRows)
+        {
+            string name = expected[Array.IndexOf(outHeader, "case")];
+            var p = inRows.Where(r => r[Array.IndexOf(inHeader, "case")] == name)
+                .Select(r => Parse(r[Array.IndexOf(inHeader, "p")])).ToArray();
+            int u = (int)Out(expected, "u");
+            var r = PValueCombination.FisherPartialConjunction(p, u);
+            Assert.That(r.Studies, Is.EqualTo((int)Out(expected, "n")), name);
+            AssertClose(new[] { r.Statistic, r.PValue }, new[] { Out(expected, "statistic"), Out(expected, "pval") }, $"{name} u={u}");
+        }
+    }
+
+    /// <summary>
+    /// Families selected by Benjamini–Hochberg on one p each, then each selected family adjusted within itself and compared
+    /// at q·R/m, against base R's <c>p.adjust</c> (make_partial_conjunction_fixtures.R).
+    /// </summary>
+    [Test]
+    public void BenjaminiBogomolovMatchesPAdjust()
+    {
+        var (inHeader, inRows) = ReadTsv("bogomolov_inputs.tsv");
+        var (outHeader, outRows) = ReadTsv("bogomolov_results.tsv");
+        int fc = Array.IndexOf(inHeader, "family");
+        var families = inRows.GroupBy(r => r[fc]).OrderBy(g => int.Parse(g.Key, CultureInfo.InvariantCulture)).ToList();
+        var familyP = families.Select(g => Parse(g.First()[Array.IndexOf(inHeader, "family_p")])).ToArray();
+        var within = families
+            .Select(g => (IReadOnlyList<double>)g.Select(r => Parse(r[Array.IndexOf(inHeader, "p")])).ToArray()).ToArray();
+        var selected = MultipleTesting.BenjaminiHochberg(familyP).Select(q => q <= 0.05).ToArray();
+
+        var adjustment = MultipleTesting.BenjaminiBogomolov(within, selected);
+
+        Assert.That(outRows, Has.Count.EqualTo(within.Sum(f => f.Count)));
+        foreach (var expected in outRows)
+        {
+            int f = int.Parse(expected[Array.IndexOf(outHeader, "family")], CultureInfo.InvariantCulture) - 1;
+            int i = int.Parse(expected[Array.IndexOf(outHeader, "index")], CultureInfo.InvariantCulture) - 1;
+            double Out(string col) => Parse(expected[Array.IndexOf(outHeader, col)]);
+            Assert.That(selected[f], Is.EqualTo(Out("selected") == 1), $"family {f + 1} selected");
+            AssertClose(new[] { adjustment.Adjusted[f][i], adjustment.Level }, new[] { Out("adjusted"), Out("level") },
+                $"family {f + 1} p {i + 1}");
+        }
+    }
 }

@@ -50,7 +50,8 @@ public class QuantificationEngine
     /// <param name="parameters">The strategies and switches of the run.</param>
     /// <param name="experimentalDesign">Maps each file to its samples.</param>
     /// <param name="spectralMatches">The matches to quantify.</param>
-    /// <param name="modifiedBioPolymers">The peptides to quantify.</param>
+    /// <param name="modifiedBioPolymers">The peptides to quantify. It may be empty, or null, when every match is ambiguous
+    /// only in where its modifications sit: such matches are quantified through rows built from the matches themselves.</param>
     /// <param name="bioPolymerGroups">The groups to quantify.</param>
     /// <param name="allBioPolymerGroups">
     /// Every group of the analysis, including any the caller does not quantify -- for instance groups it does not write
@@ -322,7 +323,10 @@ public class QuantificationEngine
             badResults = QuantificationResults.Failure("QuantificationEngine Error: No spectral matches provided for quantification.");
             return false;
         }
-        if(ModifiedBioPolymers.IsNullOrEmpty())
+        // A match ambiguous only in where its modifications sit is quantified through a row built from the matches
+        // themselves (PeptideRowKeys), so a run whose every match is one has peptides though the caller lists none.
+        if(ModifiedBioPolymers.IsNullOrEmpty() && !SpectralMatches.Any(sm => sm.Intensities != null
+            && SingleIdentifiedFullSequenceOrNull(sm) == null && LocalizationAmbiguousPeptide.SiteFreeIdentityOrNull(sm) != null))
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification.");
             return false;
@@ -338,6 +342,20 @@ public class QuantificationEngine
         ResolvedOutputDirectory = null;
         if (WritesAnything())
         {
+            // The three tables are isobaric output, and their names say so to every reader: dataRepo switches to
+            // isobaric ingest when either matrix exists, and PXReprise requires them of a TMT search. A run of any
+            // other mode (label-free, DIA) writes its own tables or none, never these, so it is refused here rather
+            // than written under a name that misreports its mode.
+            if (allSamples.Any(sample => sample is not IsobaricQuantSampleInfo))
+            {
+                badResults = QuantificationResults.Failure(
+                    $"QuantificationEngine Error: {QuantificationWriter.RawFileName}, {QuantificationWriter.PeptideFileName} " +
+                    $"and {QuantificationWriter.ProteinGroupFileName} are isobaric (TMT, iTRAQ) quantification tables, and " +
+                    "this experimental design has samples that are not isobaric channels. Turn WriteRawInformation, " +
+                    "WritePeptideInformation and WriteProteinInformation off, and write this mode's own tables.");
+                return false;
+            }
+
             if (!string.IsNullOrWhiteSpace(Parameters.OutputDirectory))
             {
                 ResolvedOutputDirectory = Parameters.OutputDirectory;
@@ -458,7 +476,7 @@ public class QuantificationEngine
 
         // 3) Per-file roll-up to peptides. The row keys are chosen once, so every file keys a sequence by the same
         //    copy and CombinePeptideMatrices merges them into one row.
-        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers, SpectralMatches);
+        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers ?? new List<IBioPolymerWithSetMods>(), SpectralMatches);
         var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
         foreach (var kvp in perFileNormalized)
         {

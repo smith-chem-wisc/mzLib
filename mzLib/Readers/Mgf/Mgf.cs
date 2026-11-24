@@ -33,6 +33,7 @@ namespace Readers
 
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
+            int zeroBasedBlockIndex = -1;
 
             using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -43,12 +44,20 @@ namespace Readers
                         while (sr.Peek() > 0)
                         {
                             string line = sr.ReadLine();
+
+                            // Blocks are counted as BuildIndex counts them, so a block gets the same native ID on
+                            // both read paths, including one this path does not read.
+                            if (IsBlockStart(line))
+                            {
+                                zeroBasedBlockIndex++;
+                            }
+
                             if (line != "BEGIN IONS")
                             {
                                 continue;
                             }
 
-                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
+                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, zeroBasedBlockIndex, filterParams);
 
                             if (scan is not null)
                                 scans.Add(scan);
@@ -72,10 +81,24 @@ namespace Readers
             return this;
         }
 
+        /// <summary>
+        /// Each spectrum's native ID is index=N, N being its block's zero-based position in the file: PSI-MS's
+        /// "multiple peak list nativeID format" (MS:1000774), which is how mzIdentML and PRIDE name a spectrum in an
+        /// MGF. The scan number cannot serve: it is the block's SCANS value when there is one.
+        /// </summary>
         public override SourceFile GetSourceFile()
         {
-            return new SourceFile("no nativeID format", "mgf format", null, null, null);
+            return new SourceFile(NativeIdFormat, "Mascot MGF format", null, null, null);
         }
+
+        /// <summary>PSI-MS's name for the format of the native IDs this reader gives its spectra.</summary>
+        public const string NativeIdFormat = "multiple peak list nativeID format";
+
+        private static string NativeIdOf(int zeroBasedBlockIndex) =>
+            "index=" + zeroBasedBlockIndex.ToString(CultureInfo.InvariantCulture);
+
+        private static bool IsBlockStart(string line) =>
+            line.StartsWith("BEGIN IONS", StringComparison.InvariantCultureIgnoreCase);
 
         public override MsDataScan GetOneBasedScan(int scanNumber)
         {
@@ -94,13 +117,14 @@ namespace Readers
                     throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
                 }
 
-                if (_scanByteOffset.TryGetValue(scanNumber, out long byteOffset))
+                if (_scanByteOffset.TryGetValue(scanNumber, out var block))
                 {
                     // seek to the byte of the scan
-                    _streamReader.BaseStream.Position = byteOffset;
+                    _streamReader.BaseStream.Position = block.ByteOffset;
                     _streamReader.DiscardBufferedData();
 
-                    return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), filterParams, scanNumber);
+                    return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), block.ZeroBasedIndex,
+                        filterParams, scanNumber);
                 }
                 else
                 {
@@ -152,7 +176,7 @@ namespace Readers
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
         private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved,
-            IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
+            int zeroBasedBlockIndex, IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
             List<double> intensities = new List<double>();
@@ -371,16 +395,18 @@ namespace Readers
             // what preceded it.
             Polarity polarity = charge > 0 ? Polarity.Positive : Polarity.Negative;
 
+            string nativeId = NativeIdOf(zeroBasedBlockIndex);
+
             if (msnOrder == 1)
             {
                 return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
                     rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                    totalIonCurrent ?? intensities.Sum(), 0, null, null);
+                    totalIonCurrent ?? intensities.Sum(), 0, null, nativeId);
             }
 
             return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                totalIonCurrent ?? intensities.Sum(), 0, null, null, precursorMz, charge,
+                totalIonCurrent ?? intensities.Sum(), 0, null, nativeId, precursorMz, charge,
                 precursorIntensity, isolationMz ?? precursorMz, isolationWidth,
                 dissociationType ?? DissociationType.Unknown,
                 precursorScanNumber, precursorMz);
@@ -427,16 +453,18 @@ namespace Readers
 
 
         private StreamReader _streamReader;
-        private Dictionary<int, long> _scanByteOffset; 
+        // by scan number: where its block starts, and the block's zero-based position in the file
+        private Dictionary<int, (long ByteOffset, int ZeroBasedIndex)> _scanByteOffset;
         private static Regex _scanNumberparser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
 
         private void BuildIndex()
         {
-            _scanByteOffset = new Dictionary<int, long>();
+            _scanByteOffset = new Dictionary<int, (long ByteOffset, int ZeroBasedIndex)>();
             int oneBasedScanNumber = 0;
             long currentPositionByteOffset = 0;
             long oneBasedScanByteOffset = 0;
             bool scanHasAScanNumber = false;
+            int zeroBasedBlockIndex = -1;
 
             while (_streamReader.Peek() > 0)
             {
@@ -444,10 +472,11 @@ namespace Readers
 
                 string line = _streamReader.ReadLine();
 
-                if (line.StartsWith("BEGIN IONS", StringComparison.InvariantCultureIgnoreCase))
+                if (IsBlockStart(line))
                 {
                     oneBasedScanByteOffset = currentPositionByteOffset;
                     scanHasAScanNumber = false;
+                    zeroBasedBlockIndex++;
                 }
                 else if (line.StartsWith("SCANS=", StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -481,7 +510,7 @@ namespace Readers
                                                  " appeared multiple times in " + FilePath + ", which is not allowed because we assume all scan numbers are unique.");
                     }
 
-                    _scanByteOffset.Add(oneBasedScanNumber, oneBasedScanByteOffset);
+                    _scanByteOffset.Add(oneBasedScanNumber, (oneBasedScanByteOffset, zeroBasedBlockIndex));
                 }
             }
         }

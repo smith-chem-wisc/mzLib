@@ -12,6 +12,16 @@ namespace Omics.SpectrumMatch
     {
         public string Sequence { get; set; }
         public double? RetentionTime { get; set; }
+
+        /// <summary>
+        /// The scale <see cref="RetentionTime"/> is on, when its source says: true for iRT, false for minutes in
+        /// one run, null when not known. An <c>.msp</c> reader sets it from the key it read (<c>iRT=</c> or
+        /// <c>RT=</c>); a spectrum read from an <c>.msl</c> takes it from the entry. <see cref="ToString"/>
+        /// writes <c>iRT=</c> when it is true and <c>RT=</c> otherwise, so an <c>.msp</c> written from iRT
+        /// times says so. It is not part of <see cref="Equals(LibrarySpectrum)"/>.
+        /// </summary>
+        public bool? RetentionTimeIsIrt { get; set; }
+
         public double PrecursorMz { get; set; }
         public int ChargeState { get; set; }
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
@@ -67,7 +77,7 @@ namespace Omics.SpectrumMatch
             spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
             if (RetentionTime.HasValue)
             {
-                spectrum.Append(" RT=" + RetentionTime.Value.ToString(CultureInfo.InvariantCulture));
+                spectrum.Append((RetentionTimeIsIrt == true ? " iRT=" : " RT=") + RetentionTime.Value.ToString(CultureInfo.InvariantCulture));
             }
             spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
 

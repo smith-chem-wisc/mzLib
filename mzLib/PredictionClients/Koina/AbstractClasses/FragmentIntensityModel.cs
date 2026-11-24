@@ -854,7 +854,13 @@ namespace PredictionClients.Koina.AbstractClasses
                     chargeState: prediction.PrecursorCharge,
                     peaks: fragmentIons,
                     rt: rts[predictionIndex]
-                );
+                )
+                {
+                    // A predicted library's times are iRT (the .msl conversion already stores them so).
+                    // Saying so makes an .msp written here carry iRT=, which reads back as iRT; RT= would
+                    // read back as minutes in one run.
+                    RetentionTimeIsIrt = rts[predictionIndex].HasValue ? true : null
+                };
 
                 predictedSpectra.Add(spectrum);
             }

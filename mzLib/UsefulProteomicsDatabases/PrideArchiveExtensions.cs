@@ -91,6 +91,68 @@ namespace UsefulProteomicsDatabases
             return httpsUrl;
         }
 
+        /// <summary>EBI's Aspera host ("fasp.ebi.ac.uk"), the only one the bundled public key opens.</summary>
+        public const string PrideAsperaHost = "fasp.ebi.ac.uk";
+
+        /// <summary>
+        /// Resolves <paramref name="file"/>'s Aspera location to the source argument <c>ascp</c> takes,
+        /// <c>user@fasp.ebi.ac.uk:/path</c>, if it has a usable one.
+        /// </summary>
+        /// <remarks>
+        /// PRIDE writes the location as <c>prd_ascp@fasp.ebi.ac.uk:pride/data/archive/...</c>, without the slash
+        /// after the colon that EBI's own examples use. ascp accepts both, and the slash is added so the source
+        /// reads as EBI documents it. Only <see cref="PrideAsperaHost"/> is accepted, as only it is known to serve
+        /// PRIDE with the key mzLib bundles; the user must be a plain name, so the value can never be read as one
+        /// of ascp's own options; and the path must be relative to the server's root with no <c>..</c> segment.
+        /// A location that fails any of these is skipped, as a mislabelled FTP location is by
+        /// <see cref="TryGetHttpsDownloadUrl"/>.
+        /// </remarks>
+        /// <param name="file">The file whose <see cref="PrideArchiveFile.PublicFileLocations"/> are examined.</param>
+        /// <param name="source">On success, the ascp source; otherwise null.</param>
+        /// <returns>True if an Aspera source was resolved; otherwise false.</returns>
+        /// <exception cref="ArgumentNullException">The file is null.</exception>
+        public static bool TryGetAsperaSource(this PrideArchiveFile file, out string source)
+        {
+            if (file == null)
+                throw new ArgumentNullException(nameof(file));
+
+            source = null;
+            IReadOnlyList<CvParam> locations = file.PublicFileLocations;
+            if (locations == null)
+                return false;
+
+            foreach (CvParam location in locations)
+            {
+                if (location == null || !string.Equals(location.Accession, AsperaLocationAccession, StringComparison.Ordinal)
+                    || string.IsNullOrWhiteSpace(location.Value))
+                    continue;
+
+                string[] parts = location.Value.Trim().Split(':', 2);
+                if (parts.Length != 2)
+                    continue;
+                string[] userHost = parts[0].Split('@');
+                if (userHost.Length != 2
+                    || !IsPlainAsperaUser(userHost[0])
+                    || !string.Equals(userHost[1], PrideAsperaHost, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string path = parts[1].TrimStart('/');
+                if (path.Length == 0 || path.Any(char.IsControl) || path.Contains('\\')
+                    || path.Split('/').Any(segment => segment.Length == 0 || segment == "." || segment == ".."))
+                    continue;
+
+                source = $"{userHost[0]}@{PrideAsperaHost}:/{path}";
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>A user name ascp can only read as one: letters, digits, '.', '_' and '-', not starting with '-'.</summary>
+        private static bool IsPlainAsperaUser(string user) =>
+            user.Length > 0 && user[0] != '-'
+            && user.All(c => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '.' or '_' or '-');
+
         /// <summary>
         /// Filters a manifest to files whose <see cref="PrideArchiveFile.FileCategory"/> value equals
         /// <paramref name="category"/> (case-insensitive), e.g. "RAW", "SEARCH", "PEAK", "RESULT".

@@ -15,6 +15,7 @@
     <PackageReference Include="FluentFTP" Version="55.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Parquet.Net" Version="6.1.0" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.10" />
     <PackageReference Include="TopDownProteomics" Version="0.0.301" />
   </ItemGroup>
 
@@ -48,7 +49,20 @@
     <EmbeddedResource Include="Resources\pride_cv.obo">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
+    <EmbeddedResource Include="Resources\taxonomy_nodes.tsv.gz">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\proteome_taxa.tsv.gz">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ensembl\views.sql" LogicalName="UsefulProteomicsDatabases.Ensembl.views.sql" />
+  </ItemGroup>
+
+  <!-- EBI's public key for anonymous Aspera downloads from PRIDE; see Resources/PROVENANCE.md. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\aspera_tokenauth_id_rsa" LogicalName="UsefulProteomicsDatabases.Resources.aspera_tokenauth_id_rsa">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

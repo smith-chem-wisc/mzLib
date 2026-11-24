@@ -108,6 +108,19 @@ namespace UsefulProteomicsDatabases
         /// <summary>The time a listed date with no year is read against. Tests fix it.</summary>
         internal Func<DateTime> Clock { get; init; } = () => DateTime.UtcNow;
 
+        /// <summary>
+        /// The longest keyword <see cref="SearchDatasetsAsync"/> will send: PRIDE's measured limit
+        /// (<see cref="PrideArchiveClient.MaxKeywordLength"/>). MassIVE answered a 1,000-character search with 200
+        /// (2026-11-10); nothing longer was tried, so nothing longer is sent.
+        /// </summary>
+        public const int MaxKeywordLength = 1000;
+
+        /// <summary>
+        /// A hard upper bound on the pages <see cref="SearchDatasetsAsync"/> fetches, against a server that ignores the
+        /// paging parameters; exceeding it throws. No real search approaches it.
+        /// </summary>
+        public int MaxPages { get; init; } = 10000;
+
         /// <summary>Creates a client with its own <see cref="HttpClient"/>.</summary>
         public MassiveClient()
             : this(new HttpClient { Timeout = TimeSpan.FromSeconds(100) }, ownsHttpClient: true, connectFtp: null)
@@ -254,6 +267,110 @@ namespace UsefulProteomicsDatabases
             if (!AccessionPattern.IsMatch(accession))
                 throw new ArgumentException(
                     $"'{accession}' is not a MassIVE or ProteomeXchange accession (e.g. \"MSV000096226\" or \"PXD057243\").", nameof(accession));
+        }
+
+        // ---- search -------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Searches every MassIVE dataset for a keyword, through MassIVE's own search: the one its website uses, which
+        /// also finds the datasets that have no ProteomeXchange accession and so are invisible to ProteomeCentral.
+        /// </summary>
+        /// <remarks>
+        /// The keyword goes out as PROXI's <c>search=</c>. MassIVE's <c>keywords=</c> is silently ignored (every
+        /// dataset comes back, 2026-10-18 and 2026-11-10), so it is never sent. "zebrafish" found 67 datasets, as many
+        /// as MassIVE's website reports, and 48 of them had no PXD.
+        /// <para>
+        /// It matches inside words and reaches descriptions: "aging" also returned 49 datasets whose only match is
+        /// "imaging" (aging's survey, 2026-11-10). Check whole words yourself when that matters. A hit holds what the
+        /// search row states (no description, keywords or modifications); <see cref="GetDatasetAsync"/> gives the
+        /// full record, one request per dataset.
+        /// </para>
+        /// <para>
+        /// Every page is fetched; <paramref name="pageSize"/> only sets how many datasets each request asks for. The
+        /// search ends at a short page, or at MassIVE's 404 "No data found", which it sends for a page past the last
+        /// one and for a search with no match: so no match is an empty list, not an exception. A dataset served twice
+        /// as the index moves is kept once, by its MSV.
+        /// </para>
+        /// </remarks>
+        /// <param name="keyword">The text to search for.</param>
+        /// <param name="speciesTaxId">An optional NCBI taxonomy ID (digits only, e.g. "7955") the datasets must state.</param>
+        /// <param name="pageSize">How many datasets each request asks for. Positive.</param>
+        /// <param name="cancellationToken">Cancels the (multi-request) search.</param>
+        /// <returns>Every dataset found, in MassIVE's order, each once. Empty when nothing matches. Never null.</returns>
+        /// <exception cref="ArgumentException">The keyword is blank or longer than <see cref="MaxKeywordLength"/>, or the taxonomy ID is not digits. No request is made.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageSize"/> is not positive.</exception>
+        /// <exception cref="MzLibException">A page is not a JSON list, a row names no MassIVE accession, or MassIVE served a full page holding only datasets it had already served (it ignored the paging).</exception>
+        /// <exception cref="HttpRequestException">MassIVE was unreachable or answered a status other than 404, after the retries; or the search ran past <see cref="MaxPages"/>.</exception>
+        /// <exception cref="OperationCanceledException">The search was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<IReadOnlyList<MassiveDatasetSearchResult>> SearchDatasetsAsync(string keyword,
+            string speciesTaxId = null, int pageSize = 100, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+                throw new ArgumentException("A search keyword is required.", nameof(keyword));
+            if (keyword.Length > MaxKeywordLength)
+                throw new ArgumentException(
+                    $"The search keyword is {keyword.Length} characters; at most {MaxKeywordLength} are sent.", nameof(keyword));
+            if (speciesTaxId != null && (speciesTaxId.Length == 0 || !speciesTaxId.All(char.IsAsciiDigit)))
+                throw new ArgumentException($"'{speciesTaxId}' is not an NCBI taxonomy ID (digits only, e.g. \"9606\").", nameof(speciesTaxId));
+            if (pageSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
+
+            string query = $"search={Uri.EscapeDataString(keyword)}" + (speciesTaxId == null ? "" : $"&species={speciesTaxId}");
+            var results = new List<MassiveDatasetSearchResult>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            for (int page = 1; ; page++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (page > MaxPages)
+                    throw new HttpRequestException(
+                        $"MassIVE search paging exceeded {MaxPages} pages for keyword '{keyword}'; the server may be ignoring the paging parameters.");
+
+                string requestUri = $"{DefaultProxiBaseAddress}datasets?resultType=compact&pageSize={pageSize}&pageNumber={page}&{query}";
+                string described = $"page {page} of MassIVE's search for '{keyword}'";
+                using HttpResponseMessage response = await _engine.WithRetryAsync(async () =>
+                {
+                    HttpResponseMessage attempt = await _engine.GetAsync(requestUri, HttpCompletionOption.ResponseContentRead,
+                        cancellationToken, described).ConfigureAwait(false);
+                    if (attempt.IsSuccessStatusCode || attempt.StatusCode == HttpStatusCode.NotFound)
+                        return attempt;
+
+                    using (attempt)
+                        throw DownloadEngine.StatusFailure(attempt,
+                            $"MassIVE PROXI search failed with status {(int)attempt.StatusCode} {attempt.ReasonPhrase} for {described}.");
+                }, _engine.HostOf(requestUri), cancellationToken).ConfigureAwait(false);
+
+                // MassIVE's "No data found": no match on the first page, the end of the results after it.
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                    break;
+
+                byte[] body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                if (MassiveDataset.ParseProxiJson(body, described) is not JArray rows)
+                    throw new MzLibException($"{char.ToUpperInvariant(described[0])}{described.Substring(1)} is not a list of datasets.");
+
+                int added = 0;
+                foreach (JToken row in rows)
+                {
+                    MassiveDatasetSearchResult hit = row is JObject rowObject ? MassiveDatasetSearchResult.FromProxi(rowObject) : null;
+                    if (hit == null)
+                        throw new MzLibException($"A row on {described} names no MassIVE accession.");
+                    if (seen.Add(hit.MassiveAccession))
+                    {
+                        results.Add(hit);
+                        added++;
+                    }
+                }
+
+                if (rows.Count < pageSize)
+                    break;
+
+                // A full page of datasets already served means MassIVE is ignoring the paging; asking again would not end.
+                if (page > 1 && added == 0)
+                    throw new MzLibException(
+                        $"MassIVE served {described} with only datasets it had already served; it is ignoring the paging parameters.");
+            }
+
+            return results;
         }
 
         // ---- the listing --------------------------------------------------------------------------------------

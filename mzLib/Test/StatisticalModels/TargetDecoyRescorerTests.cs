@@ -933,6 +933,142 @@ public class TargetDecoyRescorerTests
     }
 
     /// <summary>
+    /// The class means are summed in row order without the two class arrays: bit for bit what LINQ's Average gave over those
+    /// arrays, on values of every magnitude, so the seed feature (and every score after it) is unchanged.
+    /// </summary>
+    [Test]
+    public void StandardizedMeanDifferenceIsTheLinqFormulaBitForBit()
+    {
+        var random = new Random(11);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int n = 2 + random.Next(5000);
+            double scale = Math.Pow(10, random.Next(-6, 7));
+            double[] values = Enumerable.Range(0, n).Select(_ => (random.NextDouble() - 0.3) * scale).ToArray();
+            bool[] decoy = Enumerable.Range(0, n).Select(_ => random.Next(3) == 0).ToArray();
+
+            double[] targets = values.Where((_, t) => !decoy[t]).ToArray();
+            double[] decoys = values.Where((_, t) => decoy[t]).ToArray();
+            double expected = 0;
+            if (targets.Length > 0 && decoys.Length > 0)
+            {
+                double mean = values.Average();
+                double sd = Math.Sqrt(values.Sum(v => (v - mean) * (v - mean)) / Math.Max(1, values.Length - 1));
+                expected = sd > LinearDiscriminant.ConstantTolerance ? (targets.Average() - decoys.Average()) / sd : 0;
+            }
+
+            Assert.That(BitConverter.DoubleToInt64Bits(TargetDecoyRescorer.StandardizedMeanDifference(values, decoy)),
+                Is.EqualTo(BitConverter.DoubleToInt64Bits(expected)), $"trial {trial}, n {n}");
+        }
+    }
+
+    /// <summary>
+    /// The groups held flat are the list-per-group formula's exactly, whatever the row order and however sparse the group
+    /// keys: singles ascending, then each group of two or more in the order it first appears, its rows ascending.
+    /// </summary>
+    [Test]
+    public void RowGroupsAreTheListPerGroupFormula()
+    {
+        var random = new Random(13);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int n = random.Next(3000);
+            bool sparse = trial % 3 == 0;
+            int[] groupOf = Enumerable.Range(0, n).Select(_ => sparse ? random.Next() - int.MaxValue / 2 : random.Next(1 + n / 3)).ToArray();
+            int[] rows = Enumerable.Range(0, n).Where(_ => random.Next(4) > 0).ToArray();
+            if (trial % 2 == 1)
+                rows = rows.OrderBy(_ => random.Next()).ToArray(); // not ascending
+
+            var byGroup = new Dictionary<int, List<int>>();
+            foreach (int i in rows)
+            {
+                if (!byGroup.TryGetValue(groupOf[i], out var list))
+                    byGroup[groupOf[i]] = list = [];
+                list.Add(i);
+            }
+            int[] singles = byGroup.Values.Where(g => g.Count == 1).Select(g => g[0]).Order().ToArray();
+            int[][] multiple = byGroup.Values.Where(g => g.Count > 1).Select(g => g.Order().ToArray()).ToArray();
+
+            var groups = TargetDecoyRescorer.RowGroups.Of(rows, groupOf);
+            Assert.That(groups.Singles, Is.EqualTo(singles), $"trial {trial}");
+            Assert.That(groups.MultipleCount, Is.EqualTo(multiple.Length), $"trial {trial}");
+            for (int g = 0; g < multiple.Length; g++)
+                Assert.That(groups.Multiple(g).ToArray(), Is.EqualTo(multiple[g]), $"trial {trial}, group {g}");
+        }
+    }
+
+    /// <summary>
+    /// The normalisation sample takes the same groups as <c>OrderBy(_ =&gt; sampler.Next()).Take(size)</c> over the singles and
+    /// then the groups of two or more, with the same generator: so the normalisation, and every score, is unchanged.
+    /// </summary>
+    [Test]
+    public void TheNormalisationSampleIsTheOrderByFormula()
+    {
+        var random = new Random(17);
+        for (int trial = 0; trial < 100; trial++)
+        {
+            int n = 1 + random.Next(4000);
+            int[] groupOf = Enumerable.Range(0, n).Select(_ => random.Next(1 + n / 4)).ToArray();
+            int[] rows = Enumerable.Range(0, n).ToArray();
+            var groups = TargetDecoyRescorer.RowGroups.Of(rows, groupOf);
+            int size = 1 + random.Next(groups.Count);
+            int seed = random.Next();
+
+            var listed = groups.Singles.Select(i => new[] { i })
+                .Concat(Enumerable.Range(0, groups.MultipleCount).Select(g => groups.Multiple(g).ToArray())).ToList();
+            var sampler = new Random(seed);
+            int[] expected = listed.OrderBy(_ => sampler.Next()).Take(size).SelectMany(g => g).Order().ToArray();
+
+            Assert.That(TargetDecoyRescorer.SampleGroupRows(groups, size, new Random(seed)), Is.EqualTo(expected), $"trial {trial}");
+        }
+    }
+
+    /// <summary>
+    /// Float rows score bit for bit as the same values in double rows, under the linear model and the network alike, with
+    /// candidate groups, a capped pooled sample and a normalisation sample: every value is widened exactly before any
+    /// arithmetic. A caller can then keep its rows at half the memory without changing a result.
+    /// </summary>
+    [Test]
+    public void FloatRowsScoreAsTheSameValuesInDoubleRows()
+    {
+        var random = new Random(23);
+        int n = 1200, p = 6;
+        var floats = new float[n][];
+        var isDecoy = new bool[n];
+        var keys = new string[n];
+        var groups = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            int group = i / 3;
+            isDecoy[i] = group % 2 == 1;
+            keys[i] = "P" + group / 2;
+            groups[i] = group;
+            floats[i] = Enumerable.Range(0, p).Select(j => (float)(random.NextDouble() + (!isDecoy[i] && i % 3 == 0 && j < 3 ? 1.2 : 0))).ToArray();
+        }
+        double[][] doubles = floats.Select(row => row.Select(v => (double)v).ToArray()).ToArray();
+
+        foreach (var model in new[] { RescoreModel.LinearDiscriminant, RescoreModel.NeuralNetworkEnsemble })
+        {
+            RescoreResult FromDoubles() => TargetDecoyRescorer.Score(doubles, isDecoy, keys, candidateGroups: groups, model: model, maxNetworkTrainingRows: 100,
+                networkMembers: 2, networkEpochs: 2, networkPasses: 2, networkTrainingSample: NetworkTrainingSample.ConfidentPooled, normalizationGroups: 50,
+                networkLayers: [4, 3]);
+            RescoreResult FromFloats() => TargetDecoyRescorer.ScoreSinglePrecision(floats, isDecoy, keys, candidateGroups: groups, model: model, maxNetworkTrainingRows: 100,
+                networkMembers: 2, networkEpochs: 2, networkPasses: 2, networkTrainingSample: NetworkTrainingSample.ConfidentPooled, normalizationGroups: 50,
+                networkLayers: [4, 3]);
+            var expected = FromDoubles();
+            var actual = FromFloats();
+            Assert.That(actual.Status, Is.EqualTo(expected.Status), $"{model}");
+            Assert.That(actual.Folds, Is.EqualTo(expected.Folds), $"{model}");
+            Assert.That(actual.Scores.Select(BitConverter.DoubleToInt64Bits), Is.EqualTo(expected.Scores.Select(BitConverter.DoubleToInt64Bits)), $"{model}");
+            Assert.That(expected.Scores.Distinct().Count(), Is.GreaterThan(n / 2), $"{model}: the scores must vary, or this proves nothing");
+        }
+
+        float[][] notFinite = floats.Select(row => row.ToArray()).ToArray();
+        notFinite[7][2] = float.NaN;
+        Assert.Throws<ArgumentException>(() => TargetDecoyRescorer.ScoreSinglePrecision(notFinite, isDecoy, keys));
+    }
+
+    /// <summary>
     /// With too few targets for any to pass, the seed is the feature and sign with the larger standardized separation. Here
     /// that is the second feature, taken negatively: −5 / 2.74 beats 2 / 1.26.
     /// </summary>

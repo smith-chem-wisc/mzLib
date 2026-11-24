@@ -15,7 +15,7 @@ public sealed record DifferentialResult
     public required string DefinitionId { get; init; }
     /// <summary>The analysis this row belongs to (<see cref="DifferentialMetadata.AnalysisId"/>).</summary>
     public required string AnalysisId { get; init; }
-    /// <summary><c>lfq</c>, <c>tmt</c>, <c>itraq</c>, <c>dileu</c>, <c>silac</c>, <c>pulse_silac</c>.</summary>
+    /// <summary><c>lfq</c>, <c>tmt</c>, <c>itraq</c>, <c>dileu</c>, <c>silac</c>, <c>pulse_silac</c>, <c>dia</c>.</summary>
     public string? QuantStyle { get; init; }
     /// <summary><c>ms2</c> or <c>ms3_sps</c> for isobaric styles; null otherwise.</summary>
     public string? ReporterAcquisition { get; init; }
@@ -125,6 +125,12 @@ public sealed record DifferentialResult
     public string? ModelUsed { get; init; }
     /// <summary>Whether outlying values were down-weighted.</summary>
     public bool? Robust { get; init; }
+    /// <summary>
+    /// Whether the row's robust reweighting did not settle and the row is the one-round fit (QuantProject GR-22 as amended
+    /// 2026-11-03, DATA-DEFINITIONS v3.21): true then, false when it settled, null when <see cref="Robust"/> is not true
+    /// and on a row with no fit.
+    /// </summary>
+    public bool? RobustFellBack { get; init; }
     /// <summary>The normalization that ran (<c>DEF-DIFF-NORM</c>).</summary>
     public string? Normalization { get; init; }
     /// <summary>Model terms besides the contrast's own factor, random ones marked, as given.</summary>
