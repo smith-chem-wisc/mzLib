@@ -8,6 +8,7 @@ using NUnit.Framework;
 using NUnit.Framework.Constraints;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.SupportedModels.CCSModels;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
@@ -289,8 +290,8 @@ namespace Test.KoinaTests
                         checkedRestrictedModels++;
                 }
             });
-            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(16), "Expected all 16 accept-all models to resolve oxidation and be checked.");
-            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(20), "Expected all 20 restricted models that allow oxidation to resolve it and be checked.");
+            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(18), "Expected all 18 accept-all models to resolve oxidation and be checked.");
+            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(18), "Expected all 18 restricted models that allow oxidation to resolve it and be checked.");
         }
 
         [Test]
@@ -399,6 +400,71 @@ namespace Test.KoinaTests
             Assert.That(warning!.Message, Does.Contain("1896"));
         }
 
+        // Koina parses an N-terminal modification for these models only as "[UNIMOD:n]-PEPTIDE". Without the dash, AlphaPeptDeep
+        // and ms2pip answer 400, and Chronologer, DeepLC and IM2Deep read the id as residues.
+        private static readonly Type[] DashedNTerminalModels =
+        {
+            typeof(AlphaPeptDeepRTGeneric), typeof(AlphaPeptDeepCCSGeneric), typeof(AlphaPeptDeepMs2Generic),
+            typeof(Ms2PipHCD2021), typeof(Ms2PipImmunoHCD), typeof(Ms2PipTimsTOF2023), typeof(Ms2PipTimsTOF2024),
+            typeof(Ms2PipTTOF5600), typeof(DeeplcHelaHf), typeof(IM2Deep)
+        };
+
+        public static IEnumerable<TestCaseData> DashedTerminalCases() =>
+            DashedNTerminalModels.SelectMany(t => new[]
+            {
+                new TestCaseData(t, "[Unimod:Acetyl on X]PEPTIDEK", "[UNIMOD:1]-PEPTIDEK"),
+                new TestCaseData(t, "[Multiplex Label:TMT6-plex on X]PEPTIDEK", "[UNIMOD:737]-PEPTIDEK"),
+                new TestCaseData(t, "[Unimod:Acetyl on X]PEPTIDEK-[Unimod:Amidated on X]",
+                    "[UNIMOD:1]-PEPTIDEK-[UNIMOD:2]")
+            }).Concat(new[]
+            {
+                new TestCaseData(typeof(ChronologerRT), "[Unimod:Acetyl on X]PEPTIDEK", "[UNIMOD:1]-PEPTIDEK"),
+                new TestCaseData(typeof(ChronologerRT), "[Multiplex Label:TMT6-plex on X]PEPTIDEK", "[UNIMOD:737]-PEPTIDEK")
+            });
+
+        [TestCaseSource(nameof(DashedTerminalCases))]
+        public void TryCleanSequence_TerminalModification_WritesDashedTerminals(
+            Type modelType, string mzLibSequence, string expectedApiSequence)
+        {
+            var model = Instantiate(modelType);
+            var method = modelType.GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var args = new object?[] { mzLibSequence, null, null, null };
+
+            var result = method.Invoke(model, args);
+
+            Assert.That(result, Is.Not.Null, ((WarningException?)args[3])?.Message);
+            Assert.That(args[2], Is.EqualTo(expectedApiSequence));
+            Assert.That(args[3], Is.Null);
+        }
+
+        [Test]
+        public void Chronologer_TryCleanSequence_CTerminalModification_IsHeldBack()
+        {
+            var model = new ChronologerRT();
+            var method = typeof(ChronologerRT).GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var args = new object?[] { "[Unimod:Acetyl on X]PEPTIDEK-[Unimod:Amidated on X]", null, null, null };
+
+            var result = method.Invoke(model, args);
+
+            Assert.That(result, Is.Null);
+            Assert.That(args[2], Is.Null);
+            Assert.That(((WarningException?)args[3])?.Message, Does.Contain("Amidated"));
+        }
+
+        [Test]
+        public void Chronologer_TryCleanSequence_AmmoniaLossBeforeCarbamidomethylC_IsHeldBack()
+        {
+            var model = new ChronologerRT();
+            var method = typeof(ChronologerRT).GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var args = new object?[] { "[UNIMOD:385]-C[UNIMOD:4]PEPTIDEK", ProFormaSequenceParser.Instance, null, null };
+
+            var result = method.Invoke(model, args);
+
+            Assert.That(result, Is.Null);
+            Assert.That(args[2], Is.Null);
+            Assert.That(((WarningException?)args[3])?.Message, Does.Contain("385"));
+        }
+
         [Test]
         public void UniSpec_ValidateModelSpecificInputs_RejectsChargeOutsideInstrumentRange()
         {
@@ -427,6 +493,34 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(1));
             Assert.That(predictions[0].FragmentIntensities, Is.Null);
             Assert.That(predictions[0].Warning, Is.Not.Null);
+        }
+
+        /// <summary>
+        /// Koina receives pyro-Glu on its residue; the mzLib sequence returned keeps it N-terminal.
+        /// </summary>
+        [TestCase("[Unimod:Gln->pyro-Glu on Q]QPEPTIDEK", false, "Q[UNIMOD:28]PEPTIDEK", "[Unimod:Gln->pyro-Glu on Q]QPEPTIDEK")]
+        [TestCase("[UNIMOD:28]-QPEPTIDEK", true, "Q[UNIMOD:28]PEPTIDEK", "[UNIMOD:28]QPEPTIDEK")]
+        public void AlphaPeptDeepRT_NTerminalPyroGlu_IsSentOnItsResidue(string sequence, bool proForma, string sent, string returned)
+        {
+            var model = new AlphaPeptDeepRTGeneric();
+
+            var cleaned = ModificationTokenCases.Clean(model, sequence, proForma ? ProFormaSequenceParser.Instance : null, out var api, out var warning);
+
+            Assert.That(api, Is.EqualTo(sent));
+            Assert.That(cleaned, Is.EqualTo(returned));
+            Assert.That(warning, Is.Null);
+        }
+
+        [Test]
+        public void AlphaPeptDeepRT_NTerminalPyroGluOnAModifiedFirstResidue_StaysNTerminal()
+        {
+            var model = new AlphaPeptDeepRTGeneric();
+
+            var cleaned = ModificationTokenCases.Clean(model, "[UNIMOD:28]-Q[UNIMOD:7]PEPTIDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
+
+            Assert.That(api, Is.EqualTo("[UNIMOD:28]-Q[UNIMOD:7]PEPTIDEK"));
+            Assert.That(cleaned, Is.EqualTo("[UNIMOD:28]Q[UNIMOD:7]PEPTIDEK"));
+            Assert.That(warning, Is.Null);
         }
 
         private sealed class TmtProbe : Prosit2020IntensityTMT
@@ -486,6 +580,26 @@ namespace Test.KoinaTests
         {
             public string? Clean(string sequence, out string? api, out WarningException? warning)
                 => TryCleanSequence(sequence, null, out api, out warning);
+        }
+    }
+
+    [TestFixture]
+    [NUnit.Framework.Category("ExternalService")]
+    [NUnit.Framework.Category("Koina")]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public class KoinaPyroGluLiveTests : KoinaLiveTestFixture
+    {
+        [Test]
+        public void AlphaPeptDeepRT_PredictsNTerminalPyroGlu()
+        {
+            var predictions = new AlphaPeptDeepRTGeneric().Predict(new List<RetentionTimePredictionInput>
+            {
+                new("[Unimod:Gln->pyro-Glu on Q]QPEPTIDEK"),
+                new("QPEPTIDEK")
+            });
+
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, predictions[0].Warning?.Message);
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.EqualTo(predictions[1].PredictedRetentionTime));
         }
     }
 }

@@ -9,9 +9,18 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </summary>
     public class ChronologerRT : RetentionTimeModel
     {
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        // Koina: amino_acid_unimod_map and n_terminal_mod_map in models/Chronologer/Chronologer_Preprocess/1/sequence_conversion.py
+        // Left out: K[UNIMOD:125], which mzLib's Unimod lacks, and [UNIMOD:385]-, which Koina's table lists only before its own C[UNIMOD:385] token.
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string>
+        {
+            "C[UNIMOD:4]", "M[UNIMOD:35]", "S[UNIMOD:21]", "T[UNIMOD:21]", "Y[UNIMOD:21]",
+            "K[UNIMOD:1]", "K[UNIMOD:121]", "K[UNIMOD:34]", "K[UNIMOD:36]", "K[UNIMOD:37]", "R[UNIMOD:34]", "R[UNIMOD:36]",
+            "K[UNIMOD:739]", "K[UNIMOD:737]", "C[UNIMOD:385]", "E[UNIMOD:27]", "Q[UNIMOD:28]",
+            "[UNIMOD:1]-", "[UNIMOD:27]-", "[UNIMOD:28]-", "[UNIMOD:737]-", "[UNIMOD:739]-"
+        };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
-            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance, SupportedUnimodIds);
 
         public override string ModelName => "Chronologer_RT";
         public override int MaxBatchSize => 1000;
@@ -22,6 +31,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => false;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public ChronologerRT(

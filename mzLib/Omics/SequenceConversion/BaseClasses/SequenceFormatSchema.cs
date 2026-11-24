@@ -49,5 +49,11 @@ public abstract class SequenceFormatSchema(char modOpen = '[', char modClosed = 
     /// </summary>
     public bool SupportsCTerminalMods => CTermSeparator != null;
 
+    /// <summary>
+    /// Where this format places the modification in <paramref name="sequence"/>, for a caller that applies it before serializing;
+    /// unchanged unless a format moves it. Serializers don't call it.
+    /// </summary>
+    public virtual CanonicalModification PlaceModification(CanonicalModification modification, CanonicalSequence sequence) => modification;
+
     public override string ToString() => FormatName;
 }
