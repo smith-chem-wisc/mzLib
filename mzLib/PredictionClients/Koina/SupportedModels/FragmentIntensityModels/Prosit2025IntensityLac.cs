@@ -22,7 +22,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Prosit2025IntensityLac : FragmentIntensityModel
     {
         private static readonly UnimodSequenceFormatSchema LacSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4, 2114 };
+        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide_lac/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:2114]", "[UNIMOD:2114]-" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(LacSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2025_intensity_lac";
@@ -40,6 +42,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<string>? AllowedInstrumentTypes => new() { "ECLIPSE", "ASTRAL", "LUMOS" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
