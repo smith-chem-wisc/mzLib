@@ -668,6 +668,14 @@ namespace Omics.Digestion
         /// </summary>
         /// <param name="sequence"></param>
         /// <returns></returns>
+        /// <summary>
+        /// The motifs that cut <paramref name="sequence"/> after one-based residue <paramref name="cutAfterOneBasedResidue"/>,
+        /// with the frame <see cref="GetDigestionSiteIndices"/> discards.
+        /// </summary>
+        public IEnumerable<DigestionMotif> MotifsCuttingAfter(string sequence, int cutAfterOneBasedResidue) =>
+            DigestionMotifs.Where(motif => cutAfterOneBasedResidue >= motif.CutIndex
+                && motif.Fits(sequence, cutAfterOneBasedResidue - motif.CutIndex) is (true, false));
+
         public List<int> GetDigestionSiteIndices(string sequence)
         {
             var indices = HashSetPool.Get(); // use hash set to ensure no duplicates

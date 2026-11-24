@@ -27,6 +27,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 _target: residue is null ? null : target, _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373);
         }
 
+        private static readonly Modification AcetylK = new(_originalId: "N6-acetyllysine", _modificationType: "Test",
+            _target: ModificationMotif.TryGetMotif("K", out ModificationMotif lysine) ? lysine : null,
+            _locationRestriction: "Anywhere.", _monoisotopicMass: 42.010565);
+
         private static Protein WithAnnotation(string sequence, int residue, Modification modification) =>
             new(sequence, "P", oneBasedModifications: new Dictionary<int, List<Modification>> { { residue, new List<Modification> { modification } } });
 
@@ -162,6 +166,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             CollectionAssert.AreEqual(new[] { StcESubstrate },
                 BaseSequences(Digest(WithAnnotation(StcESubstrate, 5, Mod("T", "Common Biological")), "StcE")));
+            CollectionAssert.AreEqual(new[] { StcESubstrate },
+                BaseSequences(Digest(new Protein(StcESubstrate, "P"), "StcE", variableMods: new List<Modification> { Mod("T", "Common Biological") })));
         }
 
         [Test]
@@ -223,6 +229,17 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         [Test]
+        [TestCase("OpeRATOR")]
+        [TestCase("IMPa")]
+        public static void WithTheInitiatorMetRetained_StartingAfterItIsACut(string protease)
+        {
+            // M|SAAAKGG: with the Met retained, only the protease starts a product at S2, and it needs S2's glycan.
+            List<PeptideWithSetModifications> products = Digest(WithAnnotation("MSAAAKGG", 2, Mod("S")), protease);
+            CollectionAssert.AreEqual(new[] { "M", "MSAAAKGG", "SAAAKGG" }, BaseSequences(products));
+            Assert.IsTrue(products.Where(p => p.BaseSequence == "SAAAKGG").All(p => p.AllModsOneIsNterminus.ContainsKey(2)));
+        }
+
+        [Test]
         public static void AChainIsNotACut_AndReadsThroughTheSiteItsGlycanIsMissingFrom()
         {
             var protein = new Protein("AAAAK" + StcESubstrate + "GGG", "P", proteolysisProducts: new List<TruncationProduct> { new(6, 14, "chain") });
@@ -235,13 +252,60 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void WithBothCorrections_BlockedAndUnoccupiedSitesAreDiscountedTogether()
         {
             // TA|S A K6 TA|S: two StcE sites either side of an acetylated, so blocked, K6.
-            ModificationMotif.TryGetMotif("K", out ModificationMotif lysine);
-            var acetylK = new Modification(_originalId: "N6-acetyllysine", _modificationType: "Test", _target: lysine,
-                _locationRestriction: "Anywhere.", _monoisotopicMass: 42.010565);
             PeptideWithSetModifications readThrough = Digest(new Protein("GTASAKGTASGR", "P"), "StcE-trypsin", blocking: true,
-                    variableMods: new List<Modification> { Mod("T"), acetylK }, maxLength: 50, maxMods: 1)
+                    variableMods: new List<Modification> { Mod("T"), AcetylK }, maxLength: 50, maxMods: 1)
                 .Single(p => p.BaseSequence == "GTASAKGTASGR" && p.AllModsOneIsNterminus.Keys.SequenceEqual(new[] { 7 }));
             Assert.AreEqual(0, readThrough.MissedCleavages);
+        }
+
+        [Test]
+        [TestCase("IMPa-trypsin|P", "GAKSAAR", "S")]
+        [TestCase("SmE-trypsin|P", "GAKSAAR", "S")]
+        [TestCase("OpeRATOR-trypsin|P", "GAKSAAR", "S")]
+        [TestCase("StcE-trypsin", "GTKTAAR", "T")]
+        public static void WithBothCorrections_AnAcetylatedKIsCutOnlyWhereTheGlycoproteaseCanCut(string protease, string sequence,
+            string glycosite)
+        {
+            // Trypsin cannot cut after the acetylated K3, so the bond is cut only if the glycoprotease's glycan can be there.
+            foreach (bool glycanPossible in new[] { false, true })
+            {
+                var variableMods = new List<Modification> { AcetylK };
+                if (glycanPossible)
+                {
+                    variableMods.Add(Mod(glycosite));
+                }
+                List<PeptideWithSetModifications> products = Digest(new Protein(sequence, "P"), protease, blocking: true,
+                    variableMods: variableMods);
+
+                // The acetyl on K3 is mod key 4.
+                Assert.AreEqual(glycanPossible, products.Any(p => p.BaseSequence == sequence[..3] && p.AllModsOneIsNterminus.ContainsKey(4)));
+                PeptideWithSetModifications bareReadThrough = products.SingleOrDefault(p => p.BaseSequence == sequence
+                    && p.AllModsOneIsNterminus.Keys.SequenceEqual(new[] { 4 }));
+                Assert.IsNotNull(bareReadThrough, $"glycan possible: {glycanPossible}");
+                Assert.AreEqual(0, bareReadThrough.MissedCleavages);
+            }
+        }
+
+        [Test]
+        public static void WithBothCorrections_ABlockedSiteIsDiscountedOnce()
+        {
+            // GAK[ac]AAKAAR under IMPa-trypsin|P: K3 is blocked, and K6 is still a missed cleavage.
+            PeptideWithSetModifications readThrough = Digest(new Protein("GAKAAKAAR", "P"), "IMPa-trypsin|P", blocking: true,
+                    variableMods: new List<Modification> { AcetylK }, maxMissedCleavages: 1)
+                .Single(p => p.BaseSequence == "GAKAAKAAR" && p.AllModsOneIsNterminus.Keys.SequenceEqual(new[] { 4 }));
+            Assert.AreEqual(1, readThrough.MissedCleavages);
+        }
+
+        [Test]
+        public static void WithBothCorrections_ACarbamylThatFormsAfterDigestionMayEndAPeptideAtACut()
+        {
+            // Urea also carbamylates K3 after the cut, so GAK[carbamyl] stays though nothing can glycosylate S4.
+            var carbamylK = new Modification(_originalId: "Carbamyl", _modificationType: "Test", _target: AcetylK.Target,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 43.005814);
+            Assert.IsTrue(CleavageBlockingModifications.BlocksCleavageBy(carbamylK, ProteaseDictionary.Dictionary["IMPa-trypsin|P"]));
+            Assert.IsTrue(Digest(new Protein("GAKSAAR", "P"), "IMPa-trypsin|P", blocking: true,
+                    variableMods: new List<Modification> { carbamylK })
+                .Any(p => p.BaseSequence == "GAK" && p.AllModsOneIsNterminus.ContainsKey(4)));
         }
 
         [Test]
