@@ -36,7 +36,10 @@ public sealed record MslRunObservations(string RunName, IReadOnlyList<MslRunPsm>
 
 /// <summary>
 /// Thresholds for <see cref="MslLibrary.UpdateRetentionTimesAndSave"/>. The defaults are the values
-/// measured and tested on PXReprise's rat, mouse and human library chains (2026-11).
+/// measured and tested on PXReprise's rat, mouse and human library chains (2026-11), with Prosit 2025 iRT
+/// as the predictor. Three of them depend on that predictor: <see cref="PredictionOffsetByLength"/>,
+/// <see cref="TiebreakFarFromPrediction"/> and <see cref="TiebreakNearPrediction"/>. With another
+/// predictor, set them for it.
 /// </summary>
 /// <param name="AnchorsPerRun">Calibration anchors chosen per run (fewer when the run has fewer candidates).</param>
 /// <param name="MinimumAnchors">A run calibrated on fewer anchors than this contributes no times.</param>
@@ -63,7 +66,37 @@ public sealed record MslRetentionTimeUpdateOptions(
 	double DatasetDisagreementLimit = 0.40,
 	double VoidFraction = 0.04,
 	double DoublePeakGap = 3.0,
-	double StreakSpan = 5.0);
+	double StreakSpan = 5.0)
+{
+	/// <summary>
+	/// The default <see cref="PredictionOffsetByLength"/>: the median of measured minus Prosit 2025 iRT on
+	/// held-out mouse runs, for base lengths of 7-10, 11-15, 16-20, 21-25 and 26-30 residues.
+	/// </summary>
+	public static IReadOnlyList<double> Prosit2025PredictionOffsetByLength { get; } =
+		Array.AsReadOnly(new[] { -3.54, 0.35, 2.39, 4.90, 4.91 });
+
+	/// <summary>
+	/// Added to a predicted iRT to give the expected measured iRT, one value per base-length bin (7-10, 11-15,
+	/// 16-20, 21-25 and 26-30 residues). A time seen in a single run is checked against the result
+	/// (<see cref="PredictionTolerance"/>). The default is fitted to Prosit 2025 iRT
+	/// (<see cref="Prosit2025PredictionOffsetByLength"/>); with another predictor, measure its own offsets
+	/// the same way. Five values, all finite.
+	/// </summary>
+	public IReadOnlyList<double> PredictionOffsetByLength { get; init; } = Prosit2025PredictionOffsetByLength;
+
+	/// <summary>
+	/// The tiebreak replaces a stored time farther than this many iRT from the prediction (not corrected for
+	/// length) with a new time within <see cref="TiebreakNearPrediction"/> of it. Chosen for Prosit 2025 iRT.
+	/// </summary>
+	public double TiebreakFarFromPrediction { get; init; } = 15.0;
+
+	/// <summary>
+	/// How close (iRT) to the prediction a new time must be for the tiebreak to take it (see
+	/// <see cref="TiebreakFarFromPrediction"/>). Less than <see cref="TiebreakFarFromPrediction"/>, so the new
+	/// time is always the closer of the two. Chosen for Prosit 2025 iRT.
+	/// </summary>
+	public double TiebreakNearPrediction { get; init; } = 5.0;
+}
 
 /// <summary>What one run contributed to a retention-time update.</summary>
 /// <param name="RunName">The raw file's name.</param>

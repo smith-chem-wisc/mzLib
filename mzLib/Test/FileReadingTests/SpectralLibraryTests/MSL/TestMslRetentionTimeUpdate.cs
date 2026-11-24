@@ -486,6 +486,66 @@ public sealed class TestMslRetentionTimeUpdate
 		Assert.That(withPredictor[longPeptide].RtStruckByPrediction, Is.True);
 	}
 
+	// ── Options fitted to the predictor (mzLib #1618) ──────────────────────────
+
+	[Test]
+	public void TheDefaults_AreTheValuesFittedToProsit2025()
+	{
+		var defaults = new MslRetentionTimeUpdateOptions();
+
+		Assert.That(defaults.PredictionOffsetByLength, Is.EqualTo(new[] { -3.54, 0.35, 2.39, 4.90, 4.91 }));
+		Assert.That(defaults.PredictionOffsetByLength, Is.SameAs(MslRetentionTimeUpdateOptions.Prosit2025PredictionOffsetByLength));
+		Assert.That((defaults.TiebreakFarFromPrediction, defaults.TiebreakNearPrediction), Is.EqualTo((15.0, 5.0)));
+		Assert.That(() => ((IList<double>)MslRetentionTimeUpdateOptions.Prosit2025PredictionOffsetByLength)[0] = 0,
+			Throws.TypeOf<NotSupportedException>(), "the shared default cannot be changed");
+	}
+
+	[Test]
+	public void TheLengthCorrection_IsTheCallers_OneValuePerLengthBin()
+	{
+		const string single = "SINGLERUNAGREEK"; // 15 residues: the 11-15 bin
+		var predictor = new Predictor { Known = { [single] = 44.0 } };
+		var runs = Dataset(onlyInRun0: new() { [single] = 44.0 });
+		MslLibraryEntry Run(params double[] offsets) => Update(Library(Entry(single)), runs, predictor,
+			options: new MslRetentionTimeUpdateOptions { PredictionOffsetByLength = offsets }).Entries[single];
+
+		Assert.That(Run(0, 0, 0, 0, 0).RtStatus, Is.EqualTo(ObservedOnce));
+		Assert.That(Run(20, 0, 20, 20, 20).RtStatus, Is.EqualTo(ObservedOnce), "other bins' offsets do not apply");
+
+		// Expected at 44 + 20 = 64: the time seen at 44 is 20 away, beyond the prediction tolerance of 15
+		MslLibraryEntry struck = Run(0, 20, 0, 0, 0);
+		Assert.That(struck.RtStatus, Is.EqualTo(Challenged));
+		Assert.That(struck.RtStruckByPrediction, Is.True);
+	}
+
+	[Test]
+	public void TheTiebreakThresholds_AreTheCallers()
+	{
+		string seq = Peptide(41);
+		// Predicted exactly 8 iRT after the truth; stored (confirmed) 30 after it, so 22 from the prediction
+		var predictor = new Predictor { Known = { [seq] = Base[seq] + 8 - PredictionError(seq) } };
+		string path = Library(AgreeingBackground().Append(Entry(seq, rt: Base[seq] + 30, status: Confirmed)).ToArray());
+
+		// By default the new time (about 8 from the prediction) is not within 5: a first strike, the time kept
+		var (byDefault, kept, _) = Update(path, Dataset(), predictor);
+		Assert.That(byDefault.ReplacedTiebreak, Is.Zero);
+		Assert.That(kept[seq].RtStatus, Is.EqualTo(Challenged));
+		Assert.That(kept[seq].RetentionTime, Is.EqualTo(Base[seq] + 30).Within(1e-4));
+
+		// Within 10, it is taken at once
+		var (nearer, replaced, _) = Update(path, Dataset(), predictor,
+			options: new MslRetentionTimeUpdateOptions { TiebreakNearPrediction = 10 });
+		Assert.That(nearer.ReplacedTiebreak, Is.EqualTo(1));
+		Assert.That(replaced[seq].RtStatus, Is.EqualTo(ObservedOnce));
+		Assert.That(replaced[seq].RetentionTime, Is.EqualTo(Base[seq]).Within(1.0));
+
+		// A stored time must be more than 25 from the prediction to give way: 22 is not
+		var (farther, _, _) = Update(path, Dataset(), predictor,
+			options: new MslRetentionTimeUpdateOptions { TiebreakNearPrediction = 10, TiebreakFarFromPrediction = 25 });
+		Assert.That(farther.ReplacedTiebreak, Is.Zero);
+		Assert.That(farther.Challenged, Is.EqualTo(1));
+	}
+
 	// ── Stored times in run minutes ────────────────────────────────────────────
 
 	/// <summary>
@@ -607,6 +667,12 @@ public sealed class TestMslRetentionTimeUpdate
 			new MslRetentionTimeUpdateOptions(VoidFraction: 1),
 			new MslRetentionTimeUpdateOptions(DoublePeakGap: 0),
 			new MslRetentionTimeUpdateOptions(StreakSpan: -3),
+			new MslRetentionTimeUpdateOptions { PredictionOffsetByLength = null! },
+			new MslRetentionTimeUpdateOptions { PredictionOffsetByLength = new[] { 0.0, 0, 0, 0 } },
+			new MslRetentionTimeUpdateOptions { PredictionOffsetByLength = new[] { 0.0, 0, double.NaN, 0, 0 } },
+			new MslRetentionTimeUpdateOptions { TiebreakFarFromPrediction = 0 },
+			new MslRetentionTimeUpdateOptions { TiebreakNearPrediction = double.NaN },
+			new MslRetentionTimeUpdateOptions { TiebreakNearPrediction = 15 },
 		})
 			Assert.That(() => lib.UpdateRetentionTimesAndSave(Dataset(), predictor.Predict, output, options: bad),
 				Throws.TypeOf<ArgumentOutOfRangeException>(), bad.ToString());
