@@ -13,9 +13,10 @@ namespace Test.Quantification.Differential;
 /// <summary>
 /// SETTEST1 S3 (QuantProject <c>DEF-DIFF-SET-POOL</c>, <c>-FAMILY</c>, <c>-POSTHOC</c>, <c>-MATURATION</c>): which dataset
 /// contrasts build a part's primary result; the pooled row (DerSimonian–Laird τ², Hartung–Knapp standard error on k − 1
-/// df); the aging and maturation families; Benjamini–Bogomolov on the pooled datasets of a supported part; and the
-/// "supported in at least 2" p. One scenario against R (<c>ReferenceData/make_settest_pooling_fixtures.R</c>, metafor and
-/// base R, never run here), then one hand-made case per rule.
+/// df, never below the DerSimonian–Laird one under Knapp and Hartung's ad hoc correction, ruled by the user
+/// 2026-11-19); the aging and maturation families; Benjamini–Bogomolov on the pooled datasets of a supported part; and
+/// the "supported in at least 2" p. One scenario against R (<c>ReferenceData/make_settest_pooling_fixtures.R</c>, metafor
+/// and base R, never run here), then one hand-made case per rule.
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
@@ -89,9 +90,11 @@ public class SetTestPoolingTests
     /// <summary>
     /// Seven parts: HA up on 3 datasets, HB down on 2, HD unchanged on 2 and HE attenuated_down on 2 pool; HC not_up has one
     /// dataset; HG up keeps one of its two (the other reproduces); HF's one contrast is a maturation contrast. R gives each
-    /// pooled row, both families' adjusted p's, R = 3 of m = 6, the level 0.025, and HA's and HD's datasets under
+    /// pooled row, both families' adjusted p's, R = 2 of m = 6, the level 0.05·2/6, and HA's datasets under
     /// Benjamini–Bogomolov (HA's third, at 0.035, fails the level but would pass at 0.05). HE's m̄ is the pooling-weight
-    /// average of its datasets' (ruled by the user 2026-11-14).
+    /// average of its datasets' (ruled by the user 2026-11-14). HD's two datasets agree closely (0.02 and −0.03 log2): plain
+    /// Hartung–Knapp's standard error, 0.024, made its pooled row supported; the ad hoc correction keeps the
+    /// DerSimonian–Laird 0.062, so it is not (ruled by the user 2026-11-19).
     /// </summary>
     [Test]
     public void TheScenario_MatchesR()
@@ -171,7 +174,7 @@ public class SetTestPoolingTests
         Assert.That(result.MaturationFamilySize, Is.EqualTo((int)D(summary[0][Array.IndexOf(sh, "maturation_family_size")])));
 
         var (bh, bogomolov) = Tsv("settest_pooling_bogomolov.tsv");
-        Assert.That(bogomolov, Has.Count.EqualTo(5));
+        Assert.That(bogomolov, Has.Count.EqualTo(3));
         foreach (var r in bogomolov)
         {
             string part = r[Array.IndexOf(bh, "part")], dataset = r[Array.IndexOf(bh, "dataset")];
@@ -375,8 +378,36 @@ public class SetTestPoolingTests
         Assert.That(pooled.DatasetsAgree, Is.EqualTo(0));
     }
 
+    /// <summary>
+    /// Two datasets that agree to 0.001 log2, each with se 0.3. Plain Hartung–Knapp's standard error is 0.0005 and its p
+    /// about 0.00016, so the pooled row was supported however uncertain each dataset was. Under the ad hoc correction the
+    /// standard error is the DerSimonian–Laird one: τ² = 0 (Q is far below k − 1), so it is √(1 / (2 / 0.09)) = √0.045,
+    /// and the one-sided p on t(1) is 1/2 − atan(1.0005 / √0.045) / π = 0.0665, written here in closed form.
+    /// </summary>
     [Test]
-    public void EqualEstimates_LeaveThePooledRowNotRun_AndOutOfTheFamily()
+    public void NearlyAgreeingDatasets_KeepTheDerSimonianLairdStandardError()
+    {
+        var freeze = Freeze(Row("H1", "up", "D1"), Row("H1", "up", "D2"));
+        var part = Part(freeze, "H1");
+
+        var result = SetPooling.Run(freeze, QuantBasis.MsmsOnly,
+            new[] { 1.000, 1.001 }.Select((b, i) => Tested(part, part.Contrasts[i], b, 0.3)).ToList());
+
+        var pooled = Pooled(result, "H1");
+        Close(pooled.Estimate!.Log2Effect, 1.0005, "estimate");
+        Close(pooled.Estimate.StandardError, Math.Sqrt(0.045), "standard error");
+        Assert.That(pooled.Estimate.Df, Is.EqualTo(1));
+        Close(pooled.Test!.PValue, 0.5 - Math.Atan(1.0005 / Math.Sqrt(0.045)) / Math.PI, "one-sided p on t(1)");
+        Assert.That((pooled.Verdict, pooled.VerdictDetail), Is.EqualTo((SetVerdictName.NotInformative, "bh_adjusted_p>0.05")));
+    }
+
+    /// <summary>
+    /// Datasets that give exactly one estimate used to leave the pooled row not run, because plain Hartung–Knapp's
+    /// standard error was 0. The corrected one is the DerSimonian–Laird one, √(1 / (1/0.01 + 1/0.04)) = √0.008, so the
+    /// row is tested and in the family.
+    /// </summary>
+    [Test]
+    public void EqualEstimates_PoolWithTheDerSimonianLairdStandardError_AndJoinTheFamily()
     {
         var freeze = Freeze(Row("H1", "up", "D1"), Row("H1", "up", "D2"));
         var part = Part(freeze, "H1");
@@ -385,9 +416,45 @@ public class SetTestPoolingTests
             part.Contrasts.Select((c, i) => Tested(part, c, 0.8, 0.1 + 0.1 * i)).ToList());
 
         var pooled = Pooled(result, "H1");
-        Assert.That((pooled.Verdict, pooled.VerdictDetail), Is.EqualTo((SetVerdictName.NotRun, SetPoolingName.PooledStandardErrorZero)));
-        Assert.That(pooled.Estimate is null && pooled.Test is null && pooled.Family is null && pooled.PAdjusted is null);
-        Assert.That(result.AgingFamilySize, Is.EqualTo(0));
+        Close(pooled.Estimate!.Log2Effect, 0.8, "estimate");
+        Close(pooled.Estimate.StandardError, Math.Sqrt(0.008), "standard error");
+        Assert.That(pooled.Family, Is.EqualTo(SetPoolingName.Aging));
+        Assert.That(pooled.PAdjusted, Is.Not.Null);
+        Assert.That(result.AgingFamilySize, Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// nbollis's review of mzLib #1616: a part whose datasets' standard errors are finite and positive, so each dataset is
+    /// tested, but far outside any measured range. At 1e-160 each weight 1/se² overflows and the pooled estimate is NaN;
+    /// at 1e-154 each weight is finite but their sum overflows, and the pooled standard error is 0. Either way that part's
+    /// pooled row is not run and out of the aging family, while the next part pools as usual. Before, the whole run threw:
+    /// at 1e-160 in the pooling itself (<c>Math.Sign</c> of NaN, on master too), at 1e-154 in <see cref="SetVerdict.Test"/>.
+    /// </summary>
+    [TestCase(1e-160)]
+    [TestCase(1e-154)]
+    public void PooledNumbersThatCannotBeFormed_LeaveThatRowNotRun_AndTheRunGoesOn(double tinyStandardError)
+    {
+        var freeze = Freeze(Row("H1", "up", "D1"), Row("H1", "up", "D2"), Row("H2", "up", "D1"), Row("H2", "up", "D2"));
+        var h1 = Part(freeze, "H1");
+        var h2 = Part(freeze, "H2");
+
+        var result = SetPooling.Run(freeze, QuantBasis.MsmsOnly,
+            h1.Contrasts.Select((c, i) => Tested(h1, c, 0.8 + 0.1 * i, tinyStandardError))
+                .Concat(h2.Contrasts.Select((c, i) => Tested(h2, c, 0.8, 0.1 + 0.1 * i))).ToList());
+
+        var degenerate = Pooled(result, "H1");
+        Assert.That(degenerate.NotRun, Is.EqualTo(SetPoolingName.PooledNotComputable));
+        Assert.That((degenerate.Verdict, degenerate.VerdictDetail),
+            Is.EqualTo((SetVerdictName.NotRun, SetPoolingName.PooledNotComputable)));
+        Assert.That(degenerate.Estimate, Is.Null);
+        Assert.That(degenerate.Test, Is.Null);
+        Assert.That(degenerate.Family, Is.Null);
+        Assert.That(degenerate.PAdjusted, Is.Null);
+
+        var usual = Pooled(result, "H2");
+        Close(usual.Estimate!.StandardError, Math.Sqrt(0.008), "H2's standard error");
+        Assert.That(usual.Family, Is.EqualTo(SetPoolingName.Aging));
+        Assert.That(result.AgingFamilySize, Is.EqualTo(1), "only H2's pooled row");
     }
 
     [Test]
