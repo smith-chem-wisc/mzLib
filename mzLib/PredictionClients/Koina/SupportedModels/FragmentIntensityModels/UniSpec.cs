@@ -24,8 +24,12 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class UniSpec : FragmentIntensityModel
     {
         private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 1, 4, 21, 26, 27, 28, 35 };
+        // Koina: models/UniSpec/UniSpec/1/model.py takes these ids on any standard residue and has no terminal position
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = SupportedUnimodIds
+            .SelectMany(id => "ACDEFGHIKLMNPQRSTVWY".Select(residue => $"{residue}[UNIMOD:{id}]")).ToHashSet();
+        // UniSpec was trained with an N-terminal modification on the first residue (usnistgov/UniSpec utils.py, inptsr)
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
-            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+            new UnimodSequenceFormatSchema { NTerminalModificationsOnFirstResidue = true }, SupportedUnimodIds);
 
         public override string ModelName => "UniSpec";
         public override int MaxBatchSize => 1000;
@@ -38,6 +42,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
         public override HashSet<string>? AllowedInstrumentTypes => new() { "QE", "QEHFX", "LUMOS", "ELITE", "VELOS", "NONE"};
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }

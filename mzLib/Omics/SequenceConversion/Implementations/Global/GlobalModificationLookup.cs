@@ -16,15 +16,28 @@ public class GlobalModificationLookup : ModificationLookupBase
     public static GlobalModificationLookup Instance { get; } = new();
 
     /// <summary>
+    /// Instance that searches the protein modification catalogs only.
+    /// </summary>
+    public static GlobalModificationLookup ProteinOnly { get; } = new(Mods.AllProteinModsList, 0.001, "Global (Protein Mods)");
+
+    private readonly string _name;
+
+    /// <summary>
     /// Creates a new GlobalModificationLookup.
     /// </summary>
     /// <param name="massTolerance">Tolerance for mass-based matching in Daltons.</param>
     public GlobalModificationLookup(double massTolerance = 0.001)
-        : base(Mods.AllKnownMods, massTolerance)
+        : this(Mods.AllKnownMods, massTolerance, "Global (All Mods)")
     {
     }
 
+    private GlobalModificationLookup(IEnumerable<Modification> candidates, double massTolerance, string name)
+        : base(candidates, massTolerance)
+    {
+        _name = name;
+    }
+
     /// <inheritdoc />
-    public override string Name => "Global (All Mods)";
+    public override string Name => _name;
 
 }

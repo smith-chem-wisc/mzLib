@@ -10,7 +10,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     public class DeeplcHelaHf : RetentionTimeModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "Deeplc_hela_hf";
         public override int MaxBatchSize => 1000;

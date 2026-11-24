@@ -572,13 +572,13 @@ public abstract class ModificationLookupBase : IModificationLookup
         return terminal.Count > 0 ? terminal : allowed;
     }
 
-    private static bool IsNTerminalRestriction(string locationRestriction)
+    internal static bool IsNTerminalRestriction(string locationRestriction)
     {
         return locationRestriction.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) ||
                locationRestriction.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsCTerminalRestriction(string locationRestriction)
+    internal static bool IsCTerminalRestriction(string locationRestriction)
     {
         return locationRestriction.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) ||
                locationRestriction.Contains("3'-terminal", StringComparison.OrdinalIgnoreCase);

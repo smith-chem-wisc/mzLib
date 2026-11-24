@@ -10,7 +10,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Ms2PipImmunoHCD : FragmentIntensityModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "ms2pip_Immuno_HCD";
         public override int MaxBatchSize => 1000;

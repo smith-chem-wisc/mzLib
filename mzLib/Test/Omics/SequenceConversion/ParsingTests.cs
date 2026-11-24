@@ -92,14 +92,14 @@ namespace Test.Omics.SequenceConversion
             // Check position 3 (S)
             var sMod = canonical.GetModificationAt(3);
             Assert.That(sMod, Is.Not.Null);
-            Assert.That(sMod.Value.IsResolved, Is.False);
+            Assert.That(sMod.Value.IsResolved, Is.True);
             Assert.That(sMod.Value.ResidueIndex, Is.EqualTo(3));
             Assert.That(sMod.Value.TargetResidue, Is.EqualTo('S'));
 
             // Check position 5 (M)
             var mMod = canonical.GetModificationAt(5);
             Assert.That(mMod, Is.Not.Null);
-            Assert.That(mMod.Value.IsResolved, Is.False);
+            Assert.That(mMod.Value.IsResolved, Is.True);
             Assert.That(mMod.Value.ResidueIndex, Is.EqualTo(5));
             Assert.That(mMod.Value.TargetResidue, Is.EqualTo('M'));
         }
@@ -125,7 +125,7 @@ namespace Test.Omics.SequenceConversion
             Assert.That(sMod, Is.Not.Null);
             Assert.That(sMod.Value.ResidueIndex, Is.EqualTo(3));
             Assert.That(sMod.Value.TargetResidue, Is.EqualTo('S'));
-            Assert.That(sMod.Value.IsResolved, Is.False);
+            Assert.That(sMod.Value.IsResolved, Is.True);
             sMod = lookup.TryResolve(sMod.Value);
 
             Assert.That(sMod.Value.MzLibModification, Is.EqualTo(phospho));
@@ -139,7 +139,7 @@ namespace Test.Omics.SequenceConversion
             Assert.That(mMod, Is.Not.Null);
             Assert.That(mMod.Value.ResidueIndex, Is.EqualTo(5));
             Assert.That(mMod.Value.TargetResidue, Is.EqualTo('M'));
-            Assert.That(mMod.Value.IsResolved, Is.False);
+            Assert.That(mMod.Value.IsResolved, Is.True);
             mMod = lookup.TryResolve(mMod.Value);
 
 

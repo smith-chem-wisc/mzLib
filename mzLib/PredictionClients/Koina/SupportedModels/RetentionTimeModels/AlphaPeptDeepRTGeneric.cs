@@ -9,7 +9,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     public class AlphaPeptDeepRTGeneric : RetentionTimeModel
     {
         private static readonly ISequenceConverter Converter = CreateUnimodConverterAcceptAll(
-            UnimodSequenceFormatSchema.Instance);
+            UnimodSequenceFormatSchema.DashedNTerminalInstance);
 
         public override string ModelName => "AlphaPeptDeep_rt_generic";
         public override int MaxBatchSize => 1000;
