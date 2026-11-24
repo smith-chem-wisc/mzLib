@@ -269,7 +269,14 @@ namespace Proteomics.ProteolyticDigestion
         private string? _fullSequenceWithMassShifts;
         public string FullSequenceWithMassShifts => _fullSequenceWithMassShifts ??= this.FullSequenceWithMassShift();
 
-        public IBioPolymer Parent => Protein;
+        /// <summary>
+        /// Shadows <see cref="DigestionProduct.Parent"/>, which is not virtual. Both return the same
+        /// object: <see cref="ProteolyticPeptide.Protein"/> reads and writes the base backing field.
+        /// That field is [NonSerialized], so on a deserialized peptide both are null until
+        /// <see cref="SetNonSerializedPeptideInfo(Dictionary{string, Modification}, Dictionary{string, Protein}, DigestionParams)"/>
+        /// sets Protein.
+        /// </summary>
+        public new IBioPolymer Parent => Protein;
 
 
         /// <summary>
