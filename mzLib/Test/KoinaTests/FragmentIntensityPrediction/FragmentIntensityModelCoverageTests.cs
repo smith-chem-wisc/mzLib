@@ -165,6 +165,43 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             Assert.That(warning!.Message, Does.Contain("No file path"));
         }
 
+        /// <summary>
+        /// Predicted times are iRT, so the spectra say so: an .msp written from them carries iRT=, and converting
+        /// it to .msl gives iRT, not run minutes (an .msp RT= time is run minutes). A missing time has no scale.
+        /// </summary>
+        [Test]
+        public void GenerateLibrarySpectra_DeclaresPredictedTimesAsIrt_SoAWrittenMspReadsBackAsIrt()
+        {
+            var model = new CoverageModel();
+            PeptideFragmentIntensityPrediction Prediction(string sequence) => new(
+                sequence, sequence, 2,
+                FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
+                FragmentMZs: new List<double> { 227.0, 375.0 },
+                FragmentIntensities: new List<double> { 0.9, 0.4 }) { CleanedFullSequence = sequence };
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { Prediction("PEPTIDEK"), Prediction("SAMPLERK") }, new[] { true, true });
+
+            string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "KoinaPredictedIrt_" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(directory);
+            try
+            {
+                string msp = System.IO.Path.Combine(directory, "predicted.msp");
+                var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.5, null }, out _, msp);
+
+                var bySequence = spectra.ToDictionary(s => s.Sequence);
+                Assert.That(bySequence["PEPTIDEK"].RetentionTimeIsIrt, Is.True);
+                Assert.That(bySequence["SAMPLERK"].RetentionTimeIsIrt, Is.Null);
+                Assert.That(System.IO.File.ReadAllText(msp), Does.Contain(" iRT=30.5").And.Not.Contain(" RT="));
+
+                using var library = Readers.SpectralLibrary.MslConverter.FromMspFile(msp);
+                var entry = library.GetAllEntries().Single(e => e.FullSequence == "PEPTIDEK");
+                Assert.That((entry.RetentionTime, entry.RtIsCalibrated), Is.EqualTo((30.5, false)));
+            }
+            finally
+            {
+                System.IO.Directory.Delete(directory, recursive: true);
+            }
+        }
+
         [Test]
         public void GenerateLibrarySpectra_FiltersLowIntensityAndImpossibleIons()
         {
