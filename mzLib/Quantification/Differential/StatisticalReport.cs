@@ -174,6 +174,10 @@ public static class StatisticalReportWriter
                     $"{i.Role}{(i.FileName.Length == 0 ? " (in memory)" : $" `{i.FileName}`")} (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
 
         md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.");
+        int unshifted = m.Normalization.Count(n => n.Setting == SharedPeptideNormalization.None);
+        md.Append(m.Settings.Normalization == SharedPeptideNormalization.None || (m.Normalization.Count > 0 && unshifted == m.Normalization.Count)
+            ? " The data were not normalized." : unshifted == 0 ? " The data were normalized."
+            : " The data were normalized in some strata and not in others, as each stratum's sentence says.");
         if (m.Settings.NormalizationOverride is { } over)
             md.Append($" A curator overrode the default normalization: `{over}`.");
         if (m.Normalization.Count == 0)
@@ -182,7 +186,20 @@ public static class StatisticalReportWriter
         {
             md.Append($" Stratum `{n.Stratum}`{Basis(n.QuantBasis)}: ").Append(NormalizationSentence(n));
             if (n.Warnings.Count > 0) md.Append(" Warnings: ").Append(string.Join("; ", n.Warnings)).Append('.');
+            if (n.Checks is { Count: > 0 } checks)
+                md.Append(" Normalization check: ").Append(string.Join("; ", checks.OrderBy(c => c.Key, StringComparer.Ordinal)
+                    .Select(c => $"`{c.Key}` {c.Value}"))).Append('.');
         }
+        if (m.Normalization.Any(n => n.Setting is SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf))
+            md.Append(" This assumes that most of the reference peptides do not change between the samples compared: if many change " +
+                      "in one direction, the shift also moves the proteins that did not change.");
+        if (m.Normalization.Any(n => n.Checks is not null))
+            md.Append(" The normalization check fits Efron's empirical null (2004) to each comparison's protein scores and warns when " +
+                      "its centre is further from 0 than a threshold set on null comparisons of 23 label-free deposits; it caught most " +
+                      "errors of 0.2 log2 or more only with 2,000 or more fitted proteins, and a comparison without a warning can still be off.");
+        else if (m.Normalization.Any(n => n.Setting != SharedPeptideNormalization.None))
+            md.Append(" The normalization check was not run: it is calibrated only for label-free data normalized with " +
+                      "`shared_peptide_median`, with robust weighting on and MS/MS values only.");
         if (m.Normalization.Count > 0) md.Append(" The per-sample shifts are in the metadata file.");
         md.Append("\n\n");
 

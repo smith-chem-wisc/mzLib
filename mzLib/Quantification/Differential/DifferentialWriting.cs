@@ -568,9 +568,11 @@ public sealed record DifferentialModelInfo(string Stratum, string? QuantBasis, s
 /// </summary>
 /// <param name="DeclaredGroups">With a background set: how many distinct groups it declared; null otherwise.</param>
 /// <param name="DeclaredGroupsAbsent">With a background set: the declared groups the table does not hold; null otherwise.</param>
+/// <param name="Checks">Where <see cref="NormalizationCheck"/> ran: each two-group contrast's verdict, by contrast id; null
+/// otherwise.</param>
 public sealed record DifferentialNormalizationInfo(string Stratum, string? QuantBasis, string Setting, int ReferenceSetSize,
     int MinimumReferenceSetSize, IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings,
-    int? DeclaredGroups = null, IReadOnlyList<string>? DeclaredGroupsAbsent = null);
+    int? DeclaredGroups = null, IReadOnlyList<string>? DeclaredGroupsAbsent = null, IReadOnlyDictionary<string, string>? Checks = null);
 
 /// <summary>
 /// Everything constant across an analysis's rows (<c>DEF-DIFF-META</c>), written by <see cref="DifferentialMetadataWriter"/>.
@@ -787,6 +789,7 @@ public static class DifferentialMetadataWriter
                 w.WriteStartArray("warnings");
                 foreach (var warning in n.Warnings) w.WriteStringValue(warning);
                 w.WriteEndArray();
+                if (n.Checks is { } checks) Map(w, "normalization_check", checks, (k, v) => w.WriteString(k, v));
                 w.WriteEndObject();
             }
             w.WriteEndArray();

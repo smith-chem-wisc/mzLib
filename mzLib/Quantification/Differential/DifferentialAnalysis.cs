@@ -508,6 +508,23 @@ public static class DifferentialAnalysis
                 plans.Add(Plan(design, contrasts, group, features.GetValueOrDefault(group), groupInfo[group], tested));
 
             FitAndModerate(design, contrasts, plans, tested, normalization);
+            // The normalization check, only where it was calibrated: label-free, shared_peptide_median, robust, MS/MS only.
+            if (_style == "lfq" && _basis == QuantBasis.MsmsOnly.ToMachineName() && _request.Settings.Robust
+                && normalization is SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf)
+            {
+                var checks = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var c in contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable))
+                {
+                    var (numerator, denominator) = Sides(design, c.Contrast);
+                    if (numerator is null || denominator is null) continue;
+                    var fitted = _rows.Where(r => r.Stratum == stratum && r.ContrastId == c.Contrast.Id && DifferentialStatus.IsFitted(r.Status)
+                                                  && r.Log2Effect is { } e && double.IsFinite(e) && r.PValue is >= 0 and <= 1)
+                        .Select(r => (r.Log2Effect!.Value, r.PValue!.Value)).ToList();
+                    checks[c.Contrast.Id] = NormalizationCheck.Verdict(fitted, Math.Min(numerator.Count, denominator.Count));
+                }
+                int last = _normalization.Count - 1;
+                _normalization[last] = _normalization[last] with { Checks = checks };
+            }
             _strata.Add(StratumInfo(design));
         }
 
