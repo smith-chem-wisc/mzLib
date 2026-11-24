@@ -30,9 +30,10 @@ public class DiaObservationsTests
 
     private static DiaPrecursorRun Run(string file, string sequence = "PEPTIDEK", int charge = 2, double quantity = 1000,
         PrecursorQuantityKind kind = PrecursorQuantityKind.Value, string groups = "G1", double runQ = 0.001,
-        double globalQ = 0.001, bool isDecoy = false, bool isEntrapment = false, string? baseSequence = null) =>
+        double globalQ = 0.001, bool isDecoy = false, bool isEntrapment = false, string? baseSequence = null,
+        bool isContaminant = false) =>
         new(file, sequence, baseSequence ?? sequence, charge, groups.Split(';'),
-            kind == PrecursorQuantityKind.Value ? quantity : double.NaN, kind, runQ, globalQ, isDecoy, isEntrapment);
+            kind == PrecursorQuantityKind.Value ? quantity : double.NaN, kind, runQ, globalQ, isDecoy, isEntrapment, isContaminant);
 
     private static ObservationTable Build(IEnumerable<DiaPrecursorRun> precursors, ObservationRun[]? runs = null,
         double qValueThreshold = DiaObservations.DefaultQValueThreshold) =>
@@ -120,18 +121,20 @@ public class DiaObservationsTests
     }
 
     /// <summary>
-    /// A decoy or entrapment precursor that names a target group must not reach it: groups are excluded by their own flags,
-    /// but a precursor's group name is the producer's, and a permuted decoy can carry its owner's name.
+    /// A decoy, entrapment or contaminant precursor that names a target group must not reach it: groups are excluded by
+    /// their own flags, but a precursor's group name is the producer's, and a permuted decoy can carry its owner's name.
     /// </summary>
     [Test]
-    public void DecoyAndEntrapmentPrecursorsNeverEnterEvenUnderATargetGroup()
+    public void DecoyEntrapmentAndContaminantPrecursorsNeverEnterEvenUnderATargetGroup()
     {
         var decoy = Run("run1", sequence: "KEDITPEP", isDecoy: true);
         var entrapment = Run("run2", sequence: "PEPTLDEK", isEntrapment: true);
-        Assert.That(decoy.ProteinGroups.Concat(entrapment.ProteinGroups), Is.All.EqualTo("G1"), "both name the target group");
-        Assert.That(Groups.Single(g => g.Name == "G1").IsDecoy, Is.False);
+        var contaminant = Run("run3", sequence: "KERATINK", isContaminant: true);
+        Assert.That(new[] { decoy, entrapment, contaminant }.SelectMany(p => p.ProteinGroups), Is.All.EqualTo("G1"),
+            "each names the target group");
+        Assert.That(Groups.Single(g => g.Name == "G1"), Has.Property("IsDecoy").False.And.Property("IsContaminant").False);
 
-        var table = Build(new[] { Run("run1"), decoy, entrapment });
+        var table = Build(new[] { Run("run1"), Run("run2"), Run("run3"), decoy, entrapment, contaminant });
 
         Assert.That(table.Peptides.Select(p => p.FullSequence), Is.EqualTo(new[] { "PEPTIDEK" }));
     }
@@ -207,6 +210,30 @@ public class DiaObservationsTests
         var table = Build(new[] { Run("run1"), Run("run2", runQ: 0.2) });
 
         Assert.That(table.SamplesWithoutValues, Is.EqualTo(new[] { "s_run2", "s_run3" }));
+    }
+
+    /// <summary>
+    /// A run that adds nothing to a sample whose other runs do would drop out of the replicate average with no record
+    /// anywhere (QuantProject 086), so it is refused, naming it and its sample; a sample with nothing in any run is kept.
+    /// </summary>
+    [Test]
+    public void ARunLostInsideASampleIsRefusedButAWholeSampleWithNothingIsKept()
+    {
+        var replicates = new[] { new ObservationRun("run1", "s1", 0, 1), new ObservationRun("run2", "s1", 0, 2), new ObservationRun("run3", "s3") };
+
+        foreach (var precursors in new[]
+                 {
+                     new[] { Run("run1"), Run("run3") },
+                     new[] { Run("run1"), Run("run2", runQ: 0.2), Run("run3") },
+                     new[] { Run("run1"), Run("run2", isDecoy: true), Run("run3") },
+                 })
+        {
+            var ex = Assert.Throws<ArgumentException>(() => Build(precursors, replicates));
+            Assert.That(ex!.Message, Does.Contain("'run2'").And.Contain("'s1'").And.Contain("'run1'"));
+        }
+
+        var nothingInSampleOne = Build(new[] { Run("run3") }, replicates);
+        Assert.That(nothingInSampleOne.SamplesWithoutValues, Is.EqualTo(new[] { "s1" }));
     }
 
     [Test]

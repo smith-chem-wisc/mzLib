@@ -31,9 +31,10 @@ namespace Quantification.Differential;
 /// <param name="GlobalQValue">The precursor's q-value over every run of the search, from 0 to 1.</param>
 /// <param name="IsDecoy">The precursor is a decoy.</param>
 /// <param name="IsEntrapment">The precursor is from an entrapment sequence.</param>
+/// <param name="IsContaminant">The precursor is a contaminant's: every protein it maps to is in a contaminant database.</param>
 public sealed record DiaPrecursorRun(string FileName, string FullSequence, string BaseSequence, int Charge,
     IReadOnlyList<string> ProteinGroups, double Quantity, PrecursorQuantityKind Kind, double RunQValue, double GlobalQValue,
-    bool IsDecoy = false, bool IsEntrapment = false);
+    bool IsDecoy = false, bool IsEntrapment = false, bool IsContaminant = false);
 
 /// <summary>
 /// Builds the differential-statistics input (<see cref="ObservationTable"/>) from DIA precursors (QuantProject dia 067,
