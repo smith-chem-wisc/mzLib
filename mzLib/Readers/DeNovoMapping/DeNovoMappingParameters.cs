@@ -1,4 +1,5 @@
 using Chromatography.RetentionTimePrediction;
+using Omics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 
@@ -55,6 +56,16 @@ public class DeNovoMappingParameters
     /// Earlier versions of this mapper (MetaCurator) used SSRCalc3.
     /// </summary>
     public RetentionTimePredictor? RetentionTimePredictor { get; init; }
+
+    /// <summary>
+    /// Proteins of the host the sample came from, such as the human proteome for a clinical sample. A prediction whose
+    /// peptide (digested and I/L-normalized as for the databases) a host protein also produces is host-shared
+    /// (<see cref="DeNovoPrediction.IsHostShared"/>): a database hit by it is host-ambiguous, since the host explains
+    /// the prediction as well. Each <see cref="DeNovoMappingResult"/> then also reports its counts, scores and
+    /// retention-time errors without those hits. The host proteins are digested once, when the mapper is built; decoys
+    /// among them are skipped. When null (the default), nothing is host-shared and the host fields stay at their defaults.
+    /// </summary>
+    public IEnumerable<IBioPolymer>? HostProteins { get; init; }
 
     public int MaxThreads { get; init; } = Environment.ProcessorCount;
 }
