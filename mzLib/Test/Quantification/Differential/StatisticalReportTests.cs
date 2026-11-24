@@ -69,12 +69,6 @@ public class StatisticalReportTests
             new DifferentialNormalizationInfo("all", "msms_only", "shared_peptide_median", 790, 100,
                 new Dictionary<string, double> { ["s01"] = 0.11, ["s02"] = -0.04 }, Array.Empty<string>()),
         },
-        NormalizationChecks = new[]
-        {
-            new DifferentialNormalizationCheck("all", "msms_only", "c1", NormalizationCheck.Warning, null, 2412, 6, 0.52, 1.03, 0.081,
-                NormalizationCheck.Threshold(6), NormalizationCheck.Yardstick),
-            NormalizationCheck.NotRun("all", "mbr_kept", "c1", NormalizationCheck.NotCalibratedPrefix + "mbr_kept", 2390, 6),
-        },
         DesignWarnings = new[] { "biological replicate 3 of condition old is absent" },
     };
 
@@ -473,54 +467,6 @@ public class StatisticalReportTests
         Assert.That(StatisticalReportWriter.Build(m, rows, Diagnostics()).Markdown, Does.Not.Contain("Decisions applied"));
         Assert.Throws<ArgumentException>(() => StatisticalReportWriter.Build(m, rows, Diagnostics(),
             new[] { new DifferentialDecision(DifferentialDecisionRules.FitOutcome, "all", "msms_only", "NOSUCH", "c1", "facts", "effect") }));
-    }
-
-    [Test]
-    public void WhetherTheDataWereNormalizedIsSaidFromWhatEachStratumDid()
-    {
-        string Opening(DifferentialMetadata m) => StatisticalReportWriter.Build(m, Rows(m.AnalysisId), Diagnostics()).Markdown;
-        var m = Metadata();
-        var none = m.Normalization.Select(n => n with { Setting = SharedPeptideNormalization.None }).ToArray();
-        Assert.That(Opening(m), Does.Contain("log2 scale. The data were normalized. Stratum"));
-        Assert.That(Opening(m with { Normalization = none }), Does.Contain("log2 scale. The data were not normalized. Stratum"));
-        Assert.That(Opening(m with { Normalization = new[] { m.Normalization[0], none[1] } }),
-            Does.Contain("The data were normalized in some strata and not in others, as each stratum's sentence says."));
-        Assert.That(Opening(m with { Normalization = Array.Empty<DifferentialNormalizationInfo>() }),
-            Does.Contain("log2 scale. The data were normalized. Normalization `shared_peptide_median`; no per-stratum details"));
-        var background = m.Normalization.Select(n => n with { Setting = "background_set:steady" }).ToArray();
-        Assert.That(Opening(m with { Normalization = background }),
-            Does.Contain("This assumes that the declared background proteins do not change between the samples compared."));
-    }
-
-    [Test]
-    public void EveryReasonTheNormalizationCheckDidNotRunIsSaidInWords()
-    {
-        var m = Metadata() with
-        {
-            Contrasts = Metadata().Contrasts.Concat(new[]
-            {
-                new DifferentialContrastInfo("c2", "age (per decade)", null, null, "age", "decade", "years/10",
-                    new Dictionary<string, double> { ["age"] = 1 }),
-                new DifferentialContrastInfo("c3", "b vs a", "g=b", "g=a", null, null, null, new Dictionary<string, double> { ["g=b"] = 1 }),
-                new DifferentialContrastInfo("c4", "c vs a", "g=c", "g=a", null, null, null, new Dictionary<string, double> { ["g=c"] = 1 }),
-            }).ToList(),
-            NormalizationChecks = new[]
-            {
-                NormalizationCheck.NotRun("all", "msms_only", "c1", NormalizationCheck.FitFailed, 2412, 6),
-                NormalizationCheck.NotRun("all", "msms_only", "c2", NormalizationCheck.Slope, 2412, null),
-                NormalizationCheck.NotRun("all", "msms_only", "c3", NormalizationCheck.GroupOfOne, 900, 1),
-                NormalizationCheck.NotRun("all", "msms_only", "c4", "some_later_reason", 900, 3),
-                NormalizationCheck.NotRun("all", "mbr_kept", "c1", NormalizationCheck.FewerThanMinimumFitted, 150, 6),
-            },
-        };
-        string md = StatisticalReportWriter.Build(m, Rows(m.AnalysisId), Diagnostics()).Markdown;
-        Assert.That(md, Does.Contain("0 of 5 comparisons checked: 0 with a warning; 5 not checked."));
-        Assert.That(md, Does.Contain("`c1` in stratum `all`, basis `msms_only`: the empirical null could not be fitted to its scores."));
-        Assert.That(md, Does.Contain("`c2` in stratum `all`, basis `msms_only`: a slope has no two groups to compare."));
-        Assert.That(md, Does.Contain("`c3` in stratum `all`, basis `msms_only`: its smaller group has one sample."));
-        Assert.That(md, Does.Contain("`c4` in stratum `all`, basis `msms_only`: `some_later_reason`."));
-        Assert.That(md, Does.Contain("`c1` in stratum `all`, basis `mbr_kept`: fewer than 200 fitted proteins (150)."));
-        Assert.That(md, Does.Not.Contain("warned for this comparison"));
     }
 
     [Test]

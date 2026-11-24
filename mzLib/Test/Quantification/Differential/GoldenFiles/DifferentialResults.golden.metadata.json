@@ -481,53 +481,6 @@
       "warnings": []
     }
   ],
-  "normalization_checks": [
-    {
-      "stratum": "all",
-      "quant_basis": "mbr_kept",
-      "contrast_id": "c1",
-      "status": "not_checked",
-      "not_checked_reason": "not_calibrated:mbr_kept",
-      "fitted_proteins": 2390,
-      "group_size": 6,
-      "yardstick": "normcheck_yardstick_1"
-    },
-    {
-      "stratum": "all",
-      "quant_basis": "msms_only",
-      "contrast_id": "c1",
-      "status": "warning",
-      "fitted_proteins": 2412,
-      "group_size": 6,
-      "delta0": 0.52,
-      "sigma0": 1.03,
-      "e_hat": 0.081,
-      "threshold": 0.429775562501974,
-      "yardstick": "normcheck_yardstick_1"
-    },
-    {
-      "stratum": "all",
-      "quant_basis": "msms_only",
-      "contrast_id": "c2",
-      "status": "not_checked",
-      "not_checked_reason": "slope",
-      "fitted_proteins": 2412,
-      "yardstick": "normcheck_yardstick_1"
-    },
-    {
-      "stratum": "organism part=liver",
-      "quant_basis": "msms_only",
-      "contrast_id": "c1",
-      "status": "no_warning",
-      "fitted_proteins": 1540,
-      "group_size": 3,
-      "delta0": -0.12,
-      "sigma0": 0.98,
-      "e_hat": -0.019,
-      "threshold": 0.363279703570296,
-      "yardstick": "normcheck_yardstick_1"
-    }
-  ],
   "families": [
     {
       "stratum": "all",

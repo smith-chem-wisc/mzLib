@@ -347,7 +347,6 @@ public static class DifferentialAnalysis
         private readonly List<DifferentialStratumInfo> _strata = new();
         private readonly List<DifferentialModelInfo> _models = new();
         private readonly List<DifferentialNormalizationInfo> _normalization = new();
-        private readonly List<DifferentialNormalizationCheck> _normalizationChecks = new();
         private readonly Dictionary<string, DifferentialContrastInfo> _contrastInfo = new(StringComparer.Ordinal);
         private readonly Dictionary<string, List<DifferentialGlobalShift>> _shifts = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _designSha256 = new(StringComparer.Ordinal);
@@ -411,7 +410,6 @@ public static class DifferentialAnalysis
                     .Select(c => _shifts.TryGetValue(c.Id, out var shifts) ? c with { GlobalShift = shifts } : c).ToList(),
                 Models = _models,
                 Normalization = _normalization,
-                NormalizationChecks = _normalizationChecks,
                 DesignWarnings = _designWarnings.Distinct(StringComparer.Ordinal).ToList(),
             };
             _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.Settings, DifferentialDecisionWriter.AnalysisStratum,
@@ -510,37 +508,24 @@ public static class DifferentialAnalysis
                 plans.Add(Plan(design, contrasts, group, features.GetValueOrDefault(group), groupInfo[group], tested));
 
             FitAndModerate(design, contrasts, plans, tested, normalization);
-            foreach (var c in contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable))
-                _normalizationChecks.Add(CheckNormalization(design, c.Contrast, normalization));
+            // The normalization check, only where it was calibrated: label-free, shared_peptide_median, robust, MS/MS only.
+            if (_style == "lfq" && _basis == QuantBasis.MsmsOnly.ToMachineName() && _request.Settings.Robust
+                && normalization is SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf)
+            {
+                var checks = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var c in contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable))
+                {
+                    var (numerator, denominator) = Sides(design, c.Contrast);
+                    if (numerator is null || denominator is null) continue;
+                    var fitted = _rows.Where(r => r.Stratum == stratum && r.ContrastId == c.Contrast.Id && DifferentialStatus.IsFitted(r.Status)
+                                                  && r.Log2Effect is { } e && double.IsFinite(e) && r.PValue is >= 0 and <= 1)
+                        .Select(r => (r.Log2Effect!.Value, r.PValue!.Value)).ToList();
+                    checks[c.Contrast.Id] = NormalizationCheck.Verdict(fitted, Math.Min(numerator.Count, denominator.Count));
+                }
+                int last = _normalization.Count - 1;
+                _normalization[last] = _normalization[last] with { Checks = checks };
+            }
             _strata.Add(StratumInfo(design));
-        }
-
-        /// <summary>
-        /// The normalization check of one estimable contrast in this stratum (<see cref="NormalizationCheck"/>), on the rows
-        /// <see cref="FitAndModerate"/> just added. It runs only where it was calibrated: label-free, normalized with
-        /// <c>shared_peptide_median</c> (every-sample or half set), robust weighting on, MS/MS values only; anything else is not
-        /// checked, naming the first setting that differs. (The runner has one method, <c>moderated</c>.)
-        /// </summary>
-        private DifferentialNormalizationCheck CheckNormalization(AnalysisDesign design, Contrast contrast, string normalization)
-        {
-            string stratum = design.Stratum;
-            var fitted = _rows.Where(r => r.Stratum == stratum && r.ContrastId == contrast.Id && r.Grain == DifferentialConstants.Grain
-                                          && DifferentialStatus.IsFitted(r.Status))
-                .Select(r => (r.Log2Effect ?? double.NaN, r.StandardError ?? double.NaN, r.Df ?? double.NaN)).ToList();
-            int usable = fitted.Count(f => double.IsFinite(f.Item1) && double.IsFinite(f.Item2) && f.Item2 > 0 && double.IsFinite(f.Item3));
-            var (numerator, denominator) = Sides(design, contrast);
-            if (numerator is null || denominator is null)
-                return NormalizationCheck.NotRun(stratum, _basis, contrast.Id, NormalizationCheck.Slope, usable, null);
-            int groupSize = Math.Min(numerator.Count, denominator.Count);
-            string? setting = _style != "lfq" ? _style
-                : normalization is not (SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf)
-                    ? normalization.StartsWith(SharedPeptideNormalization.BackgroundSetPrefix, StringComparison.Ordinal) ? "background_set" : normalization
-                : !_request.Settings.Robust ? "robust_off"
-                : _basis != QuantBasis.MsmsOnly.ToMachineName() ? _basis ?? "no_basis"
-                : null;
-            if (setting is not null)
-                return NormalizationCheck.NotRun(stratum, _basis, contrast.Id, NormalizationCheck.NotCalibratedPrefix + setting, usable, groupSize);
-            return NormalizationCheck.Check(stratum, _basis, contrast.Id, fitted, groupSize);
         }
 
         /// <summary>

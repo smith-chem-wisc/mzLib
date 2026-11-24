@@ -118,7 +118,7 @@ public static class StatisticalReportWriter
             .Append("`; nothing here is written by hand.\n\n");
         Methods(md, metadata, ordered);
         Design(md, metadata);
-        Results(md, metadata, ordered);
+        Results(md, ordered);
         var figures = Diagnostics(md, metadata, ordered, diagnostics);
         Checklist(md, metadata, ordered);
         if (decisions is not null) Decisions(md, decisions);
@@ -173,7 +173,11 @@ public static class StatisticalReportWriter
                 .Append(string.Join("; ", m.Inputs.Select(i =>
                     $"{i.Role}{(i.FileName.Length == 0 ? " (in memory)" : $" `{i.FileName}`")} (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
 
-        md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.").Append(NormalizedOrNot(m));
+        md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.");
+        int unshifted = m.Normalization.Count(n => n.Setting == SharedPeptideNormalization.None);
+        md.Append(m.Settings.Normalization == SharedPeptideNormalization.None || (m.Normalization.Count > 0 && unshifted == m.Normalization.Count)
+            ? " The data were not normalized." : unshifted == 0 ? " The data were normalized."
+            : " The data were normalized in some strata and not in others, as each stratum's sentence says.");
         if (m.Settings.NormalizationOverride is { } over)
             md.Append($" A curator overrode the default normalization: `{over}`.");
         if (m.Normalization.Count == 0)
@@ -182,12 +186,22 @@ public static class StatisticalReportWriter
         {
             md.Append($" Stratum `{n.Stratum}`{Basis(n.QuantBasis)}: ").Append(NormalizationSentence(n));
             if (n.Warnings.Count > 0) md.Append(" Warnings: ").Append(string.Join("; ", n.Warnings)).Append('.');
+            if (n.Checks is { Count: > 0 } checks)
+                md.Append(" Normalization check: ").Append(string.Join("; ", checks.OrderBy(c => c.Key, StringComparer.Ordinal)
+                    .Select(c => $"`{c.Key}` {c.Value}"))).Append('.');
         }
-        foreach (string assumption in m.Normalization.Select(n => NormalizationAssumption(n.Setting)).OfType<string>().Distinct(StringComparer.Ordinal))
-            md.Append(' ').Append(assumption);
+        if (m.Normalization.Any(n => n.Setting is SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf))
+            md.Append(" This assumes that most of the reference peptides do not change between the samples compared: if many change " +
+                      "in one direction, the shift also moves the proteins that did not change.");
+        if (m.Normalization.Any(n => n.Checks is not null))
+            md.Append(" The normalization check fits Efron's empirical null (2004) to each comparison's protein scores and warns when " +
+                      "its centre is further from 0 than a threshold set on null comparisons of 23 label-free deposits; it caught most " +
+                      "errors of 0.2 log2 or more only with 2,000 or more fitted proteins, and a comparison without a warning can still be off.");
+        else if (m.Normalization.Any(n => n.Setting != SharedPeptideNormalization.None))
+            md.Append(" The normalization check was not run: it is calibrated only for label-free data normalized with " +
+                      "`shared_peptide_median`, with robust weighting on and MS/MS values only.");
         if (m.Normalization.Count > 0) md.Append(" The per-sample shifts are in the metadata file.");
         md.Append("\n\n");
-        if (m.NormalizationChecks.Count > 0) NormalizationCheckMethods(md);
 
         md.Append("**Missing values.** Missing values were not imputed: each model was fitted on the observed values only. A ")
             .Append("missing value is an empty cell in the results file, never 0.\n\n");
@@ -235,93 +249,6 @@ public static class StatisticalReportWriter
         if (m.Settings.Seed is { } seed)
             md.Append($"**Seed.** Random seed: {seed.ToString(CultureInfo.InvariantCulture)}.\n\n");
     }
-
-    /// <summary>
-    /// Whether the data were normalized, said plainly from what each stratum's normalization did, not from the setting
-    /// asked for: a stratum whose reference set fell below the floor was not shifted, and its entry says <c>none</c>.
-    /// </summary>
-    private static string NormalizedOrNot(DifferentialMetadata m)
-    {
-        if (m.Settings.Normalization == SharedPeptideNormalization.None) return " The data were not normalized.";
-        if (m.Normalization.Count == 0) return " The data were normalized.";
-        int none = m.Normalization.Count(n => n.Setting == SharedPeptideNormalization.None);
-        return none == 0 ? " The data were normalized."
-            : none == m.Normalization.Count ? " The data were not normalized."
-            : " The data were normalized in some strata and not in others, as each stratum's sentence says.";
-    }
-
-    /// <summary>What a normalization setting assumes, in plain words; null for a setting with no stated assumption.</summary>
-    private static string? NormalizationAssumption(string setting) => setting switch
-    {
-        SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf =>
-            "This assumes that most of the reference peptides do not change between the samples compared: if many change in " +
-            "one direction, the shift also moves the proteins that did not change.",
-        _ when setting.StartsWith(SharedPeptideNormalization.BackgroundSetPrefix, StringComparison.Ordinal) =>
-            "This assumes that the declared background proteins do not change between the samples compared.",
-        "global_channel_median" =>
-            "This assumes that most proteins do not change between the samples compared, so that each channel's median reflects " +
-            "only how much was loaded.",
-        _ => null,
-    };
-
-    /// <summary>The normalization check's paragraph in Methods (<see cref="NormalizationCheck"/>): what it does, how it was
-    /// calibrated, what it can and cannot say, and where it does not run.</summary>
-    private static void NormalizationCheckMethods(StringBuilder md)
-    {
-        string T(int k) => NormalizationCheck.Threshold(k).ToString("0.00", CultureInfo.InvariantCulture);
-        string P(double rate) => (100 * rate).ToString("0.#", CultureInfo.InvariantCulture) + "%";
-        md.Append("**Normalization check.** After fitting, each comparison of two groups was checked for a normalization error, unless the check does not apply (below). ")
-            .Append("The scores of the proteins that did not change should centre on 0 (Efron's empirical null, 2004); a comparison ")
-            .Append("whose centre is further from 0 than a threshold carries a warning. ")
-            .Append($"The threshold was set on null comparisons of {NormalizationCheck.DevelopmentDeposits} label-free deposits: ")
-            .Append($"{T(2)}, {T(3)} and {T(4)} for groups of 2, 3, and 4 or more samples (`{NormalizationCheck.Yardstick}`). ")
-            .Append($"On {NormalizationCheck.TestDeposits} other deposits the check warned on {P(NormalizationCheck.TestFalseWarningRate)} ")
-            .Append($"of comparisons where nothing had changed. It caught {P(NormalizationCheck.TestDetectionLow)} to ")
-            .Append($"{P(NormalizationCheck.TestDetectionHigh)} of normalization errors of 0.2 log2 or more, but only in comparisons ")
-            .Append($"with {Int(NormalizationCheck.PoweredFittedProteins)} or more fitted proteins. ")
-            .Append("**A comparison without a warning can still be off.** ")
-            .Append($"The check is not run on a comparison with fewer than {Int(NormalizationCheck.MinimumFittedProteins)} fitted proteins, ")
-            .Append("on a slope, or under settings it was not calibrated on (label-free, `shared_peptide_median`, robust weighting on, ")
-            .Append("MS/MS values only); each such comparison is listed in section 3 as not checked, with the reason. The check changes ")
-            .Append("no result.\n\n");
-    }
-
-    /// <summary>Section 3's normalization-check lines: the counts, then a sentence for each warning and each comparison
-    /// not checked. A comparison checked without a warning gets no sentence.</summary>
-    private static void NormalizationCheckResults(StringBuilder md, DifferentialMetadata m)
-    {
-        var checks = m.NormalizationChecks.OrderBy(c => c.Stratum, StringComparer.Ordinal)
-            .ThenBy(c => c.QuantBasis ?? "", StringComparer.Ordinal).ThenBy(c => c.Contrast, StringComparer.Ordinal).ToList();
-        int warned = checks.Count(c => c.Status == NormalizationCheck.Warning);
-        int notChecked = checks.Count(c => c.Status == NormalizationCheck.NotChecked);
-        md.Append($"**Normalization check.** {Int(checks.Count - notChecked)} of {Int(checks.Count)} ")
-            .Append(checks.Count == 1 ? "comparison" : "comparisons")
-            .Append($" checked: {Int(warned)} with a warning; {Int(notChecked)} not checked.\n");
-        foreach (var c in checks)
-        {
-            string where = $"`{c.Contrast}` in stratum `{c.Stratum}`{Basis(c.QuantBasis)}";
-            if (c.Status == NormalizationCheck.Warning)
-                md.Append($"- Warning: the normalization of {where} looks off. The unchanged proteins' scores centre at ")
-                    .Append($"{Num(c.Delta0 ?? double.NaN)}, further from 0 than the threshold of {Num(c.Threshold ?? double.NaN)} for its ")
-                    .Append($"group size ({Int(c.GroupSize ?? 0)} samples in the smaller group). Its log2 changes may all be shifted.\n");
-            else if (c.Status == NormalizationCheck.NotChecked)
-                md.Append($"- Not checked: {where}: {NotCheckedText(c)}.\n");
-        }
-        md.Append('\n');
-    }
-
-    private static string NotCheckedText(DifferentialNormalizationCheck c) => (c.NotCheckedReason ?? "") switch
-    {
-        NormalizationCheck.FewerThanMinimumFitted =>
-            $"fewer than {Int(NormalizationCheck.MinimumFittedProteins)} fitted proteins ({Int(c.FittedProteins)})",
-        NormalizationCheck.FitFailed => "the empirical null could not be fitted to its scores",
-        NormalizationCheck.Slope => "a slope has no two groups to compare",
-        NormalizationCheck.GroupOfOne => "its smaller group has one sample",
-        { } r when r.StartsWith(NormalizationCheck.NotCalibratedPrefix, StringComparison.Ordinal) =>
-            "the check was calibrated only on label-free data normalized with `shared_peptide_median`, with robust weighting on " +
-            $"and MS/MS values only, and this run used `{r[NormalizationCheck.NotCalibratedPrefix.Length..]}`",
-        var r => $"`{r}`",
-    };
 
     private static string NormalizationSentence(DifferentialNormalizationInfo n) => n.Setting switch
     {
@@ -386,7 +313,7 @@ public static class StatisticalReportWriter
         md.Append('\n');
     }
 
-    private static void Results(StringBuilder md, DifferentialMetadata m, IReadOnlyList<DifferentialResult> rows)
+    private static void Results(StringBuilder md, IReadOnlyList<DifferentialResult> rows)
     {
         md.Append("## 3. Results\n\n");
         md.Append("| stratum | basis | grain | quantity | comparison | method | features | fitted | not fitted | adjusted p < 0.05 |\n");
@@ -404,7 +331,6 @@ public static class StatisticalReportWriter
             foreach (var s in b.Where(r => !DifferentialStatus.IsFitted(r.Status)).GroupBy(r => r.Status).OrderBy(g => g.Key, StringComparer.Ordinal))
                 md.Append($"| {Cell(b.Key.Stratum)} | {BasisCell(b.Key.Basis)} | {Cell(b.Key.Contrast)} | {Cell(b.Key.Method)} | {Cell(s.Key)} | {Int(s.Count())} |\n");
         md.Append("\nCounts at adjusted p < 0.05 are descriptive only; no feature is labelled significant.\n\n");
-        if (m.NormalizationChecks.Count > 0) NormalizationCheckResults(md, m);
     }
 
     private static IReadOnlyList<ReportFile> Diagnostics(StringBuilder md, DifferentialMetadata m, IReadOnlyList<DifferentialResult> rows,
@@ -430,14 +356,11 @@ public static class StatisticalReportWriter
             string where = $"stratum `{k.Stratum}`{Basis(k.Basis.Length == 0 ? null : k.Basis)}, `{k.Grain}` `{k.Quantity}`, comparison `{k.Contrast}`, method `{k.Method}`";
             string shortTitle = $"{k.Stratum}{(k.Basis.Length == 0 ? "" : ", " + k.Basis)}, {k.Contrast}";
             var list = family.ToList();
-            bool warned = m.NormalizationChecks.Any(c => c.Status == NormalizationCheck.Warning && c.Stratum == k.Stratum
-                                                         && (c.QuantBasis ?? "") == k.Basis && c.Contrast == k.Contrast);
             Add("pvalue_histogram", $"p-value histogram: {where}",
                 DiagnosticFigures.PValueHistogram($"p-values: {shortTitle}", list.Select(r => r.PValue ?? double.NaN).ToList()),
                 $"p-values of the {Int(list.Count)} fitted features in 20 bins of width 0.05 (bin k holds 0.05k ≤ p < 0.05(k+1); p = 1 is " +
                 "in the last bin). With no change anywhere the bars are flat; a spike near 0 over a flat floor is expected when some " +
-                "features change; a U shape, or a slope rising toward 1, signals a problem with the model or the data." +
-                (warned ? " The normalization check warned for this comparison (section 3)." : ""));
+                "features change; a U shape, or a slope rising toward 1, signals a problem with the model or the data.");
             int zero = list.Count(r => r.PValue == 0);
             Add("volcano", $"Volcano: {where}",
                 DiagnosticFigures.Volcano($"Volcano: {shortTitle}", list.Select(r => (r.FeatureId, r.Log2Effect ?? double.NaN, r.PValue ?? double.NaN)).ToList()),

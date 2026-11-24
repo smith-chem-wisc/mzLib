@@ -1,149 +1,108 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.Optimization;
 using MathNet.Numerics.Statistics;
-using StatisticalModels;
 
 namespace Quantification.Differential;
 
 /// <summary>
-/// The normalization check (QuantProject NORMCHECK, <c>DEF-DIFF-NORMCHECK</c>; <see cref="DifferentialNormalizationCheck"/>):
-/// after fitting, whether a two-sided comparison's results look shifted by a normalization error. It changes nothing in
-/// the results; a comparison it flags carries a warning, and one it does not flag is never called fine.
+/// The normalization check (QuantProject NORMCHECK, <c>DEF-DIFF-NORMCHECK</c>): does a two-group comparison look shifted
+/// by a normalization error? Each fitted protein's score is Efron's (2004) z-value of its test, sign(effect) Φ⁻¹(1 − p/2),
+/// clamped to [−8, 8]. Efron's empirical null is fitted to the scores; if the normalization is right, the proteins that did
+/// not change centre on 0, and the comparison warns when that centre δ0 is further from 0 than <see cref="Threshold"/>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The score.</b> Each fitted protein of the comparison (status <c>fitted</c> or <c>fitted_single_peptide</c>, with a
-/// finite effect, standard error above 0 and finite df) gets z = Φ⁻¹(T_df(t)), t = log2 effect / standard error, the
-/// z-value of Efron (2004), clamped to [−8, 8]. It is taken as sign(t) × −Φ⁻¹(T_df(−|t|)), which keeps its digits in the
-/// tails.
-/// </para>
-/// <para>
-/// <b>The fit.</b> <see cref="EmpiricalNull.Fit"/> fits Efron's empirical null to the scores. If the normalization is
-/// right, the proteins that did not change centre on 0; an error of e log2 moves them by about e over their standard
-/// errors, and δ0 with them. A comparison whose |δ0| is above <see cref="Threshold"/> for its group size is a warning.
-/// </para>
-/// <para>
-/// <b>Where it was calibrated</b> (QuantProject NORMCHECK third attempt, 2026-11-24): label-free comparisons of two groups
-/// run by this runner at mzLib 1.0.600's defaults (<c>shared_peptide_median</c>, robust weighting on), on MS/MS values
-/// only. The threshold is the 95th percentile of |δ0| over null comparisons (two groups drawn from one condition) of 23
-/// development deposits, deposits weighted equally, for groups of 2, 3 and 4 samples. On 19 test deposits it warned on
-/// 4.7% of null comparisons, and in comparisons with 2,000 or more fitted proteins it caught 79% (groups of 3) and 73%
-/// (groups of 4 or more) of planted normalization errors of 0.2 log2 or more; in smaller comparisons it caught 16% to 46%.
-/// Of the comparisons it did not flag, 18.7% still had an error of 0.2 or more, so no "fine" verdict is given. Anywhere
-/// else the check is not run, and the reason is recorded.
-/// </para>
+/// Calibrated on label-free two-group comparisons at this runner's defaults (QuantProject NORMCHECK third attempt,
+/// 2026-11-24): on 19 test deposits it warned on 4.7% of null comparisons and, with 2,000 or more fitted proteins, caught
+/// 73% to 79% of normalization errors of 0.2 log2 or more. Of the comparisons it did not flag, 18.7% still had such an
+/// error, so no comparison is ever called fine.
 /// </remarks>
 public static class NormalizationCheck
 {
-    /// <summary>A comparison the check flags: its |δ0| is above the threshold.</summary>
-    public const string Warning = "warning";
-    /// <summary>A comparison the check ran on and did not flag. It is not a verdict that the normalization is right.</summary>
-    public const string NoWarning = "no_warning";
-    /// <summary>A comparison the check did not run on; the reason says why.</summary>
-    public const string NotChecked = "not_checked";
-
-    /// <summary>Fewer than <see cref="MinimumFittedProteins"/> fitted proteins.</summary>
-    public const string FewerThanMinimumFitted = "fewer_than_200_fitted";
-    /// <summary>The empirical null could not be fitted to the scores.</summary>
-    public const string FitFailed = "fit_failed";
-    /// <summary>A slope (a covariate contrast) has no two groups.</summary>
-    public const string Slope = "slope";
-    /// <summary>The smaller group has one sample.</summary>
-    public const string GroupOfOne = "group_of_one";
-    /// <summary>Prefix of a reason naming a setting the check was not calibrated on, e.g. <c>not_calibrated:mbr_kept</c>.</summary>
-    public const string NotCalibratedPrefix = "not_calibrated:";
-
     /// <summary>The fewest fitted proteins the check runs on.</summary>
     public const int MinimumFittedProteins = 200;
-    /// <summary>The bound the scores are clamped to.</summary>
-    public const double ScoreBound = 8;
-    /// <summary>The threshold table's name, written with every check so a result names the table it was judged by.</summary>
-    public const string Yardstick = "normcheck_yardstick_1";
-
-    /// <summary>The calibration's numbers, for the report: development and test deposits.</summary>
-    public const int DevelopmentDeposits = 23, TestDeposits = 19;
-    /// <summary>The share of test null comparisons it warned on.</summary>
-    public const double TestFalseWarningRate = 0.047;
-    /// <summary>The detection rates for a true error of 0.2 log2 or more, in comparisons with
-    /// <see cref="PoweredFittedProteins"/> or more fitted proteins: groups of 4 or more, and groups of 3.</summary>
-    public const double TestDetectionLow = 0.73, TestDetectionHigh = 0.79;
-    /// <summary>The fitted proteins from which the check caught most errors of 0.2 log2 or more.</summary>
-    public const int PoweredFittedProteins = 2000;
 
     /// <summary>
-    /// The threshold on |δ0| for a comparison whose smaller group has <paramref name="groupSize"/> samples: 0.4107 for 2,
-    /// 0.3633 for 3, 0.4298 for 4 or more. Groups of 5 or more take the value measured on groups of 4; no larger group was
-    /// measured.
+    /// The |δ0| above which a comparison whose smaller group has <paramref name="groupSize"/> samples warns: the 95th
+    /// percentile of |δ0| over null comparisons of 23 development deposits, deposits weighted equally. Groups of 5 or more
+    /// take the value for 4; none larger was measured.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="groupSize"/> is below 2.</exception>
     public static double Threshold(int groupSize) => groupSize switch
     {
-        < 2 => throw new ArgumentOutOfRangeException(nameof(groupSize), groupSize, "A group of fewer than 2 samples has no threshold."),
+        < 2 => throw new ArgumentOutOfRangeException(nameof(groupSize), groupSize, "A group needs 2 samples or more."),
         2 => 0.410702939399882,
         3 => 0.363279703570296,
         _ => 0.429775562501974,
     };
 
-    /// <summary>Whether a comparison with this δ0 and group size warns: |δ0| above <see cref="Threshold"/>, so a δ0 on the
-    /// threshold does not.</summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="groupSize"/> is below 2.</exception>
-    public static bool Warns(double delta0, int groupSize) => Math.Abs(delta0) > Threshold(groupSize);
+    /// <summary>δ0 of the empirical null fitted to these proteins' scores, or NaN when it cannot be fitted.</summary>
+    /// <param name="fitted">Each fitted protein's log2 effect and two-sided p-value.</param>
+    public static double Centre(IEnumerable<(double Log2Effect, double PValue)> fitted) =>
+        FitNull(fitted.Select(f => Math.Clamp(Math.Sign(f.Log2Effect) * -Normal.InvCDF(0, 1, Math.Max(f.PValue / 2, double.Epsilon)), -8, 8))
+            .ToArray())?.Delta ?? double.NaN;
 
-    /// <summary>The clamped z-value of one fitted protein: sign(t) × −Φ⁻¹(T_df(−|t|)), t = effect / standard error.</summary>
-    public static double Score(double log2Effect, double standardError, double df)
+    /// <summary>The check of one comparison, as the phrase the metadata and the report carry.</summary>
+    internal static string Verdict(IReadOnlyList<(double Log2Effect, double PValue)> fitted, int groupSize)
     {
-        double t = log2Effect / standardError;
-        double tail = double.IsPositiveInfinity(df) ? Normal.CDF(0, 1, -Math.Abs(t)) : StudentT.CDF(0, 1, df, -Math.Abs(t));
-        double z = tail <= 0 ? ScoreBound : -Normal.InvCDF(0, 1, tail);
-        z = Math.Min(z, ScoreBound);
-        return t < 0 ? -z : z;
+        if (groupSize < 2) return "not checked: a group of one sample";
+        if (fitted.Count < MinimumFittedProteins)
+            return $"not checked: {fitted.Count} fitted proteins, fewer than {MinimumFittedProteins}";
+        double delta0 = Centre(fitted);
+        if (double.IsNaN(delta0)) return "not checked: no empirical null could be fitted";
+        string d = delta0.ToString("0.###", CultureInfo.InvariantCulture);
+        string t = Threshold(groupSize).ToString("0.###", CultureInfo.InvariantCulture);
+        return Math.Abs(delta0) > Threshold(groupSize)
+            ? $"warning: the unchanged proteins' scores centre at {d}, further from 0 than {t} for its group size, so its log2 changes may all be shifted"
+            : $"no warning (centre {d}, threshold {t})";
     }
 
     /// <summary>
-    /// Runs the check on one comparison's fitted proteins.
+    /// Efron's empirical null N(δ0, σ0²) by maximum likelihood on the scores in a central window (Efron 2007, Ann. Stat.
+    /// 35:1351, eq. 4.12: the normal truncated to the window). The window is R locfdr 1.1.8's default, which the papers do
+    /// not state: the median ± b (Q3 − Q1) / (2 Φ⁻¹(0.75)), b = 4.3 exp(−0.26 log10 N), then refitted on δ0 ± b σ0 of
+    /// the first fit. Written from that description, not from locfdr's source; null when either pass cannot be fitted.
     /// </summary>
-    /// <param name="stratum">The stratum.</param>
-    /// <param name="quantBasis">The quant basis, or null for a style with none.</param>
-    /// <param name="contrastId">The contrast.</param>
-    /// <param name="fitted">Each fitted protein's log2 effect, standard error and df; only those with a finite effect, a
-    /// finite standard error above 0 and a finite df are scored.</param>
-    /// <param name="groupSize">The smaller group's sample count.</param>
-    /// <exception cref="ArgumentNullException">A string or the list is null.</exception>
-    public static DifferentialNormalizationCheck Check(string stratum, string? quantBasis, string contrastId,
-        IEnumerable<(double Log2Effect, double StandardError, double Df)> fitted, int groupSize)
+    internal static (double Delta, double Sigma)? FitNull(double[] z)
     {
-        ArgumentNullException.ThrowIfNull(stratum);
-        ArgumentNullException.ThrowIfNull(contrastId);
-        ArgumentNullException.ThrowIfNull(fitted);
-        var usable = fitted.Where(f => double.IsFinite(f.Log2Effect) && double.IsFinite(f.StandardError) && f.StandardError > 0
-                                      && double.IsFinite(f.Df)).ToList();
-        if (groupSize < 2)
-            return NotRun(stratum, quantBasis, contrastId, GroupOfOne, usable.Count, groupSize);
-        if (usable.Count < MinimumFittedProteins)
-            return NotRun(stratum, quantBasis, contrastId, FewerThanMinimumFitted, usable.Count, groupSize);
-
-        var fit = EmpiricalNull.Fit(usable.Select(f => Score(f.Log2Effect, f.StandardError, f.Df)).ToArray());
-        if (fit.Status != EmpiricalNullStatus.Estimated)
-            return NotRun(stratum, quantBasis, contrastId, FitFailed, usable.Count, groupSize);
-
-        double threshold = Threshold(groupSize);
-        double eHat = fit.Delta * usable.Select(f => f.StandardError).Median();
-        return new DifferentialNormalizationCheck(stratum, quantBasis, contrastId,
-            Warns(fit.Delta, groupSize) ? Warning : NoWarning, null, usable.Count, groupSize, fit.Delta, fit.Sigma, eHat,
-            threshold, Yardstick);
+        if (z.Length < 3) return null;
+        Array.Sort(z);
+        double b = 4.3 * Math.Exp(-0.26 * Math.Log10(z.Length));
+        double Q(double p) => SortedArrayStatistics.QuantileCustom(z, p, QuantileDefinition.R7);
+        var first = FitWindow(z, Q(0.5), b * (Q(0.75) - Q(0.25)) / (2 * Normal.InvCDF(0, 1, 0.75)));
+        return first is { } f ? FitWindow(z, f.Delta, b * f.Sigma) : null;
     }
 
-    /// <summary>A comparison the check did not run on, with the reason.</summary>
-    /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public static DifferentialNormalizationCheck NotRun(string stratum, string? quantBasis, string contrastId, string reason,
-        int fittedProteins, int? groupSize)
+    /// <summary>The normal truncated to [centre − half, centre + half] that maximises the likelihood of the scores in it,
+    /// found by Nelder–Mead on the scores rescaled to [−1, 1], where it depends on them only through their mean and mean
+    /// square.</summary>
+    private static (double Delta, double Sigma)? FitWindow(double[] sorted, double centre, double half)
     {
-        ArgumentNullException.ThrowIfNull(stratum);
-        ArgumentNullException.ThrowIfNull(contrastId);
-        ArgumentNullException.ThrowIfNull(reason);
-        return new DifferentialNormalizationCheck(stratum, quantBasis, contrastId, NotChecked, reason, fittedProteins, groupSize,
-            null, null, null, null, Yardstick);
+        if (!(half > 0)) return null;
+        double[] u = sorted.Where(v => v >= centre - half && v <= centre + half).Select(v => (v - centre) / half).ToArray();
+        double m1 = u.Length < 3 ? 0 : u.Average(), m2 = u.Length < 3 ? 0 : u.Average(x => x * x);
+        if (!(m2 - m1 * m1 > 0)) return null;
+        double NegativeLogLikelihood(Vector<double> p)
+        {
+            double mu = p[0], s = Math.Exp(p[1]);
+            double inside = Normal.CDF(0, 1, (1 - mu) / s) - Normal.CDF(0, 1, (-1 - mu) / s);
+            if (!(inside > 0)) return double.PositiveInfinity;
+            return Math.Log(s) + Math.Log(inside) + (m2 - 2 * mu * m1 + mu * mu) / (2 * s * s);
+        }
+        try
+        {
+            var start = Vector<double>.Build.DenseOfArray(new[] { m1, 0.5 * Math.Log(m2 - m1 * m1) });
+            var best = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(NegativeLogLikelihood), start,
+                Vector<double>.Build.DenseOfArray(new[] { 0.1, 0.1 }), 1e-15, 20_000).MinimizingPoint;
+            double sigma = Math.Exp(best[1]);
+            return double.IsFinite(best[0]) && sigma < 1e4 ? (centre + half * best[0], half * sigma) : null;
+        }
+        catch (MaximumIterationsException)
+        {
+            return null;
+        }
     }
 }

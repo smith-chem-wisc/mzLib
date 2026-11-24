@@ -568,26 +568,11 @@ public sealed record DifferentialModelInfo(string Stratum, string? QuantBasis, s
 /// </summary>
 /// <param name="DeclaredGroups">With a background set: how many distinct groups it declared; null otherwise.</param>
 /// <param name="DeclaredGroupsAbsent">With a background set: the declared groups the table does not hold; null otherwise.</param>
+/// <param name="Checks">Where <see cref="NormalizationCheck"/> ran: each two-group contrast's verdict, by contrast id; null
+/// otherwise.</param>
 public sealed record DifferentialNormalizationInfo(string Stratum, string? QuantBasis, string Setting, int ReferenceSetSize,
     int MinimumReferenceSetSize, IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings,
-    int? DeclaredGroups = null, IReadOnlyList<string>? DeclaredGroupsAbsent = null);
-
-/// <summary>
-/// The normalization check of one contrast in one stratum and quant basis (<see cref="NormalizationCheck"/>,
-/// <c>DEF-DIFF-NORMCHECK</c>). <see cref="Status"/> is <c>warning</c>, <c>no_warning</c> (checked and not flagged, which is
-/// not a verdict that the normalization is right) or <c>not_checked</c>, with <see cref="NotCheckedReason"/> saying why.
-/// When checked, <see cref="Delta0"/> and <see cref="Sigma0"/> are the empirical null's centre and spread in z units,
-/// <see cref="EHat"/> is δ0 times the median standard error (roughly how far the unchanged proteins were moved, in log2;
-/// it can understate the error, and when a large share of proteins changes in one direction its size and sign can both
-/// mislead), and <see cref="Threshold"/> is the |δ0| above which it warns. All four are null when not
-/// checked. <see cref="QuantBasis"/> is null for styles with no basis.
-/// </summary>
-/// <param name="FittedProteins">The fitted proteins with a finite effect, standard error and df.</param>
-/// <param name="GroupSize">The smaller group's sample count; null for a slope.</param>
-/// <param name="Yardstick">The threshold table it was judged by.</param>
-public sealed record DifferentialNormalizationCheck(string Stratum, string? QuantBasis, string Contrast, string Status,
-    string? NotCheckedReason, int FittedProteins, int? GroupSize, double? Delta0, double? Sigma0, double? EHat,
-    double? Threshold, string Yardstick);
+    int? DeclaredGroups = null, IReadOnlyList<string>? DeclaredGroupsAbsent = null, IReadOnlyDictionary<string, string>? Checks = null);
 
 /// <summary>
 /// Everything constant across an analysis's rows (<c>DEF-DIFF-META</c>), written by <see cref="DifferentialMetadataWriter"/>.
@@ -613,8 +598,6 @@ public sealed record DifferentialMetadata
     public IReadOnlyList<DifferentialModelInfo> Models { get; init; } = Array.Empty<DifferentialModelInfo>();
     /// <summary>Per stratum and quant basis.</summary>
     public IReadOnlyList<DifferentialNormalizationInfo> Normalization { get; init; } = Array.Empty<DifferentialNormalizationInfo>();
-    /// <summary>Per stratum, quant basis and contrast: the normalization check (<c>DEF-DIFF-NORMCHECK</c>).</summary>
-    public IReadOnlyList<DifferentialNormalizationCheck> NormalizationChecks { get; init; } = Array.Empty<DifferentialNormalizationCheck>();
     /// <summary>Every design warning (replicate, fraction or technical-replicate gaps).</summary>
     public IReadOnlyList<string> DesignWarnings { get; init; } = Array.Empty<string>();
 
@@ -651,10 +634,9 @@ public static class DifferentialMetadataWriter
 {
     /// <summary>The metadata file's bytes for <paramref name="metadata"/> and the rows of its results table.</summary>
     /// <exception cref="ArgumentException">A row belongs to another analysis, or breaks the rows' contract; a global shift,
-    /// model, normalization or normalization-check entry names a stratum the metadata does not list, or appears twice for its
-    /// key; a global shift sits on a contrast without a numerator and a denominator; a prior names an unknown estimator, or
-    /// is trended with one variance, or constant without one; or a normalization check names an unlisted contrast, an unknown
-    /// status, or a reason or result that does not match its status.</exception>
+    /// model or normalization entry names a stratum the metadata does not list, or appears twice for its key; a global shift
+    /// sits on a contrast without a numerator and a denominator; or a prior names an unknown estimator, or is trended with
+    /// one variance, or constant without one.</exception>
     public static byte[] ToBytes(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows) =>
         ToBytes(metadata, rows, null);
 
@@ -807,27 +789,7 @@ public static class DifferentialMetadataWriter
                 w.WriteStartArray("warnings");
                 foreach (var warning in n.Warnings) w.WriteStringValue(warning);
                 w.WriteEndArray();
-                w.WriteEndObject();
-            }
-            w.WriteEndArray();
-
-            w.WriteStartArray("normalization_checks");
-            foreach (var c in metadata.NormalizationChecks.OrderBy(c => c.Stratum, StringComparer.Ordinal)
-                         .ThenBy(c => c.QuantBasis ?? "", StringComparer.Ordinal).ThenBy(c => c.Contrast, StringComparer.Ordinal))
-            {
-                w.WriteStartObject();
-                w.WriteString("stratum", c.Stratum);
-                Optional(w, "quant_basis", c.QuantBasis);
-                w.WriteString("contrast_id", c.Contrast);
-                w.WriteString("status", c.Status);
-                Optional(w, "not_checked_reason", c.NotCheckedReason);
-                w.WriteNumber("fitted_proteins", c.FittedProteins);
-                if (c.GroupSize is { } k) w.WriteNumber("group_size", k);
-                if (c.Delta0 is { } delta0) Number(w, "delta0", delta0);
-                if (c.Sigma0 is { } sigma0) Number(w, "sigma0", sigma0);
-                if (c.EHat is { } eHat) Number(w, "e_hat", eHat);
-                if (c.Threshold is { } threshold) Number(w, "threshold", threshold);
-                w.WriteString("yardstick", c.Yardstick);
+                if (n.Checks is { } checks) Map(w, "normalization_check", checks, (k, v) => w.WriteString(k, v));
                 w.WriteEndObject();
             }
             w.WriteEndArray();
@@ -872,10 +834,9 @@ public static class DifferentialMetadataWriter
     }
 
     /// <summary>
-    /// Every global shift, model, normalization and normalization-check entry names a listed stratum and appears once for its
-    /// key; a global shift sits on a contrast with a numerator and a denominator; a prior names a known estimator and has one
-    /// variance exactly when it is constant; a normalization check names a listed contrast and a known status, gives a reason
-    /// exactly when it did not run and a result exactly when it did.
+    /// Every global shift, model and normalization entry names a listed stratum and appears once for its key; a global
+    /// shift sits on a contrast with a numerator and a denominator; a prior names a known estimator and has one variance
+    /// exactly when it is constant.
     /// </summary>
     private static void ValidateMetadata(DifferentialMetadata metadata)
     {
@@ -933,31 +894,6 @@ public static class DifferentialMetadataWriter
             Listed(n.Stratum, at);
             if (!normalization.Add((n.Stratum, n.QuantBasis ?? "")))
                 throw new ArgumentException($"{at} appears twice.", nameof(metadata));
-        }
-
-        var contrasts = metadata.Contrasts.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
-        var checks = new HashSet<(string, string, string)>();
-        foreach (var c in metadata.NormalizationChecks)
-        {
-            string at = $"The normalization check for stratum '{c.Stratum}', quant basis '{c.QuantBasis}' and contrast '{c.Contrast}'";
-            Listed(c.Stratum, at);
-            if (!contrasts.Contains(c.Contrast))
-                throw new ArgumentException($"{at} names a contrast the metadata does not list.", nameof(metadata));
-            if (!checks.Add((c.Stratum, c.QuantBasis ?? "", c.Contrast)))
-                throw new ArgumentException($"{at} appears twice.", nameof(metadata));
-            bool ran = c.Status is NormalizationCheck.Warning or NormalizationCheck.NoWarning;
-            if (!ran && c.Status != NormalizationCheck.NotChecked)
-                throw new ArgumentException($"{at} has status '{c.Status}', which is none of '{NormalizationCheck.Warning}', " +
-                                            $"'{NormalizationCheck.NoWarning}' and '{NormalizationCheck.NotChecked}'.", nameof(metadata));
-            if (ran != (c.NotCheckedReason is null))
-                throw new ArgumentException(ran ? $"{at} ran but gives a reason for not running."
-                    : $"{at} was not checked but gives no reason.", nameof(metadata));
-            if (ran != (c.Delta0 is not null && c.Sigma0 is not null && c.EHat is not null && c.Threshold is not null)
-                || (!ran && (c.Delta0 is not null || c.Sigma0 is not null || c.EHat is not null || c.Threshold is not null)))
-                throw new ArgumentException(ran ? $"{at} ran but lacks delta0, sigma0, e_hat or its threshold."
-                    : $"{at} was not checked but carries a result.", nameof(metadata));
-            if (c.NotCheckedReason is { } reason && reason.Any(char.IsWhiteSpace))
-                throw new ArgumentException($"{at} has a reason with whitespace, '{reason}'.", nameof(metadata));
         }
     }
 

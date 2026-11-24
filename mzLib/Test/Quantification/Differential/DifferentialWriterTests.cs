@@ -311,15 +311,6 @@ public class DifferentialWriterTests
             new DifferentialNormalizationInfo("all", "mbr_kept", "shared_peptide_median", 812, 100,
                 new Dictionary<string, double> { ["s01"] = 0.1, ["s02"] = -0.05 }, new[] { "sample s12 has no value" }),
         },
-        NormalizationChecks = new[]
-        {
-            new DifferentialNormalizationCheck("all", "msms_only", "c1", NormalizationCheck.Warning, null, 2412, 6, 0.52, 1.03, 0.081,
-                NormalizationCheck.Threshold(6), NormalizationCheck.Yardstick),
-            new DifferentialNormalizationCheck("organism part=liver", "msms_only", "c1", NormalizationCheck.NoWarning, null, 1540, 3,
-                -0.12, 0.98, -0.019, NormalizationCheck.Threshold(3), NormalizationCheck.Yardstick),
-            NormalizationCheck.NotRun("all", "mbr_kept", "c1", NormalizationCheck.NotCalibratedPrefix + "mbr_kept", 2390, 6),
-            NormalizationCheck.NotRun("all", "msms_only", "c2", NormalizationCheck.Slope, 2412, null),
-        },
         DesignWarnings = new[] { "biological replicate 3 of condition old is absent" },
     };
 
@@ -348,7 +339,7 @@ public class DifferentialWriterTests
         Assert.That(doc.RootElement.EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
         {
             "definition_version", "analysis_id", "software", "inputs", "settings", "columns", "strata", "contrasts", "models",
-            "normalization", "normalization_checks", "families", "design_warnings", "row_count", "cleaned_text_cells",
+            "normalization", "families", "design_warnings", "row_count", "cleaned_text_cells",
         }));
         Assert.That(doc.RootElement.GetProperty("cleaned_text_cells").GetInt32(), Is.EqualTo(0));
         var root = doc.RootElement;
@@ -525,43 +516,6 @@ public class DifferentialWriterTests
         var m = Metadata();
         AssertRefused(m with { Normalization = new[] { m.Normalization[0], m.Normalization[0] } }, "twice");
         AssertRefused(m with { Normalization = new[] { m.Normalization[0] with { Stratum = "organism part=brain" } } }, "'organism part=brain'");
-    }
-
-    [Test]
-    public void NormalizationChecksArePerStratumBasisAndContrastAndCarryAResultOnlyWhenRun()
-    {
-        var root = Root(Metadata(), out var doc);
-        using (doc)
-        {
-            var entries = root.GetProperty("normalization_checks").EnumerateArray().ToList();
-            Assert.That(entries.Select(e => (e.GetProperty("stratum").GetString(), e.GetProperty("quant_basis").GetString(),
-                    e.GetProperty("contrast_id").GetString())),
-                Is.EqualTo(new[] { ("all", "mbr_kept", "c1"), ("all", "msms_only", "c1"), ("all", "msms_only", "c2"),
-                    ("organism part=liver", "msms_only", "c1") }), "ordinal order on (stratum, basis, contrast)");
-            Assert.That(entries[1].EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
-            {
-                "stratum", "quant_basis", "contrast_id", "status", "fitted_proteins", "group_size", "delta0", "sigma0", "e_hat",
-                "threshold", "yardstick",
-            }), "a check that ran");
-            Assert.That(entries[0].EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
-            {
-                "stratum", "quant_basis", "contrast_id", "status", "not_checked_reason", "fitted_proteins", "group_size", "yardstick",
-            }), "a check that did not run: no result");
-            Assert.That(entries[2].TryGetProperty("group_size", out _), Is.False, "a slope has no group size");
-            Assert.That(entries[1].GetProperty("threshold").GetDouble(), Is.EqualTo(0.429775562501974));
-        }
-        var m = Metadata();
-        var ran = m.NormalizationChecks[0];
-        var notRun = m.NormalizationChecks[2];
-        AssertRefused(m with { NormalizationChecks = new[] { ran, ran } }, "twice");
-        AssertRefused(m with { NormalizationChecks = new[] { ran with { Stratum = "organism part=brain" } } }, "'organism part=brain'");
-        AssertRefused(m with { NormalizationChecks = new[] { ran with { Contrast = "c9" } } }, "contrast the metadata does not list");
-        AssertRefused(m with { NormalizationChecks = new[] { ran with { Status = "fine" } } }, "status 'fine'");
-        AssertRefused(m with { NormalizationChecks = new[] { ran with { NotCheckedReason = "slope" } } }, "gives a reason");
-        AssertRefused(m with { NormalizationChecks = new[] { ran with { Sigma0 = null } } }, "lacks");
-        AssertRefused(m with { NormalizationChecks = new[] { notRun with { NotCheckedReason = null } } }, "gives no reason");
-        AssertRefused(m with { NormalizationChecks = new[] { notRun with { Delta0 = 0.1 } } }, "carries a result");
-        AssertRefused(m with { NormalizationChecks = new[] { notRun with { NotCheckedReason = "too few" } } }, "whitespace");
     }
 
     [Test]
