@@ -353,6 +353,7 @@ namespace Readers.SpectralLibrary
             int z = 2;
             double precursorMz = 0;
             double? rt = null;
+            bool? rtIsIrt = null; // iRT= is iRT; RT= is minutes in one run (as MetaMorpheus writes it)
             List<MatchedFragmentIon> matchedFragmentIons = new List<MatchedFragmentIon>();
 
             while (reader.Peek() > 0)
@@ -369,7 +370,7 @@ namespace Readers.SpectralLibrary
 
                     if (sequence != null)
                     {
-                        return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt);
+                        return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt) { RetentionTimeIsIrt = rtIsIrt };
                     }
 
                     split = line.Split(nameSplit);
@@ -406,6 +407,7 @@ namespace Readers.SpectralLibrary
                     if (indOfRt > 0)
                     {
                         rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
+                        rtIsIrt = true;
                     }
                     else
                     {
@@ -415,6 +417,7 @@ namespace Readers.SpectralLibrary
                         if (indOfRt > 0 && split[indOfRt + 1].Length > 0)
                         {
                             rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
+                            rtIsIrt = false;
                         }
                     }
 
@@ -491,7 +494,7 @@ namespace Readers.SpectralLibrary
                 {
                     if (onlyReadHeader)
                     {
-                        return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt);
+                        return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt) { RetentionTimeIsIrt = rtIsIrt };
                     }
 
                     // this assumes that the peaks are listed after the "Num peaks" line
@@ -503,7 +506,7 @@ namespace Readers.SpectralLibrary
                 }
             }
 
-            return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt);
+            return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt) { RetentionTimeIsIrt = rtIsIrt };
         }
 
         private LibrarySpectrum ReadLibrarySpectrum_pDeep(StreamReader reader, bool onlyReadHeader = false)

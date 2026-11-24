@@ -31,18 +31,6 @@ internal static class MslRetentionTimeUpdater
 	/// <summary>A third of the anchored span whose median residual exceeds this many residual SDs is unreliable.</summary>
 	private const double MaxThirdBiasInResidualSds = 1.0;
 
-	/// <summary>The tiebreak replaces a stored time farther than this from the prediction ...</summary>
-	private const double TiebreakFarFromPrediction = 15.0;
-
-	/// <summary>... with a new time within this of it.</summary>
-	private const double TiebreakNearPrediction = 5.0;
-
-	/// <summary>
-	/// Added to a predicted iRT to give the expected measured iRT, by base length (7-10, 11-15, 16-20,
-	/// 21-25, 26-30 residues): the median of measured minus Prosit 2025 iRT on held-out mouse runs.
-	/// </summary>
-	private static readonly double[] PredictionOffsetByLength = { -3.54, 0.35, 2.39, 4.90, 4.91 };
-
 	internal static (List<MslLibraryEntry> Entries, MslRetentionTimeUpdateResult Result) Update(
 		IReadOnlyList<MslLibraryEntry> entries,
 		IReadOnlyList<MslRunObservations> runs,
@@ -375,6 +363,11 @@ internal static class MslRetentionTimeUpdater
 		}
 		counts.OnlyConfirmations = counts.Overlaps > 0 && counts.OverlapsDisagreeing > o.DatasetDisagreementLimit * counts.Overlaps;
 
+		// The expected measured iRT: the prediction plus the offset for its length (the predictor's own;
+		// Prosit 2025's by default)
+		double[] offsetByLength = o.PredictionOffsetByLength.ToArray();
+		double LengthCorrected(double prediction, SequenceInfo info) => prediction + offsetByLength[LengthBin(info.Length)];
+
 		// The prediction's verdict on a measured time: Prosit (length-corrected) for unmodified 7-30 aa or
 		// Oxidation-on-M-only peptides; the long-peptide predictor for unmodified ones over 30 aa; any other
 		// peptide, or no prediction, is never struck
@@ -383,7 +376,7 @@ internal static class MslRetentionTimeUpdater
 			if (info.PrositClass)
 			{
 				double p = prosit.Get(full);
-				return !double.IsFinite(p) || Math.Abs(x - (p + PredictionOffsetByLength[LengthBin(info.Length)])) <= o.PredictionTolerance;
+				return !double.IsFinite(p) || Math.Abs(x - LengthCorrected(p, info)) <= o.PredictionTolerance;
 			}
 			if (info.Unmodified && info.Length > 30)
 			{
@@ -397,7 +390,7 @@ internal static class MslRetentionTimeUpdater
 		bool TiebreakReplaces(string full, SequenceInfo info, double stored, double x)
 		{
 			double p = info.Unmodified ? prosit.Get(full) : double.NaN;
-			return double.IsFinite(p) && Math.Abs(stored - p) > TiebreakFarFromPrediction && Math.Abs(x - p) <= TiebreakNearPrediction;
+			return double.IsFinite(p) && Math.Abs(stored - p) > o.TiebreakFarFromPrediction && Math.Abs(x - p) <= o.TiebreakNearPrediction;
 		}
 
 		var result = entries.ToList();
@@ -442,7 +435,7 @@ internal static class MslRetentionTimeUpdater
 			{
 				// A single-run time that disagrees with the stored time must at least agree with the prediction
 				double p = prosit.Get(full);
-				if (double.IsFinite(p) && Math.Abs(x - (p + PredictionOffsetByLength[LengthBin(info.Length)])) > o.PredictionTolerance)
+				if (double.IsFinite(p) && Math.Abs(x - LengthCorrected(p, info)) > o.PredictionTolerance)
 				{
 					counts.RefusedSingleRunTimes++;
 					continue;

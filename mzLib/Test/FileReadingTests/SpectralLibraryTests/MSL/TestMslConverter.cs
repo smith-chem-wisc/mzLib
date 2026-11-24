@@ -426,6 +426,106 @@ public sealed class TestMslConverter
 		Assert.That(ex!.Message, Does.Contain("None of the 1 spectra").And.Contain("'/2'"));
 	}
 
+	// ── Retention-time scale: RT= is run minutes, iRT= is iRT ─────────────────
+
+	/// <summary>An .msp of three spectra: one with RT= (minutes), one with iRT=, one with no time.</summary>
+	private static string WriteMspWithEachTimeKey(string fileName)
+	{
+		string path = Path.Combine(OutputDirectory, fileName);
+		File.WriteAllLines(path, new[]
+		{
+			"Name: MINUTESK/2",
+			"MW: 500.0",
+			"Comment: Parent=500.0 RT=12.5",
+			"Num peaks: 1",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+			"Name: IRTK/2",
+			"MW: 600.0",
+			"Comment: Parent=600.0 iRT=33.25",
+			"Num peaks: 1",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+			"Name: NOTIMEK/2",
+			"MW: 700.0",
+			"Comment: Parent=700.0",
+			"Num peaks: 1",
+			"175.11903\t1\t\"y1^1/0ppm\"",
+		});
+		return path;
+	}
+
+	/// <summary>
+	/// The .msp reader records which key a time came from, and <see cref="MslConverter.FromMspFile"/> stores an
+	/// RT= time as run minutes (RtIsCalibrated) and an iRT= time as iRT, so a converted MetaMorpheus .msp no longer
+	/// passes for an iRT library. A spectrum with no time has no scale.
+	/// </summary>
+	[Test]
+	public void FromMspFile_StoresRtAsRunMinutes_AndIrtAsIrt()
+	{
+		string path = WriteMspWithEachTimeKey("time_keys.msp");
+
+		var reader = new MspReader(new List<string> { path });
+		var spectra = reader.GetAllLibrarySpectra().ToDictionary(s => s.Sequence);
+		reader.CloseConnections();
+		Assert.That((spectra["MINUTESK"].RetentionTime, spectra["MINUTESK"].RetentionTimeIsIrt), Is.EqualTo(((double?)12.5, (bool?)false)));
+		Assert.That((spectra["IRTK"].RetentionTime, spectra["IRTK"].RetentionTimeIsIrt), Is.EqualTo(((double?)33.25, (bool?)true)));
+		Assert.That((spectra["NOTIMEK"].RetentionTime, spectra["NOTIMEK"].RetentionTimeIsIrt), Is.EqualTo(((double?)null, (bool?)null)));
+
+		using MslLibrary lib = MslConverter.FromMspFile(path);
+		var entries = lib.GetAllEntries().ToDictionary(e => e.FullSequence);
+		Assert.That((entries["MINUTESK"].RetentionTime, entries["MINUTESK"].RtIsCalibrated), Is.EqualTo((12.5, true)));
+		Assert.That((entries["IRTK"].RetentionTime, entries["IRTK"].RtIsCalibrated), Is.EqualTo((33.25, false)));
+		Assert.That(entries["NOTIMEK"].RetentionTime, Is.NaN);
+		Assert.That(entries["NOTIMEK"].RtIsCalibrated, Is.False);
+	}
+
+	/// <summary>
+	/// The scale survives every conversion: an .msl entry to a spectrum and back, and a spectrum written as .msp
+	/// (iRT= for iRT, RT= for minutes) and read again. A spectrum whose scale is not known is written RT=, as before,
+	/// and converts to iRT, as before.
+	/// </summary>
+	[Test]
+	public void TheTimeScale_SurvivesMslSpectrumAndMspRoundTrips()
+	{
+		MslLibraryEntry Entry(string sequence, double rt, bool minutes) => new()
+		{
+			FullSequence = sequence,
+			BaseSequence = sequence,
+			PrecursorMz = 500,
+			ChargeState = 2,
+			RetentionTime = rt,
+			RtIsCalibrated = minutes,
+			MatchedFragmentIons = new List<MslFragmentIon>
+			{
+				new() { Mz = 175.11903f, Intensity = 1f, ProductType = ProductType.y, FragmentNumber = 1, Charge = 1 }
+			}
+		};
+
+		LibrarySpectrum minutes = Entry("MINUTESK", 12.5, minutes: true).ToLibrarySpectrum();
+		LibrarySpectrum irt = Entry("IRTK", 33.25, minutes: false).ToLibrarySpectrum();
+		LibrarySpectrum none = Entry("NOTIMEK", double.NaN, minutes: true).ToLibrarySpectrum();
+		Assert.That((minutes.RetentionTimeIsIrt, irt.RetentionTimeIsIrt, none.RetentionTimeIsIrt), Is.EqualTo(((bool?)false, (bool?)true, (bool?)null)));
+
+		Assert.That(MslLibraryEntry.FromLibrarySpectrum(minutes)!.RtIsCalibrated, Is.True);
+		Assert.That(MslLibraryEntry.FromLibrarySpectrum(irt)!.RtIsCalibrated, Is.False);
+		Assert.That(MslLibraryEntry.FromLibrarySpectrum(none)!.RtIsCalibrated, Is.False, "no time, no scale");
+
+		Assert.That(minutes.ToString(), Does.Contain(" RT=12.5").And.Not.Contain("iRT="));
+		Assert.That(irt.ToString(), Does.Contain(" iRT=33.25"));
+		Assert.That(none.ToString(), Does.Not.Contain("RT="));
+
+		var unknown = new LibrarySpectrum("UNKNOWNK", 500, 2, minutes.MatchedFragmentIons, 40.0);
+		Assert.That(unknown.ToString(), Does.Contain(" RT=40").And.Not.Contain("iRT="), "a scale not known is written as before");
+		Assert.That(MslLibraryEntry.FromLibrarySpectrum(unknown)!.RtIsCalibrated, Is.False, "and converts as before");
+
+		string path = Path.Combine(OutputDirectory, "time_keys_written.msp");
+		File.WriteAllLines(path, new[] { minutes.ToString(), irt.ToString(), none.ToString() });
+		using MslLibrary lib = MslConverter.FromMspFile(path);
+		var entries = lib.GetAllEntries().ToDictionary(e => e.FullSequence);
+		Assert.That((entries["MINUTESK"].RetentionTime, entries["MINUTESK"].RtIsCalibrated), Is.EqualTo((12.5, true)));
+		Assert.That((entries["IRTK"].RetentionTime, entries["IRTK"].RtIsCalibrated), Is.EqualTo((33.25, false)));
+		Assert.That(entries["NOTIMEK"].RetentionTime, Is.NaN);
+	}
+
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	/// <summary>
