@@ -69,6 +69,12 @@ public class StatisticalReportTests
             new DifferentialNormalizationInfo("all", "msms_only", "shared_peptide_median", 790, 100,
                 new Dictionary<string, double> { ["s01"] = 0.11, ["s02"] = -0.04 }, Array.Empty<string>()),
         },
+        NormalizationChecks = new[]
+        {
+            new DifferentialNormalizationCheck("all", "msms_only", "c1", NormalizationCheck.Warning, null, 2412, 6, 0.52, 1.03, 0.081,
+                NormalizationCheck.Threshold(6), NormalizationCheck.Yardstick),
+            NormalizationCheck.NotRun("all", "mbr_kept", "c1", NormalizationCheck.NotCalibratedPrefix + "mbr_kept", 2390, 6),
+        },
         DesignWarnings = new[] { "biological replicate 3 of condition old is absent" },
     };
 

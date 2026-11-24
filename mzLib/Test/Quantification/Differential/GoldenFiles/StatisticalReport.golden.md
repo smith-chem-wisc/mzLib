@@ -8,7 +8,9 @@ Analysis `f0276d430c1a7002` (`DEF-DIFF v1`). Generated from `DifferentialResults
 
 **Inputs.** observation_table `observations.tsv` (sha256 `1111111111111111...`); design `design.tsv` (sha256 `2222222222222222...`).
 
-**Transformation and normalization.** All quantities were analysed on the log2 scale. Stratum `all`, basis `mbr_kept`: each sample was shifted by its median log2 difference from the across-sample reference, over the 812 peptides with a value in every sample that has values (at least 100 required). Stratum `all`, basis `msms_only`: each sample was shifted by its median log2 difference from the across-sample reference, over the 790 peptides with a value in every sample that has values (at least 100 required). The per-sample shifts are in the metadata file.
+**Transformation and normalization.** All quantities were analysed on the log2 scale. The data were normalized. Stratum `all`, basis `mbr_kept`: each sample was shifted by its median log2 difference from the across-sample reference, over the 812 peptides with a value in every sample that has values (at least 100 required). Stratum `all`, basis `msms_only`: each sample was shifted by its median log2 difference from the across-sample reference, over the 790 peptides with a value in every sample that has values (at least 100 required). This assumes that most of the reference peptides do not change between the samples compared: if many change in one direction, the shift also moves the proteins that did not change. The per-sample shifts are in the metadata file.
+
+**Normalization check.** After fitting, each comparison of two groups was checked for a normalization error, unless the check does not apply (below). The scores of the proteins that did not change should centre on 0 (Efron's empirical null, 2004); a comparison whose centre is further from 0 than a threshold carries a warning. The threshold was set on null comparisons of 23 label-free deposits: 0.41, 0.36 and 0.43 for groups of 2, 3, and 4 or more samples (`normcheck_yardstick_1`). On 19 other deposits the check warned on 4.7% of comparisons where nothing had changed. It caught 73% to 79% of normalization errors of 0.2 log2 or more, but only in comparisons with 2,000 or more fitted proteins. **A comparison without a warning can still be off.** The check is not run on a comparison with fewer than 200 fitted proteins, on a slope, or under settings it was not calibrated on (label-free, `shared_peptide_median`, robust weighting on, MS/MS values only); each such comparison is listed in section 3 as not checked, with the reason. The check changes no result.
 
 **Missing values.** Missing values were not imputed: each model was fitted on the observed values only. A missing value is an empty cell in the results file, never 0.
 
@@ -71,6 +73,10 @@ Not fitted, by reason:
 
 Counts at adjusted p < 0.05 are descriptive only; no feature is labelled significant.
 
+**Normalization check.** 1 of 2 comparisons checked: 1 with a warning; 1 not checked.
+- Not checked: `c1` in stratum `all`, basis `mbr_kept`: the check was calibrated only on label-free data normalized with `shared_peptide_median`, with robust weighting on and MS/MS values only, and this run used `mbr_kept`.
+- Warning: the normalization of `c1` in stratum `all`, basis `msms_only` looks off. The unchanged proteins' scores centre at 0.52, further from 0 than the threshold of 0.43 for its group size (6 samples in the smaller group). Its log2 changes may all be shifted.
+
 ## 4. Diagnostics
 
 ### Figure 1. p-value histogram: stratum `all`, basis `mbr_kept`, `protein_group` `abundance`, comparison `c1`, method `moderated`
@@ -89,7 +95,7 @@ log2 effect against -log10(p) for the 20 fitted features; no threshold lines are
 
 ![Figure 3](figures/figure_03_pvalue_histogram.svg)
 
-p-values of the 20 fitted features in 20 bins of width 0.05 (bin k holds 0.05k ≤ p < 0.05(k+1); p = 1 is in the last bin). With no change anywhere the bars are flat; a spike near 0 over a flat floor is expected when some features change; a U shape, or a slope rising toward 1, signals a problem with the model or the data. Data: [`figure_03_pvalue_histogram.tsv`](figures/figure_03_pvalue_histogram.tsv).
+p-values of the 20 fitted features in 20 bins of width 0.05 (bin k holds 0.05k ≤ p < 0.05(k+1); p = 1 is in the last bin). With no change anywhere the bars are flat; a spike near 0 over a flat floor is expected when some features change; a U shape, or a slope rising toward 1, signals a problem with the model or the data. The normalization check warned for this comparison (section 3). Data: [`figure_03_pvalue_histogram.tsv`](figures/figure_03_pvalue_histogram.tsv).
 
 ### Figure 4. Volcano: stratum `all`, basis `msms_only`, `protein_group` `abundance`, comparison `c1`, method `moderated`
 

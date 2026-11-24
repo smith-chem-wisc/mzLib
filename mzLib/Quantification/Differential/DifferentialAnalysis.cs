@@ -347,6 +347,7 @@ public static class DifferentialAnalysis
         private readonly List<DifferentialStratumInfo> _strata = new();
         private readonly List<DifferentialModelInfo> _models = new();
         private readonly List<DifferentialNormalizationInfo> _normalization = new();
+        private readonly List<DifferentialNormalizationCheck> _normalizationChecks = new();
         private readonly Dictionary<string, DifferentialContrastInfo> _contrastInfo = new(StringComparer.Ordinal);
         private readonly Dictionary<string, List<DifferentialGlobalShift>> _shifts = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _designSha256 = new(StringComparer.Ordinal);
@@ -410,6 +411,7 @@ public static class DifferentialAnalysis
                     .Select(c => _shifts.TryGetValue(c.Id, out var shifts) ? c with { GlobalShift = shifts } : c).ToList(),
                 Models = _models,
                 Normalization = _normalization,
+                NormalizationChecks = _normalizationChecks,
                 DesignWarnings = _designWarnings.Distinct(StringComparer.Ordinal).ToList(),
             };
             _decisions.Add(new DifferentialDecision(DifferentialDecisionRules.Settings, DifferentialDecisionWriter.AnalysisStratum,
@@ -508,7 +510,38 @@ public static class DifferentialAnalysis
                 plans.Add(Plan(design, contrasts, group, features.GetValueOrDefault(group), groupInfo[group], tested));
 
             FitAndModerate(design, contrasts, plans, tested, normalization);
+            foreach (var c in contrasts.Where(c => c.Estimability == AnalysisDesign.Estimable))
+                _normalizationChecks.Add(CheckNormalization(design, c.Contrast, normalization));
             _strata.Add(StratumInfo(design));
+        }
+
+        /// <summary>
+        /// The normalization check of one estimable contrast in this stratum (<see cref="NormalizationCheck"/>), on the rows
+        /// <see cref="FitAndModerate"/> just added. It runs only where it was calibrated: label-free, normalized with
+        /// <c>shared_peptide_median</c> (every-sample or half set), robust weighting on, method <c>moderated</c>, MS/MS values
+        /// only; anything else is not checked, naming the first setting that differs.
+        /// </summary>
+        private DifferentialNormalizationCheck CheckNormalization(AnalysisDesign design, Contrast contrast, string normalization)
+        {
+            string stratum = design.Stratum;
+            var fitted = _rows.Where(r => r.Stratum == stratum && r.ContrastId == contrast.Id && r.Grain == DifferentialConstants.Grain
+                                          && DifferentialStatus.IsFitted(r.Status))
+                .Select(r => (r.Log2Effect ?? double.NaN, r.StandardError ?? double.NaN, r.Df ?? double.NaN)).ToList();
+            int usable = fitted.Count(f => double.IsFinite(f.Item1) && double.IsFinite(f.Item2) && f.Item2 > 0 && double.IsFinite(f.Item3));
+            var (numerator, denominator) = Sides(design, contrast);
+            if (numerator is null || denominator is null)
+                return NormalizationCheck.NotRun(stratum, _basis, contrast.Id, NormalizationCheck.Slope, usable, null);
+            int groupSize = Math.Min(numerator.Count, denominator.Count);
+            string? setting = _style != "lfq" ? _style
+                : normalization is not (SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf)
+                    ? normalization.StartsWith(SharedPeptideNormalization.BackgroundSetPrefix, StringComparison.Ordinal) ? "background_set" : normalization
+                : !_request.Settings.Robust ? "robust_off"
+                : _request.Settings.Method != DifferentialConstants.Method ? _request.Settings.Method
+                : _basis != QuantBasis.MsmsOnly.ToMachineName() ? _basis ?? "no_basis"
+                : null;
+            if (setting is not null)
+                return NormalizationCheck.NotRun(stratum, _basis, contrast.Id, NormalizationCheck.NotCalibratedPrefix + setting, usable, groupSize);
+            return NormalizationCheck.Check(stratum, _basis, contrast.Id, fitted, groupSize);
         }
 
         /// <summary>

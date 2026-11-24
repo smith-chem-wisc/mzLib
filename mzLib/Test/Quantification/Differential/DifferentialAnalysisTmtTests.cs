@@ -206,4 +206,23 @@ public class DifferentialAnalysisTmtTests
 
         Assert.That(report, Does.Contain("median log2 intensity in each plex run").And.Not.Contain("0 reference peptides"));
     }
+
+    /// <summary>
+    /// The normalization check was calibrated on label-free data only, so an isobaric comparison is not checked and says
+    /// why, and the report states that the channels were normalized and what that assumes.
+    /// </summary>
+    [Test]
+    public void TheNormalizationCheckIsNotCalibratedForIsobaricData()
+    {
+        var result = Run();
+
+        var check = result.Metadata.NormalizationChecks.Single();
+        Assert.That(check.Status, Is.EqualTo(NormalizationCheck.NotChecked));
+        Assert.That(check.NotCheckedReason, Is.EqualTo(NormalizationCheck.NotCalibratedPrefix + "tmt"));
+        Assert.That(check.QuantBasis, Is.Null);
+        string report = StatisticalReportWriter.Build(result.Metadata, result.Rows, result.Diagnostics, result.Decisions).Markdown;
+        Assert.That(report, Does.Contain("The data were normalized.")
+            .And.Contain("so that each channel's median reflects only how much was loaded.")
+            .And.Contain("this run used `tmt`."));
+    }
 }
