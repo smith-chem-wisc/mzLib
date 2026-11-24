@@ -543,7 +543,11 @@ public class MslLibraryEntry
 			// NaN (no time) becomes null, so an MSP export omits RT= rather than printing RT=NaN,
 			// and code testing HasValue sees a missing time.
 			rt: double.IsNaN(RetentionTime) ? null : RetentionTime,
-			isDecoy: IsDecoy);
+			isDecoy: IsDecoy)
+		{
+			// The time's scale goes with it, so an MSP export writes iRT= for iRT and RT= for run minutes
+			RetentionTimeIsIrt = double.IsNaN(RetentionTime) ? null : !RtIsCalibrated
+		};
 	}
 
 	// ── Conversion: LibrarySpectrum → MslLibraryEntry ───────────────────
@@ -625,6 +629,9 @@ public class MslLibraryEntry
 			ChargeState = spectrum.ChargeState,
 			// A spectrum with no time gives an entry with no time (NaN), never iRT 0.
 			RetentionTime = spectrum.RetentionTime ?? double.NaN,
+			// Run minutes only when the source says so (an MSP RT=, or an .msl time in minutes); otherwise
+			// the time is taken as iRT, as before. A missing time has no scale.
+			RtIsCalibrated = spectrum.RetentionTimeIsIrt == false && spectrum.RetentionTime is double time && double.IsFinite(time),
 			IsDecoy = spectrum.IsDecoy,
 			MatchedFragmentIons = fragments,
 			IonMobility = 0.0,
@@ -649,6 +656,7 @@ public class MslLibraryEntry
 	/// are extracted from the MatchedFragmentIon list. Extended metadata fields that have
 	/// no representation in LibrarySpectrum are initialized to sensible defaults:
 	/// RetentionTime = NaN when the spectrum has none,
+	/// RtIsCalibrated = true (run minutes) only when <see cref="LibrarySpectrum.RetentionTimeIsIrt"/> is false,
 	/// IonMobility = 0, QValue = float.NaN, ElutionGroupId = 0, Source = Predicted,
 	/// MoleculeType = Peptide, DissociationType = Unknown, Nce = 0.
 	///

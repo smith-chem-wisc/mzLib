@@ -50,6 +50,14 @@ public static class MslConverter
 	/// files whose path contains "pdeep" are parsed as pDeep format; files whose path
 	/// contains "ms2pip" are parsed as ms2pip format; all other files are parsed as MSP.
 	/// </para>
+	///
+	/// <para>
+	/// <b>Retention times in an MSP:</b> an <c>iRT=</c> value is stored as iRT
+	/// (<see cref="MslLibraryEntry.RtIsCalibrated"/> = false); an <c>RT=</c> value is stored as minutes in one
+	/// run (<see cref="MslLibraryEntry.RtIsCalibrated"/> = true), which is what MetaMorpheus writes there. To put
+	/// such a library on the iRT scale, give it predicted iRT (<c>MslPredictedRetentionTimes.Assign</c> with
+	/// <c>ReplaceAll</c>). pDeep and ms2pip times are stored as iRT, as before.
+	/// </para>
 	/// </summary>
 	/// <param name="textLibraryPath">
 	///   Absolute or relative path to the text spectral library file (.msp or equivalent).
