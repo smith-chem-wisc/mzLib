@@ -14,9 +14,12 @@ public static class SetPoolingName
     public const string Aging = "aging";
     /// <summary><c>contrast_kind</c> of a maturation contrast, and the name of its family (<c>DEF-DIFF-SET-MATURATION</c>).</summary>
     public const string Maturation = "maturation";
-    /// <summary><c>model_used</c> of a pooled row.</summary>
-    public const string PooledModel = "random_effects_hartung_knapp";
-    /// <summary><c>df_method</c> of a pooled row.</summary>
+    /// <summary>
+    /// <c>model_used</c> of a pooled row: DerSimonian–Laird random effects with the Hartung–Knapp standard error under
+    /// Knapp and Hartung's ad hoc correction (<see cref="RandomEffectsInference.HartungKnappAdHoc"/>).
+    /// </summary>
+    public const string PooledModel = "random_effects_hartung_knapp_adhoc";
+    /// <summary><c>df_method</c> of a pooled row: k − 1, as both Hartung–Knapp forms have it.</summary>
     public const string PooledDfMethod = "hartung_knapp";
 
     /// <summary>Left out: <c>independence</c> says the contrast reproduces an earlier result.</summary>
@@ -29,8 +32,12 @@ public static class SetPoolingName
     public const string SeveralContrastsPerDataset = "several_contrasts_per_dataset";
     /// <summary>Left out: <c>primary = no</c>, or another contrast of the dataset is the one marked <c>primary = yes</c>.</summary>
     public const string NotPrimary = "not_primary";
-    /// <summary>The pooled row is not run: every pooled dataset gives the same estimate, so the Hartung–Knapp standard error is 0.</summary>
-    public const string PooledStandardErrorZero = "pooled_standard_error_zero";
+    /// <summary>
+    /// The pooled row is not run: its estimate and standard error cannot be formed in double precision, because the
+    /// datasets' standard errors are so small or so large (below about 1e-154 or above about 1e154) that the weights
+    /// 1/se² overflow, underflow or sum past the largest double.
+    /// </summary>
+    public const string PooledNotComputable = "pooled_not_computable";
     /// <summary>A dataset row of a selected hypothesis: its Benjamini–Bogomolov adjusted p is at most the level.</summary>
     public const string BogomolovPassed = "bb_adjusted_p<=level";
     /// <summary>A dataset row of a selected hypothesis: its Benjamini–Bogomolov adjusted p is above the level.</summary>
@@ -82,8 +89,8 @@ public sealed record SetPooledResult
     /// <summary>Why the pooled row is not run, or null.</summary>
     public string? NotRun { get; init; }
     /// <summary>
-    /// The pooled estimate: DerSimonian–Laird's estimate with the Hartung–Knapp standard error on k − 1 degrees of freedom;
-    /// null when not run.
+    /// The pooled estimate: DerSimonian–Laird's estimate with the Hartung–Knapp standard error under the ad hoc correction,
+    /// never below the DerSimonian–Laird one, on k − 1 degrees of freedom; null when not run.
     /// </summary>
     public SetEstimate? Estimate { get; init; }
     /// <summary>The prediction's test on <see cref="Estimate"/> (<see cref="SetVerdict.Test"/>); null when not run.</summary>
@@ -165,14 +172,18 @@ public sealed record SetPoolingResult
 /// <para>
 /// <b>An aging part's primary result:</b> none with k = 0 tested contrasts left in; the one dataset's result with k = 1; and
 /// with k ≥ 2 a pooled row: random effects with the DerSimonian–Laird τ² and the Hartung–Knapp standard error on k − 1
-/// degrees of freedom (IntHout et al. 2014), tested by the same rules as a dataset (<see cref="SetVerdict.Test"/>).
+/// degrees of freedom (IntHout et al. 2014), never below the DerSimonian–Laird standard error (Knapp and Hartung's 2003
+/// ad hoc correction; Röver, Knapp and Friede 2015), tested by the same rules as a dataset (<see cref="SetVerdict.Test"/>).
+/// <b>Ruled by the user 2026-11-19:</b> plain Hartung–Knapp's standard error shrinks towards 0 as the datasets agree,
+/// whatever their own standard errors, so the pooled uncertainty must never fall below the random-effects value.
 /// </para>
 /// <para>
 /// <b>Ruled by the user 2026-11-14 (DATA-DEFINITIONS v3.26):</b> a pooled dataset's guard blocks the pooled row's
 /// <c>supported</c>, naming <c>dataset:member</c>; an <c>attenuated_*</c> pooled row tests against the average of the
 /// datasets' m̄ with the weights that average their β̄, 1/(seᵢ² + τ²). <b>Taken by QuantProject, open to challenge:</b>
 /// <c>n_datasets_agree</c>, the "supported in at least 2" p and the Benjamini–Bogomolov rows cover the pooled datasets
-/// only; R counts the aging primaries <c>supported</c>; a pooled row whose datasets all give one estimate is not run.
+/// only; R counts the aging primaries <c>supported</c>; a pooled row whose estimate and standard error cannot be formed in
+/// double precision is not run (<see cref="SetPoolingName.PooledNotComputable"/>), so one such part never stops the run.
 /// </para>
 /// <para>
 /// <b>The families:</b> one Benjamini–Hochberg family of aging primaries and one of maturation primaries, each at 0.05.
@@ -325,7 +336,7 @@ public static class SetPooling
                 $"({string.Join(", ", datasets.Select(Of))}) test different margins; margins are frozen per hypothesis.", nameof(datasets));
 
         var meta = RandomEffectsMeta.Pool(tests.Select(t => t.Estimate.Log2Effect).ToArray(),
-            tests.Select(t => t.Estimate.StandardError).ToArray(), 1 - 2 * SetVerdict.Alpha, RandomEffectsInference.HartungKnapp);
+            tests.Select(t => t.Estimate.StandardError).ToArray(), 1 - 2 * SetVerdict.Alpha, RandomEffectsInference.HartungKnappAdHoc);
         var blocked = datasets.SelectMany(d => d.BlockedBy.Select(m => Of(d) + ":" + m)).ToList();
         var pooled = new SetPooledResult
         {
@@ -340,7 +351,10 @@ public static class SetPooling
             Verdict = "",
             VerdictDetail = "",
         };
-        if (!(meta.StandardError > 0)) return pooled with { NotRun = SetPoolingName.PooledStandardErrorZero };
+        // Standard errors far outside any measured range make the weights 1/se² overflow or underflow: the estimate is then
+        // NaN, or the standard error 0 (mzLib #1616 review). That part is not run, so it never stops the others.
+        if (!(double.IsFinite(meta.Estimate) && double.IsFinite(meta.StandardError) && meta.StandardError > 0))
+            return pooled with { NotRun = SetPoolingName.PooledNotComputable };
 
         double? mrnaMean = null;
         if (part.Prediction is SetPrediction.AttenuatedDown or SetPrediction.AttenuatedUp)
