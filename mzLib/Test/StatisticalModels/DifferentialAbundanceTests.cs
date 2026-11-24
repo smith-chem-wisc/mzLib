@@ -374,6 +374,20 @@ public class DifferentialAbundanceTests
             Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
+    /// <summary>
+    /// Standard errors of 1e-160 are finite and positive, but each weight 1/se² overflows, so the estimate is NaN. The
+    /// result says so instead of throwing (<c>Math.Sign</c> of NaN did), and agrees and disagrees with no study; the
+    /// caller decides (mzLib #1616 review).
+    /// </summary>
+    [Test]
+    public void RandomEffectsMeta_WeightsThatOverflow_GiveANaNEstimate_NotAThrow()
+    {
+        var r = RandomEffectsMeta.Pool(new[] { 0.8, 0.9 }, new[] { 1e-160, 1e-160 }, inference: RandomEffectsInference.HartungKnappAdHoc);
+        Assert.That(r.Estimate, Is.NaN);
+        Assert.That(r.StandardError, Is.NaN);
+        Assert.That((r.DirectionAgree, r.DirectionDisagree), Is.EqualTo((0, 0)));
+    }
+
     // ---- EmpiricalBayes -------------------------------------------------------------------------
 
     /// <summary>

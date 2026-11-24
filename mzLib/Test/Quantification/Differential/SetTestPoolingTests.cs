@@ -423,6 +423,40 @@ public class SetTestPoolingTests
         Assert.That(result.AgingFamilySize, Is.EqualTo(1));
     }
 
+    /// <summary>
+    /// nbollis's review of mzLib #1616: a part whose datasets' standard errors are finite and positive, so each dataset is
+    /// tested, but far outside any measured range. At 1e-160 each weight 1/se² overflows and the pooled estimate is NaN;
+    /// at 1e-154 each weight is finite but their sum overflows, and the pooled standard error is 0. Either way that part's
+    /// pooled row is not run and out of the aging family, while the next part pools as usual. Before, the whole run threw:
+    /// at 1e-160 in the pooling itself (<c>Math.Sign</c> of NaN, on master too), at 1e-154 in <see cref="SetVerdict.Test"/>.
+    /// </summary>
+    [TestCase(1e-160)]
+    [TestCase(1e-154)]
+    public void PooledNumbersThatCannotBeFormed_LeaveThatRowNotRun_AndTheRunGoesOn(double tinyStandardError)
+    {
+        var freeze = Freeze(Row("H1", "up", "D1"), Row("H1", "up", "D2"), Row("H2", "up", "D1"), Row("H2", "up", "D2"));
+        var h1 = Part(freeze, "H1");
+        var h2 = Part(freeze, "H2");
+
+        var result = SetPooling.Run(freeze, QuantBasis.MsmsOnly,
+            h1.Contrasts.Select((c, i) => Tested(h1, c, 0.8 + 0.1 * i, tinyStandardError))
+                .Concat(h2.Contrasts.Select((c, i) => Tested(h2, c, 0.8, 0.1 + 0.1 * i))).ToList());
+
+        var degenerate = Pooled(result, "H1");
+        Assert.That(degenerate.NotRun, Is.EqualTo(SetPoolingName.PooledNotComputable));
+        Assert.That((degenerate.Verdict, degenerate.VerdictDetail),
+            Is.EqualTo((SetVerdictName.NotRun, SetPoolingName.PooledNotComputable)));
+        Assert.That(degenerate.Estimate, Is.Null);
+        Assert.That(degenerate.Test, Is.Null);
+        Assert.That(degenerate.Family, Is.Null);
+        Assert.That(degenerate.PAdjusted, Is.Null);
+
+        var usual = Pooled(result, "H2");
+        Close(usual.Estimate!.StandardError, Math.Sqrt(0.008), "H2's standard error");
+        Assert.That(usual.Family, Is.EqualTo(SetPoolingName.Aging));
+        Assert.That(result.AgingFamilySize, Is.EqualTo(1), "only H2's pooled row");
+    }
+
     [Test]
     public void PooledDatasetsTestingDifferentMargins_AreRefused()
     {

@@ -77,6 +77,10 @@ namespace StatisticalModels
         /// <param name="standardErrors">Its standard error; must be finite and positive.</param>
         /// <param name="confidenceLevel">Coverage of the reported interval, e.g. 0.95.</param>
         /// <param name="inference">How the standard error, interval and p are formed; the normal reference by default.</param>
+        /// <returns>
+        /// The pooled result. Standard errors so small or so large (below about 1e-154, above about 1e154) that the weights
+        /// 1/se² cannot be formed in double precision give a NaN estimate or a standard error of 0; a caller checks them.
+        /// </returns>
         /// <exception cref="ArgumentException"><see cref="RandomEffectsInference.HartungKnapp"/> or
         /// <see cref="RandomEffectsInference.HartungKnappAdHoc"/> with one study, which has no degrees of freedom; and the
         /// input checks.</exception>
@@ -121,6 +125,9 @@ namespace StatisticalModels
                 quantile = Normal.InvCDF(0, 1, 0.5 + confidenceLevel / 2);
                 p = 2 * Normal.CDF(0, 1, -Math.Abs(estimate / se));
             }
+            // Standard errors far outside any measured range (below about 1e-154, above about 1e154) make the weights 1/se²
+            // overflow or underflow, and the estimate NaN; it then agrees and disagrees with no study.
+            int sign = double.IsNaN(estimate) ? 0 : Math.Sign(estimate);
             var result = new MetaAnalysisResult
             {
                 Studies = k,
@@ -134,8 +141,8 @@ namespace StatisticalModels
                 Tau2 = tau2,
                 Q = k > 1 ? q : double.NaN,
                 ISquared = k > 1 ? (q > 0 ? Math.Max(0, (q - (k - 1)) / q) : 0) : double.NaN,
-                DirectionAgree = estimates.Count(b => Math.Sign(b) == Math.Sign(estimate) && b != 0),
-                DirectionDisagree = estimates.Count(b => Math.Sign(b) == -Math.Sign(estimate) && b != 0),
+                DirectionAgree = estimates.Count(b => Math.Sign(b) == sign && b != 0),
+                DirectionDisagree = estimates.Count(b => Math.Sign(b) == -sign && b != 0),
                 LeaveOneOutMaxDelta = double.NaN,
             };
             if (k > 1)

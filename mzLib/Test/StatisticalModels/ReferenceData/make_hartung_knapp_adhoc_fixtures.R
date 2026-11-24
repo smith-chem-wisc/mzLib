@@ -16,6 +16,11 @@
 #                       correction changes nothing. (three_datasets, five_datasets, heterogeneous_six and random_eight
 #                       are the cases where Hartung-Knapp is the larger; agreeing_three and equal_estimates are where
 #                       the correction binds.)
+#   heterogeneous_binding: five studies, two precise and three not, with tau2 > 0 (0.069) where the correction still
+#                       binds: Hartung-Knapp's se is 0.086 and DerSimonian-Laird's 0.152. In every other binding case
+#                       tau2 = 0, where the DerSimonian-Laird se equals the fixed-effect one (0.038 here), so only this
+#                       case tells the two floors apart (mzLib #1616 review). Found by a seeded search over rounded
+#                       values, kept as written; it uses no random draw, so the cases above are unchanged.
 # Each row also carries metafor's test = "knha" se and the DerSimonian-Laird se (test = "z"), so a reader can see which
 # one the correction took.
 
@@ -40,7 +45,8 @@ cases <- list(
   heterogeneous_six     = list(yi = c(0.10, 0.60, -0.20, 0.45, 0.05, 0.80), sei = c(0.10, 0.15, 0.12, 0.20, 0.08, 0.25)),
   random_eight          = list(yi = rnorm(8, 0.2, 0.3), sei = runif(8, 0.05, 0.3)),
   near_identical_two    = list(yi = c(1.000, 1.001), sei = c(0.30, 0.30)),
-  disagreeing_two       = list(yi = c(-0.50, 0.90), sei = c(0.10, 0.12))
+  disagreeing_two       = list(yi = c(-0.50, 0.90), sei = c(0.10, 0.12)),
+  heterogeneous_binding = list(yi = c(0.34, 0.40, 0.43, 0.24, 0.66), sei = c(0.37, 0.32, 0.39, 0.05, 0.06))
 )
 inputs <- list(); results <- list()
 for (nm in names(cases)) {

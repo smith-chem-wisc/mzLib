@@ -32,6 +32,12 @@ public static class SetPoolingName
     public const string SeveralContrastsPerDataset = "several_contrasts_per_dataset";
     /// <summary>Left out: <c>primary = no</c>, or another contrast of the dataset is the one marked <c>primary = yes</c>.</summary>
     public const string NotPrimary = "not_primary";
+    /// <summary>
+    /// The pooled row is not run: its estimate and standard error cannot be formed in double precision, because the
+    /// datasets' standard errors are so small or so large (below about 1e-154 or above about 1e154) that the weights
+    /// 1/se² overflow, underflow or sum past the largest double.
+    /// </summary>
+    public const string PooledNotComputable = "pooled_not_computable";
     /// <summary>A dataset row of a selected hypothesis: its Benjamini–Bogomolov adjusted p is at most the level.</summary>
     public const string BogomolovPassed = "bb_adjusted_p<=level";
     /// <summary>A dataset row of a selected hypothesis: its Benjamini–Bogomolov adjusted p is above the level.</summary>
@@ -80,12 +86,14 @@ public sealed record SetPooledResult
     public required SetHypothesisPart Part { get; init; }
     /// <summary>The datasets pooled, in the part's contrast order.</summary>
     public required IReadOnlyList<SetContrastOutcome> Datasets { get; init; }
+    /// <summary>Why the pooled row is not run, or null.</summary>
+    public string? NotRun { get; init; }
     /// <summary>
     /// The pooled estimate: DerSimonian–Laird's estimate with the Hartung–Knapp standard error under the ad hoc correction,
-    /// never below the DerSimonian–Laird one, on k − 1 degrees of freedom.
+    /// never below the DerSimonian–Laird one, on k − 1 degrees of freedom; null when not run.
     /// </summary>
     public SetEstimate? Estimate { get; init; }
-    /// <summary>The prediction's test on <see cref="Estimate"/> (<see cref="SetVerdict.Test"/>).</summary>
+    /// <summary>The prediction's test on <see cref="Estimate"/> (<see cref="SetVerdict.Test"/>); null when not run.</summary>
     public SetVerdict? Test { get; init; }
     /// <summary>τ², the DerSimonian–Laird between-dataset variance.</summary>
     public double Tau2 { get; init; }
@@ -105,7 +113,7 @@ public sealed record SetPooledResult
     /// Fisher's combination of the k − 1 largest dataset p's (Benjamini and Heller 2008).
     /// </summary>
     public double PSupportedInTwo { get; init; } = double.NaN;
-    /// <summary>The aging family: every pooled row is in it.</summary>
+    /// <summary>The aging family when tested; null when not run.</summary>
     public string? Family { get; init; }
     /// <summary>Its Benjamini–Hochberg adjusted p within the aging family.</summary>
     public double? PAdjusted { get; init; }
@@ -174,7 +182,8 @@ public sealed record SetPoolingResult
 /// <c>supported</c>, naming <c>dataset:member</c>; an <c>attenuated_*</c> pooled row tests against the average of the
 /// datasets' m̄ with the weights that average their β̄, 1/(seᵢ² + τ²). <b>Taken by QuantProject, open to challenge:</b>
 /// <c>n_datasets_agree</c>, the "supported in at least 2" p and the Benjamini–Bogomolov rows cover the pooled datasets
-/// only; R counts the aging primaries <c>supported</c>.
+/// only; R counts the aging primaries <c>supported</c>; a pooled row whose estimate and standard error cannot be formed in
+/// double precision is not run (<see cref="SetPoolingName.PooledNotComputable"/>), so one such part never stops the run.
 /// </para>
 /// <para>
 /// <b>The families:</b> one Benjamini–Hochberg family of aging primaries and one of maturation primaries, each at 0.05.
@@ -235,7 +244,7 @@ public static class SetPooling
         var aging = new List<(PartWork Part, DatasetWork? Dataset, double P)>();
         foreach (var w in parts)
         {
-            if (w.Pooled is { } pooled) aging.Add((w, null, pooled.Test!.PValue));
+            if (w.Pooled?.Test is { } test) aging.Add((w, null, test.PValue));
             foreach (var d in w.Datasets.Where(d => d.IsPrimary && !d.Outcome.Contrast.Maturation)) aging.Add((w, d, d.Outcome.Test!.PValue));
         }
         var agingAdjusted = MultipleTesting.BenjaminiHochberg(aging.Select(a => a.P).ToArray());
@@ -280,9 +289,9 @@ public static class SetPooling
             Datasets = w.Datasets.Select(DatasetResult).ToList(),
             Pooled = w.Pooled is null ? null : w.Pooled with
             {
-                Family = SetPoolingName.Aging,
+                Family = w.Pooled.Test is null ? null : SetPoolingName.Aging,
                 PAdjusted = w.PooledPAdjusted,
-                FamilySize = aging.Count,
+                FamilySize = w.Pooled.Test is null ? null : aging.Count,
                 Verdict = pooledVerdict[w].Verdict,
                 VerdictDetail = pooledVerdict[w].Detail,
             },
@@ -342,6 +351,11 @@ public static class SetPooling
             Verdict = "",
             VerdictDetail = "",
         };
+        // Standard errors far outside any measured range make the weights 1/se² overflow or underflow: the estimate is then
+        // NaN, or the standard error 0 (mzLib #1616 review). That part is not run, so it never stops the others.
+        if (!(double.IsFinite(meta.Estimate) && double.IsFinite(meta.StandardError) && meta.StandardError > 0))
+            return pooled with { NotRun = SetPoolingName.PooledNotComputable };
+
         double? mrnaMean = null;
         if (part.Prediction is SetPrediction.AttenuatedDown or SetPrediction.AttenuatedUp)
         {
@@ -365,11 +379,12 @@ public static class SetPooling
     }
 
     /// <summary>
-    /// The pooled row's verdict, in <see cref="SetContrastOutcome.Verdict"/>'s order. A pooled row is always tested and in
-    /// the aging family, so it always has an adjusted p.
+    /// The pooled row's verdict, in <see cref="SetContrastOutcome.Verdict"/>'s order. A tested pooled row is always in the
+    /// aging family, so it always has an adjusted p.
     /// </summary>
     private static (string Verdict, string Detail) PooledVerdict(SetPooledResult pooled, double? pAdjusted)
     {
+        if (pooled.NotRun is not null) return (SetVerdictName.NotRun, pooled.NotRun);
         if (pooled.Test!.Contradicted) return (SetVerdictName.Contradicted, "uncorrected");
         if (pooled.BlockedBy.Count > 0) return (SetVerdictName.NotInformative, "blocked_by:" + string.Join(";", pooled.BlockedBy));
         if (pAdjusted!.Value <= SetVerdict.Alpha) return (SetVerdictName.Supported, "bh_adjusted_p<=0.05");
