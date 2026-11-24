@@ -51,6 +51,8 @@ namespace Test.FileReadingTests.DeNovoMapping
                 Assert.That(h1n1.UniqueProteinsMapped, Is.EqualTo(2));
                 Assert.That(h1n1.TargetPredictionScores, Has.Count.EqualTo(10));
                 Assert.That(h1n1.RetentionTimeErrors, Has.Count.EqualTo(10));
+                // Calibrated minutes; ten errors, so the median is the mean of the middle two (0.3476 and 0.7126).
+                Assert.That(h1n1.MedianRtError, Is.EqualTo(0.5301).Within(1e-3));
                 Assert.That(h1n1.PredictionCountsByFile["H1N1_Virus_Spike_in_C1_3_DefaultParams"], Is.EqualTo(10));
             });
 
@@ -145,6 +147,78 @@ namespace Test.FileReadingTests.DeNovoMapping
             Assert.That(result.TargetPredictions, Is.EqualTo(45));
             Assert.That(result.DecoyPredictions, Is.EqualTo(5));
             Assert.That(result.PredictionCountsByFile, Is.EqualTo(new Dictionary<string, int> { ["RunOne"] = 7 }));
+        }
+
+        [Test]
+        public void SummaryWithoutHostColumnsReadsHostDefaults()
+        {
+            // The fixture was written before host ambiguity existed.
+            Assert.That(File.ReadLines(FixturePath).First(), Does.Not.Contain("Unambiguous"));
+
+            var file = FileReader.ReadFile<DeNovoMappingResultFile>(FixturePath);
+
+            Assert.That(file.Results, Has.Count.EqualTo(3));
+            foreach (var result in file)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(result.HasHost, Is.False);
+                    Assert.That(result.HostProteinCount, Is.EqualTo(-1));
+                    Assert.That(result.UnambiguousTargetPredictions, Is.Zero);
+                    Assert.That(result.AmbiguousTargetPredictions, Is.Zero);
+                    Assert.That(result.UnambiguousDecoyPredictions, Is.Zero);
+                    Assert.That(result.UniqueUnambiguousPeptidesMapped, Is.Zero);
+                    Assert.That(result.UniqueUnambiguousProteinsMapped, Is.Zero);
+                    Assert.That(result.UnambiguousRetentionTimeErrors, Is.Empty);
+                    Assert.That(result.UnambiguousTargetPredictionScores, Is.Empty);
+                    Assert.That(result.UnambiguousDecoyPredictionScores, Is.Empty);
+                    Assert.That(result.PeptideRetentionTimeErrors, Is.Empty);
+                    Assert.That(result.PeptidePredictionScores, Is.Empty);
+                    Assert.That(result.UniqueDecoyPeptidesMapped, Is.EqualTo(-1));
+                    Assert.That(result.UniqueUnambiguousDecoyPeptidesMapped, Is.EqualTo(-1));
+                    Assert.That(result.UnambiguousPeptideRetentionTimeErrors, Is.Empty);
+                    Assert.That(result.UnambiguousPeptidePredictionScores, Is.Empty);
+                });
+            }
+            Assert.That(file.First().PredictionCountsByFile.Keys, Is.EqualTo(new[] { "H1N1_Virus_Spike_in_C1_3_DefaultParams" }));
+        }
+
+        [Test]
+        public void HostColumnsAreWrittenForEveryRowWhenAnyRowHasAHost()
+        {
+            string path = Path.Combine(_directory, "MixedHostMappingSummary.tsv");
+            new DeNovoMappingResultFile
+            {
+                Results =
+                [
+                    new DeNovoMappingResult
+                    {
+                        DatabaseIdentifier = "WithHost",
+                        HostProteinCount = 20000,
+                        TargetPredictions = 3,
+                        UnambiguousTargetPredictions = 1,
+                        AmbiguousTargetPredictions = 2,
+                        UnambiguousTargetPredictionScores = [0.9],
+                        UnambiguousRetentionTimeErrors = [0.25],
+                    },
+                    new DeNovoMappingResult { DatabaseIdentifier = "WithoutHost", TargetPredictions = 1 },
+                ]
+            }.WriteResults(path);
+
+            var loaded = FileReader.ReadFile<DeNovoMappingResultFile>(path);
+            var withHost = loaded.Single(r => r.DatabaseIdentifier == "WithHost");
+            var withoutHost = loaded.Single(r => r.DatabaseIdentifier == "WithoutHost");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(withHost.HostProteinCount, Is.EqualTo(20000));
+                Assert.That(withHost.UnambiguousTargetPredictions, Is.EqualTo(1));
+                Assert.That(withHost.AmbiguousTargetPredictions, Is.EqualTo(2));
+                Assert.That(withHost.UnambiguousTargetPredictionScores, Is.EqualTo(new[] { 0.9 }).Within(1e-9));
+                Assert.That(withHost.UnambiguousRetentionTimeErrors, Is.EqualTo(new[] { 0.25 }).Within(1e-9));
+                Assert.That(withHost.PredictionCountsByFile, Is.Empty);
+                Assert.That(withoutHost.HasHost, Is.False);
+            });
         }
 
         [Test]

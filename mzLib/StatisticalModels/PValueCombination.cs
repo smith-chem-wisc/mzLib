@@ -13,6 +13,11 @@ namespace StatisticalModels
         Fisher,
         /// <summary>Stouffer (1949), optionally weighted: Z = Σ wᵢ zᵢ / √(Σ wᵢ²), zᵢ = Φ⁻¹(1 − pᵢ), referred to N(0, 1).</summary>
         Stouffer,
+        /// <summary>
+        /// Fisher's combination of the n − u + 1 largest of n p-values, referred to χ² with 2(n − u + 1) degrees of freedom:
+        /// the partial conjunction p for "at least u of the n nulls are false" (Benjamini and Heller 2008).
+        /// </summary>
+        FisherPartialConjunction,
     }
 
     /// <summary>One p-value combined from several independent tests of the same hypothesis.</summary>
@@ -20,11 +25,12 @@ namespace StatisticalModels
     {
         internal CombinedPValue() { }
 
-        /// <summary>The rule used. Named on the result because the two rules answer different questions.</summary>
+        /// <summary>The rule used. Named on the result because the rules answer different questions.</summary>
         public PValueCombinationMethod Method { get; internal set; }
         /// <summary>Number of finite p-values combined. Non-finite inputs are omitted and not counted.</summary>
         public int Studies { get; internal set; }
-        /// <summary>Fisher's X (χ² with 2k df) or Stouffer's Z (standard normal). NaN when nothing was combined.</summary>
+        /// <summary>Fisher's X (χ² with 2k df, or 2(n − u + 1) for the partial conjunction) or Stouffer's Z (standard normal).
+        /// NaN when nothing was combined.</summary>
         public double Statistic { get; internal set; }
         /// <summary>Combined p-value, upper tail of the statistic's reference distribution. NaN when nothing was combined.</summary>
         public double PValue { get; internal set; }
@@ -55,6 +61,28 @@ namespace StatisticalModels
             result.Statistic = x;
             // Upper tail of χ²(2k) is Q(k, x/2), computed directly so a tiny p-value keeps its digits.
             result.PValue = double.IsPositiveInfinity(x) ? 0 : SpecialFunctions.GammaUpperRegularized(p.Length, x / 2);
+            return result;
+        }
+
+        /// <summary>
+        /// The partial conjunction p for "at least <paramref name="atLeast"/> of the n tests' nulls are false" (Benjamini and
+        /// Heller 2008), by Fisher's method: X = −2 Σ ln p over the n − u + 1 largest p-values, referred to χ² with
+        /// 2(n − u + 1) degrees of freedom. With u = 1 it is <see cref="Fisher"/>; with u = n it is the largest p.
+        /// </summary>
+        /// <param name="pValues">One p-value per independent test, in [0, 1]. Non-finite values are omitted, so n counts the
+        /// finite ones.</param>
+        /// <param name="atLeast">u, at least 1. When it exceeds n, nothing is combined and the statistic and p are NaN.</param>
+        public static CombinedPValue FisherPartialConjunction(IReadOnlyList<double> pValues, int atLeast)
+        {
+            if (atLeast < 1) throw new ArgumentOutOfRangeException(nameof(atLeast), atLeast, "u must be at least 1.");
+            var p = Finite(pValues);
+            var result = new CombinedPValue { Method = PValueCombinationMethod.FisherPartialConjunction, Studies = p.Length,
+                Statistic = double.NaN, PValue = double.NaN };
+            if (atLeast > p.Length) return result;
+            var largest = p.OrderByDescending(v => v).Take(p.Length - atLeast + 1).ToArray();
+            var fisher = Fisher(largest);
+            result.Statistic = fisher.Statistic;
+            result.PValue = fisher.PValue;
             return result;
         }
 

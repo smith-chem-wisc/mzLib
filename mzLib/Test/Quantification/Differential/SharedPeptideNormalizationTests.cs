@@ -465,4 +465,96 @@ public class SharedPeptideNormalizationTests
         Assert.That(at.Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedianHalf));
         Assert.That(at.PerSampleShift["S1"] - at.PerSampleShift["S3"], Is.EqualTo(Offsets[0] - Offsets[2]).Within(1e-9));
     }
+
+    // ---- background_set:<name> (DEF-DIFF-NORM v3.29, QuantProject dia 074) ----
+
+    private static readonly ProteinGroupInfo[] BackgroundGroups =
+    {
+        new("BG", 0, false, false), new("CH", 0, false, false), new("DEC", 0, true, false),
+    };
+
+    /// <summary>120 peptides of BG at the true offsets, and 200 of CH that are 2 log2 units higher in S3 and S4.</summary>
+    private static List<PeptideRunValues> Mixture() =>
+        EverySample(120, "BGP", "BG")
+            .Concat(Enumerable.Range(0, 200).Select(p => Shifted($"CHP{p:D4}", "CH", p, Enumerable.Range(0, 4), s => s >= 2 ? 2 : 0)))
+            .ToList();
+
+    /// <summary>
+    /// The declared set is the reference: on a mixture whose second species changes in S3 and S4, the shared-peptide
+    /// median is pulled and the background set recovers the true offsets.
+    /// </summary>
+    [Test]
+    public void TheBackgroundSetShiftsEachSampleOnItsDeclaredGroupsOnly()
+    {
+        var table = Table(Mixture(), groups: BackgroundGroups);
+
+        var everything = SharedPeptideNormalization.Measure(table);
+        var background = SharedPeptideNormalization.Measure(table, new BackgroundSet("bg", new[] { "BG" }));
+
+        Assert.That(everything.PerSampleShift["S3"] - everything.PerSampleShift["S1"], Is.Not.EqualTo(Offsets[2] - Offsets[0]).Within(0.5),
+            "the changing species pulls the shared-peptide median");
+        Assert.That(background.Setting, Is.EqualTo("background_set:bg"));
+        Assert.That(background.ReferenceSetSize, Is.EqualTo(120));
+        AssertShifts(background, TrueShifts);
+        Assert.That(background.DeclaredGroupsAbsent, Is.Empty);
+        Assert.That(everything.DeclaredGroups, Is.Null, "no background set, no declared groups");
+    }
+
+    [Test]
+    public void APeptideCountsOnlyIfEveryGroupItMapsToIsDeclared()
+    {
+        // 300 peptides shared by BG and CH, 4 log2 units high in S3: counted, they would move S3's shift.
+        var shared = Enumerable.Range(0, 300).Select(p => new PeptideRunValues($"SHP{p:D4}", $"SHP{p:D4}", new[] { "BG", "CH" },
+            Enumerable.Range(0, 4).ToDictionary(s => SampleIds[s],
+                s => new RunValue(Math.Pow(2, 20 + p / 100.0 + Offsets[s] + (s == 2 ? 4 : 0)), ObservationState.Quantified))));
+        var table = Table(Mixture().Concat(shared), groups: BackgroundGroups);
+
+        var result = SharedPeptideNormalization.Measure(table, new BackgroundSet("bg", new[] { "BG" }));
+
+        Assert.That(result.ReferenceSetSize, Is.EqualTo(120));
+        AssertShifts(result, TrueShifts);
+    }
+
+    [Test]
+    public void ADeclaredDecoyGroupNeverCounts()
+    {
+        var decoys = Enumerable.Range(0, 300).Select(p => Shifted($"DEC{p:D4}", "DEC", p, Enumerable.Range(0, 4), s => s == 2 ? 4 : 0));
+        var table = Table(Mixture().Concat(decoys), groups: BackgroundGroups);
+
+        var result = SharedPeptideNormalization.Measure(table, new BackgroundSet("bg", new[] { "BG", "DEC" }));
+
+        Assert.That(result.ReferenceSetSize, Is.EqualTo(120));
+        AssertShifts(result, TrueShifts);
+    }
+
+    [Test]
+    public void DeclaredGroupsTheTableDoesNotHoldAreListed()
+    {
+        var result = SharedPeptideNormalization.Measure(Table(Mixture(), groups: BackgroundGroups),
+            new BackgroundSet("bg", new[] { "GONE2", "BG", "GONE1", "BG", "GONE6", "GONE3", "GONE5", "GONE4" }));
+
+        Assert.That(result.DeclaredGroups, Is.EqualTo(7), "distinct names");
+        Assert.That(result.DeclaredGroupsAbsent, Is.EqualTo(new[] { "GONE1", "GONE2", "GONE3", "GONE4", "GONE5", "GONE6" }), "ordinal");
+        Assert.That(result.Warnings.Single(), Does.Contain("6 declared protein group(s)").And.Contain("GONE1, GONE2, GONE3, GONE4, GONE5, ..."));
+    }
+
+    /// <summary>GR-25 inside the declared set: its half set below the floor of its every-sample set, then nothing.</summary>
+    [Test]
+    public void ABackgroundSetUnderTheFloorTakesItsHalfSetThenNothing()
+    {
+        // 99 BG peptides in every sample and 40 in two of four: the background set's half set (139) is used, under its name.
+        var halves = Enumerable.Range(0, 40).Select(p => Shifted($"BGH{p:D4}", "BG", p, new[] { 0, 2 }));
+        var half = SharedPeptideNormalization.Measure(
+            Table(EverySample(99, "BGP", "BG").Concat(halves), groups: BackgroundGroups), new BackgroundSet("bg", new[] { "BG" }));
+
+        Assert.That(half.Setting, Is.EqualTo("background_set:bg"));
+        Assert.That(half.ReferenceSetSize, Is.EqualTo(139));
+        Assert.That(half.Warnings, Has.Some.Contains("at least half"));
+
+        var none = SharedPeptideNormalization.Measure(
+            Table(EverySample(10, "BGP", "BG").Concat(Mixture().Skip(120)), groups: BackgroundGroups), new BackgroundSet("bg", new[] { "BG" }));
+        Assert.That(none.Setting, Is.EqualTo(SharedPeptideNormalization.None));
+        Assert.That(none.PerSampleShift.Values, Is.All.NaN);
+        Assert.That(none.Warnings.Single(), Does.Contain("background set 'bg'").And.Contain("no sample is shifted"));
+    }
 }

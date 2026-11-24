@@ -65,10 +65,25 @@ public static class StatisticalReportWriter
     /// stratum the metadata does not list, or an entry twice for its key; or a row uses the Bayesian method, which the report
     /// does not cover yet.</exception>
     public static string Write(string directory, DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows,
-        DifferentialDiagnostics diagnostics)
+        DifferentialDiagnostics diagnostics) => Write(directory, metadata, rows, diagnostics, null);
+
+    /// <summary>
+    /// As <see cref="Write(string, DifferentialMetadata, IReadOnlyList{DifferentialResult}, DifferentialDiagnostics)"/>, with a
+    /// "Decisions applied" section when <paramref name="decisions"/> is given (R-DECISIONS): every rule that changed what
+    /// happened, in plain words, with how many features and rows it touched, pointing to
+    /// <see cref="DifferentialDecisionWriter.FileName"/>. The decisions are checked as that file checks them.
+    /// </summary>
+    public static string Write(string directory, DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows,
+        DifferentialDiagnostics diagnostics, IReadOnlyList<DifferentialDecision>? decisions)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        var report = Build(metadata, rows, diagnostics);
+        return WriteFiles(directory, Build(metadata, rows, diagnostics, decisions));
+    }
+
+    /// <summary>Writes a built report's figures and markdown into <paramref name="directory"/> and returns the report's path.</summary>
+    internal static string WriteFiles(string directory, StatisticalReport report)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         string figures = Path.Combine(directory, FiguresDirectoryName);
         Directory.CreateDirectory(figures);
         foreach (var file in report.Figures)
@@ -79,7 +94,7 @@ public static class StatisticalReportWriter
     }
 
     internal static StatisticalReport Build(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows,
-        DifferentialDiagnostics diagnostics)
+        DifferentialDiagnostics diagnostics, IReadOnlyList<DifferentialDecision>? decisions = null)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(rows);
@@ -93,6 +108,7 @@ public static class StatisticalReportWriter
                 $"'{DifferentialResultWriter.BayesianMethod}' method; the statistics report does not cover Bayesian rows yet (M15), " +
                 "and would write them up as p-value tests.", nameof(rows));
         Validate(metadata, diagnostics);
+        if (decisions is not null) _ = DifferentialDecisionWriter.ToBytes(metadata, rows, decisions);
 
         var ordered = DifferentialResultWriter.Order(rows);
         var md = new StringBuilder();
@@ -105,6 +121,7 @@ public static class StatisticalReportWriter
         Results(md, ordered);
         var figures = Diagnostics(md, metadata, ordered, diagnostics);
         Checklist(md, metadata, ordered);
+        if (decisions is not null) Decisions(md, decisions);
         return new StatisticalReport(md.ToString(), figures);
     }
 
@@ -153,7 +170,8 @@ public static class StatisticalReportWriter
             .Append(versions.Count == 0 ? "" : $" Method version: {string.Join(", ", versions)}.").Append("\n\n");
         if (m.Inputs.Count > 0)
             md.Append("**Inputs.** ")
-                .Append(string.Join("; ", m.Inputs.Select(i => $"{i.Role} `{i.FileName}` (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
+                .Append(string.Join("; ", m.Inputs.Select(i =>
+                    $"{i.Role}{(i.FileName.Length == 0 ? " (in memory)" : $" `{i.FileName}`")} (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
 
         md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.");
         if (m.Settings.NormalizationOverride is { } over)
@@ -226,8 +244,13 @@ public static class StatisticalReportWriter
             "had a value in every one; the differences were measured again on the shifted values until the shifts stopped changing, " +
             "and the shifts were centred to average 0.",
         "none" => "not normalized.",
+        "global_channel_median" =>
+            "each channel's median log2 intensity in each plex run was moved to the median of those medians over every plex " +
+            "run (decoy, contaminant and entrapment rows left out; MSstatsTMT's global normalization).",
         _ when n.Setting.StartsWith("background_set:", StringComparison.Ordinal) =>
-            $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides).",
+            $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides" +
+            (n is { DeclaredGroups: { } d, DeclaredGroupsAbsent: { } a }
+                ? $"; {Int(d)} protein groups declared, {Int(a.Count)} of them not in the table, listed in the metadata file" : "") + ").",
         _ => $"normalization `{n.Setting}` over {Int(n.ReferenceSetSize)} reference peptides.",
     };
 
@@ -395,6 +418,24 @@ public static class StatisticalReportWriter
         foreach (var (item, askedBy, where, present) in items)
             md.Append($"| {item} | {askedBy} | {where} | {(present ? "Y" : "N")} |\n");
         md.Append("\nAn N is a gap in this run, shown rather than left out.\n");
+    }
+
+    /// <summary>"Decisions applied" (R-DECISIONS): each rule in force with its ruling, plain words and counts, then the settings.</summary>
+    private static void Decisions(StringBuilder md, IReadOnlyList<DifferentialDecision> decisions)
+    {
+        md.Append("\n## 6. Decisions applied\n\n")
+            .Append("Every rule that changed what happened in this analysis, with how many protein groups (features) and result rows ")
+            .Append("it touched. Each case is a line of `").Append(DifferentialDecisionWriter.FileName)
+            .Append("`, which joins to the results on stratum, quant basis, feature and comparison.\n\n")
+            .Append("| rule | ruling | what it does | lines | features | rows |\n|---|---|---|---|---|---|\n");
+        foreach (var (rule, lines, features, rows) in DifferentialDecisionWriter.Counts(decisions))
+        {
+            string words = DifferentialDecisionRules.All[DifferentialDecisionRules.Index(rule)].Words;
+            md.Append($"| `{rule}` | {DifferentialDecisionRules.Ruling(rule)} | {Cell(words)} | {DifferentialDecisionWriter.Count(lines)} | ")
+                .Append($"{DifferentialDecisionWriter.Count(features)} | {DifferentialDecisionWriter.Count(rows)} |\n");
+        }
+        foreach (var settings in decisions.Where(d => d.Rule == DifferentialDecisionRules.Settings))
+            md.Append("\nSettings: ").Append(Cell(settings.Facts)).Append(".\n");
     }
 
     private static string Basis(string? basis) => basis is null ? "" : $", basis `{basis}`";

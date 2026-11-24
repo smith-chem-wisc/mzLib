@@ -1579,6 +1579,160 @@ public class MassiveFtpConnectionTests
             Assert.DoesNotThrowAsync(async () => await new MassiveFtpReadStream(new FailingStream(null, new TimeoutException())).DisposeAsync());
         });
     }
+
+    // ---- LIST over a plain-FTP loopback server: only the transfer's closing reply says a listing is whole ----------
+
+    private static readonly TimeSpan ListTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>One line of a listing, as MassIVE's server (SFTPGo) writes it.</summary>
+    private static string ListLine(int i) => $"-rw-r--r-- 1 ftp ftp 1000 Nov 10 12:30 file_{i:D3}.raw";
+
+    /// <summary>
+    /// Plays a plain-FTP server through one <c>LIST</c>: it sends <paramref name="linesSent"/> lines over the data
+    /// connection, closes it (with a reset when <paramref name="reset"/>), then sends <paramref name="closingReply"/>
+    /// on the control connection, or, when it is null, nothing more: a server that has gone down. A null
+    /// <paramref name="linesSent"/> refuses the LIST itself with <paramref name="closingReply"/>, opening no data
+    /// connection.
+    /// </summary>
+    private static LoopbackServer ListServer(int? linesSent, bool reset, string closingReply) => new(async s =>
+    {
+        await WriteLineAsync(s, "220 SFTPGo_2.7.1");
+        TcpListener passive = null;
+        try
+        {
+            while (true)
+            {
+                string line = await ReadLineAsync(s);
+                if (line.Length == 0)
+                    return;
+                switch (line.Split(' ')[0].ToUpperInvariant())
+                {
+                    case "USER": await WriteLineAsync(s, "331 ok"); break;
+                    case "PASS": await WriteLineAsync(s, "230 ok"); break;
+                    case "TYPE": await WriteLineAsync(s, "200 ok"); break;
+                    case "PWD": await WriteLineAsync(s, "257 \"/\""); break;
+                    case "PASV":
+                        passive = new TcpListener(IPAddress.Loopback, 0);
+                        passive.Start();
+                        int port = ((IPEndPoint)passive.LocalEndpoint).Port;
+                        await WriteLineAsync(s, $"227 Entering Passive Mode (127,0,0,1,{port / 256},{port % 256})");
+                        break;
+                    case "LIST" when linesSent == null:
+                        await WriteLineAsync(s, closingReply);
+                        break;
+                    case "LIST":
+                        await WriteLineAsync(s, "150 Using transfer connection");
+                        using (TcpClient data = await passive!.AcceptTcpClientAsync())
+                        {
+                            NetworkStream stream = data.GetStream();
+                            for (int i = 0; i < linesSent; i++)
+                                await stream.WriteAsync(Encoding.ASCII.GetBytes(ListLine(i) + "\r\n"));
+                            await stream.FlushAsync();
+                            if (reset)
+                            {
+                                await Task.Delay(100);
+                                data.Client.LingerState = new LingerOption(true, 0);
+                            }
+                        }
+                        if (closingReply == null)
+                        {
+                            // Gone down: silent until the client gives up and hangs up.
+                            while ((await ReadLineAsync(s)).Length > 0) { }
+                            return;
+                        }
+                        await WriteLineAsync(s, closingReply);
+                        break;
+                    default: await WriteLineAsync(s, "502 Command not implemented"); break;
+                }
+            }
+        }
+        finally
+        {
+            passive?.Stop();
+        }
+    });
+
+    /// <summary>A plain-FTP connection to a loopback server, through the same wrapper production uses.</summary>
+    private static async Task<IMassiveFtpConnection> ConnectPlain(LoopbackServer server)
+    {
+        var client = new FluentFTP.AsyncFtpClient("127.0.0.1", "anonymous", "anonymous@", server.Port, new FluentFTP.FtpConfig
+        {
+            EncryptionMode = FluentFTP.FtpEncryptionMode.None,
+            DataConnectionType = FluentFTP.FtpDataConnectionType.PASV,
+            ListingDataType = FluentFTP.FtpDataType.Binary,
+            ConnectTimeout = (int)ListTimeout.TotalMilliseconds,
+            ReadTimeout = (int)ListTimeout.TotalMilliseconds,
+            DataConnectionConnectTimeout = (int)ListTimeout.TotalMilliseconds,
+            DataConnectionReadTimeout = (int)ListTimeout.TotalMilliseconds,
+            RetryAttempts = 1,
+        });
+        await client.Connect();
+        return new FluentFtpConnection(client);
+    }
+
+    [Test]
+    public async Task List_WholeListing_ReturnsEveryLine()
+    {
+        using var server = ListServer(linesSent: 5, reset: false, "226 Closing transfer connection");
+        using IMassiveFtpConnection connection = await ConnectPlain(server);
+
+        IReadOnlyList<string> lines = await connection.ListAsync("/v07/MSV000000001/raw", CancellationToken.None);
+
+        Assert.That(lines.Where(l => l.StartsWith("-rw")), Is.EqualTo(Enumerable.Range(0, 5).Select(ListLine)));
+    }
+
+    [Test]
+    public async Task List_EmptyFolder_IsEmptyNotAFailure()
+    {
+        // MassIVE closes an empty folder's LIST with 226 too (MSV000080763's raw/RAW, 2026-11-16).
+        using var server = ListServer(linesSent: 0, reset: false, "226 Closing transfer connection");
+        using IMassiveFtpConnection connection = await ConnectPlain(server);
+
+        IReadOnlyList<string> lines = await connection.ListAsync("/x01/MSV000080763/raw/RAW", CancellationToken.None);
+
+        Assert.That(lines.Where(l => l.StartsWith("-rw")), Is.Empty);
+    }
+
+    [TestCase(true, TestName = "List_ServerGoesDownMidListing_IsATransportFailure(reset)")]
+    [TestCase(false, TestName = "List_ServerGoesDownMidListing_IsATransportFailure(closed)")]
+    public async Task List_ServerGoesDownMidListing_IsATransportFailure(bool reset)
+    {
+        // FluentFTP 55.1.0 returns the lines it read, with no exception, when no closing reply follows a broken
+        // data connection. A cut-short listing must not pass for a whole one.
+        using var server = ListServer(linesSent: 3, reset, closingReply: null);
+        using IMassiveFtpConnection connection = await ConnectPlain(server);
+
+        Exception e = Assert.CatchAsync(async () => await connection.ListAsync("/v07/MSV000000001/raw", CancellationToken.None));
+
+        Assert.That(e, Is.InstanceOf<MassiveFtpTransportException>(), e?.ToString() ?? "no exception: the cut-short listing was returned");
+    }
+
+    [Test]
+    public async Task List_RefusedWith550_IsAReplyFailureWithItsCode()
+    {
+        // FluentFTP absorbs a 550 to LIST (some servers send it for an empty folder; MassIVE's does not).
+        using var server = ListServer(linesSent: null, reset: false, "550 Permission denied.");
+        using IMassiveFtpConnection connection = await ConnectPlain(server);
+
+        Exception e = Assert.CatchAsync(async () => await connection.ListAsync("/v07/MSV000000001/raw", CancellationToken.None));
+
+        Assert.That((e as MassiveFtpReplyException)?.Code, Is.EqualTo(550), e?.ToString() ?? "no exception: the refusal was returned as an empty listing");
+    }
+
+    [Test]
+    public async Task List_TransferAbortedWith426_IsATransientReplyFailure()
+    {
+        using var server = ListServer(linesSent: 3, reset: true, "426 Connection closed; transfer aborted.");
+        using IMassiveFtpConnection connection = await ConnectPlain(server);
+
+        Exception e = Assert.CatchAsync(async () => await connection.ListAsync("/v07/MSV000000001/raw", CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((e as MassiveFtpReplyException)?.Code, Is.EqualTo(426), e?.ToString());
+            Assert.That((e as MassiveFtpReplyException)?.IsTransient, Is.True);
+        });
+    }
 }
 
 /// <summary>

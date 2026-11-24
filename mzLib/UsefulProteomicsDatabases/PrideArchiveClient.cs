@@ -35,7 +35,7 @@ namespace UsefulProteomicsDatabases
     /// support testing and custom configuration.
     /// </para>
     /// </remarks>
-    public sealed class PrideArchiveClient : IDisposable
+    public sealed partial class PrideArchiveClient : IDisposable
     {
         /// <summary>The base address of the PRIDE Archive REST API (v3).</summary>
         public const string DefaultBaseAddress = "https://www.ebi.ac.uk/pride/ws/archive/v3/";
@@ -864,29 +864,16 @@ namespace UsefulProteomicsDatabases
             return DownloadFileCoreAsync(file, destinationDirectory, expected, overwrite, verifyMd5, cancellationToken);
         }
 
+        /// <param name="singleAttempt">
+        /// One attempt, with no retry of a transient failure: <see cref="DownloadFileWithPolicyAsync"/> runs its own.
+        /// </param>
+        /// <param name="httpsUrl">Where to download from; null for the file's own HTTPS location. Set by <see cref="PrideDownloadPolicy.HttpsLocation"/>.</param>
+        /// <param name="bytes">Receives the bytes the download received, as it ends; null when nobody counts them.</param>
         private async Task<string> DownloadFileCoreAsync(PrideArchiveFile file, string destinationDirectory,
-            PrideFileChecksum expected, bool overwrite, bool verifyMd5, CancellationToken cancellationToken)
+            PrideFileChecksum expected, bool overwrite, bool verifyMd5, CancellationToken cancellationToken,
+            bool singleAttempt = false, string httpsUrl = null, TryBytes bytes = null)
         {
-            if (file == null)
-                throw new ArgumentNullException(nameof(file));
-            if (string.IsNullOrWhiteSpace(destinationDirectory))
-                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
-            if (string.IsNullOrWhiteSpace(file.FileName))
-                throw new ArgumentException("The PRIDE file has no file name to save under.", nameof(file));
-
-            // The file name comes verbatim from the PRIDE response; treat it as untrusted. Only a bare
-            // leaf name is allowed, so a value carrying a directory separator, a ".." segment, or a rooted
-            // path cannot escape destinationDirectory when combined below (Path.Combine does not sanitize).
-            string safeFileName = Path.GetFileName(file.FileName);
-            if (safeFileName != file.FileName || safeFileName == "." || safeFileName == "..")
-                throw new ArgumentException(
-                    $"The PRIDE file name '{file.FileName}' is not a bare file name; refusing to write outside the destination directory.",
-                    nameof(file));
-
-            if (expected != null && !string.Equals(expected.FileName, safeFileName, StringComparison.Ordinal))
-                throw new ArgumentException(
-                    $"The checksum given is for '{expected.FileName}', not for '{safeFileName}'.", nameof(expected));
-
+            string safeFileName = CheckDownloadTarget(file, destinationDirectory, expected);
             string destinationPath = Path.Combine(destinationDirectory, safeFileName);
 
             // Cheap resume: an already-present destination is left untouched. This runs before URL
@@ -898,7 +885,7 @@ namespace UsefulProteomicsDatabases
                     || await ChecksumMismatchAsync(destinationPath, expected, verifyMd5, cancellationToken).ConfigureAwait(false) == null))
                 return destinationPath;
 
-            string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
+            string url = httpsUrl ?? file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
             string described = DownloadEngine.DescribeDownload(url, safeFileName);
 
             Directory.CreateDirectory(destinationDirectory);
@@ -964,7 +951,7 @@ namespace UsefulProteomicsDatabases
                             throw new ContentMismatchException($"The PRIDE download of {described} {mismatch}.");
                         }
                         return true;
-                    }, host, cancellationToken).ConfigureAwait(false);
+                    }, host, cancellationToken, maxRetries: singleAttempt ? 0 : null).ConfigureAwait(false);
                 }
 
                 File.Move(partialPath, destinationPath, overwrite: true);
@@ -1004,9 +991,40 @@ namespace UsefulProteomicsDatabases
             finally
             {
                 digest?.Dispose();
+                if (bytes != null)
+                    bytes.Received = transfer.BytesReceived;
             }
 
             return destinationPath;
+        }
+
+        /// <summary>
+        /// Checks the arguments every download takes and returns the file's name, safe to combine with
+        /// <paramref name="destinationDirectory"/>.
+        /// </summary>
+        private static string CheckDownloadTarget(PrideArchiveFile file, string destinationDirectory, PrideFileChecksum expected)
+        {
+            if (file == null)
+                throw new ArgumentNullException(nameof(file));
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
+            if (string.IsNullOrWhiteSpace(file.FileName))
+                throw new ArgumentException("The PRIDE file has no file name to save under.", nameof(file));
+
+            // The file name comes verbatim from the PRIDE response; treat it as untrusted. Only a bare
+            // leaf name is allowed, so a value carrying a directory separator, a ".." segment, or a rooted
+            // path cannot escape destinationDirectory when combined below (Path.Combine does not sanitize).
+            string safeFileName = Path.GetFileName(file.FileName);
+            if (safeFileName != file.FileName || safeFileName == "." || safeFileName == "..")
+                throw new ArgumentException(
+                    $"The PRIDE file name '{file.FileName}' is not a bare file name; refusing to write outside the destination directory.",
+                    nameof(file));
+
+            if (expected != null && !string.Equals(expected.FileName, safeFileName, StringComparison.Ordinal))
+                throw new ArgumentException(
+                    $"The checksum given is for '{expected.FileName}', not for '{safeFileName}'.", nameof(expected));
+
+            return safeFileName;
         }
 
         /// <summary>

@@ -235,6 +235,74 @@ namespace Test.Quantification
 
             double[] protein = FlashLfqProteinIntensities(table);
             Assert.That(protein[1] / protein[0], Is.EqualTo(2.0).Within(1e-9), "the linked samples keep their fitted ratio");
+            Assert.That(protein[2], Is.NaN, "the third sample's only peptide was set aside, so the fit cannot place it");
+        }
+
+        /// <summary>
+        /// A sample seen only through a peptide seen in it alone, while another peptide links the other samples. The fit
+        /// sets that peptide aside, so the sample has no data in the fit and its column effect stays at 0. It used to get
+        /// 2^overall times the peptide count whenever it was the only sample in that state: 2828.43 here, whatever its own
+        /// peptide measured. It is unquantifiable. Worked by hand: the overall effect is log2 of the geometric mean of 1000
+        /// and 2000, 1414.21; with two peptides the reference is 2828.43, so the linked samples are 2000 and 4000.
+        /// </summary>
+        [TestCase(50.0)]
+        [TestCase(5000.0)]
+        [TestCase(5000000.0)]
+        public void ASampleSeenOnlyThroughItsOwnPeptide_IsUnquantifiable_WhateverThatPeptideMeasured(double ownPeptide)
+        {
+            var table = new[]
+            {
+                new[] { 1000.0, 2000.0, 0 },
+                new[] { 0, 0, ownPeptide },
+            };
+
+            double[] flashLfq = FlashLfqProteinIntensities(table);
+            Assert.That(flashLfq[0], Is.EqualTo(2000.0).Within(1e-9));
+            Assert.That(flashLfq[1], Is.EqualTo(4000.0).Within(1e-9));
+            Assert.That(flashLfq[2], Is.NaN);
+
+            double[] rolledUp = RollUpAllRows(table);
+            Assert.That(rolledUp, Is.EqualTo(new[] { 2000.0, 4000.0, 0.0 }).Within(1e-9),
+                "the roll-up writes an unquantifiable sample as 0, the matrix's 'not observed'");
+        }
+
+        /// <summary>
+        /// Two such samples were already unquantifiable, and still are. Worked by hand: the linked samples' geometric mean
+        /// is 1414.21, times three peptides, gives 3000 and 6000.
+        /// </summary>
+        [Test]
+        public void TwoSamplesSeenOnlyThroughTheirOwnPeptides_AreBothUnquantifiable()
+        {
+            double[] protein = FlashLfqProteinIntensities(new[]
+            {
+                new[] { 1000.0, 2000.0, 0, 0 },
+                new[] { 0, 0, 5000.0, 0 },
+                new[] { 0, 0, 0, 7000.0 },
+            });
+
+            Assert.That(protein[0], Is.EqualTo(3000.0).Within(1e-9));
+            Assert.That(protein[1], Is.EqualTo(6000.0).Within(1e-9));
+            Assert.That(protein[2], Is.NaN);
+            Assert.That(protein[3], Is.NaN);
+        }
+
+        /// <summary>
+        /// Two samples with identical values fit column effects of exactly 0. That is a real placement, not a sign of
+        /// missing data, but the test this replaced read two such effects as "unquantifiable" and blanked both samples.
+        /// Worked by hand: the overall effect is log2 of the geometric mean of 1000 and 2000, 1414.21, and with two peptides
+        /// each sample is 2828.43.
+        /// </summary>
+        [Test]
+        public void SamplesWhoseFittedEffectIsExactlyZero_KeepTheirValue()
+        {
+            double[] protein = FlashLfqProteinIntensities(new[]
+            {
+                new[] { 1000.0, 1000.0 },
+                new[] { 2000.0, 2000.0 },
+            });
+
+            Assert.That(protein[0], Is.EqualTo(2828.4271247).Within(1e-6));
+            Assert.That(protein[1], Is.EqualTo(2828.4271247).Within(1e-6));
         }
 
         [Test]

@@ -94,8 +94,9 @@ namespace Test.Quantification
         }
 
         /// <summary>
-        /// The caller's peptide list: the engine refuses an empty one, and a localization-ambiguous row is built from the
-        /// matches, not from this list, so these tests pass one unrelated peptide.
+        /// The caller's peptide list. A localization-ambiguous row is built from the matches, not from this list, so these
+        /// tests pass one unrelated peptide, and the row is shown beside a peptide of one full sequence. A run with no
+        /// peptide listed is <see cref="EveryMatchAmbiguousOnlyInSite_IsQuantifiedWithNoPeptideListed"/>.
         /// </summary>
         private static List<IBioPolymerWithSetMods> Unrelated() =>
             new() { Peptide(new Protein("WWWWWK", "UNRELATED"), 1, 6) };
@@ -127,6 +128,60 @@ namespace Test.Quantification
                 Assert.That(row.BaseSequence, Is.EqualTo("ACMDMEK"));
                 Assert.That(ByChannel(result.ProteinIntensities[group]), Is.EqualTo(new Dictionary<string, double> { ["126"] = 1000, ["127N"] = 2000 }));
             });
+        }
+
+        /// <summary>
+        /// The same match with no peptide listed, empty or null. A run whose every match is ambiguous only in site has no
+        /// peptide of one full sequence to list, and is quantified through the row built from its matches. Before, the
+        /// engine refused it ("No modified biopolymers"), so its group got nothing.
+        /// </summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void EveryMatchAmbiguousOnlyInSite_IsQuantifiedWithNoPeptideListed(bool nullList)
+        {
+            var protein = new Protein("ACMDMEKGGGR", "P1");
+            var at3 = Peptide(protein, 1, 7, (3, Oxidation));
+            var at5 = Peptide(protein, 1, 7, (5, Oxidation));
+            var group = Group(new[] { protein }, new[] { at3, at5 });
+
+            var result = Run(new List<ISpectralMatch> { Match(1, new[] { 1000.0, 2000.0 }, at3, at5) },
+                nullList ? null : new List<IBioPolymerWithSetMods>(), new List<IBioPolymerGroup> { group });
+
+            Assert.That(result.Success, Is.True, result.Summary);
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.AmbiguousSpectralMatchesExcluded, Is.Zero);
+                Assert.That(result.PeptideIntensities.Keys.Select(p => p.FullSequence), Is.EqualTo(new[] { Name(at3, at5) }),
+                    "one row for both sites, and no row for either site");
+                Assert.That(ByChannel(result.ProteinIntensities[group]), Is.EqualTo(new Dictionary<string, double> { ["126"] = 1000, ["127N"] = 2000 }));
+            });
+        }
+
+        /// <summary>
+        /// An empty peptide list is still refused when no match is ambiguous only in where its modifications sit. Each match
+        /// here is one reason: a match of one full sequence; a match ambiguous between different modifications; and a match
+        /// ambiguous only in site that carries no intensities, so it has nothing to quantify.
+        /// </summary>
+        [Test]
+        public void AnEmptyPeptideList_IsStillRefused_WhenNoMatchIsAmbiguousOnlyInSite()
+        {
+            var protein = new Protein("ACMDMEKGGGR", "P1");
+            var at3 = Peptide(protein, 1, 7, (3, Oxidation));
+            var at5 = Peptide(protein, 1, 7, (5, Oxidation));
+            var twoOxidations = Peptide(protein, 1, 7, (3, Oxidation), (5, Oxidation));
+            var oneDioxidation = Peptide(protein, 1, 7, (3, Dioxidation));
+            var group = Group(new[] { protein }, new[] { at3, at5, twoOxidations, oneDioxidation });
+
+            var result = Run(new List<ISpectralMatch>
+                {
+                    Match(1, new[] { 1000.0, 2000.0 }, at3),
+                    Match(2, new[] { 1000.0, 2000.0 }, twoOxidations, oneDioxidation),
+                    Match(3, null, at3, at5)
+                },
+                new List<IBioPolymerWithSetMods>(), new List<IBioPolymerGroup> { group });
+
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Summary, Does.Contain("No modified biopolymers"));
         }
 
         /// <summary>
