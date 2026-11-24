@@ -57,7 +57,7 @@ public class DifferentialAnalysisTmtTests
     private static double Gaussian(Random rng) =>
         Math.Sqrt(-2 * Math.Log(1 - rng.NextDouble())) * Math.Cos(2 * Math.PI * rng.NextDouble());
 
-    private static DifferentialAnalysisResult Run(int threads = 1)
+    private static DifferentialAnalysisResult Run(int threads = 1, DifferentialSettings? settings = null)
     {
         var (table, samples) = Data(20261110);
         return DifferentialAnalysis.Run(new DifferentialRequest
@@ -67,6 +67,7 @@ public class DifferentialAnalysisTmtTests
             Spec = new DesignSpec { Factors = new[] { new FactorSpec(AnalysisSample.ConditionFactor, "A") } },
             Contrasts = new[] { DifferentialContrastRequest.Between(AnalysisSample.ConditionFactor, "B", "A") },
             ReporterAcquisition = "ms3_sps",
+            Settings = settings ?? new DifferentialSettings(),
         }, threads);
     }
 
@@ -147,7 +148,7 @@ public class DifferentialAnalysisTmtTests
             Assert.That(row.ReporterAcquisition, Is.EqualTo("ms3_sps"));
             Assert.That(row.QuantBasis, Is.Null);
             Assert.That((row.NSamplesNumerator, row.NSamplesDenominator), Is.EqualTo((6, 6)), "three per group per plex; no reference");
-            Assert.That(row.NPeptides, Is.EqualTo(8), "four ions in each of two plex runs");
+            Assert.That(row.NPeptides, Is.EqualTo(4), "four peptides, each one ion in each of two plex runs (M5b ruling 13)");
         }
         var model = result.Metadata.Models.Single();
         Assert.That(model.Formula, Does.Contain("ion_in_run").And.Contain("(1|sample/run)"));
@@ -167,5 +168,42 @@ public class DifferentialAnalysisTmtTests
         }
 
         Assert.That(Written(4), Is.EqualTo(Written(1)));
+    }
+
+    /// <summary>
+    /// The settings an isobaric table accepts: its channel median (asked for by name or by the label-free default) or
+    /// none. A background set and a label-free-only setting are refused, naming what was asked.
+    /// </summary>
+    [Test]
+    public void AnIsobaricTableAcceptsItsOwnNormalizationAndRefusesTheLabelFreeOnes()
+    {
+        Assert.That(Run(settings: new DifferentialSettings { Normalization = IsobaricNormalization.GlobalChannelMedian })
+            .Metadata.Normalization.Single().Setting, Is.EqualTo(IsobaricNormalization.GlobalChannelMedian));
+        Assert.That(Run(settings: new DifferentialSettings { Normalization = SharedPeptideNormalization.None }).Metadata.Normalization,
+            Is.Empty);
+
+        foreach (var (setting, groups) in new (string, string[]?)[]
+                 {
+                     ("background_set:human", new[] { "BG001" }), (SharedPeptideNormalization.SharedPeptideMedianHalf, null),
+                     ("global_channel_mediann", null),
+                 })
+        {
+            var ex = Assert.Throws<ArgumentException>(() => Run(settings: new DifferentialSettings { Normalization = setting, BackgroundSetGroups = groups }));
+            Assert.That(ex!.Message, Does.Contain($"'{setting}'"), setting);
+        }
+    }
+
+    /// <summary>
+    /// The statistics report names the channel median (it fell to the generic sentence, "over 0 reference peptides",
+    /// before the follow-up to mzLib #1591).
+    /// </summary>
+    [Test]
+    public void TheReportSaysTheChannelsWereShiftedOnTheirMedians()
+    {
+        var result = Run();
+
+        string report = StatisticalReportWriter.Build(result.Metadata, result.Rows, result.Diagnostics, result.Decisions).Markdown;
+
+        Assert.That(report, Does.Contain("median log2 intensity in each plex run").And.Not.Contain("0 reference peptides"));
     }
 }

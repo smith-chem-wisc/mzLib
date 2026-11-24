@@ -244,8 +244,13 @@ public static class StatisticalReportWriter
             "had a value in every one; the differences were measured again on the shifted values until the shifts stopped changing, " +
             "and the shifts were centred to average 0.",
         "none" => "not normalized.",
+        "global_channel_median" =>
+            "each channel's median log2 intensity in each plex run was moved to the median of those medians over every plex " +
+            "run (decoy, contaminant and entrapment rows left out; MSstatsTMT's global normalization).",
         _ when n.Setting.StartsWith("background_set:", StringComparison.Ordinal) =>
-            $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides).",
+            $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides" +
+            (n is { DeclaredGroups: { } d, DeclaredGroupsAbsent: { } a }
+                ? $"; {Int(d)} protein groups declared, {Int(a.Count)} of them not in the table, listed in the metadata file" : "") + ").",
         _ => $"normalization `{n.Setting}` over {Int(n.ReferenceSetSize)} reference peptides.",
     };
 

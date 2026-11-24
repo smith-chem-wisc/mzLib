@@ -43,6 +43,7 @@ public class FeatureObservationsTests
         var g1 = features["G1"];
         Assert.That(g1.UniqueLevels, Is.EqualTo(2));
         Assert.That(g1.NuisanceLevels, Is.EqualTo(new[] { "AAA" }));
+        Assert.That(g1.PeptideCount, Is.EqualTo(1));
         Assert.That(g1.Values.Select(v => (v.SampleId, v.IsMbr)), Is.EqualTo(new[] { ("s1", false), ("s2", true), ("s3", false) }));
         Assert.That(g1.Values.Select(v => v.RandomSample), Is.EqualTo(new[] { "s1", "s2", "s3" }));
         Assert.That(g1.Values.Select(v => v.RandomIndividual), Is.All.Null);
@@ -89,6 +90,7 @@ public class FeatureObservationsTests
         var g1 = FeatureObservationBuilder.FromIsobaric(table, samples, minimumSamples: 2)["G1"];
 
         Assert.That(g1.NuisanceLevels, Is.EqualTo(new[] { "PEPTIDE/2@plex1.run1", "PEPTIDE/2@plex1.run2" }));
+        Assert.That(g1.PeptideCount, Is.EqualTo(1), "one peptide, two ion-in-run levels");
         Assert.That(g1.Values.Select(v => (v.SampleId, v.RandomSample, v.RandomIndividual)), Is.EqualTo(new[]
         {
             ("a", "a@plex1.run1", "a"), ("b", "b@plex1.run1", "b"), ("a", "a@plex1.run2", "a"), ("b", "b@plex1.run2", "b"),
