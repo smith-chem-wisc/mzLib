@@ -245,6 +245,39 @@ public class DiaObservationsTests
     }
 
     [Test]
+    public void ANullPrecursorOrRunIsRefused()
+    {
+        Assert.That(Assert.Throws<ArgumentException>(() => Build(new[] { Run("run1"), null! }))!.Message, Does.Contain("precursor is null"));
+        Assert.That(Assert.Throws<ArgumentException>(() => Build(new[] { Run("run1") }, OneRunPerSample().Append(null!).ToArray()))!
+            .Message, Does.Contain("run is null"));
+    }
+
+    /// <summary>MetaMorpheus quantifies calibrated files, so a record's file may carry <c>-calib</c>; it is that design run.</summary>
+    [Test]
+    public void ACalibratedFileIsItsDesignRun()
+    {
+        var table = Build(new[] { Run("run1-calib", quantity: 100), Run("run2-calib", quantity: 200) });
+
+        Assert.That(table.Log2Intensity(0, Sample(table, "run1")), Is.EqualTo(Math.Log2(100)).Within(1e-12));
+        Assert.That(table.Log2Intensity(0, Sample(table, "run2")), Is.EqualTo(Math.Log2(200)).Within(1e-12));
+        Assert.That(table.SamplesWithoutValues, Is.EqualTo(new[] { "s_run3" }));
+
+        var replicates = new[] { new ObservationRun("run1", "s1", 0, 1), new ObservationRun("run2", "s1", 0, 2), new ObservationRun("run3", "s3") };
+        var averaged = Build(new[] { Run("run1-calib", quantity: 100), Run("run2-calib", quantity: 400) }, replicates);
+        Assert.That(averaged.Log2Intensity(0, averaged.Samples.ToList().IndexOf("s1")),
+            Is.EqualTo((Math.Log2(100) + Math.Log2(400)) / 2).Within(1e-12), "both replicates of s1 report, under their calibrated names");
+    }
+
+    [Test]
+    public void APrecursorWithoutGroupsHasNone()
+    {
+        var table = Build(new[] { Run("run1") with { ProteinGroups = null! } });
+
+        Assert.That(table.Peptides.Single().ProteinGroups, Is.Empty);
+        Assert.That(table.Peptides.Single().UniqueProteinGroup, Is.Null);
+    }
+
+    [Test]
     public void TheTableDoesNotDependOnInputOrder()
     {
         var precursors = new List<DiaPrecursorRun>();

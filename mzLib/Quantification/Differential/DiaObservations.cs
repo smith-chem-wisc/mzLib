@@ -51,22 +51,24 @@ public sealed record DiaPrecursorRun(string FileName, string FullSequence, strin
 /// in a run, or has no record there, is <see cref="ObservationState.NotDetected"/> in that run. No cell is ever 0.
 /// </para>
 /// <para>
-/// <b>Which precursors enter.</b> Decoy and entrapment precursors never enter, whatever groups they name: a group's own
-/// flags keep decoy and entrapment groups out of the analysis, but a precursor's group names are the producer's, and a
-/// decoy can carry its owner's name. A target precursor that passes the q-values in no run has no row. The protein
-/// groups' q-values and flags come from the producer's protein-group table, as for label-free.
+/// <b>Which precursors enter.</b> Decoy, entrapment and contaminant precursors never enter, whatever groups they name: a
+/// group's own flags keep such groups out of the analysis, but a precursor's group names are the producer's, and a decoy
+/// can carry its owner's name. A target precursor that passes the q-values in no run has no row. The protein groups'
+/// q-values and flags come from the producer's protein-group table, as for label-free.
 /// </para>
 /// <para>
 /// <b>Runs.</b> Technical replicates of a sample are averaged on the log scale, as for every table. Fractions are
-/// refused: two runs of one sample and technical replicate. A design run with no record at all is a run where nothing was
-/// reported, so its sample has no values (<see cref="ObservationTable.SamplesWithoutValues"/>). The table is built under
-/// <see cref="QuantBasis.MsmsOnly"/>: DIA has no match-between-runs values.
+/// refused: two runs of one sample and technical replicate. A design run where no target precursor passes is a run where
+/// nothing was reported. When no run of its sample reports anything, the sample is kept with no values
+/// (<see cref="ObservationTable.SamplesWithoutValues"/>). When another run of its sample does, it is refused, because the
+/// replicate average would leave it out with no record. The table is built under <see cref="QuantBasis.MsmsOnly"/>: DIA
+/// has no match-between-runs values.
 /// </para>
 /// <para>
 /// <b>Refusals</b> throw <see cref="ArgumentException"/> naming the precursor and run: a precursor twice in one run, runs
 /// of one precursor that disagree on its base sequence or groups, a value that is not finite and above 0, a kind without a
 /// value that carries a number, a kind the adapter does not map, a q-value that is not from 0 to 1, a run the design does
-/// not have, and what <c>ObservationTable.Build</c> refuses.
+/// not have, a run lost inside its sample (naming the sample), and what <c>ObservationTable.Build</c> refuses.
 /// </para>
 /// </remarks>
 public static class DiaObservations
@@ -95,6 +97,8 @@ public static class DiaObservations
                 "A q-value threshold is above 0 and at most 1.");
 
         var runList = runs.ToList();
+        if (runList.Contains(null!))
+            throw new ArgumentException("A run is null.", nameof(runs));
         RefuseFractions(runList);
 
         var labels = new SortedSet<string>(StringComparer.Ordinal);
@@ -104,25 +108,30 @@ public static class DiaObservations
             if (precursor is null)
                 throw new ArgumentException("A precursor is null.", nameof(precursors));
             labels.Add(precursor.FileName);
-            if (precursor.IsDecoy || precursor.IsEntrapment)
+            if (precursor.IsDecoy || precursor.IsEntrapment || precursor.IsContaminant)
                 continue;
             CheckQValues(precursor);
             targets.Add(precursor);
         }
 
-        // A design run that no record names was searched and reported nothing: its sample is kept, without values.
+        // A design run that no record names was searched and reported nothing; whether that is allowed depends on its sample.
         foreach (ObservationRun run in runList)
-            if (run is not null && !labels.Contains(run.FileName) && !labels.Contains(run.FileName + CalibratedSuffix))
+            if (!Names(labels, run))
                 labels.Add(run.FileName);
 
-        return ObservationTable.Build(runList, labels, ToRows(targets, qValueThreshold), proteinGroups, QuantBasis.MsmsOnly);
+        var reporting = new HashSet<string>(StringComparer.Ordinal);
+        var table = ObservationTable.Build(runList, labels, ToRows(targets, qValueThreshold, reporting), proteinGroups,
+            QuantBasis.MsmsOnly);
+        RefuseARunLostInsideItsSample(runList, reporting);
+        return table;
     }
 
     /// <summary>
     /// One row per precursor (full sequence and charge), with its value in each run where it passes both q-values. This is
     /// the one place precursors become rows, so a different charge rule changes only this method.
     /// </summary>
-    private static List<PeptideRunValues> ToRows(List<DiaPrecursorRun> targets, double qValueThreshold)
+    /// <param name="reporting">Filled with the file of every run where at least one precursor passes.</param>
+    private static List<PeptideRunValues> ToRows(List<DiaPrecursorRun> targets, double qValueThreshold, HashSet<string> reporting)
     {
         var rows = new List<PeptideRunValues>();
         var ordered = targets.OrderBy(p => p.FullSequence, StringComparer.Ordinal).ThenBy(p => p.Charge)
@@ -153,7 +162,10 @@ public static class DiaObservations
 
                 RunValue value = ToRunValue(precursor);
                 if (precursor.RunQValue <= qValueThreshold && precursor.GlobalQValue <= qValueThreshold)
+                {
                     byRun[precursor.FileName] = value;
+                    reporting.Add(precursor.FileName);
+                }
             }
 
             if (byRun.Count > 0)
@@ -196,10 +208,34 @@ public static class DiaObservations
             $"{Format(precursor.GlobalQValue)}; a q-value is from 0 to 1.", "precursors");
     }
 
+    /// <summary>
+    /// Refuses a design run where no precursor passes when another run of its sample has one: the replicate average would
+    /// leave it out with no record (QuantProject 086). A sample where no run reports anything is kept, without values.
+    /// </summary>
+    private static void RefuseARunLostInsideItsSample(List<ObservationRun> runs, HashSet<string> reporting)
+    {
+        foreach (var sample in runs.GroupBy(r => r.SampleId, StringComparer.Ordinal)
+                     .OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var lost = sample.Where(r => !Names(reporting, r)).Select(r => r.FileName).Order(StringComparer.Ordinal).ToList();
+            if (lost.Count == 0 || lost.Count == sample.Count())
+                continue;
+
+            var others = sample.Where(r => Names(reporting, r)).Select(r => $"'{r.FileName}'").Order(StringComparer.Ordinal);
+            throw new ArgumentException($"Run '{lost[0]}' of sample '{sample.Key}' reports no precursor that passes, while " +
+                $"the sample's run(s) {string.Join(", ", others)} do, so averaging the sample's replicates would leave it " +
+                "out with no record. Remove it from the experimental design to analyse the sample without it.", "runs");
+        }
+    }
+
+    /// <summary>Whether <paramref name="files"/> names <paramref name="run"/>: by its name, or its name plus <c>-calib</c>.</summary>
+    private static bool Names(ISet<string> files, ObservationRun run) =>
+        files.Contains(run.FileName) || files.Contains(run.FileName + CalibratedSuffix);
+
     /// <summary>Refuses fractions: two runs of one sample and technical replicate at different fractions.</summary>
     private static void RefuseFractions(List<ObservationRun> runs)
     {
-        var split = runs.Where(r => r is not null).GroupBy(r => (r.SampleId, r.TechnicalReplicate))
+        var split = runs.GroupBy(r => (r.SampleId, r.TechnicalReplicate))
             .FirstOrDefault(g => g.Select(r => r.Fraction).Distinct().Count() > 1);
         if (split is null)
             return;
