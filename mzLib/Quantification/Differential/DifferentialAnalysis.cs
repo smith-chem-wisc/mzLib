@@ -518,8 +518,8 @@ public static class DifferentialAnalysis
         /// <summary>
         /// The normalization check of one estimable contrast in this stratum (<see cref="NormalizationCheck"/>), on the rows
         /// <see cref="FitAndModerate"/> just added. It runs only where it was calibrated: label-free, normalized with
-        /// <c>shared_peptide_median</c> (every-sample or half set), robust weighting on, method <c>moderated</c>, MS/MS values
-        /// only; anything else is not checked, naming the first setting that differs.
+        /// <c>shared_peptide_median</c> (every-sample or half set), robust weighting on, MS/MS values only; anything else is not
+        /// checked, naming the first setting that differs. (The runner has one method, <c>moderated</c>.)
         /// </summary>
         private DifferentialNormalizationCheck CheckNormalization(AnalysisDesign design, Contrast contrast, string normalization)
         {
@@ -536,7 +536,6 @@ public static class DifferentialAnalysis
                 : normalization is not (SharedPeptideNormalization.SharedPeptideMedian or SharedPeptideNormalization.SharedPeptideMedianHalf)
                     ? normalization.StartsWith(SharedPeptideNormalization.BackgroundSetPrefix, StringComparison.Ordinal) ? "background_set" : normalization
                 : !_request.Settings.Robust ? "robust_off"
-                : _request.Settings.Method != DifferentialConstants.Method ? _request.Settings.Method
                 : _basis != QuantBasis.MsmsOnly.ToMachineName() ? _basis ?? "no_basis"
                 : null;
             if (setting is not null)

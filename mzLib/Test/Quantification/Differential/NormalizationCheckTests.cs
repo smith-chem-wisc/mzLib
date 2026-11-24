@@ -246,6 +246,23 @@ public class NormalizationCheckTests
             Is.EqualTo("not_calibrated:none"));
         Assert.That(Reason(Request(40, 0, 11, QuantBasis.MbrKept)), Is.EqualTo("not_calibrated:mbr_kept"));
         Assert.That(Reason(Request(40, 0, 11) with { QuantStyle = DifferentialConstants.DiaStyle }), Is.EqualTo("not_calibrated:dia"));
+        Assert.That(Reason(Request(40, 0, 11) with
+        {
+            // 40 declared groups of 3 peptides: 120 reference peptides, above the floor of 100, so the stratum is shifted.
+            Settings = new DifferentialSettings
+            {
+                Normalization = "background_set:steady", BackgroundSetGroups = Enumerable.Range(0, 40).Select(p => $"P{p:000}").ToArray(),
+            },
+        }), Is.EqualTo("not_calibrated:background_set"));
+        // Three declared groups give 9 reference peptides, below the floor: the stratum is not shifted, its entry says none,
+        // and so do the check and the report.
+        var below = DifferentialAnalysis.Run(Request(40, 0, 11) with
+        {
+            Settings = new DifferentialSettings { Normalization = "background_set:steady", BackgroundSetGroups = new[] { "P000", "P001", "P002" } },
+        }, 2);
+        Assert.That(OnlyCheck(below).NotCheckedReason, Is.EqualTo("not_calibrated:none"));
+        string belowReport = StatisticalReportWriter.Build(below.Metadata, below.Rows, below.Diagnostics, below.Decisions).Markdown;
+        Assert.That(belowReport, Does.Contain("The data were not normalized.").And.Not.Contain("The data were normalized."));
 
         var none = DifferentialAnalysis.Run(Request(40, 0, 11) with { Settings = new DifferentialSettings { Normalization = SharedPeptideNormalization.None } }, 2);
         string report = StatisticalReportWriter.Build(none.Metadata, none.Rows, none.Diagnostics, none.Decisions).Markdown;

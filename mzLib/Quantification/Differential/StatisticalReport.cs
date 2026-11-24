@@ -173,8 +173,7 @@ public static class StatisticalReportWriter
                 .Append(string.Join("; ", m.Inputs.Select(i =>
                     $"{i.Role}{(i.FileName.Length == 0 ? " (in memory)" : $" `{i.FileName}`")} (sha256 `{Prefix(i.Sha256)}`)"))).Append(".\n\n");
 
-        md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.")
-            .Append(m.Settings.Normalization == SharedPeptideNormalization.None ? " The data were not normalized." : " The data were normalized.");
+        md.Append("**Transformation and normalization.** All quantities were analysed on the log2 scale.").Append(NormalizedOrNot(m));
         if (m.Settings.NormalizationOverride is { } over)
             md.Append($" A curator overrode the default normalization: `{over}`.");
         if (m.Normalization.Count == 0)
@@ -237,6 +236,20 @@ public static class StatisticalReportWriter
             md.Append($"**Seed.** Random seed: {seed.ToString(CultureInfo.InvariantCulture)}.\n\n");
     }
 
+    /// <summary>
+    /// Whether the data were normalized, said plainly from what each stratum's normalization did, not from the setting
+    /// asked for: a stratum whose reference set fell below the floor was not shifted, and its entry says <c>none</c>.
+    /// </summary>
+    private static string NormalizedOrNot(DifferentialMetadata m)
+    {
+        if (m.Settings.Normalization == SharedPeptideNormalization.None) return " The data were not normalized.";
+        if (m.Normalization.Count == 0) return " The data were normalized.";
+        int none = m.Normalization.Count(n => n.Setting == SharedPeptideNormalization.None);
+        return none == 0 ? " The data were normalized."
+            : none == m.Normalization.Count ? " The data were not normalized."
+            : " The data were normalized in some strata and not in others, as each stratum's sentence says.";
+    }
+
     /// <summary>What a normalization setting assumes, in plain words; null for a setting with no stated assumption.</summary>
     private static string? NormalizationAssumption(string setting) => setting switch
     {
@@ -297,7 +310,7 @@ public static class StatisticalReportWriter
         md.Append('\n');
     }
 
-    private static string NotCheckedText(DifferentialNormalizationCheck c) => c.NotCheckedReason switch
+    private static string NotCheckedText(DifferentialNormalizationCheck c) => (c.NotCheckedReason ?? "") switch
     {
         NormalizationCheck.FewerThanMinimumFitted =>
             $"fewer than {Int(NormalizationCheck.MinimumFittedProteins)} fitted proteins ({Int(c.FittedProteins)})",
@@ -307,8 +320,7 @@ public static class StatisticalReportWriter
         { } r when r.StartsWith(NormalizationCheck.NotCalibratedPrefix, StringComparison.Ordinal) =>
             "the check was calibrated only on label-free data normalized with `shared_peptide_median`, with robust weighting on " +
             $"and MS/MS values only, and this run used `{r[NormalizationCheck.NotCalibratedPrefix.Length..]}`",
-        { } r => $"`{r}`",
-        null => "no reason recorded",
+        var r => $"`{r}`",
     };
 
     private static string NormalizationSentence(DifferentialNormalizationInfo n) => n.Setting switch
