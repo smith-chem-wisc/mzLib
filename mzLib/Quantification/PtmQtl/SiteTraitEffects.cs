@@ -41,7 +41,8 @@ public sealed record SiteTraitEffect(ModificationSite Site, string Status, doubl
 
     /// <summary>
     /// Whether <see cref="ResidualVariance"/> was borrowed (the call's median over sites with their own) because the site
-    /// has fewer than <see cref="SiteTraitEffects.MinMeasuredRunsForScatter"/> measured runs.
+    /// has fewer than <see cref="SiteTraitEffects.MinMeasuredRunsForScatter"/> measured runs, or no replicate with two
+    /// of them.
     /// </summary>
     public bool ResidualVarianceBorrowed { get; init; }
 
@@ -142,7 +143,9 @@ public sealed record SiteTraitOptions
 /// <see cref="MinMeasuredRunsForScatter"/> measured runs (their mean and SD of log odds as each cell's latent).
 /// A site needs at least <see cref="MinRunsOffExtremes"/> runs that are not 0 of N or N of N (else the trait could
 /// separate them and its estimate run to infinity); one with fewer than <see cref="MinMeasuredRunsForScatter"/>
-/// measured runs borrows the call's median run-to-run variance (over Fitted sites only). A site whose trait effect
+/// measured runs, or with no replicate measured in two runs, borrows the call's median run-to-run variance (over Fitted
+/// sites with their own only). Without a replicate measured twice, the measured runs say nothing of the run-to-run
+/// variance, and its own estimate would run to the edge of the search (ptmQtl D87). A site whose trait effect
 /// the data cannot size is <c>Unbounded</c>, with its p-value. A site with no counted run is fitted by
 /// <see cref="MixedModel"/> exactly as under <see cref="BoundCellModel.Exclude"/>.
 /// </para>
@@ -152,7 +155,10 @@ public static class SiteTraitEffects
     /// <summary>With <see cref="BoundCellModel.Sampling"/>: the fewest runs a site needs that are measured or counted with 0 &lt; k &lt; N.</summary>
     public const int MinRunsOffExtremes = 3;
 
-    /// <summary>With <see cref="BoundCellModel.Sampling"/>: the fewest measured runs for a site's own run-to-run variance, and for it to inform the link.</summary>
+    /// <summary>
+    /// With <see cref="BoundCellModel.Sampling"/>: the fewest measured runs for a site's own run-to-run variance (which
+    /// also needs a replicate measured in two of them), and for it to inform the link.
+    /// </summary>
     public const int MinMeasuredRunsForScatter = 3;
 
     /// <summary>With <see cref="BoundCellModel.Sampling"/>: the fewest cells to fit the link from; below this the fallback link is used.</summary>
@@ -289,7 +295,7 @@ public static class SiteTraitEffects
             {
                 if (link.DepthSlope != 0 && depth == null)
                     throw new ArgumentException("The fallback detection link has a depth term; supply RunDepth.", nameof(options));
-                var own = withCounts.Where(s => sites[s].cells.Count(t => double.IsFinite(t.measured)) >= MinMeasuredRunsForScatter).ToList();
+                var own = withCounts.Where(s => HasOwnScatter(sites[s].cells.Where(t => double.IsFinite(t.measured)).Select(t => replicate[t.cell.Run]))).ToList();
                 var borrowing = withCounts.Except(own).ToList();
                 foreach (var (batch, borrowed) in new[] { (own, false), (borrowing, true) })
                 {
@@ -333,6 +339,16 @@ public static class SiteTraitEffects
         var q = MultipleTesting.BenjaminiHochberg(tested.Select(i => results[i].PValue).ToList());
         for (int t = 0; t < tested.Count; t++) results[tested[t]] = results[tested[t]] with { Q = q[t] };
         return results;
+    }
+
+    /// <summary>
+    /// With Sampling, whether a site's measured runs, given by their replicates, can estimate its own run-to-run variance:
+    /// at least <see cref="MinMeasuredRunsForScatter"/> of them, and a replicate measured in two.
+    /// </summary>
+    private static bool HasOwnScatter(IEnumerable<string> measuredReplicates)
+    {
+        var perReplicate = measuredReplicates.GroupBy(r => r, StringComparer.Ordinal).Select(g => g.Count()).ToList();
+        return perReplicate.Sum() >= MinMeasuredRunsForScatter && perReplicate.Any(n => n >= 2);
     }
 
     /// <summary>

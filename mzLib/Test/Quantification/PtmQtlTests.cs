@@ -1100,6 +1100,32 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void ASiteWithNoReplicateMeasuredTwiceBorrowsTheScatter()
+    {
+        // ptmQtl D87: six measured runs, but one per replicate, say nothing of the run-to-run variance; the site's own
+        // estimate would run to the search's edge, so it borrows, as a rarely measured site does.
+        var (occ, trait, rep) = TraitDesign();
+        occ = occ.Select(o => WithCounts(o, 1, 2)).ToList();                     // DeamN: measured everywhere, its own scatter
+        var runs = trait.Keys.OrderBy(r => r, StringComparer.Ordinal).ToList();
+        var spread = new ModificationSite("P2", 20, 'N', DeamN.Modification);
+        for (int i = 0; i < runs.Count; i++)
+            // spread: each replicate's first run measured, its second 1 of 3 (off the extremes).
+            occ.Add(runs[i].EndsWith("_0") ? WithCounts(Cell(runs[i], 0.2 + 0.02 * i, site: spread), 1, 3)
+                : WithCounts(Cell(runs[i], double.NaN, OccupancyState.Floor, site: spread), 1, 3));
+        var options = new SiteTraitOptions { BoundCells = BoundCellModel.Sampling, DetectionLink = new DetectionLink(0, 1) };
+        var results = SiteTraitEffects.Fit(occ, trait, rep, options: options);
+        var measured = results.Single(r => r.Site == DeamN);
+        var borrowed = results.Single(r => r.Site == spread);
+        Assert.That(borrowed.Runs, Is.EqualTo(12));
+        Assert.That(borrowed.CountedRuns, Is.EqualTo(6), "six measured runs, one in each replicate");
+        Assert.That(borrowed.ResidualVarianceBorrowed, Is.True);
+        Assert.That(borrowed.ResidualVariance, Is.EqualTo(measured.ResidualVariance).Within(1e-12 * measured.ResidualVariance),
+            "the median over the sites with their own: here the one");
+        Assert.That(borrowed.Status, Is.EqualTo("Fitted"));
+        Assert.That(double.IsFinite(borrowed.Effect) && double.IsFinite(borrowed.PValue), Is.True);
+    }
+
+    [Test]
     public void ASiteWhoseEffectTheDataCannotSizeIsUnboundedWithItsPValue()
     {
         // Measured in every run of the two high-trait replicates, and seen in one of the other eight runs: the trait's
