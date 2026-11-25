@@ -82,6 +82,13 @@ namespace Test.DatabaseTests
         [TestCase("  q exactive   HF ", "MS:1002523")]
         [TestCase("LTQ Orbitrap Velos", "MS:1001742")]
         [TestCase("Orbitrap Astral", "MS:1003378")]
+        // The Q Exactive series as its RAW files name it, the analyzer after the model. These four are 4,620 of the
+        // 10,067 files read in one reprocessing of 734 PRIDE deposits; before, each one resolved to nothing.
+        [TestCase("Q Exactive Orbitrap", "MS:1001911")]
+        [TestCase("Q Exactive Plus Orbitrap", "MS:1002634")]
+        [TestCase("Q Exactive HF Orbitrap", "MS:1002523")]
+        [TestCase("q exactive hf-x  orbitrap ", "MS:1002877")]
+        [TestCase("Q Exactive GC Orbitrap", "MS:1003395")] // PSI-MS's own name has the suffix: the exact match wins
         public void InstrumentModelCvTerms_ResolvesAnInstrumentName(string name, string expected)
         {
             Assert.That(InstrumentModelCvTerms.TryGetByName(name, out var model), Is.True);
@@ -96,6 +103,10 @@ namespace Test.DatabaseTests
         [TestCase("not a real instrument")]
         [TestCase("   ")]
         [TestCase(null)]
+        [TestCase("LTQ Velos Orbitrap")]                       // "LTQ Velos" is a model, but an ion trap, not an Orbitrap
+        [TestCase("MS Orbitrap")]                              // less the suffix, the device family again
+        [TestCase("not a real instrument Orbitrap")]
+        [TestCase("Orbitrap")]                                 // the analyzer, with no model before it
         public void InstrumentModelCvTerms_RefusesANameThatIsNoInstrumentModel(string name)
         {
             Assert.That(InstrumentModelCvTerms.TryGetByName(name, out var model), Is.False);
