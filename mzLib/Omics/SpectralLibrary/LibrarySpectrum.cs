@@ -121,6 +121,27 @@ namespace Omics.SpectrumMatch
             return decoyFragmentIons;
         }
 
+        /// <summary>
+        /// The decoy's counterpart of each target ion: the decoy's product of the same type and number (for an internal ion,
+        /// also the same secondary type and number), less the target ion's own neutral loss. A target ion keeps its loss
+        /// whatever it came from, so the decoy has as many ions as its target. Null where the decoy has no product of that
+        /// type and number.
+        /// </summary>
+        /// <param name="targetIons">The target's library ions.</param>
+        /// <param name="decoyProducts">The decoy's theoretical products, terminal and (if the target has internal ions) internal.</param>
+        /// <returns>One entry per target ion, in order: a product whose <see cref="Product.NeutralMass"/> is the decoy ion's, or null.</returns>
+        public static Product?[] GetDecoyProducts(IReadOnlyList<SpectralMatch.MslSpectralLibrary.MslFragmentIon> targetIons,
+            IReadOnlyList<Product> decoyProducts)
+        {
+            return new Product?[targetIons.Count]; // red: not written yet
+        }
+
+        /// <inheritdoc cref="GetDecoyProducts(IReadOnlyList{SpectralMatch.MslSpectralLibrary.MslFragmentIon}, IReadOnlyList{Product})"/>
+        public static Product?[] GetDecoyProducts(IReadOnlyList<MatchedFragmentIon> targetIons, IReadOnlyList<Product> decoyProducts)
+        {
+            return new Product?[targetIons.Count]; // red: not written yet
+        }
+
         public bool Equals(LibrarySpectrum? other)
         {
             if (other is null) return false;

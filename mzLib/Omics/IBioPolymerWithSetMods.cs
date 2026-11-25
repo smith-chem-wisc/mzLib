@@ -205,6 +205,27 @@ namespace Omics
             return subSequence.ToString();
         }
 
+        /// <summary>
+        /// The modifications of a sequence whose residues were rearranged, each carried to the position its residue moved to.
+        /// Terminal modifications stay on their termini.
+        /// </summary>
+        /// <param name="allModsOneIsNterminus">The modifications before the rearrangement: key 1 is the N-terminus, key r + 2 is
+        /// residue r (zero-based), and key length + 2 is the C-terminus.</param>
+        /// <param name="swappedPositions">For each zero-based residue position before the rearrangement, its position after it
+        /// (the contract of <c>EntrapmentPeptide.SwappedPositions</c> and <c>DecoySequenceValidator.ScrambleSequence</c>).</param>
+        /// <returns>A new dictionary, keyed the same way, for the rearranged sequence.</returns>
+        public static Dictionary<int, Modification> PermuteModifications(IReadOnlyDictionary<int, Modification> allModsOneIsNterminus,
+            int[] swappedPositions)
+        {
+            return new Dictionary<int, Modification>(); // red: not written yet
+        }
+
+        /// <summary>
+        /// The full sequence with every residue I read as L, since the two have the same mass and cannot be told apart by it.
+        /// Modification names in brackets are left alone.
+        /// </summary>
+        public static string LeucineEquivalent(string fullSequence) => fullSequence; // red: not written yet
+
         public static string ParseSubstitutedFullSequence(string fullSequenceWithSubstitution)
         {
             string pattern = @"\[\d+\+?\s*nucleotide substitution:\s*([A-Z])->([A-Z]) on ([A-Z])\]";
