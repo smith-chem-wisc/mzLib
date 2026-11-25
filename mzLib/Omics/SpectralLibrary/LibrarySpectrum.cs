@@ -131,15 +131,46 @@ namespace Omics.SpectrumMatch
         /// <param name="decoyProducts">The decoy's theoretical products, terminal and (if the target has internal ions) internal.</param>
         /// <returns>One entry per target ion, in order: a product whose <see cref="Product.NeutralMass"/> is the decoy ion's, or null.</returns>
         public static Product?[] GetDecoyProducts(IReadOnlyList<SpectralMatch.MslSpectralLibrary.MslFragmentIon> targetIons,
-            IReadOnlyList<Product> decoyProducts)
-        {
-            return new Product?[targetIons.Count]; // red: not written yet
-        }
+            IReadOnlyList<Product> decoyProducts) =>
+            DecoyProducts(targetIons.Select(ion => (ion.ProductType, ion.FragmentNumber, ion.SecondaryProductType, ion.SecondaryFragmentNumber,
+                ion.NeutralLoss)), targetIons.Count, decoyProducts);
 
         /// <inheritdoc cref="GetDecoyProducts(IReadOnlyList{SpectralMatch.MslSpectralLibrary.MslFragmentIon}, IReadOnlyList{Product})"/>
-        public static Product?[] GetDecoyProducts(IReadOnlyList<MatchedFragmentIon> targetIons, IReadOnlyList<Product> decoyProducts)
+        public static Product?[] GetDecoyProducts(IReadOnlyList<MatchedFragmentIon> targetIons, IReadOnlyList<Product> decoyProducts) =>
+            DecoyProducts(targetIons.Select(ion => ion.NeutralTheoreticalProduct).Select(product => (product.ProductType,
+                product.FragmentNumber, product.SecondaryProductType, product.SecondaryFragmentNumber, product.NeutralLoss)),
+                targetIons.Count, decoyProducts);
+
+        private static Product?[] DecoyProducts(
+            IEnumerable<(ProductType Type, int Number, ProductType? SecondaryType, int SecondaryNumber, double NeutralLoss)> targetIons,
+            int count, IReadOnlyList<Product> decoyProducts)
         {
-            return new Product?[targetIons.Count]; // red: not written yet
+            // The decoy's products without a loss, keyed as a target ion names its own; a terminal ion's secondary number means nothing
+            var unlost = new Dictionary<(ProductType, int, ProductType?, int), Product>();
+            foreach (var product in decoyProducts)
+            {
+                if (product.NeutralLoss == 0)
+                {
+                    unlost.TryAdd(Key(product.ProductType, product.FragmentNumber, product.SecondaryProductType, product.SecondaryFragmentNumber), product);
+                }
+            }
+
+            var mapped = new Product?[count];
+            int i = 0;
+            foreach (var ion in targetIons)
+            {
+                if (unlost.TryGetValue(Key(ion.Type, ion.Number, ion.SecondaryType, ion.SecondaryNumber), out var product))
+                {
+                    mapped[i] = ion.NeutralLoss == 0 ? product : new Product(product.ProductType, product.Terminus,
+                        product.NeutralMass - ion.NeutralLoss, product.FragmentNumber, product.ResiduePosition, ion.NeutralLoss,
+                        product.SecondaryProductType, product.SecondaryFragmentNumber);
+                }
+                i++;
+            }
+            return mapped;
+
+            static (ProductType, int, ProductType?, int) Key(ProductType type, int number, ProductType? secondaryType, int secondaryNumber) =>
+                (type, number, secondaryType, secondaryType is null ? 0 : secondaryNumber);
         }
 
         public bool Equals(LibrarySpectrum? other)

@@ -217,14 +217,32 @@ namespace Omics
         public static Dictionary<int, Modification> PermuteModifications(IReadOnlyDictionary<int, Modification> allModsOneIsNterminus,
             int[] swappedPositions)
         {
-            return new Dictionary<int, Modification>(); // red: not written yet
+            var moved = new Dictionary<int, Modification>(allModsOneIsNterminus.Count);
+            foreach (var (key, modification) in allModsOneIsNterminus)
+            {
+                int residue = key - 2;
+                bool onAResidue = residue >= 0 && residue < swappedPositions.Length;
+                moved.Add(onAResidue ? swappedPositions[residue] + 2 : key, modification);
+            }
+            return moved;
         }
 
         /// <summary>
         /// The full sequence with every residue I read as L, since the two have the same mass and cannot be told apart by it.
         /// Modification names in brackets are left alone.
         /// </summary>
-        public static string LeucineEquivalent(string fullSequence) => fullSequence; // red: not written yet
+        public static string LeucineEquivalent(string fullSequence)
+        {
+            var chars = fullSequence.ToCharArray();
+            int depth = 0;
+            for (int i = 0; i < chars.Length; i++)
+            {
+                if (chars[i] == '[') depth++;
+                else if (chars[i] == ']') depth--;
+                else if (depth == 0 && chars[i] == 'I') chars[i] = 'L';
+            }
+            return new string(chars);
+        }
 
         public static string ParseSubstitutedFullSequence(string fullSequenceWithSubstitution)
         {

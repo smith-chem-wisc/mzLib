@@ -1,6 +1,14 @@
+using Chemistry;
+using MassSpectrometry;
+using MzLibUtil;
+using Omics;
 using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 using Omics.SpectralMatch.MslSpectralLibrary;
+using Omics.SpectrumMatch;
+using Proteomics.ProteolyticDigestion;
+using UsefulProteomicsDatabases.EntrapmentGeneration;
 
 namespace Readers.SpectralLibrary;
 
@@ -32,22 +40,161 @@ public static class MslLibraryAugmenter
 	/// <param name="result">What was made, and what was not.</param>
 	/// <param name="knownModifications">Modifications the full sequences name; null reads mzLib's catalog.</param>
 	/// <exception cref="MzLibUtil.MzLibException">An entry is already a decoy, or the motifs' sites cannot be held in place.</exception>
+	/// <param name="decoyIdentifier">Prefixed, with an underscore, to each accession, as mzLib's decoy generators name theirs.</param>
 	public static List<MslLibraryEntry> CreateDecoys(IReadOnlyList<MslLibraryEntry> targets, List<DigestionMotif> motifs,
-		out MslDecoyAugmentationResult result, Dictionary<string, Modification>? knownModifications = null)
+		out MslDecoyAugmentationResult result, Dictionary<string, Modification>? knownModifications = null, string decoyIdentifier = "DECOY")
 	{
-		result = new MslDecoyAugmentationResult(0, 0, 0, 0); // red: not written yet
-		return new List<MslLibraryEntry>();
+		RefuseDecoys(targets.Any(entry => entry.IsDecoy));
+		var maker = new DecoyMaker(targets.Select(entry => entry.BaseSequence), motifs, knownModifications, decoyIdentifier);
+		var decoys = new List<MslLibraryEntry>();
+		foreach (var target in targets)
+		{
+			if (maker.Decoy(target) is { } decoy)
+				decoys.Add(decoy);
+		}
+		result = maker.Result;
+		return decoys;
 	}
 
 	/// <summary>
-	/// Writes <paramref name="outputPath"/>: every entry of the decoy-free library at <paramref name="inputPath"/>, plus its
-	/// decoy (<see cref="CreateDecoys"/>). The input is read index-only and the output written streaming.
+	/// Writes <paramref name="outputPath"/>: every entry of the decoy-free library at <paramref name="inputPath"/>, each followed
+	/// by its decoy (<see cref="CreateDecoys"/>). The input is read index-only, one entry's fragments at a time, and the output
+	/// is written streaming, so a library of any size fits.
 	/// </summary>
 	/// <exception cref="MzLibUtil.MzLibException">The input already holds decoys, or the motifs' sites cannot be held in place.</exception>
 	public static MslDecoyAugmentationResult AddDecoys(string inputPath, string outputPath, List<DigestionMotif> motifs,
-		Dictionary<string, Modification>? knownModifications = null)
+		Dictionary<string, Modification>? knownModifications = null, string decoyIdentifier = "DECOY")
 	{
-		return new MslDecoyAugmentationResult(0, 0, 0, 0); // red: not written yet
+		using var library = MslLibrary.LoadIndexOnly(inputPath);
+		RefuseDecoys(library.DecoyCount > 0);
+		var sequences = Enumerable.Range(0, library.PrecursorCount)
+			.Select(i => library.GetEntry(i, includeFragments: false)!.BaseSequence);
+		var maker = new DecoyMaker(sequences, motifs, knownModifications, decoyIdentifier);
+		MslWriter.WriteStreaming(outputPath, WithDecoys(library.GetAllEntries(), maker));
+		return maker.Result;
+	}
+
+	private static IEnumerable<MslLibraryEntry> WithDecoys(IEnumerable<MslLibraryEntry> targets, DecoyMaker maker)
+	{
+		foreach (var target in targets)
+		{
+			yield return target;
+			if (maker.Decoy(target) is { } decoy)
+				yield return decoy;
+		}
+	}
+
+	private static void RefuseDecoys(bool libraryHasDecoys)
+	{
+		if (libraryHasDecoys)
+			throw new MzLibException("The library already holds decoys. Decoys are added only to a library that has none, "
+				+ "so that no library mixes two decoy recipes.");
+	}
+
+	/// <summary>Makes one entry's decoy at a time, against the whole library's sequences, and counts what it made.</summary>
+	private sealed class DecoyMaker
+	{
+		private readonly List<DigestionMotif> _motifs;
+		private readonly Dictionary<string, Modification> _knownModifications;
+		private readonly string _decoyIdentifier;
+		private readonly HashSet<string> _librarySequences;
+		private readonly HashSet<string> _libraryLeucineSequences;
+		// Each base sequence's partner, so every charge and modified form of a peptide gets the same rearrangement
+		private readonly Dictionary<string, EntrapmentPeptide> _partners = new(StringComparer.Ordinal);
+		private int _read, _made, _without, _leftOut;
+
+		public DecoyMaker(IEnumerable<string> librarySequences, List<DigestionMotif> motifs,
+			Dictionary<string, Modification>? knownModifications, string decoyIdentifier)
+		{
+			_motifs = motifs;
+			_knownModifications = knownModifications ?? Mods.AllKnownProteinModsDictionary;
+			_decoyIdentifier = decoyIdentifier;
+			_librarySequences = librarySequences.ToHashSet(StringComparer.Ordinal);
+			_libraryLeucineSequences = _librarySequences.Select(IBioPolymerWithSetMods.LeucineEquivalent).ToHashSet(StringComparer.Ordinal);
+		}
+
+		public MslDecoyAugmentationResult Result => new(_read, _made, _without, _leftOut);
+
+		public MslLibraryEntry? Decoy(MslLibraryEntry target)
+		{
+			_read++;
+			if (!_partners.TryGetValue(target.BaseSequence, out var partner))
+			{
+				// Fold 1 of 3 and seed 1, as the predicted library's permuted decoys; a candidate equal to a library sequence up to
+				// I/L is passed over for the next, so a decoy is never a target's spectrum under another name
+				partner = EntrapmentPeptideGenerator.Create(target.BaseSequence, _motifs, _librarySequences, fold: 1, foldCount: 3, seed: 1,
+					rejectInContext: candidate => _libraryLeucineSequences.Contains(IBioPolymerWithSetMods.LeucineEquivalent(candidate)));
+				_partners.Add(target.BaseSequence, partner);
+			}
+
+			Dictionary<int, Modification>? modifications = null;
+			try
+			{
+				modifications = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(target.FullSequence, _knownModifications);
+			}
+			catch (MzLibException)
+			{
+				// a modification the catalog does not know: the entry is counted as without a decoy
+			}
+			if (!partner.Succeeded || modifications is null)
+			{
+				_without++;
+				return null;
+			}
+
+			string fullSequence = IBioPolymerWithSetMods.DetermineFullSequence(partner.EntrapmentSequence!,
+				IBioPolymerWithSetMods.PermuteModifications(modifications, partner.SwappedPositions!));
+			var decoy = target.WithFragments(DecoyIons(target, fullSequence));
+			decoy.FullSequence = fullSequence;
+			decoy.BaseSequence = partner.EntrapmentSequence!;
+			decoy.IsDecoy = true;
+			decoy.ProteinAccession = string.Join("|", target.ProteinAccession.Split('|', StringSplitOptions.RemoveEmptyEntries)
+				.Select(accession => _decoyIdentifier + "_" + accession));
+			_made++;
+			return decoy;
+		}
+
+		/// <summary>Each target ion at the decoy's m/z, with the target's type, number, charge, loss and intensity.</summary>
+		private List<MslFragmentIon> DecoyIons(MslLibraryEntry target, string decoyFullSequence)
+		{
+			var peptide = new PeptideWithSetModifications(decoyFullSequence, _knownModifications);
+			// The product types do not depend on the dissociation type's name, and Fragment makes none for Unknown
+			var dissociation = target.DissociationType == DissociationType.Unknown ? DissociationType.HCD : target.DissociationType;
+			var products = new List<Product>();
+			peptide.Fragment(dissociation, FragmentationTerminus.Both, products);
+			var internalIons = target.MatchedFragmentIons.Where(ion => ion.IsInternalFragment).ToList();
+			if (internalIons.Count > 0)
+			{
+				int shortest = internalIons.Min(ion => ion.SecondaryFragmentNumber - ion.FragmentNumber);
+				peptide.FragmentInternally(dissociation, Math.Max(1, shortest), products);
+			}
+
+			var mapped = LibrarySpectrum.GetDecoyProducts(target.MatchedFragmentIons, products);
+			var ions = new List<MslFragmentIon>(mapped.Length);
+			for (int i = 0; i < mapped.Length; i++)
+			{
+				var ion = target.MatchedFragmentIons[i];
+				if (mapped[i] is not { } product)
+				{
+					_leftOut++;
+					continue;
+				}
+				ions.Add(new MslFragmentIon
+				{
+					ProductType = ion.ProductType,
+					SecondaryProductType = ion.SecondaryProductType,
+					FragmentNumber = ion.FragmentNumber,
+					SecondaryFragmentNumber = ion.SecondaryFragmentNumber,
+					ResiduePosition = product.ResiduePosition,
+					Charge = ion.Charge,
+					NeutralLoss = ion.NeutralLoss,
+					Intensity = ion.Intensity,
+					ExcludeFromQuant = ion.ExcludeFromQuant,
+					Mz = (float)product.NeutralMass.ToMz(ion.Charge),
+				});
+			}
+			return ions;
+		}
 	}
 }
 
