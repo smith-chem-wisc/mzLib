@@ -140,6 +140,36 @@ public class LogitNormalMixedModelTests
     }
 
     [Test]
+    public void WithoutTheGroupTermAndNothingCountedItIsLeastSquares()
+    {
+        // ptmQtl D88: one sample per group cannot tell τ from σ; the group term is dropped and σ² is the one variance.
+        var (y, design, _) = MeasuredOnly(11);
+        int n = y.GetLength(1), p = design.GetLength(1);
+        var single = Enumerable.Range(0, n).Select(s => $"s{s}").ToArray();
+        var counts = NoCounts(1, n);
+        Assert.That(LogitNormalMixedModel.Fit(y, counts, design, single, DetectionLink.Identity).Status[0], Is.EqualTo(FeatureFitStatus.TooFewGroups),
+            "with the group term, one sample per group is refused");
+        var fit = LogitNormalMixedModel.Fit(y, counts, design, single, DetectionLink.Identity, groupTerm: false);
+        var ols = LinearModel.Fit(y, design);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.GroupVariance[0], Is.EqualTo(0));
+        Assert.That(fit.ResidualVariance[0], Is.EqualTo(ols.Sigma[0] * ols.Sigma[0]).Within(1e-6 * ols.Sigma[0] * ols.Sigma[0]), "REML's σ² is RSS / (n - p)");
+        for (int j = 0; j < p; j++)
+        {
+            double se = ols.StdevUnscaled(0, j) * ols.Sigma[0];
+            double t = ols.Coefficient(0, j) / se;
+            Assert.That(double.IsFinite(fit.Coefficient(0, j)) && double.IsFinite(fit.PValue(0, j)), Is.True);
+            Assert.That(fit.Coefficient(0, j), Is.EqualTo(ols.Coefficient(0, j)).Within(1e-8 * Math.Max(1, Math.Abs(ols.Coefficient(0, j)))));
+            Assert.That(fit.StandardError(0, j), Is.EqualTo(se).Within(1e-5 * se));
+            Assert.That(fit.DegreesOfFreedom(0, j), Is.EqualTo(n - p), "least squares' residual df, for every coefficient");
+            Assert.That(fit.PValue(0, j), Is.EqualTo(2 * StudentT.CDF(0, 1, n - p, -Math.Abs(t))).Within(1e-6));
+        }
+        // The groups are not used: any labels give the same fit.
+        var relabelled = LogitNormalMixedModel.Fit(y, counts, design, single.Select(_ => "one").ToArray(), DetectionLink.Identity, groupTerm: false);
+        Assert.That(relabelled.Coefficient(0, 1), Is.EqualTo(fit.Coefficient(0, 1)));
+    }
+
+    [Test]
     public void WithNoGroupVarianceAndTinyScatterCountsAreLogisticRegression()
     {
         // Every group holds the same counts at the same covariate values, so the between-group variance is on its

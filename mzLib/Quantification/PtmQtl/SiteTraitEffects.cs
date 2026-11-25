@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics.Distributions;
 using StatisticalModels;
 
 namespace Quantification.PtmQtl;
@@ -45,6 +46,14 @@ public sealed record SiteTraitEffect(ModificationSite Site, string Status, doubl
     /// of them.
     /// </summary>
     public bool ResidualVarianceBorrowed { get; init; }
+
+    /// <summary>
+    /// Whether the fit had the per-replicate random intercept (default). False when no replicate held two of the site's
+    /// runs, so the two variances could not be told apart: the replicate term was dropped, each run counts as its own
+    /// replicate, <see cref="ReplicateVariance"/> is NaN, and <see cref="ResidualVariance"/> is the runs' one variance
+    /// (least squares when nothing was counted). ptmQtl D88.
+    /// </summary>
+    public bool ReplicateTerm { get; init; } = true;
 
     /// <summary>The detection link the counted runs were read through, on natural log odds; null when none were.</summary>
     public DetectionLink? Link { get; init; }
@@ -132,6 +141,12 @@ public sealed record SiteTraitOptions
 /// linear mixed model (<see cref="MixedModel"/>, REML), so repeated runs of one biological replicate (technical
 /// injections) are not counted as independent. The trait and covariates are per run; the trait is normally
 /// constant within a replicate and is then tested at the between-replicate df.
+/// </para>
+/// <para>
+/// A site none of whose replicates holds two of its runs (one run per animal, the usual design once fractions are
+/// combined) cannot tell u_replicate from ε, and is fitted without u_replicate (ptmQtl D88): least squares, with t at the
+/// residual df (<see cref="LinearModel"/>), or with counted runs the same model with the replicate variance held at
+/// zero. <see cref="SiteTraitEffect.ReplicateTerm"/> says which a site got.
 /// </para>
 /// <para>
 /// By default only runs with both forms quantified are responses; Floor, CountOnly and NotDetected are left out,
@@ -265,7 +280,10 @@ public static class SiteTraitEffects
         }
 
         var names = new[] { "intercept", "trait" }.Concat(covariateNames).ToList();
-        var ownScatter = new List<double>();
+        // A site with no replicate in two of its runs is fitted without the replicate term (ptmQtl D88): its runs' spread
+        // is one variance, so it is borrowed from, and lent to, only sites fitted the same way.
+        bool Replicated(int s) => sites[s].cells.GroupBy(t => replicate[t.cell.Run], StringComparer.Ordinal).Any(g => g.Count() >= 2);
+        var ownScatter = new Dictionary<bool, List<double>> { [true] = new(), [false] = new() };
         if (measuredOnly.Count > 0)
         {
             var matrix = new double[measuredOnly.Count, runs.Count];
@@ -275,13 +293,23 @@ public static class SiteTraitEffects
                 foreach (var t in sites[measuredOnly[f]].cells) matrix[f, runIndex[t.cell.Run]] = t.measured;
             }
             var fit = MixedModel.Fit(matrix, design, groups, names);
+            // Without the replicate term: least squares, t at the residual df (the mixed model with u_replicate dropped).
+            var ols = LinearModel.Fit(matrix, design, names);
+            double Se(int f, int j) => ols.StdevUnscaled(f, j) * ols.Sigma[f];
+            double Df(int f, int j) => ols.DfResidual[f] > 0 ? ols.DfResidual[f] : double.NaN;
+            double P(int f, int j) => double.IsNaN(Df(f, j)) || !(Se(f, j) > 0) ? double.NaN
+                : 2 * StudentT.CDF(0, 1, Df(f, j), -Math.Abs(ols.Coefficient(f, j) / Se(f, j)));
             for (int f = 0; f < measuredOnly.Count; f++)
             {
                 int s = measuredOnly[f];
-                results[s] = Read(results[s], fit.Status[f], fit.Coefficient, fit.StandardError, fit.DegreesOfFreedom, fit.PValue,
-                    f, k, unit, fit.GroupVariance[f], fit.ResidualVariance[f]);
-                if (fit.Status[f] == FeatureFitStatus.Fitted && sites[s].cells.Count(t => double.IsFinite(t.measured)) >= MinMeasuredRunsForScatter)
-                    ownScatter.Add(fit.ResidualVariance[f]);
+                bool term = Replicated(s);
+                results[s] = term
+                    ? Read(results[s], fit.Status[f], fit.Coefficient, fit.StandardError, fit.DegreesOfFreedom, fit.PValue,
+                        f, k, unit, fit.GroupVariance[f], fit.ResidualVariance[f])
+                    : Read(results[s], ols.Status[f], ols.Coefficient, Se, Df, P, f, k, unit, double.NaN, ols.Sigma[f] * ols.Sigma[f]) with { ReplicateTerm = false };
+                var (status, variance) = term ? (fit.Status[f], fit.ResidualVariance[f]) : (ols.Status[f], ols.Sigma[f] * ols.Sigma[f]);
+                if (status == FeatureFitStatus.Fitted && sites[s].cells.Count(t => double.IsFinite(t.measured)) >= MinMeasuredRunsForScatter)
+                    ownScatter[term].Add(variance);
             }
         }
 
@@ -295,20 +323,24 @@ public static class SiteTraitEffects
             {
                 if (link.DepthSlope != 0 && depth == null)
                     throw new ArgumentException("The fallback detection link has a depth term; supply RunDepth.", nameof(options));
-                var own = withCounts.Where(s => HasOwnScatter(sites[s].cells.Where(t => double.IsFinite(t.measured)).Select(t => replicate[t.cell.Run]))).ToList();
+                var own = withCounts.Where(s => HasOwnScatter(sites[s].cells.Where(t => double.IsFinite(t.measured)).Select(t => replicate[t.cell.Run]), Replicated(s))).ToList();
                 var borrowing = withCounts.Except(own).ToList();
-                foreach (var (batch, borrowed) in new[] { (own, false), (borrowing, true) })
+                foreach (var (batch, borrowed, withReplicateTerm) in new[] { true, false }.SelectMany(term => new[]
+                    {
+                        (own.Where(s => Replicated(s) == term).ToList(), false, term),
+                        (borrowing.Where(s => Replicated(s) == term).ToList(), true, term),
+                    }))
                 {
                     if (batch.Count == 0) continue;
                     double scatter = double.NaN;
                     if (borrowed)
                     {
-                        if (ownScatter.Count == 0)
+                        if (ownScatter[withReplicateTerm].Count == 0)
                         {
-                            foreach (int s in batch) results[s] = results[s] with { Status = "NoScatterToBorrow" };
+                            foreach (int s in batch) results[s] = results[s] with { Status = "NoScatterToBorrow", ReplicateTerm = withReplicateTerm };
                             continue;
                         }
-                        scatter = Median(ownScatter.ToArray());
+                        scatter = Median(ownScatter[withReplicateTerm].ToArray());
                     }
                     var y = new double[batch.Count, runs.Count];
                     var counts = new BinomialCount?[batch.Count, runs.Count];
@@ -323,13 +355,14 @@ public static class SiteTraitEffects
                     }
                     // Only the trait is tested: each tested coefficient costs two more ML fits per site.
                     var fit = LogitNormalMixedModel.Fit(y, counts, design, groups, link, depth,
-                        Enumerable.Repeat(scatter, batch.Count).ToArray(), names, testedCoefficients: TraitOnly);
+                        Enumerable.Repeat(scatter, batch.Count).ToArray(), names, testedCoefficients: TraitOnly, groupTerm: withReplicateTerm);
                     for (int f = 0; f < batch.Count; f++)
                     {
                         int s = batch[f];
                         results[s] = Read(results[s], fit.Status[f], fit.Coefficient, fit.StandardError, fit.DegreesOfFreedom, fit.PValue,
-                            f, k, unit, fit.GroupVariance[f], fit.ResidualVariance[f]) with { ResidualVarianceBorrowed = borrowed, Link = link };
-                        if (!borrowed && fit.Status[f] == FeatureFitStatus.Fitted) ownScatter.Add(fit.ResidualVariance[f]);
+                            f, k, unit, withReplicateTerm ? fit.GroupVariance[f] : double.NaN, fit.ResidualVariance[f])
+                            with { ResidualVarianceBorrowed = borrowed, Link = link, ReplicateTerm = withReplicateTerm };
+                        if (!borrowed && fit.Status[f] == FeatureFitStatus.Fitted) ownScatter[withReplicateTerm].Add(fit.ResidualVariance[f]);
                     }
                 }
             }
@@ -343,12 +376,13 @@ public static class SiteTraitEffects
 
     /// <summary>
     /// With Sampling, whether a site's measured runs, given by their replicates, can estimate its own run-to-run variance:
-    /// at least <see cref="MinMeasuredRunsForScatter"/> of them, and a replicate measured in two.
+    /// at least <see cref="MinMeasuredRunsForScatter"/> of them, and, when the fit has the replicate term, a replicate
+    /// measured in two (D87). Without the term the measured runs' spread is the one variance (D88).
     /// </summary>
-    private static bool HasOwnScatter(IEnumerable<string> measuredReplicates)
+    private static bool HasOwnScatter(IEnumerable<string> measuredReplicates, bool replicateTerm)
     {
         var perReplicate = measuredReplicates.GroupBy(r => r, StringComparer.Ordinal).Select(g => g.Count()).ToList();
-        return perReplicate.Sum() >= MinMeasuredRunsForScatter && perReplicate.Any(n => n >= 2);
+        return perReplicate.Sum() >= MinMeasuredRunsForScatter && (!replicateTerm || perReplicate.Any(n => n >= 2));
     }
 
     /// <summary>

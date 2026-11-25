@@ -333,10 +333,17 @@ namespace StatisticalModels
         /// 0, and at the effect bound). Null (default) tests every coefficient. Features with nothing counted test every
         /// coefficient by t either way.
         /// </param>
+        /// <param name="groupTerm">
+        /// True (default): the random intercept per group. False: no random intercept, for features where no group holds
+        /// two samples, so that its variance and σ² cannot be told apart. τ is then held at zero (as the τ = 0 boundary,
+        /// e^<c>LogSdMin</c>), σ² is the only variance, the groups are not used, and every coefficient's df is the
+        /// samples less the coefficients.
+        /// </param>
         public static LogitNormalMixedModelFit Fit(double[,] responses, BinomialCount?[,] counts, double[,] design,
             IReadOnlyList<string> groups, DetectionLink link, IReadOnlyList<double>? depth = null,
             IReadOnlyList<double>? residualVariance = null, IReadOnlyList<string>? coefficientNames = null,
-            VarianceEstimator estimator = VarianceEstimator.Reml, int maxThreads = -1, IReadOnlyList<string>? testedCoefficients = null)
+            VarianceEstimator estimator = VarianceEstimator.Reml, int maxThreads = -1, IReadOnlyList<string>? testedCoefficients = null,
+            bool groupTerm = true)
         {
             ArgumentNullException.ThrowIfNull(responses);
             ArgumentNullException.ThrowIfNull(counts);
@@ -398,7 +405,9 @@ namespace StatisticalModels
             var groupOf = new int[samples];
             for (int s = 0; s < samples; s++)
             {
-                if (!index.TryGetValue(groups[s], out int g)) { g = index.Count; index[groups[s]] = g; }
+                // Without the group term every sample is in group 0, which τ = 0 makes no group at all.
+                string label = groupTerm ? groups[s] : "";
+                if (!index.TryGetValue(label, out int g)) { g = index.Count; index[label] = g; }
                 groupOf[s] = g;
             }
 
@@ -407,7 +416,7 @@ namespace StatisticalModels
             Parallel.ForEach(Partitioner.Create(0, Math.Max(features, 1)), options, range =>
             {
                 for (int f = range.Item1; f < Math.Min(range.Item2, features); f++)
-                    FitOne(responses, counts, design, groupOf, index.Count, link, depth, residualVariance?[f] ?? double.NaN, f, fit, estimator, tested);
+                    FitOne(responses, counts, design, groupOf, index.Count, link, depth, residualVariance?[f] ?? double.NaN, f, fit, estimator, tested, groupTerm);
             });
             return fit;
         }
@@ -527,6 +536,7 @@ namespace StatisticalModels
             public required double[] Offset;           // added to xᵀβ: a coefficient held fixed, else 0
             public required DetectionLink Link;
             public required List<int>[] MeasuredRows, CountedRows;   // per group
+            public bool NoGroupTerm;                   // no random intercept: τ held at zero, every row in group 0
         }
 
         /// <summary>Feature <paramref name="f"/>'s observed <paramref name="rows"/> (samples), with their dense groups and design rows.</summary>
@@ -577,7 +587,7 @@ namespace StatisticalModels
 
         private static void FitOne(double[,] responses, BinomialCount?[,] counts, double[,] design, int[] groupOf, int groupCount,
             DetectionLink link, IReadOnlyList<double>? depth, double givenSigma2, int f, LogitNormalMixedModelFit fit, VarianceEstimator estimator,
-            bool[] tested)
+            bool[] tested, bool groupTerm)
         {
             int samples = responses.GetLength(1), p = design.GetLength(1);
             var rows = new List<int>(samples);
@@ -613,7 +623,7 @@ namespace StatisticalModels
             }
             var sizes = new int[G];
             foreach (int g in rowGroup) sizes[g]++;
-            if (G < 2 || sizes.Max() < 2)
+            if (groupTerm && (G < 2 || sizes.Max() < 2))
             {
                 fit.StatusValues[f] = FeatureFitStatus.TooFewGroups;
                 return;
@@ -639,10 +649,11 @@ namespace StatisticalModels
             }
 
             var data = MakeData(responses, counts, f, rows, x, rowGroup, G, measured, link, depth);
+            data.NoGroupTerm = !groupTerm;
             double logSigmaGiven = sigmaGiven ? 0.5 * Math.Log(givenSigma2) : double.NaN;
             bool reml = estimator == VarianceEstimator.Reml, anyCounted = fit.CountedValues[f] > 0;
             var (main, status) = EstimateOne(data, reml, logSigmaGiven, null);
-            var (dfWithin, dfBetween, isBetween) = MixedModel.ContainmentDf(x, rowGroup, G, m);
+            var (dfWithin, dfBetween, isBetween) = groupTerm ? MixedModel.ContainmentDf(x, rowGroup, G, m) : ((double)(m - p), (double)(m - p), new bool[p]);
             for (int j = 0; j < p; j++)
             {
                 double df = isBetween[j] ? dfBetween : dfWithin;
@@ -795,7 +806,7 @@ namespace StatisticalModels
             return new Data
             {
                 X = x, Group = d.Group, G = d.G, IsMeasured = d.IsMeasured, Link = d.Link, LogChoose = d.LogChoose, Y = d.Y, K = d.K, N = d.N,
-                Depth = d.Depth, MeasuredRows = d.MeasuredRows, CountedRows = d.CountedRows,
+                Depth = d.Depth, MeasuredRows = d.MeasuredRows, CountedRows = d.CountedRows, NoGroupTerm = d.NoGroupTerm,
                 Rows = Enumerable.Range(0, m).Select(i => x.Row(i).ToArray()).ToArray(),
                 Offset = Enumerable.Range(0, m).Select(i => d.Offset[i] + value * d.X[i, j]).ToArray(),
             };
@@ -847,7 +858,16 @@ namespace StatisticalModels
             // From a start (a held fit, beside the full one): a local search, which the held coefficient moves only a
             // little; from the data's spread: a search over the whole range.
             double logTauHat, logSigmaHat;
-            if (sigmaGiven)
+            if (data.NoGroupTerm)
+            {
+                // No random intercept: τ is held at the boundary (zero, as the τ = 0 probe below takes it), and σ is the
+                // only variance, searched alone unless given.
+                logTauHat = LogSdMin;
+                logSigmaHat = sigmaGiven ? logSigmaGiven
+                    : start == null ? MinimizeOneDimension(v => Outer(LogSdMin, v), logSigma0)
+                    : MinimizeNear(v => Outer(LogSdMin, v), logSigma0, precise ? 1e-10 : 1e-6);
+            }
+            else if (sigmaGiven)
             {
                 logSigmaHat = logSigmaGiven;
                 logTauHat = start == null ? MinimizeOneDimension(u => Outer(u, logSigmaGiven), logTau0)
@@ -875,9 +895,12 @@ namespace StatisticalModels
             // The boundary τ = 0, as MixedModel keeps θ = 0 when it is at least as good (here τ = e^LogSdMin, negligible).
             // The probe moves the warm start, so the final β starts from the estimate's own when τ = 0 loses: from τ = 0's
             // β it can climb a different local maximum, and report a β and SE that are not those of the reported ℓ.
-            double atZero = Outer(LogSdMin, logSigmaHat);
-            if (atZero <= objective) (logTauHat, objective) = (LogSdMin, atZero);
-            else beta = betaAtEstimate;
+            if (!data.NoGroupTerm)
+            {
+                double atZero = Outer(LogSdMin, logSigmaHat);
+                if (atZero <= objective) (logTauHat, objective) = (LogSdMin, atZero);
+                else beta = betaAtEstimate;
+            }
             var final = MaximizeBeta(data, beta, logTauHat, logSigmaHat);
             // Separation first: as β runs off, H tends to singular and REML's criterion fails everywhere, so a separated
             // feature would otherwise read as not converged.

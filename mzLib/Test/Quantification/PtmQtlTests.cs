@@ -1,3 +1,4 @@
+using MathNet.Numerics.Distributions;
 using NUnit.Framework;
 using Quantification.PtmQtl;
 using StatisticalModels;
@@ -1123,6 +1124,80 @@ public class PtmQtlTests
             "the median over the sites with their own: here the one");
         Assert.That(borrowed.Status, Is.EqualTo("Fitted"));
         Assert.That(double.IsFinite(borrowed.Effect) && double.IsFinite(borrowed.PValue), Is.True);
+    }
+
+    /// <summary>The measured log odds of TraitDesign's runs, in run order, as the fit reads them; and its design.</summary>
+    private static (double[,] y, double[,] design, List<string> runs) MeasuredLogOdds(List<SiteRunOccupancy> occ, Dictionary<string, double> trait)
+    {
+        var runs = trait.Keys.OrderBy(r => r, StringComparer.Ordinal).ToList();
+        var y = new double[1, runs.Count];
+        var design = new double[runs.Count, 2];
+        for (int i = 0; i < runs.Count; i++)
+        {
+            design[i, 0] = 1;
+            design[i, 1] = trait[runs[i]];
+            var cell = occ.Single(o => o.Run == runs[i]);
+            double f = Math.Clamp(cell.Fraction, 5e-5, 1 - 5e-5);
+            y[0, i] = cell.State == OccupancyState.Quantified ? Math.Log(f / (1 - f)) : double.NaN;
+        }
+        return (y, design, runs);
+    }
+
+    [Test]
+    public void ASiteWithOneRunPerReplicateIsFittedWithoutTheReplicateTerm()
+    {
+        // ptmQtl D88: with one run per replicate the replicate variance and the run-to-run one cannot be told apart, so
+        // the replicate term is dropped: least squares, t at the residual df.
+        var (occ, trait, rep) = TraitDesign();
+        var single = rep.Keys.ToDictionary(r => r, r => r, StringComparer.Ordinal);
+        var e = SiteTraitEffects.Fit(occ, trait, single).Single();
+        Assert.That(e.Status, Is.EqualTo("Fitted"));
+        Assert.That(e.ReplicateTerm, Is.False);
+        Assert.That(e.ReplicateVariance, Is.NaN);
+        Assert.That(e.Replicates, Is.EqualTo(12));
+
+        var (y, design, runs) = MeasuredLogOdds(occ, trait);
+        var ols = LinearModel.Fit(y, design);
+        double se = ols.StdevUnscaled(0, 1) * ols.Sigma[0];
+        Assert.That(double.IsFinite(e.Effect) && double.IsFinite(e.PValue), Is.True);
+        Assert.That(e.Effect, Is.EqualTo(ols.Coefficient(0, 1)).Within(1e-12));
+        Assert.That(e.StandardError, Is.EqualTo(se).Within(1e-12));
+        Assert.That(e.DegreesOfFreedom, Is.EqualTo(runs.Count - 2));
+        Assert.That(e.PValue, Is.EqualTo(2 * StudentT.CDF(0, 1, runs.Count - 2, -Math.Abs(ols.Coefficient(0, 1) / se))).Within(1e-12));
+        Assert.That(e.ResidualVariance, Is.EqualTo(ols.Sigma[0] * ols.Sigma[0]).Within(1e-12));
+
+        // Two runs per replicate keep the replicate term.
+        var replicated = SiteTraitEffects.Fit(occ, trait, rep).Single();
+        Assert.That(replicated.ReplicateTerm, Is.True);
+        Assert.That(double.IsFinite(replicated.ReplicateVariance), Is.True);
+    }
+
+    [Test]
+    public void ACountedSiteWithOneRunPerReplicateIsFittedWithoutTheReplicateTerm()
+    {
+        var (occ, trait, rep) = SampledTraitDesign();
+        var single = rep.Keys.ToDictionary(r => r, r => r, StringComparer.Ordinal);
+        var link = new DetectionLink(0, 1);
+        var e = SiteTraitEffects.Fit(occ, trait, single,
+            options: new SiteTraitOptions { BoundCells = BoundCellModel.Sampling, DetectionLink = link }).Single();
+        Assert.That(e.Status, Is.EqualTo("Fitted"));
+        Assert.That(e.ReplicateTerm, Is.False);
+        Assert.That(e.ReplicateVariance, Is.NaN);
+        Assert.That(e.CountedRuns, Is.EqualTo(3));
+        Assert.That(e.ResidualVarianceBorrowed, Is.False, "nine measured runs: the one variance is its own");
+
+        // The same numbers as the model fitted directly without its group term.
+        var (y, design, runs) = MeasuredLogOdds(occ, trait);
+        var counts = new BinomialCount?[1, runs.Count];
+        for (int i = 0; i < runs.Count; i++)
+            if (occ.Single(o => o.Run == runs[i]).State == OccupancyState.NotDetected) counts[0, i] = new BinomialCount(0, 2);
+        var direct = LogitNormalMixedModel.Fit(y, counts, design, runs, link, coefficientNames: ["intercept", "trait"],
+            testedCoefficients: ["trait"], groupTerm: false);
+        Assert.That(double.IsFinite(e.Effect) && double.IsFinite(e.PValue), Is.True);
+        Assert.That(e.Effect, Is.EqualTo(direct.Coefficient(0, 1)).Within(1e-12));
+        Assert.That(e.StandardError, Is.EqualTo(direct.StandardError(0, 1)).Within(1e-12));
+        Assert.That(e.PValue, Is.EqualTo(direct.PValue(0, 1)).Within(1e-12));
+        Assert.That(e.DegreesOfFreedom, Is.EqualTo(runs.Count - 2));
     }
 
     [Test]
