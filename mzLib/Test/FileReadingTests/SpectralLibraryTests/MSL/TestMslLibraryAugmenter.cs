@@ -253,6 +253,43 @@ public class TestMslLibraryAugmenter
 	}
 
 	[Test]
+	public void AnInternalIonGetsTheDecoysInternalIonOfTheSameSpan()
+	{
+		var target = Entry("PEPTIDEK");
+		var targetInternal = new List<Product>();
+		new PeptideWithSetModifications("PEPTIDEK", Known).FragmentInternally(DissociationType.HCD, 3, targetInternal);
+		var span = targetInternal.First(p => p.SecondaryProductType != null);
+		target.MatchedFragmentIons.Add(new MslFragmentIon
+		{
+			ProductType = span.ProductType, SecondaryProductType = span.SecondaryProductType, FragmentNumber = span.FragmentNumber,
+			SecondaryFragmentNumber = span.SecondaryFragmentNumber, Charge = 1, Mz = (float)span.NeutralMass.ToMz(1), Intensity = 0.5f
+		});
+
+		var decoy = MslLibraryAugmenter.CreateDecoys(new[] { target }, Trypsin, out var result, Known).Single();
+
+		var decoyInternal = new List<Product>();
+		new PeptideWithSetModifications(decoy.FullSequence, Known).FragmentInternally(DissociationType.HCD, 3, decoyInternal);
+		var expected = decoyInternal.Single(p => p.ProductType == span.ProductType && p.SecondaryProductType == span.SecondaryProductType
+			&& p.FragmentNumber == span.FragmentNumber && p.SecondaryFragmentNumber == span.SecondaryFragmentNumber);
+		var internalIon = decoy.MatchedFragmentIons.Single(f => f.IsInternalFragment);
+		Assert.That(internalIon.Mz, Is.EqualTo(expected.NeutralMass.ToMz(1)).Within(1e-3));
+		Assert.That(result.FragmentsLeftOut, Is.Zero);
+	}
+
+	[Test]
+	public void WithNoModificationsGivenMzLibsCatalogIsRead()
+	{
+		var target = Entry("PEPTIDEK");
+		target.FullSequence = "PEPT[Common Biological:Phosphorylation on T]IDEK";
+		Assume.That(Mods.AllKnownProteinModsDictionary.ContainsKey("Phosphorylation on T"), "the catalog names phosphorylation on T");
+
+		var decoy = MslLibraryAugmenter.CreateDecoys(new[] { target }, Trypsin, out var result).Single();
+
+		Assert.That(decoy.FullSequence, Does.Contain("Phosphorylation on T]"));
+		Assert.That(result.TargetsWithoutDecoy, Is.Zero);
+	}
+
+	[Test]
 	public void AnEntryOfUnknownDissociationTypeStillGetsAllItsIons()
 	{
 		// Libraries converted from .msp carry Unknown today, and PWSM.Fragment yields nothing for it

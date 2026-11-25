@@ -165,8 +165,11 @@ public static class MslLibraryAugmenter
 			var internalIons = target.MatchedFragmentIons.Where(ion => ion.IsInternalFragment).ToList();
 			if (internalIons.Count > 0)
 			{
+				// FragmentInternally clears the list it is given, so the internal products are made apart and appended
 				int shortest = internalIons.Min(ion => ion.SecondaryFragmentNumber - ion.FragmentNumber);
-				peptide.FragmentInternally(dissociation, Math.Max(1, shortest), products);
+				var internalProducts = new List<Product>();
+				peptide.FragmentInternally(dissociation, Math.Max(1, shortest), internalProducts);
+				products.AddRange(internalProducts);
 			}
 
 			var mapped = LibrarySpectrum.GetDecoyProducts(target.MatchedFragmentIons, products);
