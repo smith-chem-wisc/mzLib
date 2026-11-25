@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using MassSpectrometry;
+using Omics;
 using Omics.Modifications;
 using Omics.SpectralMatch.MslSpectralLibrary;
 using PredictionClients.Koina.AbstractClasses;
@@ -111,8 +112,8 @@ namespace PredictionClients.SpectralLibraryGeneration
             var targetPeptides = Digest(proteins, parameters);
             var decoyPeptides = Digest(decoyProteins, parameters);
             // I = L: a decoy with a target's sequence up to I/L has the target's spectrum
-            var targetSequences = targetPeptides.Keys.Select(LeucineEquivalent).ToHashSet(StringComparer.Ordinal);
-            var clashes = decoyPeptides.Keys.Where(sequence => targetSequences.Contains(LeucineEquivalent(sequence))).ToList();
+            var targetSequences = targetPeptides.Keys.Select(IBioPolymerWithSetMods.LeucineEquivalent).ToHashSet(StringComparer.Ordinal);
+            var clashes = decoyPeptides.Keys.Where(sequence => targetSequences.Contains(IBioPolymerWithSetMods.LeucineEquivalent(sequence))).ToList();
             foreach (var sequence in clashes)
                 decoyPeptides.Remove(sequence);
 
@@ -181,20 +182,6 @@ namespace PredictionClients.SpectralLibraryGeneration
                 noFragments,
                 clashes.Count * parameters.PrecursorCharges.Count);
             return entries;
-        }
-
-        /// <summary>The full sequence with every residue I read as L; modification names in brackets are left alone.</summary>
-        private static string LeucineEquivalent(string fullSequence)
-        {
-            var chars = fullSequence.ToCharArray();
-            int depth = 0;
-            for (int i = 0; i < chars.Length; i++)
-            {
-                if (chars[i] == '[') depth++;
-                else if (chars[i] == ']') depth--;
-                else if (depth == 0 && chars[i] == 'I') chars[i] = 'L';
-            }
-            return new string(chars);
         }
 
         private sealed record Precursor(string FullSequence, int Charge, bool IsDecoy, bool IsEntrapment, string Accessions, string Genes);
