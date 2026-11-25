@@ -478,6 +478,16 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AQExactiveRawFileNameIsResolvedWithoutItsAnalyzerSuffix()
+        {
+            // A Q Exactive HF's RAW file names the model "Q Exactive HF Orbitrap"; PSI-MS names it "Q Exactive HF".
+            var assay = Assay() with { Instrument = new CvParam("MS", "", "Q Exactive HF Orbitrap", "") };
+            var row = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) }).Results[0];
+
+            Assert.That(row["comment[instrument]"], Is.EqualTo("NT=Q Exactive HF;AC=MS:1002523"));
+        }
+
+        [Test]
         public void ADeviceFamilyNameIsNeverResolvedToATermThatIsNoInstrument()
         {
             // A RAW file that records no model falls back to its device family, typically "MS"
