@@ -103,7 +103,7 @@ namespace MassSpectrometry.Deconvolution.Consensus
         /// </summary>
         private static void CorrectGroup(
             int id, int charge,
-            List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity)> envs,
+            List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity, double Score)> envs,
             EnvelopeWeight weight, double sigmaMultiple, List<CorrectedTrace> results)
         {
             double consensus = WeightedMedian(envs, weight, charge);
@@ -111,8 +111,8 @@ namespace MassSpectrometry.Deconvolution.Consensus
                 System.Math.Max(MinSigmaDa, EstimateSigma(envs, consensus)) * sigmaMultiple,
                 MaxWindowDa);
 
-            var belongs = new List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity)>();
-            var other = new List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity)>();
+            var belongs = new List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity, double Score)>();
+            var other = new List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity, double Score)>();
             foreach (var e in envs)
             {
                 double delta = e.Mass - consensus;
@@ -140,6 +140,7 @@ namespace MassSpectrometry.Deconvolution.Consensus
                     Charge = charge,
                     Intensity = e.Intensity,
                     WasCorrected = wasCorrected,
+                    Score = e.Score,
                 });
 
                 if (e.Mass < oMin) oMin = e.Mass;
@@ -167,7 +168,7 @@ namespace MassSpectrometry.Deconvolution.Consensus
         }
 
         private static double WeightedMedian(
-            List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity)> envs,
+            List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity, double Score)> envs,
             EnvelopeWeight weight, int charge)
         {
             var items = envs
@@ -202,7 +203,7 @@ namespace MassSpectrometry.Deconvolution.Consensus
         /// matters.
         /// </summary>
         private static double EstimateSigma(
-            List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity)> envs,
+            List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity, double Score)> envs,
             double consensus)
         {
             var devs = envs.Select(e => System.Math.Abs(e.Mass - consensus)).OrderBy(d => d).ToArray();
