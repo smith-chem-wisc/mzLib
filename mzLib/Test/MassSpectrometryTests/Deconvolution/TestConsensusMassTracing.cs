@@ -439,7 +439,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
         {
             var mt = new MassTrace { Id = 1, Charge = charge, AnchorMass = masses[0] };
             for (int i = 0; i < masses.Length; i++)
-                mt.Envelopes.Add((i, i + 1, 10.0 + i * 0.1, masses[i], intensity));
+                mt.Envelopes.Add((i, i + 1, 10.0 + i * 0.1, masses[i], intensity, double.NaN));
             return mt;
         }
 
