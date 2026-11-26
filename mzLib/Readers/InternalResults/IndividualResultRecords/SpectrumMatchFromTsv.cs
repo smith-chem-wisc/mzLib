@@ -106,6 +106,24 @@ namespace Readers
         public double? QValueNotch { get; protected set; }
         public double? OneOverK0 { get; protected set; }
 
+        /// <summary>
+        /// The best placement of the match's modifications, e.g. "S3,T4" (residue letter and 1-based position in
+        /// the peptide). Null when the file has no "Localized Placement" column or the cell is blank (an
+        /// unmodified match, or one for which nothing was computed).
+        /// </summary>
+        public string? LocalizedPlacement { get; protected set; }
+        /// <summary>
+        /// The posterior probability, in [0, 1], of <see cref="LocalizedPlacement"/>. Null when the file has no
+        /// "Localization Probability" column or the cell is blank.
+        /// </summary>
+        public double? LocalizationProbability { get; protected set; }
+        /// <summary>
+        /// The localization q-value (false localization rate) of <see cref="LocalizedPlacement"/>. Null when the
+        /// file has no "Localization QValue" column or the cell is blank (decoys, unconfident matches, and
+        /// matches with only one possible placement).
+        /// </summary>
+        public double? LocalizationQValue { get; protected set; }
+
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
 
         public double[]? Intensities { get; protected set; }
@@ -240,6 +258,9 @@ namespace Readers
             OneOverK0 = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.OneOverK0, parsedHeader, spl);
             VariantCrossingIons = FindVariantCrossingIons();
             SpectralAngle = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.SpectralAngle, parsedHeader, spl);
+            LocalizedPlacement = GetOptionalValue(SpectrumMatchFromTsvHeader.LocalizedPlacement, parsedHeader, spl);
+            LocalizationProbability = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.LocalizationProbability, parsedHeader, spl);
+            LocalizationQValue = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.LocalizationQValue, parsedHeader, spl);
 #pragma warning restore CS8601 // Possible null reference assignment.
 
             // Parse TMT/isobaric reporter ion columns if present
@@ -352,6 +373,11 @@ namespace Readers
             QValueNotch = psm.QValueNotch;
             RetentionTime = psm.RetentionTime;
             OneOverK0 = psm.OneOverK0;
+            // Localization results are written once per match (one cell, never "|"-separated), so every
+            // candidate of a disambiguated match carries them unchanged.
+            LocalizedPlacement = psm.LocalizedPlacement;
+            LocalizationProbability = psm.LocalizationProbability;
+            LocalizationQValue = psm.LocalizationQValue;
         }
 
 
